@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<title>Хто я?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root { --bg: #14161a; --tile-bg: #22252b; --text-light: #f4f5f1; --text-muted: #8b909c; --accent: #38cfa0; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none;
+      -webkit-user-select: none; -webkit-touch-callout: none; }
+  html, body { margin: 0; padding: 0; min-height: 100dvh; background: var(--bg);
+      font-family: 'Inter', sans-serif; color: var(--text-light); overflow-x: hidden; touch-action: manipulation; }
+  .page { max-width: 420px; margin: 0 auto; padding: 60px 18px 30px; display: flex;
+      flex-direction: column; align-items: center; min-height: 100dvh; }
+  .hidden { display: none !important; }
+
+  h2 { font-family: 'Space Grotesk', sans-serif; font-size: 20px; margin: 0 0 14px; text-align: center; }
+  .status-line { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 14px; }
+  .pulse-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+      margin-right: 6px; animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .players-list { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-bottom: 18px; }
+  .player-chip { display: flex; justify-content: space-between; align-items: center;
+      background: var(--tile-bg); border-radius: 10px; padding: 10px 14px; font-size: 14px; }
+  .player-chip.offline { opacity: 0.4; }
+  .badge { font-size: 10px; font-weight: 700; background: var(--accent); color: #0e2318;
+      padding: 3px 8px; border-radius: 10px; }
+
+  .host-panel { width: 100%; background: var(--tile-bg); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .host-panel label { display: block; font-size: 12px; color: var(--text-muted); margin: 10px 0 4px; }
+  .host-panel select { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15);
+      background: #14161a; color: var(--text-light); font-size: 14px; }
+
+  button.primary-btn { width: 100%; border: none; border-radius: 20px; padding: 12px; font-weight: 700;
+      font-size: 14px; cursor: pointer; background: var(--accent); color: #0e2318; margin-top: 10px; }
+  button.primary-btn:disabled { opacity: 0.35; cursor: default; }
+  button.secondary-btn { width: 100%; border: none; border-radius: 20px; padding: 10px; font-weight: 700;
+      font-size: 13px; cursor: pointer; background: #272729; color: var(--text-light);
+      border: 1px solid rgba(255,255,255,0.12); margin-top: 8px; }
+
+  .hint-text { font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 6px; min-height: 16px; }
+
+  .role-hint { color: var(--text-muted); font-size: 13px; text-align: center; margin-bottom: 18px; max-width: 320px; }
+
+  .reveal-trigger {
+    width: min(90vw, 280px); padding: 50px 20px; border-radius: 20px;
+    background: var(--tile-bg); border: 1px dashed rgba(255,255,255,0.15);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+    color: var(--text-muted); font-size: 14px; text-align: center; margin-bottom: 18px;
+    touch-action: none;
+  }
+  .reveal-trigger .icon { font-size: 36px; }
+
+  .tally { font-size: 14px; color: var(--text-muted); margin-bottom: 10px; }
+  .tally b { color: var(--text-light); font-family: 'Space Grotesk', sans-serif; font-size: 18px; }
+  .action-row { display: flex; gap: 10px; width: 100%; margin-bottom: 18px; }
+  .action-row button { flex: 1; border: none; border-radius: 14px; padding: 12px; font-weight: 700;
+      font-size: 13px; cursor: pointer; background: #272729; color: var(--text-light);
+      border: 1px solid rgba(255,255,255,0.12); }
+  .action-row button.guessed { background: var(--accent); color: #0e2318; }
+
+  .score-list { width: 100%; }
+  .score-list .row { display: flex; justify-content: space-between; }
+
+  /* --------- повноекранне розкриття слова --------- */
+  .fullscreen-reveal {
+    position: fixed; inset: 0; z-index: 100; background: var(--bg);
+    display: none; align-items: center; justify-content: center; padding: 6vh 5vw;
+    touch-action: none;
+  }
+  .fullscreen-reveal.counting, .fullscreen-reveal.revealed { display: flex; }
+  .fullscreen-reveal .countdown-block, .fullscreen-reveal .reveal-content {
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    width: 100%; height: 100%;
+  }
+  .fullscreen-reveal.counting .countdown-block { display: flex; }
+  .fullscreen-reveal.revealed .reveal-content { display: flex; }
+  .countdown-digit {
+    font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 110px;
+    animation: countdownPulse 1s ease-in-out infinite;
+  }
+  @keyframes countdownPulse { 0%,100%{ transform: scale(1); opacity: 1; } 50%{ transform: scale(0.9); opacity: 0.75; } }
+  .countdown-hint { margin-top: 14px; font-size: 14px; color: var(--text-muted); text-align: center; max-width: 70vw; }
+  .fullscreen-reveal .theme-tag {
+    position: absolute; top: 6vh; left: 0; right: 0; text-align: center;
+    font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.12em;
+  }
+  .fullscreen-reveal .fit-text {
+    font-family: 'Space Grotesk', sans-serif; font-weight: 700; color: var(--text-light);
+    text-align: center; line-height: 1.05; max-width: 100%; word-break: break-word;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div id="view-locked" class="hidden">
+    <h2>🙈 Хто я?</h2>
+    <div class="status-line">Увійди в профіль (кнопка зверху), щоб грати з друзями</div>
+  </div>
+
+  <div id="view-lobby" class="hidden">
+    <h2>🙈 Хто я?</h2>
+    <div class="status-line" id="lobbyStatus"></div>
+    <div class="players-list" id="playersList"></div>
+
+    <div class="host-panel hidden" id="hostPanel">
+      <label>Тема</label>
+      <select id="themeSelect"></select>
+      <label>Складність</label>
+      <select id="difficultySelect"></select>
+      <button class="primary-btn" id="startBtn">Почати гру</button>
+      <div class="hint-text" id="startHint"></div>
+      <button class="secondary-btn hidden" id="resetBtn">🔄 Скинути гру</button>
+    </div>
+  </div>
+
+  <div id="view-active" class="hidden" style="width:100%; display:flex; flex-direction:column; align-items:center;">
+    <div class="role-hint">Відверни телефон екраном від себе — нехай інші читають слово й запитують «так/ні».</div>
+
+    <div class="reveal-trigger" id="revealTrigger">
+      <div class="icon">🙈</div>
+      <div>Натисни, щоб показати своє слово</div>
+    </div>
+
+    <div class="tally">Твій бал: <b id="myScore">0</b></div>
+    <div class="action-row">
+      <button id="skipBtn">Не можу вгадати</button>
+      <button class="guessed" id="guessedBtn">Я вгадав!</button>
+    </div>
+
+    <div class="host-panel" style="margin-bottom:10px;">
+      <label style="margin-top:0;">Рахунок</label>
+      <div class="score-list" id="scoreList"></div>
+    </div>
+
+    <div class="hidden" id="hostActivePanel" style="width:100%;">
+      <button class="secondary-btn" id="redealBtn">Роздати всім нові слова</button>
+      <button class="secondary-btn" id="resetBtn2">🔄 Скинути гру</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- повноекранний показ слова -->
+<div class="fullscreen-reveal" id="fullscreenReveal">
+  <div class="countdown-block">
+    <div class="countdown-digit" id="fsCountdownDigit">2</div>
+    <div class="countdown-hint">Відверни екран від себе…</div>
+  </div>
+  <div class="reveal-content">
+    <div class="theme-tag" id="fsTheme">—</div>
+    <div class="fit-text" id="fsWord">—</div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/login.js"></script>
+<script src="js/whoami-words.js"></script>
+<script src="js/online-engine.js"></script>
+<script src="js/whoami-game.js"></script>
+<script src="js/help.js"></script>
+<script src="js/back-button.js"></script>
+<script>
+(function () {
+  const VIEWS = ["locked", "lobby", "active"];
+  function showView(name) {
+    VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name));
+  }
+
+  function escapeHtml(s) {
+    const d = document.createElement("div");
+    d.textContent = s || "";
+    return d.innerHTML;
+  }
+
+  let themeSelectBuilt = false;
+  let diffSelectBuilt = false;
+  let lastState = null;
+  let lastShownWord = null;
+
+  function renderLobby(state, ctx) {
+    const conn = window.WhoAmIGame.connectedEntries(state.players);
+    const hostName = window.WhoAmIGame.computeHost(state.players);
+
+    document.getElementById("lobbyStatus").innerHTML =
+      `<span class="pulse-dot"></span> Гравців онлайн: ${conn.length} (потрібно мінімум ${window.WhoAmIGame.MIN_PLAYERS})`;
+
+    const allNames = Object.keys(state.players || {});
+    document.getElementById("playersList").innerHTML =
+      allNames
+        .map((n) => {
+          const online = conn.some(([cn]) => cn === n);
+          return `<div class="player-chip ${online ? "" : "offline"}">
+            <span>${escapeHtml(n)}</span>
+            ${n === hostName ? '<span class="badge">ВЕДУЧИЙ</span>' : ""}
+          </div>`;
+        })
+        .join("") || '<div class="status-line">Ще нікого немає</div>';
+
+    const hostPanel = document.getElementById("hostPanel");
+    hostPanel.classList.toggle("hidden", !ctx.host);
+    document.getElementById("resetBtn").classList.toggle("hidden", !ctx.host);
+
+    if (ctx.host) {
+      const themeSelect = document.getElementById("themeSelect");
+      if (!themeSelectBuilt) {
+        themeSelect.innerHTML =
+          `<option value="random">🎲 Випадкова</option>` +
+          window.WhoAmIGame.THEME_NAMES.map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("");
+        themeSelectBuilt = true;
+      }
+      themeSelect.value = state.settings.theme;
+
+      const diffSelect = document.getElementById("difficultySelect");
+      if (!diffSelectBuilt) {
+        diffSelect.innerHTML = window.WhoAmIGame.DIFFICULTIES
+          .map((d) => `<option value="${d}">${window.WhoAmIGame.DIFF_LABELS[d]}</option>`).join("");
+        diffSelectBuilt = true;
+      }
+      diffSelect.value = state.settings.difficulty;
+
+      const startBtn = document.getElementById("startBtn");
+      const enough = conn.length >= window.WhoAmIGame.MIN_PLAYERS;
+      startBtn.disabled = !enough;
+      document.getElementById("startHint").textContent = enough
+        ? ""
+        : `Потрібно ще ${window.WhoAmIGame.MIN_PLAYERS - conn.length} гравців(я)`;
+    }
+  }
+
+  function renderActive(state, ctx) {
+    const me = state.players && state.players[ctx.username];
+    document.getElementById("myScore").textContent = me ? me.score || 0 : 0;
+    document.getElementById("hostActivePanel").classList.toggle("hidden", !ctx.host);
+
+    const sorted = Object.entries(state.players || {}).sort((a, b) => (b[1].score || 0) - (a[1].score || 0));
+    document.getElementById("scoreList").innerHTML = sorted.map(([name, p]) => {
+      const online = window.WhoAmIGame.connectedEntries(state.players).some(([n]) => n === name);
+      return `<div class="row player-chip ${online ? "" : "offline"}"><span>${escapeHtml(name)}</span><span>${p.score || 0}</span></div>`;
+    }).join("");
+
+    // якщо слово змінилось (нове роздане) — ховаємо попередній показ,
+    // щоб не лишався застарілий текст під час наступного затискання
+    if (me && me.currentWord !== lastShownWord) {
+      lastShownWord = me.currentWord;
+      resetOverlay();
+    }
+  }
+
+  function onState(state, ctx) {
+    lastState = state;
+    if (!ctx.username) { showView("locked"); return; }
+    switch (state.phase) {
+      case "lobby":
+        showView("lobby");
+        renderLobby(state, ctx);
+        break;
+      case "active":
+        showView("active");
+        renderActive(state, ctx);
+        break;
+    }
+  }
+
+  document.getElementById("themeSelect").addEventListener("change", pushSettings);
+  document.getElementById("difficultySelect").addEventListener("change", pushSettings);
+  function pushSettings() {
+    const theme = document.getElementById("themeSelect").value;
+    const difficulty = document.getElementById("difficultySelect").value;
+    window.WhoAmIGame.updateSettings(theme, difficulty);
+  }
+
+  document.getElementById("startBtn").addEventListener("click", () => window.WhoAmIGame.startGame(lastState));
+  document.getElementById("guessedBtn").addEventListener("click", () => window.WhoAmIGame.markGuessed(lastState));
+  document.getElementById("skipBtn").addEventListener("click", () => window.WhoAmIGame.skipWord(lastState));
+  document.getElementById("redealBtn").addEventListener("click", () => window.WhoAmIGame.redealAll(lastState));
+  document.getElementById("resetBtn").addEventListener("click", () => {
+    if (confirm("Скинути гру для всіх?")) window.WhoAmIGame.resetAll(lastState);
+  });
+  document.getElementById("resetBtn2").addEventListener("click", () => {
+    if (confirm("Скинути гру для всіх?")) window.WhoAmIGame.resetAll(lastState);
+  });
+
+  // ---- tap → відлік → повноекранний показ слова ----
+  const trigger = document.getElementById("revealTrigger");
+  const fsReveal = document.getElementById("fullscreenReveal");
+  const fsCountdownDigit = document.getElementById("fsCountdownDigit");
+  const fsTheme = document.getElementById("fsTheme");
+  const fsWord = document.getElementById("fsWord");
+  const REVEAL_DELAY_MS = 2000;
+  let countdownTick = null, countdownTimeout = null, isCounting = false, isRevealed = false;
+
+  function resetOverlay() {
+    clearInterval(countdownTick); clearTimeout(countdownTimeout);
+    countdownTick = null; countdownTimeout = null; isCounting = false; isRevealed = false;
+    fsReveal.classList.remove("counting", "revealed");
+  }
+
+  function startCountdown() {
+    const me = lastState && lastState.players && lastState.players[window.AppAuth.getSession().username];
+    if (!me || !me.currentWord || isCounting || isRevealed) return;
+    isCounting = true;
+    fsReveal.classList.remove("revealed");
+    fsReveal.classList.add("counting");
+
+    let secondsLeft = Math.ceil(REVEAL_DELAY_MS / 1000);
+    fsCountdownDigit.textContent = secondsLeft;
+    countdownTick = setInterval(() => {
+      secondsLeft -= 1;
+      if (secondsLeft > 0) fsCountdownDigit.textContent = secondsLeft;
+    }, 1000);
+
+    countdownTimeout = setTimeout(() => {
+      clearInterval(countdownTick); countdownTick = null; countdownTimeout = null;
+      isCounting = false; isRevealed = true;
+      fsReveal.classList.remove("counting");
+      fsReveal.classList.add("revealed");
+      fsTheme.textContent = me.currentThemeName || "";
+      fsWord.textContent = me.currentWord || "";
+      fitWordText();
+    }, REVEAL_DELAY_MS);
+  }
+
+  trigger.addEventListener("pointerdown", (e) => { e.preventDefault(); startCountdown(); });
+  trigger.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
+  trigger.addEventListener("contextmenu", (e) => e.preventDefault());
+  fsReveal.addEventListener("pointerdown", (e) => { e.preventDefault(); resetOverlay(); });
+  fsReveal.addEventListener("contextmenu", (e) => e.preventDefault());
+  window.addEventListener("resize", () => { if (isRevealed) fitWordText(); });
+
+  function fitWordText() {
+    let lo = 16, hi = 260, best = 16;
+    while (lo <= hi) {
+      const mid = Math.floor((lo + hi) / 2);
+      fsWord.style.fontSize = mid + "px";
+      const fitsWidth = fsWord.scrollWidth <= fsReveal.clientWidth * 0.92;
+      const fitsHeight = fsWord.scrollHeight <= fsReveal.clientHeight * 0.62;
+      if (fitsWidth && fitsHeight) { best = mid; lo = mid + 1; } else { hi = mid - 1; }
+    }
+    fsWord.style.fontSize = best + "px";
+  }
+
+  document.addEventListener("selectstart", (e) => e.preventDefault());
+
+  const session = window.AppAuth && window.AppAuth.getSession();
+  if (session && window.rtdbReady) {
+    window.WhoAmIGame.onStateChange = onState;
+    window.WhoAmIGame.start(session.username);
+  } else {
+    showView("locked");
+  }
+
+  window.addEventListener("beforeunload", () => { if (window.WhoAmIGame) window.WhoAmIGame.stop(); });
+})();
+</script>
+</body>
+</html>

@@ -199,6 +199,7 @@
     }
     .tag-solo { color: #8fb8ff; border: 1px solid rgba(143,184,255,0.3); }
     .tag-multi { color: #ffb84d; border: 1px solid rgba(255,184,77,0.3); }
+    .tag-host { color: #a695de; border: 1px solid rgba(168,149,222,0.3); }
 
     .hidden {
       display: none !important;
@@ -211,7 +212,7 @@
   <!-- Шапка з логотипом -->
   <div class="brand-title">
     <img src="img/icon.png" alt="41 Games Logo" class="brand-logo" />
-    <span>41 Games</v0></span>
+    <span>41 Games</span>
   </div>
 
 
@@ -221,6 +222,7 @@
       <button class="filter-btn active" data-filter="all">Всі</button>
       <button class="filter-btn" data-filter="solo">Соло</button>
       <button class="filter-btn" data-filter="multi">Мультиплеєр</button>
+      <button class="filter-btn" data-filter="host">Хост</button>
     </div>
   </div>
 
@@ -298,15 +300,6 @@
       </div>
     </a>
 
-    <a class="tile" href="quiplash-tv.html" data-type="multi" style="background-image: url('img/quiplash_logo.jpg'); background-size: cover; background-position: center;">
-      <div class="tags"><span class="tag tag-multi">мультиплеєр</span></div>
-
-      <div class="tile-banner">
-        <div class="name">Quiplash ТВ</div>
-        <div class="desc">хост</div>
-      </div>
-    </a>
-
     <a class="tile" href="spy.html" data-type="multi" style="background-image: url('img/spy_logo.jpg'); background-size: cover; background-position: center;">
       <div class="tags"><span class="tag tag-multi">мультиплеєр</span></div>
       <div class="tile-banner">
@@ -314,6 +307,13 @@
       </div>
     </a>
 
+    <a class="tile" href="whoami.html" data-type="multi" style="background-image: url('img/whoami_logo.jpg'); background-size: cover; background-position: center;">
+      <div class="tags"><span class="tag tag-multi">мультиплеєр</span></div>
+      <div class="tile-banner">
+        <div class="name">Хто я?</div>
+        <div class="desc">тест</div>
+      </div>
+    </a>
 
     <div class="tile disabled" data-type="multi">
       <div class="tags"><span class="tag tag-multi">мультиплеєр</span></div>
@@ -333,14 +333,7 @@
       </div>
     </div>
 
-    <div class="tile disabled" data-type="multi">
-      <div class="tags"><span class="tag tag-multi">мультиплеєр</span></div>
-      <div class="placeholder-icon">👤</div>
-      <div class="tile-banner">
-        <div class="name">Хто я?</div>
-        <div class="desc">В розробці</div>
-      </div>
-    </div>
+
 
     <div class="tile disabled" data-type="multi">
       <div class="tags"><span class="tag tag-multi">мультиплеєр</span></div>
@@ -386,6 +379,13 @@
         <div class="desc">В розробці</div>
       </div>
     </div>
+
+    <a class="tile" href="quiplash-tv.html" data-type="host" style="background-image: url('img/quiplashtv_logo.jpg'); background-size: cover; background-position: center;">
+      <div class="tags"><span class="tag tag-host">Хост</span></div>
+      <div class="tile-banner">
+        <div class="name">Quiplash ТВ</div>
+      </div>
+    </a>
 
   </div>
 </div>
