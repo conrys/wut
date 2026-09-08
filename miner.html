@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+  <title>Мінер</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #14161a; --tile-bg: #22252b; --cell-bg: #2b2f36; --covered-bg: #3a3f47;
+      --text-light: #f4f5f1; --text-muted: #8b909c; --accent: #38cfa0; --mine: #ff6b6b;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none;
+        -webkit-user-select: none; -webkit-touch-callout: none; }
+    html, body { margin: 0; padding: 0; min-height: 100dvh; background: var(--bg);
+        font-family: 'Inter', sans-serif; color: var(--text-light); overflow-x: hidden;
+        touch-action: manipulation; }
+    .page { max-width: 480px; margin: 0 auto; padding: 60px 14px 24px; display: flex;
+        flex-direction: column; align-items: center; min-height: 100dvh; }
+
+    .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+    .diff-tab { padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700;
+        background: #272729; color: var(--text-muted); cursor: pointer; border: 1px solid rgba(255,255,255,0.08); }
+    .diff-tab.active { background: var(--accent); color: #0e2318; }
+
+    .stats { display: flex; gap: 16px; margin-bottom: 12px; font-size: 13px; color: var(--text-muted); }
+    .stats b { color: var(--text-light); font-family: 'Space Grotesk', sans-serif; }
+
+    .ms-board {
+      display: grid;
+      gap: 2px;
+      background: #0e0f12;
+      border: 2px solid var(--text-light);
+      border-radius: 6px;
+      padding: 3px;
+      width: fit-content;
+      margin: 0 auto;
+    }
+    .ms-cell {
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Space Grotesk', sans-serif; font-weight: 700;
+      background: var(--covered-bg); border-radius: 3px;
+      cursor: pointer; position: relative;
+    }
+    .ms-cell.revealed { background: var(--cell-bg); cursor: default; }
+    .ms-cell.flagged::after { content: "🚩"; font-size: 0.55em; }
+    .ms-cell.mine { background: var(--mine); }
+    .ms-cell.mine-hit { background: #c0392b; }
+    .n1 { color: #6fa8ff; } .n2 { color: #38cfa0; } .n3 { color: #ff6b6b; }
+    .n4 { color: #b088ff; } .n5 { color: #e0b84c; } .n6 { color: #4dd0e1; }
+    .n7 { color: #f4f5f1; } .n8 { color: #8b909c; }
+
+    /* Панель керування з більшими кнопками */
+    .controls {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      width: 100%;
+      max-width: 380px;
+      margin-top: 16px;
+    }
+    .ctrl-btn {
+      flex: 1;
+      border: none;
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      background: #272729;
+      color: var(--text-light);
+      border: 1px solid rgba(255,255,255,0.12);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 48px;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    .ctrl-btn:active {
+      transform: scale(0.98);
+    }
+    .flag-toggle.active {
+      background: var(--accent);
+      color: #0e2318;
+      border-color: var(--accent);
+    }
+
+    .msg { min-height: 20px; font-size: 13px; color: var(--text-muted); margin-top: 10px; text-align: center; }
+
+    .result-panel { text-align: center; margin: 8px 0 4px; }
+    .result-panel .title { font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+    .result-panel .sub { font-size: 13px; color: var(--text-muted); margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+<div class="page">
+  <div class="tabs" id="diffTabs">
+    <div class="diff-tab" data-diff="easy">Легко</div>
+    <div class="diff-tab active" data-diff="medium">Середньо</div>
+    <div class="diff-tab" data-diff="hard">Важко</div>
+  </div>
+
+  <div class="stats">
+    <div>⏱ <b id="timerVal">00:00</b></div>
+    <div>💣 <b id="minesVal">0</b></div>
+  </div>
+
+  <div class="ms-board" id="board"></div>
+
+  <div class="msg" id="msg"></div>
+
+  <div class="result-panel" id="resultPanel" style="display:none">
+    <div class="title" id="resultTitle"></div>
+    <div class="sub" id="resultSub"></div>
+  </div>
+
+  <div class="controls">
+    <button class="ctrl-btn" id="newGameBtn">🔄 Нова гра</button>
+    <button class="ctrl-btn flag-toggle" id="flagToggle">🚩 Прапорці</button>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/login.js"></script>
+<script src="js/score-connect.js"></script>
+<script src="js/records.js"></script>
+
+<script src="js/back-button.js"></script>
+<script>
+  (function () {
+    const DIFFICULTY = {
+      easy:   { rows: 9,  cols: 9,  mines: 10, base: 1000 },
+      medium: { rows: 13, cols: 10, mines: 25, base: 1700 },
+      hard:   { rows: 16, cols: 10, mines: 40, base: 2400 },
+    };
+
+    let difficulty = "medium";
+    let rows, cols, mines;
+    let grid;
+    let revealed;
+    let flagged;
+    let firstClickDone = false;
+    let finished = false;
+    let flagMode = false;
+    let startTime = 0;
+    let timerHandle = null;
+    let revealedCount = 0;
+
+    const boardEl = document.getElementById("board");
+    const timerEl = document.getElementById("timerVal");
+    const minesEl = document.getElementById("minesVal");
+    const msgEl = document.getElementById("msg");
+    const resultPanel = document.getElementById("resultPanel");
+    const resultTitle = document.getElementById("resultTitle");
+    const resultSub = document.getElementById("resultSub");
+    const flagToggleBtn = document.getElementById("flagToggle");
+
+    function neighbors(r, c) {
+      const res = [];
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          if (dr === 0 && dc === 0) continue;
+          const nr = r + dr, nc = c + dc;
+          if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) res.push([nr, nc]);
+        }
+      }
+      return res;
+    }
+
+    function placeMines(safeR, safeC) {
+      const forbidden = new Set([`${safeR},${safeC}`]);
+      neighbors(safeR, safeC).forEach(([r, c]) => forbidden.add(`${r},${c}`));
+
+      let placed = 0;
+      while (placed < mines) {
+        const r = Math.floor(Math.random() * rows);
+        const c = Math.floor(Math.random() * cols);
+        if (forbidden.has(`${r},${c}`) || grid[r][c] === -1) continue;
+        grid[r][c] = -1;
+        placed++;
+      }
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (grid[r][c] === -1) continue;
+          grid[r][c] = neighbors(r, c).filter(([nr, nc]) => grid[nr][nc] === -1).length;
+        }
+      }
+    }
+
+    function buildBoardDOM() {
+      boardEl.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+
+      const availableWidth = Math.min(380, document.documentElement.clientWidth - 32);
+      const totalGapsAndBorders = (cols - 1) * 2 + 10;
+      const cellPx = Math.max(20, Math.floor((availableWidth - totalGapsAndBorders) / cols));
+
+      boardEl.innerHTML = "";
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const cell = document.createElement("div");
+          cell.className = "ms-cell";
+          cell.style.width = cellPx + "px";
+          cell.style.height = cellPx + "px";
+          cell.style.fontSize = Math.max(10, Math.floor(cellPx * 0.5)) + "px";
+          cell.dataset.r = r;
+          cell.dataset.c = c;
+          attachCellEvents(cell, r, c);
+          boardEl.appendChild(cell);
+        }
+      }
+    }
+
+    function cellEl(r, c) {
+      return boardEl.children[r * cols + c];
+    }
+
+    function attachCellEvents(cell, r, c) {
+      let pressTimer = null;
+      let longPressed = false;
+
+      cell.addEventListener("click", () => {
+        if (longPressed) { longPressed = false; return; }
+        if (flagMode) toggleFlag(r, c);
+        else reveal(r, c);
+      });
+
+      cell.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        toggleFlag(r, c);
+      });
+
+      cell.addEventListener("touchstart", () => {
+        longPressed = false;
+        pressTimer = setTimeout(() => {
+          longPressed = true;
+          toggleFlag(r, c);
+        }, 420);
+      }, { passive: true });
+      cell.addEventListener("touchend", () => clearTimeout(pressTimer));
+      cell.addEventListener("touchmove", () => clearTimeout(pressTimer));
+    }
+
+    function toggleFlag(r, c) {
+      if (finished || revealed[r][c]) return;
+      flagged[r][c] = !flagged[r][c];
+      renderCell(r, c);
+      updateMinesLeft();
+    }
+
+    function reveal(r, c) {
+      if (finished || revealed[r][c] || flagged[r][c]) return;
+
+      if (!firstClickDone) {
+        placeMines(r, c);
+        firstClickDone = true;
+        startTime = Date.now();
+        timerHandle = setInterval(updateTimer, 1000);
+      }
+
+      if (grid[r][c] === -1) {
+        loseGame(r, c);
+        return;
+      }
+
+      floodReveal(r, c);
+      renderAll();
+      checkWin();
+    }
+
+    function floodReveal(r, c) {
+      if (revealed[r][c] || flagged[r][c]) return;
+      revealed[r][c] = true;
+      revealedCount++;
+      if (grid[r][c] === 0) {
+        neighbors(r, c).forEach(([nr, nc]) => floodReveal(nr, nc));
+      }
+    }
+
+    function renderCell(r, c) {
+      const el = cellEl(r, c);
+      el.className = "ms-cell";
+      el.textContent = "";
+      if (flagged[r][c] && !revealed[r][c]) {
+        el.classList.add("flagged");
+        return;
+      }
+      if (!revealed[r][c]) return;
+      el.classList.add("revealed");
+      if (grid[r][c] === -1) {
+        el.classList.add("mine");
+        el.textContent = "💣";
+      } else if (grid[r][c] > 0) {
+        el.classList.add("n" + grid[r][c]);
+        el.textContent = grid[r][c];
+      }
+    }
+
+    function renderAll() {
+      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) renderCell(r, c);
+    }
+
+    function updateMinesLeft() {
+      const flagsCount = flagged.flat().filter(Boolean).length;
+      minesEl.textContent = Math.max(0, mines - flagsCount);
+    }
+
+    function updateTimer() {
+      const secs = Math.floor((Date.now() - startTime) / 1000);
+      const m = String(Math.floor(secs / 60)).padStart(2, "0");
+      const s = String(secs % 60).padStart(2, "0");
+      timerEl.textContent = `${m}:${s}`;
+    }
+
+    function loseGame(hitR, hitC) {
+      finished = true;
+      clearInterval(timerHandle);
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (grid[r][c] === -1) revealed[r][c] = true;
+        }
+      }
+      renderAll();
+      cellEl(hitR, hitC).classList.add("mine-hit");
+      resultPanel.style.display = "block";
+      resultTitle.textContent = "💥 Бум!";
+      resultSub.textContent = "Спробуй ще раз";
+    }
+
+    function checkWin() {
+      const totalSafe = rows * cols - mines;
+      if (revealedCount < totalSafe) return;
+      finished = true;
+      clearInterval(timerHandle);
+      const elapsedSec = Math.floor((Date.now() - startTime) / 1000);
+      const score = computeScore(elapsedSec);
+
+      resultPanel.style.display = "block";
+      resultTitle.textContent = "🎉 Розміновано!";
+      resultSub.textContent = `Час: ${timerEl.textContent} · Очки: ${score}`;
+
+      if (window.AppScore) window.AppScore.sendScore("miner", score);
+      if (!window.AppAuth || !window.AppAuth.getSession()) {
+        msgEl.textContent = "Увійди в профіль, щоб зберігати рекорди";
+      } else {
+        msgEl.textContent = "";
+      }
+    }
+
+    function computeScore(elapsedSec) {
+      const base = DIFFICULTY[difficulty].base;
+      const score = base - elapsedSec * 3;
+      return Math.max(50, Math.round(score));
+    }
+
+    function newGame(diff) {
+      difficulty = diff || difficulty;
+      document.querySelectorAll(".diff-tab").forEach((t) => t.classList.toggle("active", t.dataset.diff === difficulty));
+
+      const d = DIFFICULTY[difficulty];
+      rows = d.rows; cols = d.cols; mines = d.mines;
+      grid = Array.from({ length: rows }, () => new Array(cols).fill(0));
+      revealed = Array.from({ length: rows }, () => new Array(cols).fill(false));
+      flagged = Array.from({ length: rows }, () => new Array(cols).fill(false));
+      firstClickDone = false;
+      finished = false;
+      revealedCount = 0;
+      if (timerHandle) clearInterval(timerHandle);
+      timerEl.textContent = "00:00";
+      minesEl.textContent = String(mines);
+      resultPanel.style.display = "none";
+      msgEl.textContent = "";
+
+      buildBoardDOM();
+    }
+
+    document.querySelectorAll(".diff-tab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        if (firstClickDone && !finished) {
+          if (!confirm("Розпочати нову гру? Поточний прогрес буде втрачено.")) return;
+        }
+        newGame(tab.dataset.diff);
+      });
+    });
+
+    document.getElementById("newGameBtn").addEventListener("click", () => {
+      if (firstClickDone && !finished) {
+        if (confirm("Розпочати нову гру? Поточний прогрес буде втрачено.")) {
+          newGame();
+        }
+      } else {
+        newGame();
+      }
+    });
+
+    flagToggleBtn.addEventListener("click", () => {
+      flagMode = !flagMode;
+      flagToggleBtn.classList.toggle("active", flagMode);
+    });
+
+    window.addEventListener("resize", () => {
+      if (rows && cols) {
+        buildBoardDOM();
+        renderAll();
+      }
+    });
+
+    newGame("medium");
+  })();
+</script>
+</body>
+</html>

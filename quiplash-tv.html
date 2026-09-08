@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Смішліст — великий екран</title>
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    display: flex; align-items: center; justify-content: center; }
+.hidden { display: none !important; }
+.host-screen { width: 100%; max-width: 900px; padding: 40px; text-align: center; position: relative; z-index: 2; }
+.host-screen h1 { font-size: 40px; margin: 0 0 8px; }
+.host-screen h2 { font-size: 26px; color: #ccc; margin: 0 0 8px; }
+.hint { color: #9a9aa5; font-size: 18px; margin: 4px 0 16px; }
+
+#scene-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; background: #1e1e24; }
+#scene-bg::before {
+  content: ''; position: absolute; top: 50%; left: 50%; width: 220vmax; height: 220vmax;
+  margin-top: -110vmax; margin-left: -110vmax;
+  background: repeating-conic-gradient(from 0deg, hsla(var(--ray-hue,210),70%,55%,0.09) 0deg var(--ray-width,8deg), transparent var(--ray-width,8deg) calc(var(--ray-width,8deg) * 2));
+  animation: scene-bg-spin var(--ray-speed,140s) linear infinite;
+}
+.bg-reverse #scene-bg::before { animation-direction: reverse; }
+@keyframes scene-bg-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+#lobby-ring { position: relative; width: min(56vw,520px); aspect-ratio: 1/1; margin: 0 auto 24px; }
+#lobby-logo { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); text-align: center;
+    font-size: 36px; font-weight: 800; letter-spacing: 0.02em; white-space: nowrap; }
+.logo-accent { color: #3498db; }
+.lobby-character { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 6px;
+    transform: translate(-50%,-50%); animation: lobby-char-in 0.4s ease-out; }
+.lobby-character-avatar { width: 84px; height: 84px; border-radius: 50%; overflow: hidden; display: flex;
+    align-items: center; justify-content: center; box-shadow: 0 0 0 2px rgba(255,255,255,0.15); flex-shrink: 0; }
+.lobby-character-avatar img { width: 100%; height: 100%; object-fit: contain; }
+.lobby-character-name { font-size: 16px; font-weight: 600; max-width: 130px; text-align: center;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@keyframes lobby-char-in { from { opacity: 0; transform: translate(-50%,-50%) scale(0.5); } to { opacity: 1; transform: translate(-50%,-50%) scale(1); } }
+
+.prompt-image { display: block; max-width: 100%; max-height: 360px; margin: 0 auto 12px; border-radius: 8px; object-fit: contain; background: #14141a; }
+.prompt-image.big { max-width: 420px; margin: 0 auto 16px; border-radius: 14px; }
+
+.readiness-bar { display: flex; flex-wrap: wrap; justify-content: center; gap: 32px; margin-top: 40px; padding-top: 12px; }
+.readiness-avatar { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 96px;
+    transform: translateY(10px); opacity: 0.55; filter: brightness(0.55) saturate(0.6);
+    transition: transform 0.35s ease, opacity 0.35s ease, filter 0.35s ease; }
+.readiness-avatar.is-ready { transform: translateY(0); opacity: 1; filter: none; }
+.readiness-avatar-img { width: 84px; height: 84px; border-radius: 50%; overflow: hidden; display: flex;
+    align-items: center; justify-content: center; box-shadow: 0 0 0 2px rgba(255,255,255,0.15); flex-shrink: 0; }
+.readiness-avatar-img img { width: 100%; height: 100%; object-fit: contain; }
+.readiness-avatar-name { font-size: 16px; max-width: 96px; text-align: center; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; color: #c8c8d0; }
+
+.timer-bar.big { height: 10px; max-width: 700px; margin: 0 auto 24px; background: #2b2b33; border-radius: 4px; overflow: hidden; }
+.timer-fill { height: 100%; background: #3498db; width: 100%; transition: width 0.3s linear; }
+
+#host-vote-intro { display: flex; align-items: center; justify-content: center; gap: 60px; padding: 60px 20px; }
+#host-vote-intro .vote-intro-side { display: flex; flex-direction: column; align-items: center; gap: 14px; animation: vote-intro-in 0.5s ease both; }
+#host-vote-intro .vote-intro-side:nth-child(2) { animation-delay: 0.12s; }
+#host-vote-intro .vote-intro-avatar { width: 160px; height: 160px; border-radius: 50%; display: flex;
+    align-items: center; justify-content: center; box-shadow: 0 0 0 4px rgba(255,255,255,0.18); }
+#host-vote-intro .vote-intro-avatar img { width: 100%; height: 100%; object-fit: contain; }
+#host-vote-intro .vote-intro-name { font-size: 26px; font-weight: 700; }
+#host-vote-intro .vote-intro-vs { font-size: 40px; font-weight: 800; color: #ff6fa5; opacity: 0; animation: vote-intro-in 0.4s ease 0.3s both; }
+#host-vote-intro .vote-intro-authors { display: flex; flex-wrap: wrap; justify-content: center; gap: 26px; max-width: 900px; }
+#host-vote-intro .vote-intro-authors .vote-intro-side { gap: 8px; }
+#host-vote-intro .vote-intro-authors .vote-intro-avatar { width: 100px; height: 100px; }
+#host-vote-intro .vote-intro-authors .vote-intro-name { font-size: 16px; }
+#host-vote-intro-title { text-align: center; font-size: 22px; color: #c8c8d0; margin-bottom: 12px; }
+@keyframes vote-intro-in { from { opacity: 0; transform: translateY(18px) scale(0.85); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+.reveal-row.big { display: flex; flex-direction: row; gap: 24px; margin-top: 24px; }
+.reveal-row.big .reveal-answer { flex: 1; background: #2b2b33; border: 1px solid #3a3a44; border-radius: 8px; padding: 24px; text-align: left; }
+.reveal-answer.reveal-winner { border-color: #2ecc71; box-shadow: 0 0 0 2px rgba(46,204,113,0.4); }
+.reveal-name { font-weight: 700; margin: 0 0 4px; }
+.reveal-row.big .reveal-answer-text { font-size: 20px; margin: 0 0 6px; }
+@media (max-width: 700px) { .reveal-row.big { flex-direction: column; } }
+
+#host-gallery-choices { display: grid; grid-template-columns: repeat(var(--answer-columns,2), minmax(0,1fr));
+    grid-auto-rows: minmax(90px, auto); justify-content: center; gap: 18px; max-width: 1100px; margin: 0 auto; width: 100%; }
+#host-gallery-choices .gallery-tile { background: #2a2a33; border: 1px solid #45454f; border-radius: 14px; padding: 20px;
+    font-size: 20px; text-align: center; display: flex; align-items: center; justify-content: center; min-height: 90px; }
+#host-reveal-gallery-list { display: flex; flex-direction: column; gap: 14px; max-width: 900px; margin: 0 auto; }
+#host-reveal-gallery-list .reveal-answer { background: #2b2b33; border: 1px solid #3a3a44; border-radius: 8px; padding: 16px; text-align: left; }
+
+.points-row { display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+.points-base { font-size: 20px; color: #e6e6ea; }
+.points-bonus { position: relative; font-size: 20px; font-weight: 800; color: #ffd76f; padding: 6px 16px; border-radius: 999px; opacity: 0; white-space: nowrap; }
+.points-bonus::before { content: ''; position: absolute; inset: 0; border-radius: 999px;
+    background: radial-gradient(circle, rgba(255,215,111,0.55) 0%, rgba(255,111,165,0.35) 60%, transparent 80%);
+    z-index: -1; transform: scale(0.6); opacity: 0; transition: transform 0.4s ease, opacity 0.4s ease; }
+.points-bonus.pop { animation: points-pop 0.5s ease both; }
+.points-bonus.pop::before { transform: scale(1.3); opacity: 1; }
+@keyframes points-pop { 0% { opacity: 0; font-size: 10px; } 70% { opacity: 1; font-size: 140%; } 100% { opacity: 1; font-size: 100%; } }
+
+#host-gallery-recap { max-width: 1000px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+#host-gallery-recap img.prompt-image.big { max-width: 480px; }
+#host-gallery-recap .recap-prompt { font-size: 24px; text-align: center; margin: 4px 0 24px; }
+#host-gallery-recap .recap-row { display: flex; align-items: center; gap: 18px; background: #26262e; border-radius: 14px;
+    padding: 16px 24px; margin-bottom: 14px; font-size: 22px; text-align: left; }
+#host-gallery-recap .recap-row .recap-avatar { width: 56px; height: 56px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; }
+#host-gallery-recap .recap-row .recap-avatar img { width: 100%; height: 100%; object-fit: contain; }
+#host-gallery-recap .recap-row .recap-text { flex: 1; min-width: 0; }
+#host-gallery-recap .recap-row .recap-name { font-weight: 700; margin-right: 8px; }
+#host-gallery-recap .recap-row .recap-caption { color: #d6d6dc; }
+
+.section-subtitle { font-size: 22px; color: #9c9ca6; font-weight: 600; margin: 36px auto 16px; padding-top: 24px;
+    border-top: 1px solid #38383f; max-width: 920px; }
+.final-title { font-size: 56px; margin-bottom: 28px; }
+.final-board { max-width: 920px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; text-align: left; }
+.final-row { display: flex; align-items: center; gap: 14px; background: #24242c; border: 1px solid #38383f; border-radius: 14px; padding: 12px 16px; }
+.final-row.winner { background: #33301f; border-color: #ffd76f; box-shadow: 0 0 0 2px rgba(255,215,111,0.25), 0 0 24px rgba(255,215,111,0.18); }
+.final-rank { width: 40px; flex-shrink: 0; text-align: center; font-size: 24px; font-weight: 800; color: #9c9ca6; }
+.final-avatar { width: 56px; height: 56px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px rgba(255,255,255,0.15); }
+.final-avatar img { width: 100%; height: 100%; object-fit: contain; }
+.final-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.final-name { font-size: 20px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.final-bar-track { height: 14px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
+.final-bar-fill { height: 100%; border-radius: 999px; width: 0%; transition: width 0.9s cubic-bezier(0.22,1,0.36,1); }
+.final-score { font-size: 24px; font-weight: 800; min-width: 70px; text-align: right; flex-shrink: 0; }
+
+#pause-overlay { position: fixed; inset: 0; background: rgba(10,10,14,0.88); display: flex; align-items: center; justify-content: center; z-index: 500; text-align: center; padding: 24px; }
+.pause-icon { font-size: 48px; margin: 0 0 8px; }
+</style>
+</head>
+<body>
+
+<div id="scene-bg" aria-hidden="true"></div>
+
+<div id="pause-overlay" class="hidden">
+  <div>
+    <p class="pause-icon">⏸</p>
+    <h2>Гру на паузі</h2>
+    <p class="hint" id="pause-by-text"></p>
+  </div>
+</div>
+
+<div id="host-screen-lobby" class="host-screen">
+  <div id="lobby-ring"><div id="lobby-logo"><span>Сміх</span><span class="logo-accent">ліст</span></div></div>
+  <p class="hint" id="host-lobby-hint"></p>
+  <p class="hint" id="host-vote-seconds-hint"></p>
+</div>
+
+<div id="host-screen-answering" class="host-screen hidden">
+  <p class="hint" id="host-round-label"></p>
+  <p class="hint hidden" id="host-answer-explainer">Перед вами картинка, вигадайте смішний або цікавий підпис</p>
+  <img id="host-answer-image" class="prompt-image hidden" alt="">
+  <h2 id="host-answer-title">Всі пишуть відповіді…</h2>
+  <div id="host-answer-progress" class="readiness-bar"></div>
+</div>
+
+<div id="host-screen-voting" class="host-screen hidden">
+  <div id="host-vote-intro" class="hidden">
+    <p id="host-vote-intro-title"></p>
+    <div id="host-vote-intro-body"></div>
+  </div>
+  <div id="host-vote-main">
+    <p class="hint" id="host-vote-progress"></p>
+    <div class="timer-bar big"><div id="host-vote-timer" class="timer-fill"></div></div>
+    <img id="host-prompt-image" class="prompt-image hidden" alt="">
+    <h1 id="host-prompt"></h1>
+    <div class="reveal-row big" id="host-pair-choices">
+      <div class="reveal-answer" id="host-answer-a"><p class="reveal-name">A</p><p class="reveal-answer-text" id="host-answer-a-text"></p></div>
+      <div class="reveal-answer" id="host-answer-b"><p class="reveal-name">B</p><p class="reveal-answer-text" id="host-answer-b-text"></p></div>
+    </div>
+    <div id="host-gallery-choices" class="hidden"></div>
+    <p class="hint" id="host-vote-count"></p>
+  </div>
+</div>
+
+<div id="host-screen-reveal" class="host-screen hidden">
+  <img id="host-reveal-prompt-image" class="prompt-image hidden" alt="">
+  <h1 id="host-reveal-prompt"></h1>
+  <div class="reveal-row big" id="host-reveal-pair">
+    <div class="reveal-answer" id="host-reveal-a"></div>
+    <div class="reveal-answer" id="host-reveal-b"></div>
+  </div>
+  <div id="host-reveal-gallery-list" class="hidden"></div>
+</div>
+
+<div id="host-screen-round-end" class="host-screen hidden">
+  <h1 id="host-round-end-title"></h1>
+  <div id="host-gallery-recap" class="hidden"></div>
+  <h2 id="host-scoreboard-title" class="section-subtitle hidden">Загальний рахунок</h2>
+  <div id="host-round-scoreboard" class="final-board"></div>
+</div>
+
+<div id="host-screen-game-over" class="host-screen hidden">
+  <h1 class="final-title">🏆 Переможець!</h1>
+  <div id="host-final-scoreboard" class="final-board"></div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/quiplash-game.js"></script>
+<script>
+(function () {
+  function escapeHtml(s) { const d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML; }
+  function charImg(p) { return `img/quiplash/chars/char${(p && p.character) || 1}.svg`; }
+  function screen(id) {
+    document.querySelectorAll(".host-screen").forEach((el) => el.classList.add("hidden"));
+    document.getElementById(id).classList.remove("hidden");
+  }
+
+  let lastLobbyRingKey = null;
+  let appliedSessionSeed = null;
+  const VOTE_INTRO_MS = 1800;
+  let voteIntroKey = null;
+  let voteIntroUntil = 0;
+
+  function playersArray(state) {
+    return Object.entries(state.players || {}).map(([id, p]) => ({ id, name: id, ...p }));
+  }
+  function connNames(state) { return QuiplashGame.connectedEntries(state.players).map(([n]) => n); }
+
+  function applySessionBackground(seed) {
+    if (seed === null || seed === undefined || seed === appliedSessionSeed) return;
+    appliedSessionSeed = seed;
+    const widths = [6, 8, 10, 14, 18], speeds = [90, 120, 150, 180, 220];
+    document.documentElement.style.setProperty("--ray-hue", seed % 360);
+    document.documentElement.style.setProperty("--ray-width", widths[seed % widths.length] + "deg");
+    document.documentElement.style.setProperty("--ray-speed", speeds[Math.floor(seed / 7) % speeds.length] + "s");
+    document.body.classList.toggle("bg-reverse", seed % 2 === 0);
+  }
+
+  function renderLobbyRing(players) {
+    const key = players.map((p) => p.id).join(",");
+    if (key === lastLobbyRingKey) return;
+    lastLobbyRingKey = key;
+    const ring = document.getElementById("lobby-ring");
+    ring.querySelectorAll(".lobby-character").forEach((el) => el.remove());
+    const n = players.length;
+    players.forEach((p, i) => {
+      const angle = (360 / Math.max(n, 1)) * i - 90, rad = (angle * Math.PI) / 180;
+      const x = 50 + 40 * Math.cos(rad), y = 50 + 40 * Math.sin(rad);
+      const node = document.createElement("div");
+      node.className = "lobby-character"; node.style.left = x + "%"; node.style.top = y + "%";
+      node.innerHTML = `<div class="lobby-character-avatar" style="background:${p.color || "#888"}">
+          <img src="${charImg(p)}" onerror="this.style.display='none'"></div>
+        <div class="lobby-character-name">${escapeHtml(p.name)}</div>`;
+      ring.appendChild(node);
+    });
+  }
+
+  function renderReadinessBar(container, players, answeredNames) {
+    const answeredSet = new Set(answeredNames);
+    container.innerHTML = "";
+    players.forEach((p) => {
+      const node = document.createElement("div");
+      node.className = "readiness-avatar" + (answeredSet.has(p.id) ? " is-ready" : "");
+      node.innerHTML = `<div class="readiness-avatar-img" style="background:${p.color || "#888"}">
+          <img src="${charImg(p)}" onerror="this.style.display='none'"></div>
+        <div class="readiness-avatar-name">${escapeHtml(p.name)}</div>`;
+      container.appendChild(node);
+    });
+  }
+
+  function setTimerFill(el, deadline, totalMs) {
+    if (!deadline) { el.style.width = "100%"; return; }
+    const remaining = Math.max(0, deadline - Date.now());
+    el.style.width = Math.max(0, Math.min(100, (remaining / totalMs) * 100)) + "%";
+  }
+
+  function pointsRowHtml(count, basePoints, bonusPoints, key) {
+    const bonusId = `bonus-${key}`;
+    return `<div class="points-row">
+        <span class="points-base">${count || 0} голос(и): +${basePoints || 0} балів</span>
+        ${bonusPoints ? `<span class="points-bonus" id="${bonusId}" data-bonus="${bonusPoints}">СМІХЛИСТОЧОК +${bonusPoints} балів</span>` : ""}
+      </div>`;
+  }
+  function animateBonusBadges(container, baseDelayMs) {
+    container.querySelectorAll(".points-bonus").forEach((el, i) => {
+      setTimeout(() => { el.style.opacity = "1"; el.classList.add("pop"); }, (baseDelayMs || 0) + i * 220);
+    });
+  }
+
+  function avatarNode(p, size) {
+    const wrap = document.createElement("div");
+    wrap.className = "vote-intro-avatar";
+    wrap.style.width = size + "px"; wrap.style.height = size + "px"; wrap.style.background = p.color || "#888";
+    wrap.innerHTML = `<img src="${charImg(p)}" onerror="this.style.display='none'">`;
+    return wrap;
+  }
+
+  function setTwoRowGrid(container, itemCount) {
+    container.style.setProperty("--answer-columns", String(Math.max(2, Math.ceil(itemCount / 2))));
+  }
+
+  function renderVoteIntro(state, m, galleryCandidates, galleryAuthors) {
+    const body = document.getElementById("host-vote-intro-body");
+    const title = document.getElementById("host-vote-intro-title");
+    body.innerHTML = ""; body.className = "";
+    if (state.gallery) {
+      title.textContent = "Голосуємо за найкращий підпис від:";
+      body.className = "vote-intro-authors";
+      galleryAuthors.forEach((p) => {
+        const side = document.createElement("div");
+        side.className = "vote-intro-side";
+        side.appendChild(avatarNode(p, 100));
+        side.innerHTML += `<div class="vote-intro-name">${escapeHtml(p.name)}</div>`;
+        body.appendChild(side);
+      });
+      return;
+    }
+    title.textContent = "Голосуємо за краще з двох:";
+    const sideA = document.createElement("div");
+    sideA.className = "vote-intro-side";
+    sideA.appendChild(avatarNode(m.pa, 160));
+    sideA.innerHTML += `<div class="vote-intro-name">${escapeHtml(m.pa.name)}</div>`;
+    const vs = document.createElement("div"); vs.className = "vote-intro-vs"; vs.textContent = "VS";
+    const sideB = document.createElement("div");
+    sideB.className = "vote-intro-side";
+    sideB.appendChild(avatarNode(m.pb, 160));
+    sideB.innerHTML += `<div class="vote-intro-name">${escapeHtml(m.pb.name)}</div>`;
+    body.appendChild(sideA); body.appendChild(vs); body.appendChild(sideB);
+  }
+
+  function renderScoreBars(container, players, opts) {
+    opts = opts || {};
+    if (opts.key && container.dataset.key === opts.key) return;
+    if (opts.key) container.dataset.key = opts.key;
+    const maxScore = players.reduce((m, p) => Math.max(m, p.score || 0), 0) || 1;
+    container.innerHTML = "";
+    const fills = [];
+    players.forEach((p, i) => {
+      const row = document.createElement("div");
+      row.className = "final-row" + (opts.crownWinner && i === 0 ? " winner" : "");
+      row.innerHTML = `<div class="final-rank">${opts.crownWinner && i === 0 ? "👑" : i + 1}</div>
+        <div class="final-avatar" style="background:${p.color || "#888"}"><img src="${charImg(p)}" onerror="this.style.display='none'"></div>
+        <div class="final-info"><div class="final-name">${escapeHtml(p.name)}</div>
+          <div class="final-bar-track"><div class="final-bar-fill" style="background:${p.color || "#3498db"};width:0%"></div></div></div>
+        <div class="final-score">${p.score || 0}</div>`;
+      container.appendChild(row);
+      const pct = p.score > 0 ? Math.max(4, Math.round(((p.score || 0) / maxScore) * 100)) : 0;
+      fills.push({ fill: row.querySelector(".final-bar-fill"), pct });
+    });
+    requestAnimationFrame(() => requestAnimationFrame(() => fills.forEach(({ fill, pct }) => { fill.style.width = pct + "%"; })));
+  }
+
+  function render(state) {
+    document.body.dataset.scene = state.phase;
+    applySessionBackground(state.round);
+    if (state.phase !== "voting") voteIntroKey = null;
+
+    document.getElementById("pause-overlay").classList.toggle("hidden", !state.paused);
+    if (state.paused) {
+      document.getElementById("pause-by-text").textContent = state.pausedByName
+        ? `${state.pausedByName} поставив(-ла) гру на паузу` : "Гру поставлено на паузу";
+    }
+
+    const players = playersArray(state);
+    const conn = QuiplashGame.connectedEntries(state.players);
+
+    if (state.phase === "lobby") {
+      screen("host-screen-lobby");
+      renderLobbyRing(players);
+      const n = conn.length;
+      document.getElementById("host-lobby-hint").textContent = n < QuiplashGame.MIN_PLAYERS
+        ? `Потрібно ще щонайменше ${QuiplashGame.MIN_PLAYERS - n} гравців(-я). Гру можна почати з будь-якого телефона.`
+        : `Гравців: ${n}/${QuiplashGame.MAX_PLAYERS}. Хтось із гравців може натиснути "Почати гру".`;
+      document.getElementById("host-vote-seconds-hint").textContent = state.settings.voteSeconds
+        ? `Час на голосування: ${state.settings.voteSeconds}с (налаштовується з телефону)` : "";
+      return;
+    }
+
+    if (state.phase === "answering") {
+      screen("host-screen-answering");
+      document.getElementById("host-round-label").textContent = `Раунд ${state.round}/${QuiplashGame.TOTAL_ROUNDS}`;
+      const explainer = document.getElementById("host-answer-explainer");
+      const image = document.getElementById("host-answer-image");
+      const title = document.getElementById("host-answer-title");
+      let answeredNames;
+      if (state.gallery) {
+        explainer.classList.remove("hidden");
+        image.src = state.gallery.image; image.classList.remove("hidden");
+        title.textContent = state.gallery.text;
+        answeredNames = Object.keys(state.gallery.answers || {});
+      } else {
+        explainer.classList.add("hidden"); image.classList.add("hidden");
+        title.textContent = "Всі пишуть відповіді…";
+        answeredNames = players.filter((p) => Object.values(state.matchups || {}).every((m) =>
+          (m.playerAId !== p.id || m.answerA !== null) && (m.playerBId !== p.id || m.answerB !== null)
+        )).map((p) => p.id);
+      }
+      renderReadinessBar(document.getElementById("host-answer-progress"), players, answeredNames);
+      return;
+    }
+
+    if (state.phase === "voting" || state.phase === "reveal") {
+      const byId = {}; players.forEach((p) => { byId[p.id] = p; });
+      const isVoting = state.phase === "voting";
+      screen(isVoting ? "host-screen-voting" : "host-screen-reveal");
+
+      if (state.gallery) {
+        const g = state.gallery;
+        const authors = Object.keys(g.answers || {}).map((n) => byId[n]).filter(Boolean);
+        const candidates = Object.entries(g.answers || {}).map(([n, text]) => ({ name: n, text }));
+
+        if (isVoting) {
+          const introKey = `gallery-${state.round}`;
+          if (introKey !== voteIntroKey) {
+            voteIntroKey = introKey; voteIntroUntil = Date.now() + VOTE_INTRO_MS;
+            renderVoteIntro(state, null, candidates, authors);
+          }
+          const showIntro = Date.now() < voteIntroUntil;
+          document.getElementById("host-vote-intro").classList.toggle("hidden", !showIntro);
+          document.getElementById("host-vote-main").classList.toggle("hidden", showIntro);
+
+          document.getElementById("host-vote-progress").textContent = `Раунд ${state.round}/${QuiplashGame.TOTAL_ROUNDS} · Голосування за найкращий підпис`;
+          setTimerFill(document.getElementById("host-vote-timer"), state.phaseDeadline, ((state.settings.voteSeconds || 25) + 10) * 1000);
+          document.getElementById("host-prompt").textContent = g.text;
+          const promptImg = document.getElementById("host-prompt-image");
+          promptImg.src = g.image; promptImg.classList.remove("hidden");
+          document.getElementById("host-pair-choices").classList.add("hidden");
+          const galleryBox = document.getElementById("host-gallery-choices");
+          galleryBox.classList.remove("hidden");
+          setTwoRowGrid(galleryBox, candidates.length);
+          galleryBox.innerHTML = candidates.map((c) => `<div class="gallery-tile">${escapeHtml(c.text)}</div>`).join("");
+          document.getElementById("host-vote-count").textContent = `Голосів: ${Object.keys(g.votes || {}).length}/${conn.length}`;
+        } else {
+          document.getElementById("host-reveal-prompt").textContent = g.text;
+          const img = document.getElementById("host-reveal-prompt-image");
+          img.src = g.image; img.classList.remove("hidden");
+          document.getElementById("host-reveal-pair").classList.add("hidden");
+          const list = document.getElementById("host-reveal-gallery-list");
+          list.classList.remove("hidden");
+          const key = `${state.round}-gallery`;
+          if (list.dataset.key !== key) {
+            list.dataset.key = key;
+            const results = Object.entries(g.results || {}).sort((a, b) => b[1].count - a[1].count);
+            list.innerHTML = results.map(([n, r], i) => `<div class="reveal-answer${i === 0 && r.count > 0 ? " reveal-winner" : ""}">
+                <p class="reveal-name">${escapeHtml(n)}</p>
+                <p class="reveal-answer-text">${escapeHtml(g.answers[n])}</p>
+                ${pointsRowHtml(r.count, r.basePoints, r.bonusPoints, `${state.round}-${n}`)}
+              </div>`).join("");
+            animateBonusBadges(list, 700);
+          }
+        }
+        return;
+      }
+
+      const list = Object.values(state.matchups || {});
+      const m = list[state.currentMatchupIndex];
+      if (!m) return;
+      const pa = byId[m.playerAId] || { name: m.playerAId };
+      const pb = byId[m.playerBId] || { name: m.playerBId };
+
+      if (isVoting) {
+        const introKey = m.id;
+        if (introKey !== voteIntroKey) {
+          voteIntroKey = introKey; voteIntroUntil = Date.now() + VOTE_INTRO_MS;
+          renderVoteIntro(state, { pa, pb });
+        }
+        const showIntro = Date.now() < voteIntroUntil;
+        document.getElementById("host-vote-intro").classList.toggle("hidden", !showIntro);
+        document.getElementById("host-vote-main").classList.toggle("hidden", showIntro);
+
+        document.getElementById("host-pair-choices").classList.remove("hidden");
+        document.getElementById("host-gallery-choices").classList.add("hidden");
+        document.getElementById("host-vote-progress").textContent = `Раунд ${state.round}/${QuiplashGame.TOTAL_ROUNDS} · Пара ${state.currentMatchupIndex + 1}/${list.length}`;
+        setTimerFill(document.getElementById("host-vote-timer"), state.phaseDeadline, (state.settings.voteSeconds || 25) * 1000);
+        document.getElementById("host-prompt").textContent = m.promptText;
+        document.getElementById("host-prompt-image").classList.add("hidden");
+        document.getElementById("host-answer-a-text").textContent = m.answerA;
+        document.getElementById("host-answer-b-text").textContent = m.answerB;
+        const votesIn = Object.keys(m.votes || {}).length;
+        const votesNeeded = conn.filter(([n]) => n !== m.playerAId && n !== m.playerBId).length;
+        document.getElementById("host-vote-count").textContent = `Голосів: ${votesIn}/${votesNeeded}`;
+      } else {
+        document.getElementById("host-reveal-prompt").textContent = m.promptText;
+        document.getElementById("host-reveal-prompt-image").classList.add("hidden");
+        document.getElementById("host-reveal-pair").classList.remove("hidden");
+        document.getElementById("host-reveal-gallery-list").classList.add("hidden");
+        const aWon = (m.pointsA || 0) > (m.pointsB || 0), bWon = (m.pointsB || 0) > (m.pointsA || 0);
+        const a = document.getElementById("host-reveal-a"), b = document.getElementById("host-reveal-b");
+        if (a.dataset.key !== m.id) {
+          a.dataset.key = m.id;
+          a.className = "reveal-answer" + (aWon ? " reveal-winner" : "");
+          b.className = "reveal-answer" + (bWon ? " reveal-winner" : "");
+          a.innerHTML = `<p class="reveal-name">${escapeHtml(pa.name)}</p><p class="reveal-answer-text">${escapeHtml(m.answerA)}</p>${pointsRowHtml(m.countA, m.basePointsA, m.bonusPointsA, m.id + "-a")}`;
+          b.innerHTML = `<p class="reveal-name">${escapeHtml(pb.name)}</p><p class="reveal-answer-text">${escapeHtml(m.answerB)}</p>${pointsRowHtml(m.countB, m.basePointsB, m.bonusPointsB, m.id + "-b")}`;
+          animateBonusBadges(document.getElementById("host-reveal-pair"), 700);
+        }
+      }
+      return;
+    }
+
+    if (state.phase === "round_end") {
+      screen("host-screen-round-end");
+      document.getElementById("host-round-end-title").textContent = `Результати раунду ${state.round}`;
+      const recap = document.getElementById("host-gallery-recap");
+      const isFinalRound = state.round >= QuiplashGame.TOTAL_ROUNDS;
+      const byId = {}; players.forEach((p) => { byId[p.id] = p; });
+
+      if (state.gallery && state.gallery.results) {
+        recap.classList.remove("hidden");
+        const key = `round-${state.round}`;
+        if (recap.dataset.key !== key) {
+          recap.dataset.key = key;
+          const results = Object.entries(state.gallery.results).sort((a, b) => b[1].count - a[1].count);
+          recap.innerHTML = `<img class="prompt-image big" src="${escapeHtml(state.gallery.image)}">
+            <p class="recap-prompt">${escapeHtml(state.gallery.text)}</p>` +
+            results.map(([n, r]) => {
+              const p = byId[n] || {};
+              return `<div class="recap-row">
+                <div class="recap-avatar" style="background:${p.color || "#888"}"><img src="${charImg(p)}" onerror="this.style.display='none'"></div>
+                <div class="recap-text"><span class="recap-name">${escapeHtml(n)}</span><span class="recap-caption">"${escapeHtml(state.gallery.answers[n])}"</span></div>
+                ${pointsRowHtml(r.count, r.basePoints, r.bonusPoints, `recap-${state.round}-${n}`)}
+              </div>`;
+            }).join("");
+          animateBonusBadges(recap, 500);
+        }
+      } else {
+        recap.dataset.key = ""; recap.classList.add("hidden"); recap.innerHTML = "";
+      }
+
+      const scoreboardTitle = document.getElementById("host-scoreboard-title");
+      if (!isFinalRound) {
+        scoreboardTitle.classList.toggle("hidden", !state.gallery);
+        renderScoreBars(document.getElementById("host-round-scoreboard"),
+          players.slice().sort((a, b) => (b.score || 0) - (a.score || 0)), { key: `round-${state.round}` });
+      } else {
+        scoreboardTitle.classList.add("hidden");
+        document.getElementById("host-round-scoreboard").innerHTML = "";
+      }
+      return;
+    }
+
+    if (state.phase === "game_over") {
+      screen("host-screen-game-over");
+      renderScoreBars(document.getElementById("host-final-scoreboard"),
+        players.slice().sort((a, b) => (b.score || 0) - (a.score || 0)), { key: "final", crownWinner: true });
+      return;
+    }
+  }
+
+  function waitForRtdb() {
+    if (!window.rtdbReady) { setTimeout(waitForRtdb, 300); return; }
+    window.rtdb.ref("quiplash_game").on("value", (snap) => {
+      const state = snap.val();
+      if (state) render(state);
+    });
+  }
+  waitForRtdb();
+})();
+</script>
+</body>
+</html>

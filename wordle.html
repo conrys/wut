@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+  <title>Слово дня</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      /* Точні кольори офіційного Wordle (Dark Theme / Classic) */
+      --bg: #121213;
+      --tile-bg: #121213;
+      --key-bg: #818384;
+      --key-text: #ffffff;
+      --text-light: #ffffff;
+      --text-muted: #818384;
+      --accent: #538d4e;
+
+      /* Статуси літер Wordle */
+      --correct: #538d4e;   /* Зелений (правильне місце) */
+      --present: #b59f3b;   /* Жовтий (є в слові) */
+      --absent: #3a3a3c;    /* Темно-сірий (немає в слові) */
+      --border-empty: #3a3a3c;
+      --border-filled: #565758;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none;
+        -webkit-user-select: none; -webkit-touch-callout: none; }
+    html, body { margin: 0; padding: 0; min-height: 100dvh; background: var(--bg);
+        font-family: 'Inter', sans-serif; color: var(--text-light); overflow-x: hidden;
+        touch-action: manipulation; }
+    .page { max-width: 480px; margin: 0 auto; padding: 60px 14px 20px; display: flex;
+        flex-direction: column; align-items: center; min-height: 100dvh; }
+
+    .tabs { display: flex; gap: 8px; margin-bottom: 10px; }
+    .lang-tab { padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 700;
+        background: #272729; color: var(--text-muted); cursor: pointer; border: 1px solid rgba(255,255,255,0.08); }
+    .lang-tab.active { background: var(--accent); color: #ffffff; }
+
+    .streak-badge { font-size: 12px; color: var(--text-muted); margin-bottom: 14px; }
+    .streak-badge b { color: var(--accent); }
+
+    .board { display: grid; grid-template-rows: repeat(6, 1fr); gap: 5px; margin-bottom: 20px; }
+    .row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; perspective: 700px; }
+    .cell { width: 52px; height: 52px; border: 2px solid var(--border-empty); border-radius: 2px;
+        display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif;
+        font-size: 24px; font-weight: 700; text-transform: uppercase; background: var(--tile-bg); color: var(--text-light);
+        backface-visibility: hidden; }
+
+    /* Статуси комірок Wordle */
+    .cell.correct { background: var(--correct); border-color: var(--correct); color: #ffffff; }
+    .cell.present { background: var(--present); border-color: var(--present); color: #ffffff; }
+    .cell.absent { background: var(--absent); border-color: var(--absent); color: #ffffff; }
+    .cell.filled { border-color: var(--border-filled); }
+
+    @keyframes cellPop {
+      0% { transform: scale(1); }
+      45% { transform: scale(1.14); }
+      100% { transform: scale(1); }
+    }
+    .cell.pop { animation: cellPop 0.13s ease-in-out; }
+
+    @keyframes rowShake {
+      10%, 90% { transform: translateX(-2px); }
+      20%, 80% { transform: translateX(4px); }
+      30%, 50%, 70% { transform: translateX(-7px); }
+      40%, 60% { transform: translateX(7px); }
+    }
+    .row.shake { animation: rowShake 0.5s; }
+
+    .keyboard { display: flex; flex-direction: column; gap: 6px; width: 100%; max-width: 500px; }
+    .krow { display: flex; gap: 4px; justify-content: center; }
+    .key { flex: 1; min-width: 0; height: 58px; border-radius: 4px; border: none; background: var(--key-bg);
+        color: var(--key-text); font-size: 13px; font-weight: 700; text-transform: uppercase; cursor: pointer;
+        transition: background-color 0.15s ease; }
+    .key.wide { flex: 1.5; font-size: 11px; }
+
+    /* Статуси клавіш Wordle */
+    .key.correct { background: var(--correct); color: #ffffff; }
+    .key.present { background: var(--present); color: #ffffff; }
+    .key.absent { background: var(--absent); color: #ffffff; opacity: 0.5; }
+
+    .msg { min-height: 20px; font-size: 13px; color: var(--text-muted); margin-bottom: 8px; text-align: center; }
+
+    .result-panel { text-align: center; margin: 10px 0 16px; }
+    .result-panel .title { font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+    .result-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+    .result-actions button { border: none; border-radius: 20px; padding: 10px 20px; font-weight: 700;
+        font-size: 13px; cursor: pointer; }
+    .btn-primary { background: var(--accent); color: #ffffff; }
+    .btn-secondary { background: #272729; color: var(--text-light); border: 1px solid rgba(255,255,255,0.12) !important; }
+
+    .feed-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: none;
+        align-items: center; justify-content: center; z-index: 9999; padding: 20px; }
+    .feed-overlay.open { display: flex; }
+    .feed-modal { background: #1a1a1b; border-radius: 12px; padding: 20px; width: 100%; max-width: 340px;
+        max-height: 75vh; overflow-y: auto; border: 1px solid #272729; }
+    .feed-modal h3 { font-family: 'Space Grotesk', sans-serif; margin: 0 0 10px; font-size: 18px; }
+    .feed-item { border-bottom: 1px solid rgba(255,255,255,0.08); padding: 10px 0; }
+    .feed-item .who { font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+    .feed-item pre { margin: 0; font-size: 14px; line-height: 1.15; white-space: pre-wrap; font-family: inherit; }
+    .feed-empty { color: var(--text-muted); font-size: 13px; text-align: center; padding: 16px 0; }
+    .feed-close { text-align: center; margin-top: 10px; font-size: 12px; color: var(--text-muted); cursor: pointer; }
+  </style>
+</head>
+<body>
+<div class="page">
+  <div class="tabs">
+    <div class="lang-tab active" data-lang="uk">Українська</div>
+    <div class="lang-tab" data-lang="en">English</div>
+  </div>
+  <div class="streak-badge">🔥 Стрік: <b id="streakVal">0</b> дн.</div>
+
+  <div class="board" id="board"></div>
+  <div class="msg" id="msg"></div>
+
+  <div class="result-panel" id="resultPanel" style="display:none">
+    <div class="title" id="resultTitle"></div>
+    <div class="result-actions">
+      <button class="btn-primary" id="shareBtn">Поділитись</button>
+      <button class="btn-secondary" id="feedBtn">👥 Результати сьогодні</button>
+    </div>
+  </div>
+
+  <div class="keyboard" id="keyboard"></div>
+</div>
+
+<div class="feed-overlay" id="feedOverlay">
+  <div class="feed-modal">
+    <h3>Результати сьогодні</h3>
+    <div id="feedList"><div class="feed-empty">Завантаження…</div></div>
+    <div class="feed-close" id="feedCloseBtn">Закрити</div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/login.js"></script>
+<script src="js/words-en.js"></script>
+<script src="js/words-uk.js"></script>
+<script src="js/words-en-guesses.js"></script>
+<script src="js/words-uk-guesses.js"></script>
+<script src="js/wordle.js"></script>
+<script src="js/back-button.js"></script>
+<script>
+  (function () {
+    const KEY_ROWS = {
+      uk: [
+        ["й","ц","у","к","е","н","г","ш","щ","з","х"],
+        ["ф","і","в","а","п","р","о","л","д","ж","є"],
+        ["ENTER","я","ч","с","м","и","т","ь","б","ю","⌫"],
+      ],
+      en: [
+        ["q","w","e","r","t","y","u","i","o","p"],
+        ["a","s","d","f","g","h","j","k","l"],
+        ["ENTER","z","x","c","v","b","n","m","⌫"],
+      ],
+    };
+    const MAX_ATTEMPTS = 6;
+    const WORD_LEN = 5;
+    const FLIP_MS = 380;      // тривалість одного перевороту клітинки (туди-назад)
+    const FLIP_STAGGER = 260; // затримка старту між сусідніми літерами в рядку
+
+    let lang = "uk";
+    let dateStr, answer, state, keyStatus;
+    let currentInput = "";
+    let revealing = false; // блокує ввід під час анімації розкриття
+
+    const boardEl = document.getElementById("board");
+    const keyboardEl = document.getElementById("keyboard");
+    const msgEl = document.getElementById("msg");
+    const resultPanel = document.getElementById("resultPanel");
+    const resultTitle = document.getElementById("resultTitle");
+    const streakVal = document.getElementById("streakVal");
+
+    // ---------------- статична сітка клітинок (будується один раз) ----------------
+    let cellEls = [];
+    function buildBoardDOM() {
+      boardEl.innerHTML = "";
+      cellEls = [];
+      for (let r = 0; r < MAX_ATTEMPTS; r++) {
+        const rowEl = document.createElement("div");
+        rowEl.className = "row";
+        const rowCells = [];
+        for (let c = 0; c < WORD_LEN; c++) {
+          const cell = document.createElement("div");
+          cell.className = "cell";
+          rowEl.appendChild(cell);
+          rowCells.push(cell);
+        }
+        boardEl.appendChild(rowEl);
+        cellEls.push(rowCells);
+      }
+    }
+
+    function resetBoardVisual() {
+      for (let r = 0; r < MAX_ATTEMPTS; r++) {
+        for (let c = 0; c < WORD_LEN; c++) {
+          const cell = cellEls[r][c];
+          cell.className = "cell";
+          cell.textContent = "";
+          cell.style.transform = "";
+        }
+      }
+    }
+
+    // Малює вже здані спроби миттєво (без анімації) — для завантаження
+    // збереженого стану й перемикання мови.
+    function renderFromState() {
+      resetBoardVisual();
+      state.guesses.forEach((guess, r) => {
+        const res = Wordle.evaluateGuess(guess, answer);
+        for (let c = 0; c < WORD_LEN; c++) {
+          const cell = cellEls[r][c];
+          cell.textContent = guess[c];
+          cell.classList.add(res[c]);
+        }
+      });
+      if (!state.finished) {
+        const r = state.guesses.length;
+        for (let c = 0; c < currentInput.length; c++) {
+          cellEls[r][c].textContent = currentInput[c];
+          cellEls[r][c].classList.add("filled");
+        }
+      }
+    }
+
+    function initLang(newLang) {
+      lang = newLang;
+      document.querySelectorAll(".lang-tab").forEach((t) => t.classList.toggle("active", t.dataset.lang === lang));
+      currentInput = "";
+      revealing = false;
+      dateStr = Wordle.kyivDateStr();
+      answer = Wordle.dailyWord(lang, dateStr);
+      state = Wordle.loadState(lang, dateStr) || { guesses: [], finished: false, won: false };
+      keyStatus = {};
+      state.guesses.forEach((g) => applyKeyStatus(g, answer));
+      renderFromState();
+      renderKeyboard();
+      renderResult();
+      msgEl.textContent = "";
+    }
+
+    function applyKeyStatus(guess, ans) {
+      const res = Wordle.evaluateGuess(guess, ans);
+      const rank = { absent: 0, present: 1, correct: 2 };
+      for (let i = 0; i < guess.length; i++) {
+        const l = guess[i];
+        if (!keyStatus[l] || rank[res[i]] > rank[keyStatus[l]]) keyStatus[l] = res[i];
+      }
+    }
+
+    function renderKeyboard() {
+      keyboardEl.innerHTML = "";
+      KEY_ROWS[lang].forEach((row) => {
+        const rowEl = document.createElement("div");
+        rowEl.className = "krow";
+        row.forEach((k) => {
+          const btn = document.createElement("button");
+          btn.className = "key" + (k === "ENTER" || k === "⌫" ? " wide" : "");
+          btn.textContent = k === "ENTER" ? "Ввід" : k;
+          if (k !== "ENTER" && k !== "⌫") btn.dataset.key = k;
+          if (keyStatus[k]) btn.classList.add(keyStatus[k]);
+          btn.addEventListener("click", () => handleKey(k));
+          rowEl.appendChild(btn);
+        });
+        keyboardEl.appendChild(rowEl);
+      });
+    }
+
+    // Оновлює колір однієї клавіші в момент, коли відповідна літера
+    // "перевернулась" — клавіатура фарбується синхронно з рядком, а не
+    // одразу вся після завершення анімації.
+    function updateKeyColor(letter, status) {
+      const rank = { absent: 0, present: 1, correct: 2 };
+      if (!keyStatus[letter] || rank[status] > rank[keyStatus[letter]]) {
+        keyStatus[letter] = status;
+        const btn = keyboardEl.querySelector(`[data-key="${letter}"]`);
+        if (btn) {
+          btn.classList.remove("absent", "present", "correct");
+          btn.classList.add(status);
+        }
+      }
+    }
+
+    function renderResult() {
+      if (!state.finished) {
+        resultPanel.style.display = "none";
+        keyboardEl.style.display = "flex";
+        return;
+      }
+      keyboardEl.style.display = "none";
+      resultPanel.style.display = "block";
+      resultTitle.textContent = state.won ? "🎉 Вгадано!" : `😔 Слово було: ${answer.toUpperCase()}`;
+      refreshStreak();
+      if (!window.AppAuth || !window.AppAuth.getSession()) {
+        msgEl.textContent = "Увійди в профіль, щоб зберігати стрік і бачити результати друзів";
+      }
+    }
+
+    function shakeRow(r) {
+      const rowEl = boardEl.children[r];
+      rowEl.classList.remove("shake");
+      void rowEl.offsetWidth; // reflow, щоб анімація перезапустилась навіть підряд
+      rowEl.classList.add("shake");
+      rowEl.addEventListener("animationend", () => rowEl.classList.remove("shake"), { once: true });
+    }
+
+    function handleKey(k) {
+      if (state.finished || revealing) return;
+      if (k === "ENTER") {
+        submitGuess();
+      } else if (k === "⌫") {
+        if (currentInput.length === 0) return;
+        const r = state.guesses.length;
+        const c = currentInput.length - 1;
+        currentInput = currentInput.slice(0, -1);
+        const cell = cellEls[r][c];
+        cell.textContent = "";
+        cell.classList.remove("filled");
+      } else {
+        if (currentInput.length >= WORD_LEN) return;
+        const r = state.guesses.length;
+        const c = currentInput.length;
+        currentInput += k;
+        const cell = cellEls[r][c];
+        cell.textContent = k;
+        cell.classList.add("filled");
+        cell.classList.remove("pop");
+        void cell.offsetWidth;
+        cell.classList.add("pop");
+        cell.addEventListener("animationend", () => cell.classList.remove("pop"), { once: true });
+      }
+    }
+
+    // Плавний переворот клітинок рядка по черзі, з фарбуванням клавіатури
+    // синхронно з кожною літерою. onDone викликається після завершення
+    // всієї анімації рядка.
+    function revealRow(r, guess, res, onDone) {
+      for (let c = 0; c < WORD_LEN; c++) {
+        const cell = cellEls[r][c];
+        const delay = c * FLIP_STAGGER;
+        setTimeout(() => {
+          cell.style.transition = `transform ${FLIP_MS / 2}ms ease-in`;
+          cell.style.transform = "rotateX(90deg)";
+          setTimeout(() => {
+            cell.classList.remove("filled");
+            cell.classList.add(res[c]);
+            cell.style.transform = "rotateX(0deg)";
+            updateKeyColor(guess[c], res[c]);
+          }, FLIP_MS / 2);
+        }, delay);
+      }
+      const totalTime = (WORD_LEN - 1) * FLIP_STAGGER + FLIP_MS;
+      setTimeout(onDone, totalTime + 30);
+    }
+
+    function submitGuess() {
+      const r = state.guesses.length;
+      if (currentInput.length !== WORD_LEN) {
+        shakeRow(r);
+        return;
+      }
+      if (!Wordle.isValidWord(lang, currentInput)) {
+        shakeRow(r);
+        return;
+      }
+
+      const guess = currentInput;
+      currentInput = "";
+      revealing = true;
+      const res = Wordle.evaluateGuess(guess, answer);
+
+      revealRow(r, guess, res, () => {
+        state.guesses.push(guess);
+
+        if (guess === answer) {
+          state.finished = true;
+          state.won = true;
+        } else if (state.guesses.length >= MAX_ATTEMPTS) {
+          state.finished = true;
+          state.won = false;
+        }
+
+        Wordle.saveState(lang, dateStr, state);
+        revealing = false;
+        renderResult();
+
+        if (state.finished) {
+          const rows = state.guesses.map((g) => Wordle.evaluateGuess(g, answer));
+          Wordle.submitWordleResult({ lang, dateStr, won: state.won, rows, maxAttempts: MAX_ATTEMPTS });
+        }
+      });
+    }
+
+    async function refreshStreak() {
+      streakVal.textContent = await Wordle.getStreak();
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") handleKey("ENTER");
+      else if (e.key === "Backspace") handleKey("⌫");
+      else {
+        const k = e.key.toLowerCase();
+        if (KEY_ROWS[lang].flat().includes(k)) handleKey(k);
+      }
+    });
+
+    document.querySelectorAll(".lang-tab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        initLang(tab.dataset.lang);
+      });
+    });
+
+    document.getElementById("shareBtn").addEventListener("click", async () => {
+      const rows = state.guesses.map((g) => Wordle.evaluateGuess(g, answer));
+      const text = Wordle.buildShareText(lang, dateStr, rows, state.won, MAX_ATTEMPTS);
+      try {
+        if (navigator.share) await navigator.share({ text });
+        else {
+          await navigator.clipboard.writeText(text);
+          msgEl.textContent = "Скопійовано в буфер";
+        }
+      } catch {}
+    });
+
+    const feedOverlay = document.getElementById("feedOverlay");
+    const feedList = document.getElementById("feedList");
+    document.getElementById("feedBtn").addEventListener("click", async () => {
+      feedOverlay.classList.add("open");
+      feedList.innerHTML = '<div class="feed-empty">Завантаження…</div>';
+      const rows = await Wordle.getTodayFeed(lang, dateStr);
+      if (!rows.length) {
+        feedList.innerHTML = '<div class="feed-empty">Поки ніхто не зіграв сьогодні цією мовою.</div>';
+        return;
+      }
+      feedList.innerHTML = rows
+        .map((r) => `<div class="feed-item"><div class="who">${escapeHtml(r.username)}</div><pre>${escapeHtml(r.shareText)}</pre></div>`)
+        .join("");
+    });
+    document.getElementById("feedCloseBtn").addEventListener("click", () => feedOverlay.classList.remove("open"));
+    feedOverlay.addEventListener("click", (e) => { if (e.target === feedOverlay) feedOverlay.classList.remove("open"); });
+
+    function escapeHtml(s) {
+      const d = document.createElement("div");
+      d.textContent = s || "";
+      return d.innerHTML;
+    }
+
+    // Консольний тест-режим: wordleGame.test() показує екран результату
+    // (з хінтом) без реального проходження гри; слово фіксоване (перше в
+    // поточному мовному списку), не із сьогоднішньої дати.
+    window.wordleGame = {
+      test(won = true) {
+        const list = lang === "uk" ? WORDS_UK : WORDS_EN;
+        answer = list[0];
+        state = { guesses: [], finished: true, won };
+        keyStatus = {};
+        renderFromState();
+        renderKeyboard();
+        renderResult();
+        console.log("wordleGame.test: answer =", answer, "| won =", won);
+      },
+      today() {
+        console.log("today's word:", answer);
+        return answer;
+      },
+    };
+
+    buildBoardDOM();
+    initLang("uk");
+  })();
+</script>
+</body>
+</html>

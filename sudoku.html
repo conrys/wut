@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+  <title>Судоку</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #14161a;
+      --tile-bg: #22252b;
+      --cell-bg: #1a1c21;
+      --text-light: #f4f5f1;
+      --text-muted: #8b909c;
+      --accent: #38cfa0;
+      --error: #ff6b6b;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none;
+        -webkit-user-select: none; -webkit-touch-callout: none; }
+    html, body { margin: 0; padding: 0; min-height: 100dvh; background: var(--bg);
+        font-family: 'Inter', sans-serif; color: var(--text-light); overflow-x: hidden;
+        touch-action: manipulation; }
+    .page { max-width: 480px; margin: 0 auto; padding: 60px 14px 24px; display: flex;
+        flex-direction: column; align-items: center; min-height: 100dvh; }
+
+    .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+    .diff-tab { padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700;
+        background: #272729; color: var(--text-muted); cursor: pointer; border: 1px solid rgba(255,255,255,0.08); }
+    .diff-tab.active { background: var(--accent); color: #0e2318; }
+
+    .stats { display: flex; gap: 16px; margin-bottom: 12px; font-size: 13px; color: var(--text-muted); }
+    .stats b { color: var(--text-light); font-family: 'Space Grotesk', sans-serif; }
+
+    .sud-board {
+      display: grid;
+      grid-template-columns: repeat(9, 1fr);
+      grid-template-rows: repeat(9, 1fr);
+      width: min(92vw, 396px);
+      aspect-ratio: 1 / 1;
+      border: 2px solid var(--text-light);
+      border-radius: 6px;
+      overflow: hidden;
+      background: var(--text-muted);
+      gap: 1px;
+    }
+    .sud-cell {
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Space Grotesk', sans-serif; font-weight: 700;
+      font-size: clamp(14px, 4.2vw, 20px);
+      background: var(--cell-bg); color: var(--accent);
+      cursor: pointer; position: relative;
+    }
+    .sud-cell.given { color: var(--text-light); cursor: default; }
+    .sud-cell.peer { background: #21262d; }
+    .sud-cell.same-value { background: #223028; }
+    .sud-cell.selected { background: rgba(56,207,160,0.30); }
+    .sud-cell.error { color: var(--error); }
+    .sud-cell.box-right { border-right: 2px solid var(--text-light); }
+    .sud-cell.box-bottom { border-bottom: 2px solid var(--text-light); }
+    .sud-cell.flash { animation: flashErr 0.35s; }
+    @keyframes flashErr {
+      0%, 100% { background: rgba(255,107,107,0.10); }
+      50% { background: rgba(255,107,107,0.45); }
+    }
+
+    .numpad { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px;
+        width: min(92vw, 396px); margin-top: 16px; }
+    .num-btn { height: 48px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
+        background: var(--tile-bg); color: var(--text-light); font-family: 'Space Grotesk', sans-serif;
+        font-size: 18px; font-weight: 700; cursor: pointer; }
+    .num-btn.erase { font-size: 14px; color: var(--text-muted); }
+    .num-btn:active { background: #2b2f36; }
+
+    .actions { display: flex; gap: 8px; margin-top: 14px; }
+    .action-btn { border: none; border-radius: 20px; padding: 8px 16px; font-weight: 700;
+        font-size: 12px; cursor: pointer; background: #272729; color: var(--text-light);
+        border: 1px solid rgba(255,255,255,0.12); }
+
+    .msg { min-height: 20px; font-size: 13px; color: var(--text-muted); margin-top: 10px; text-align: center; }
+
+    .result-panel { text-align: center; margin: 8px 0 4px; }
+    .result-panel .title { font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+    .result-panel .sub { font-size: 13px; color: var(--text-muted); margin-bottom: 10px; }
+
+    .gen-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none;
+        align-items: center; justify-content: center; z-index: 9997; }
+    .gen-overlay.open { display: flex; }
+    .gen-overlay span { font-size: 14px; color: var(--text-muted); }
+  </style>
+</head>
+<body>
+<div class="page">
+  <div class="tabs" id="diffTabs">
+    <div class="diff-tab" data-diff="easy">Легко</div>
+    <div class="diff-tab active" data-diff="medium">Середньо</div>
+    <div class="diff-tab" data-diff="hard">Важко</div>
+  </div>
+
+  <div class="stats">
+    <div>⏱ <b id="timerVal">00:00</b></div>
+    <div>❌ <b id="mistakesVal">0</b></div>
+  </div>
+
+  <div class="sud-board" id="board"></div>
+
+  <div class="msg" id="msg"></div>
+
+  <div class="result-panel" id="resultPanel" style="display:none">
+    <div class="title" id="resultTitle"></div>
+    <div class="sub" id="resultSub"></div>
+  </div>
+
+  <div class="numpad" id="numpad"></div>
+
+  <div class="actions">
+    <button class="action-btn" id="hintBtn">💡 Підказка</button>
+    <button class="action-btn" id="newGameBtn">🔄 Нова гра</button>
+    <button class="action-btn" id="autoSolveBtn" style="display:none">🧪 Авторозв'язати</button>
+  </div>
+</div>
+
+<div class="gen-overlay" id="genOverlay"><span>Генерую пазл…</span></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/login.js"></script>
+<script src="js/score-connect.js"></script>
+<script src="js/records.js"></script>
+<script src="js/help.js"></script>
+<script src="js/back-button.js"></script>
+<script>
+(function () {
+  // ------------------------------------------------------------------
+  // Генератор/розв'язувач судоку: звичайний backtracking з рандомним
+  // порядком цифр (заповнення) + перевірка унікальності розв'язку при
+  // видаленні клітинок (щоб пазл завжди мав рівно один розв'язок).
+  // ------------------------------------------------------------------
+  const DIFFICULTY = {
+    easy:   { clues: 40, base: 1400 },
+    medium: { clues: 34, base: 2000 },
+    hard:   { clues: 28, base: 2800 },
+  };
+
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function isValid(grid, row, col, num) {
+    for (let i = 0; i < 9; i++) {
+      if (grid[row][i] === num) return false;
+      if (grid[i][col] === num) return false;
+    }
+    const br = row - (row % 3), bc = col - (col % 3);
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 3; c++) {
+        if (grid[br + r][bc + c] === num) return false;
+      }
+    }
+    return true;
+  }
+
+  function fillGrid(grid) {
+    for (let i = 0; i < 81; i++) {
+      const row = Math.floor(i / 9), col = i % 9;
+      if (grid[row][col] !== 0) continue;
+      const nums = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+      for (const n of nums) {
+        if (isValid(grid, row, col, n)) {
+          grid[row][col] = n;
+          if (fillGrid(grid)) return true;
+          grid[row][col] = 0;
+        }
+      }
+      return false;
+    }
+    return true;
+  }
+
+  // Рахує кількість розв'язків, зупиняючись одразу після досягнення
+  // limit (нам треба лише знати "рівно один" чи "більше одного").
+  function countSolutions(grid, limit) {
+    let count = 0;
+    function solve() {
+      for (let i = 0; i < 81; i++) {
+        const row = Math.floor(i / 9), col = i % 9;
+        if (grid[row][col] === 0) {
+          for (let n = 1; n <= 9; n++) {
+            if (isValid(grid, row, col, n)) {
+              grid[row][col] = n;
+              solve();
+              grid[row][col] = 0;
+              if (count >= limit) return;
+            }
+          }
+          return;
+        }
+      }
+      count++;
+    }
+    solve();
+    return count;
+  }
+
+  function makePuzzle(clues) {
+    const solution = Array.from({ length: 9 }, () => new Array(9).fill(0));
+    fillGrid(solution);
+    const puzzle = solution.map((r) => r.slice());
+    const order = shuffle(Array.from({ length: 81 }, (_, i) => i));
+    const target = 81 - clues;
+    let removed = 0;
+    for (const idx of order) {
+      if (removed >= target) break;
+      const row = Math.floor(idx / 9), col = idx % 9;
+      const backup = puzzle[row][col];
+      if (backup === 0) continue;
+      puzzle[row][col] = 0;
+      const copy = puzzle.map((r) => r.slice());
+      if (countSolutions(copy, 2) !== 1) {
+        puzzle[row][col] = backup; // видалення зламало унікальність — повертаємо
+      } else {
+        removed++;
+      }
+    }
+    return { puzzle, solution };
+  }
+
+  // ------------------------------------------------------------------
+  // Стан гри
+  // ------------------------------------------------------------------
+  let difficulty = "medium";
+  let puzzle, solution, userGrid, given, errorGrid;
+  let selected = null;
+  let mistakes = 0, startTime = 0, timerHandle = null, finished = false;
+
+  const boardEl = document.getElementById("board");
+  const numpadEl = document.getElementById("numpad");
+  const msgEl = document.getElementById("msg");
+  const timerEl = document.getElementById("timerVal");
+  const mistakesEl = document.getElementById("mistakesVal");
+  const resultPanel = document.getElementById("resultPanel");
+  const resultTitle = document.getElementById("resultTitle");
+  const resultSub = document.getElementById("resultSub");
+  const genOverlay = document.getElementById("genOverlay");
+
+  function cellId(r, c) { return r * 9 + c; }
+
+  function buildBoardDOM() {
+    boardEl.innerHTML = "";
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        const cell = document.createElement("div");
+        cell.className = "sud-cell";
+        if ((c + 1) % 3 === 0 && c !== 8) cell.classList.add("box-right");
+        if ((r + 1) % 3 === 0 && r !== 8) cell.classList.add("box-bottom");
+        cell.dataset.row = r;
+        cell.dataset.col = c;
+        cell.addEventListener("click", () => selectCell(r, c));
+        boardEl.appendChild(cell);
+      }
+    }
+  }
+
+  function buildNumpadDOM() {
+    numpadEl.innerHTML = "";
+    for (let n = 1; n <= 9; n++) {
+      const btn = document.createElement("button");
+      btn.className = "num-btn";
+      btn.textContent = n;
+      btn.addEventListener("click", () => inputDigit(n));
+      numpadEl.appendChild(btn);
+    }
+    const erase = document.createElement("button");
+    erase.className = "num-btn erase";
+    erase.textContent = "⌫";
+    erase.addEventListener("click", eraseCell);
+    numpadEl.appendChild(erase);
+  }
+
+  function newGame(diff) {
+    difficulty = diff || difficulty;
+    document.querySelectorAll(".diff-tab").forEach((t) => t.classList.toggle("active", t.dataset.diff === difficulty));
+    resultPanel.style.display = "none";
+    msgEl.textContent = "";
+    finished = false;
+    mistakes = 0;
+    mistakesEl.textContent = "0";
+    selected = null;
+    if (timerHandle) clearInterval(timerHandle);
+
+    genOverlay.classList.add("open");
+    // Невелика затримка, щоб оверлей встиг відмалюватись перед важким
+    // синхронним backtracking-розрахунком (інакше UI просто "замре" без
+    // жодного індикатора завантаження).
+    setTimeout(() => {
+      const { puzzle: p, solution: s } = makePuzzle(DIFFICULTY[difficulty].clues);
+      puzzle = p;
+      solution = s;
+      userGrid = p.map((r) => r.slice());
+      given = p.map((r) => r.map((v) => v !== 0));
+      errorGrid = Array.from({ length: 9 }, () => new Array(9).fill(false));
+
+      startTime = Date.now();
+      timerHandle = setInterval(updateTimer, 1000);
+      updateTimer();
+      renderBoard();
+      genOverlay.classList.remove("open");
+    }, 30);
+  }
+
+  function updateTimer() {
+    const secs = Math.floor((Date.now() - startTime) / 1000);
+    const m = String(Math.floor(secs / 60)).padStart(2, "0");
+    const s = String(secs % 60).padStart(2, "0");
+    timerEl.textContent = `${m}:${s}`;
+  }
+
+  function selectCell(r, c) {
+    if (finished) return;
+    selected = { r, c };
+    renderBoard();
+  }
+
+  function inputDigit(n) {
+    if (finished || !selected) return;
+    const { r, c } = selected;
+    if (given[r][c]) return;
+    userGrid[r][c] = n;
+    if (n !== solution[r][c]) {
+      errorGrid[r][c] = true;
+      mistakes++;
+      mistakesEl.textContent = String(mistakes);
+      flashCell(r, c);
+    } else {
+      errorGrid[r][c] = false;
+    }
+    renderBoard();
+    checkWin();
+  }
+
+  function eraseCell() {
+    if (finished || !selected) return;
+    const { r, c } = selected;
+    if (given[r][c]) return;
+    userGrid[r][c] = 0;
+    errorGrid[r][c] = false;
+    renderBoard();
+  }
+
+  function flashCell(r, c) {
+    const el = boardEl.children[cellId(r, c)];
+    if (!el) return;
+    el.classList.remove("flash");
+    // reflow, щоб анімація перезапустилась навіть при повторній помилці на тій самій клітинці
+    void el.offsetWidth;
+    el.classList.add("flash");
+  }
+
+  function renderBoard() {
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        const el = boardEl.children[cellId(r, c)];
+        const val = userGrid[r][c];
+        el.textContent = val === 0 ? "" : val;
+        el.classList.toggle("given", given[r][c]);
+        el.classList.toggle("error", errorGrid[r][c]);
+        el.classList.remove("peer", "same-value", "selected");
+        if (selected) {
+          const sameRow = r === selected.r, sameCol = c === selected.c;
+          const sameBox = Math.floor(r / 3) === Math.floor(selected.r / 3) && Math.floor(c / 3) === Math.floor(selected.c / 3);
+          if (sameRow || sameCol || sameBox) el.classList.add("peer");
+          if (r === selected.r && c === selected.c) el.classList.add("selected");
+          const selVal = userGrid[selected.r][selected.c];
+          if (selVal !== 0 && val === selVal) el.classList.add("same-value");
+        }
+      }
+    }
+  }
+
+  function hint() {
+    if (finished || !selected) {
+      msgEl.textContent = "Спочатку обери порожню клітинку";
+      return;
+    }
+    const { r, c } = selected;
+    if (given[r][c]) return;
+    userGrid[r][c] = solution[r][c];
+    errorGrid[r][c] = false;
+    mistakes++; // підказка теж коштує очок, як і помилка — щоб не було сенсу зловживати
+    mistakesEl.textContent = String(mistakes);
+    renderBoard();
+    checkWin();
+  }
+
+  function checkWin() {
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        if (userGrid[r][c] !== solution[r][c]) return;
+      }
+    }
+    finished = true;
+    clearInterval(timerHandle);
+    const elapsedSec = Math.floor((Date.now() - startTime) / 1000);
+    const score = computeScore(elapsedSec, mistakes);
+
+    resultPanel.style.display = "block";
+    resultTitle.textContent = "🎉 Розв'язано!";
+    resultSub.textContent = `Час: ${timerEl.textContent} · Помилок: ${mistakes} · Очки: ${score}`;
+
+    if (window.AppScore) {
+      window.AppScore.sendScore("sudoku", score);
+    }
+    if (!window.AppAuth || !window.AppAuth.getSession()) {
+      msgEl.textContent = "Увійди в профіль, щоб зберігати рекорди";
+    } else {
+      msgEl.textContent = "";
+    }
+  }
+
+  // Час і помилки конвертуються в "очки", де БІЛЬШЕ = КРАЩЕ — так само,
+  // як рахунок в інших іграх (score-connect.js завжди зберігає новий
+  // рекорд лише якщо score > попереднього найкращого).
+  function computeScore(elapsedSec, mistakesCount) {
+    const base = DIFFICULTY[difficulty].base;
+    const score = base - elapsedSec * 2 - mistakesCount * 40;
+    return Math.max(50, Math.round(score));
+  }
+
+  document.querySelectorAll(".diff-tab").forEach((tab) => {
+    tab.addEventListener("click", () => newGame(tab.dataset.diff));
+  });
+  document.getElementById("newGameBtn").addEventListener("click", () => newGame());
+  document.getElementById("hintBtn").addEventListener("click", hint);
+
+  // Приховане авто-розв'язання для тестування (не для гравців): відкрий
+  // sudoku.html?test=1, щоб побачити кнопку і миттєво пройти пазл —
+  // перевірити екран перемоги, рахунок, відправку рекорду тощо.
+  if (new URLSearchParams(location.search).get("test") === "1") {
+    const autoSolveBtn = document.getElementById("autoSolveBtn");
+    autoSolveBtn.style.display = "";
+    autoSolveBtn.addEventListener("click", () => {
+      if (finished) return;
+      for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+          userGrid[r][c] = solution[r][c];
+          errorGrid[r][c] = false;
+        }
+      }
+      renderBoard();
+      checkWin();
+    });
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key >= "1" && e.key <= "9") inputDigit(Number(e.key));
+    else if (e.key === "Backspace" || e.key === "Delete") eraseCell();
+    else if (selected) {
+      const { r, c } = selected;
+      if (e.key === "ArrowUp" && r > 0) selectCell(r - 1, c);
+      else if (e.key === "ArrowDown" && r < 8) selectCell(r + 1, c);
+      else if (e.key === "ArrowLeft" && c > 0) selectCell(r, c - 1);
+      else if (e.key === "ArrowRight" && c < 8) selectCell(r, c + 1);
+    }
+  });
+
+  buildBoardDOM();
+  buildNumpadDOM();
+  newGame("medium");
+
+  // Тестовий хелпер: миттєво заповнює поле правильним розв'язком і
+  // запускає ту саму логіку перемоги (рахунок, sendScore, resultPanel),
+  // щоб можна було перевірити фінальний екран не розв'язуючи пазл руками.
+  window.__sudokuDebug = {
+    solveNow() {
+      for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+          userGrid[r][c] = solution[r][c];
+          errorGrid[r][c] = false;
+        }
+      }
+      renderBoard();
+      checkWin();
+    },
+  };
+})();
+</script>
+</body>
+</html>

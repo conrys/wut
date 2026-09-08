@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>Смішліст</title>
+<style>
+/* ================= Оригінальний styles.css (quipleaf), портовано 1:1 ================= */
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body {
+  margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
+  font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  overscroll-behavior: none; -webkit-user-select: none; user-select: none;
+}
+h1, h2 { margin: 0 0 8px; }
+.hint { color: #9a9aa5; font-size: 14px; margin: 4px 0 16px; }
+.error { color: #e74c3c; min-height: 20px; font-size: 14px; }
+.hidden { display: none !important; }
+
+#header-bar {
+  display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr); align-items: center;
+  gap: 10px; padding: 46px 16px 10px; background: #2b2b33; border-bottom: 1px solid #3a3a44;
+  font-size: 14px; position: sticky; top: 0; z-index: 2;
+}
+#my-badge { display: flex; align-items: center; gap: 8px; font-weight: 600; justify-self: start; min-width: 0; }
+#round-label { justify-self: center; text-align: center; }
+#pause-btn { place-self: center end; }
+
+.screen { max-width: 480px; margin: 0 auto; padding: 24px; text-align: center; position: relative; z-index: 2; }
+
+button { padding: 10px 18px; font-size: 16px; border: none; border-radius: 6px; background: #3498db; color: #fff; cursor: pointer; }
+button:disabled { opacity: 0.5; cursor: default; }
+
+#lobby-settings { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 20px 0 4px; font-size: 14px; color: #c8c8d0; flex-wrap: wrap; }
+#vote-seconds-select { padding: 8px 10px; border-radius: 6px; border: 1px solid #444; background: #2b2b33; color: #fff; font-size: 14px; }
+#start-btn, #restart-btn { background: #2ecc71; color: #10331e; font-weight: 600; margin-top: 12px; }
+
+.player-list { text-align: left; max-width: 320px; margin: 0 auto 12px; }
+.score-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 15px; }
+.score-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+.score-me { background: rgba(52,152,219,0.15); border-radius: 4px; margin: 0 -6px; padding: 6px; }
+
+.timer-bar { height: 6px; background: #2b2b33; border-radius: 4px; overflow: hidden; margin-bottom: 16px; }
+.timer-fill { height: 100%; background: #3498db; width: 100%; transition: width 0.3s linear; }
+
+.answer-card { background: #2b2b33; border: 1px solid #3a3a44; border-radius: 8px; padding: 16px; margin-bottom: 16px; text-align: left; }
+.prompt-text { font-size: 16px; font-weight: 600; margin: 0 0 12px; }
+.prompt-image { display: block; max-width: 100%; max-height: 240px; width: auto; margin: 0 auto 12px; border-radius: 8px; object-fit: contain; background: #14141a; }
+.answer-card textarea { width: 100%; min-height: 60px; padding: 10px; font-size: 15px; border-radius: 6px; border: 1px solid #444; background: #1e1e24; color: #fff; resize: none; outline: none; font-family: inherit; margin-bottom: 8px; }
+
+#voting-choices { display: flex; flex-direction: column; gap: 12px; }
+.answer-btn { background: #2b2b33; border: 1px solid #3a3a44; border-radius: 8px; padding: 16px; font-size: 16px; text-align: left; white-space: normal; color: #f0f0f0; }
+#gallery-choices .answer-btn { text-align: center; }
+
+.reveal-row { display: flex; flex-direction: column; gap: 12px; }
+.reveal-answer { background: #2b2b33; border: 1px solid #3a3a44; border-radius: 8px; padding: 16px; text-align: left; }
+.reveal-winner { border-color: #2ecc71; box-shadow: 0 0 0 2px rgba(46,204,113,0.4); }
+.reveal-name { font-weight: 700; margin: 0 0 4px; }
+.reveal-answer-text { margin: 0 0 6px; font-size: 15px; }
+
+#scene-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; background: #1e1e24; }
+#scene-bg::before {
+  content: ''; position: absolute; top: 50%; left: 50%; width: 220vmax; height: 220vmax;
+  margin-top: -110vmax; margin-left: -110vmax;
+  background: repeating-conic-gradient(from 0deg, hsla(var(--ray-hue,210),70%,55%,0.09) 0deg var(--ray-width,8deg), transparent var(--ray-width,8deg) calc(var(--ray-width,8deg) * 2));
+  animation: scene-bg-spin var(--ray-speed,140s) linear infinite;
+}
+.bg-reverse #scene-bg::before { animation-direction: reverse; }
+@keyframes scene-bg-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+#lobby-ring { position: relative; width: min(84vw,380px); aspect-ratio: 1/1; margin: 0 auto 24px; }
+#lobby-logo { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); text-align: center; font-size: 22px; font-weight: 800; letter-spacing: 0.02em; white-space: nowrap; }
+.logo-accent { color: #3498db; }
+.lobby-character { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 6px; transform: translate(-50%,-50%); animation: lobby-char-in 0.4s ease-out; }
+.lobby-character-avatar { width: 60px; height: 60px; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px rgba(255,255,255,0.15); flex-shrink: 0; }
+.lobby-character-avatar img { width: 100%; height: 100%; object-fit: contain; }
+.lobby-character-name { font-size: 13px; font-weight: 600; max-width: 90px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@keyframes lobby-char-in { from { opacity: 0; transform: translate(-50%,-50%) scale(0.5); } to { opacity: 1; transform: translate(-50%,-50%) scale(1); } }
+
+.pause-btn { background: transparent; border: 1px solid #4a4a56; color: #f0f0f0; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0; flex-shrink: 0; }
+#pause-overlay { position: fixed; inset: 0; background: rgba(10,10,14,0.88); display: flex; align-items: center; justify-content: center; z-index: 500; text-align: center; padding: 24px; }
+.pause-box { max-width: 360px; }
+.pause-icon { font-size: 48px; margin: 0 0 8px; }
+#resume-btn { margin-top: 12px; background: #ff6fa5; border: none; color: #1e1e24; font-weight: 700; font-size: 16px; padding: 12px 28px; border-radius: 999px; cursor: pointer; }
+
+.readiness-bar { display: flex; flex-wrap: wrap; justify-content: center; gap: 18px; margin-top: 28px; padding-top: 12px; }
+.readiness-avatar { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 64px; transform: translateY(10px); opacity: 0.55; filter: brightness(0.55) saturate(0.6); transition: transform 0.35s ease, opacity 0.35s ease, filter 0.35s ease; }
+.readiness-avatar.is-ready { transform: translateY(0); opacity: 1; filter: none; }
+.readiness-avatar-img { width: 48px; height: 48px; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px rgba(255,255,255,0.15); flex-shrink: 0; }
+.readiness-avatar-img img { width: 100%; height: 100%; object-fit: contain; }
+.readiness-avatar-name { font-size: 11px; max-width: 64px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #c8c8d0; }
+.readiness-avatar.is-me .readiness-avatar-name { color: #ff6fa5; font-weight: 700; }
+
+#answer-ready { text-align: center; padding: 32px 0 8px; }
+.ready-icon { font-size: 44px; margin: 0 0 8px; }
+
+.final-board { max-width: 420px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; text-align: left; }
+.final-row { display: flex; align-items: center; gap: 14px; background: #24242c; border: 1px solid #38383f; border-radius: 14px; padding: 12px 16px; }
+.final-row.winner { background: #33301f; border-color: #ffd76f; box-shadow: 0 0 0 2px rgba(255,215,111,0.25), 0 0 24px rgba(255,215,111,0.18); }
+.final-rank { width: 28px; flex-shrink: 0; text-align: center; font-size: 18px; font-weight: 800; color: #9c9ca6; }
+.final-avatar { width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px rgba(255,255,255,0.15); }
+.final-avatar img { width: 100%; height: 100%; object-fit: contain; }
+.final-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.final-name { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.final-bar-track { height: 10px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
+.final-bar-fill { height: 100%; border-radius: 999px; width: 0%; transition: width 0.9s cubic-bezier(0.22,1,0.36,1); background: #3498db; }
+.final-score { font-size: 17px; font-weight: 800; min-width: 50px; text-align: right; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<div id="scene-bg" aria-hidden="true"></div>
+
+<div id="header-bar" class="hidden">
+  <span id="my-badge"></span>
+  <span id="round-label"></span>
+  <button id="pause-btn" class="pause-btn" title="Пауза">⏸</button>
+</div>
+
+<div id="pause-overlay" class="hidden">
+  <div class="pause-box">
+    <p class="pause-icon">⏸</p>
+    <h2>Гру на паузі</h2>
+    <p class="hint" id="pause-by-text"></p>
+    <button id="resume-btn">Продовжити</button>
+  </div>
+</div>
+
+<div id="screen-locked" class="screen hidden">
+  <h1>Сміхліст</h1>
+  <p class="hint">Увійди в профіль, щоб грати з друзями</p>
+</div>
+
+<div id="screen-waiting" class="screen hidden">
+  <h1>Сміхліст</h1>
+  <p class="hint">Гра триває — приєднаєшся на наступній</p>
+</div>
+
+<div id="screen-lobby" class="screen hidden">
+  <div id="lobby-ring">
+    <div id="lobby-logo"><span>Сміх</span><span class="logo-accent">ліст</span></div>
+  </div>
+  <p class="hint" id="lobby-hint"></p>
+  <div id="lobby-settings" class="hidden">
+    <label for="vote-seconds-select">Час на голосування</label>
+    <select id="vote-seconds-select">
+      <option value="15">15 секунд</option>
+      <option value="20">20 секунд</option>
+      <option value="25">25 секунд</option>
+      <option value="30">30 секунд</option>
+      <option value="40">40 секунд</option>
+      <option value="60">60 секунд</option>
+    </select>
+  </div>
+  <button id="start-btn" class="hidden">Почати гру</button>
+</div>
+
+<div id="screen-answer" class="screen hidden">
+  <p class="hint hidden" id="answer-explainer">Перед вами картинка, вигадайте смішний або цікавий підпис</p>
+  <h2 id="answer-title">Пиши відповідь!</h2>
+  <p class="hint" id="answer-progress"></p>
+  <div id="answer-cards"></div>
+  <div id="answer-ready" class="hidden">
+    <p class="ready-icon">✅</p>
+    <p class="hint">Відповідь(-і) надіслано! Чекаємо решту гравців…</p>
+  </div>
+  <div id="answer-readiness" class="readiness-bar"></div>
+</div>
+
+<div id="screen-voting" class="screen hidden">
+  <div class="timer-bar"><div id="vote-timer-fill" class="timer-fill"></div></div>
+  <p class="hint" id="matchup-progress"></p>
+  <img id="voting-prompt-image" class="prompt-image hidden" alt="">
+  <h2 id="voting-prompt"></h2>
+
+  <div id="voting-choices" class="hidden">
+    <button class="answer-btn" id="choice-a" data-choice="A"></button>
+    <button class="answer-btn" id="choice-b" data-choice="B"></button>
+  </div>
+  <div id="gallery-choices" class="hidden"></div>
+  <div id="voting-waiting" class="hidden">
+    <p class="hint" id="voting-waiting-text"></p>
+  </div>
+  <div id="voting-reveal" class="hidden">
+    <div class="reveal-row">
+      <div class="reveal-answer" id="reveal-a"></div>
+      <div class="reveal-answer" id="reveal-b"></div>
+    </div>
+    <div id="gallery-reveal-list"></div>
+  </div>
+</div>
+
+<div id="screen-round-end" class="screen hidden">
+  <h2 id="round-end-title"></h2>
+  <div id="gallery-recap" class="hidden"></div>
+  <div id="round-scoreboard" class="final-board"></div>
+  <p class="hint">Наступний раунд ось-ось почнеться…</p>
+</div>
+
+<div id="screen-game-over" class="screen hidden">
+  <h1>🎉 Гру завершено!</h1>
+  <div id="final-scoreboard" class="final-board"></div>
+  <button id="restart-btn" class="hidden">Грати знову</button>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/login.js"></script>
+<script src="js/quiplash-prompts.js"></script>
+<script src="js/quiplash-game.js"></script>
+<script src="js/help.js"></script>
+<script src="js/back-button.js"></script>
+<script>
+(function () {
+  const SCREENS = ["locked", "waiting", "lobby", "answer", "voting", "round-end", "game-over"];
+  function screen(name) {
+    SCREENS.forEach((s) => document.getElementById("screen-" + s).classList.toggle("hidden", s !== name));
+  }
+  function escapeHtml(s) {
+    const d = document.createElement("div");
+    d.textContent = s == null ? "" : String(s);
+    return d.innerHTML;
+  }
+  function charImg(p) { return `img/quiplash/chars/char${p.character || 1}.svg`; }
+
+  let lastState = null;
+  let session = null;
+  let appliedSessionSeed = null;
+  let lastLobbyRingKey = null;
+
+  const headerBar = document.getElementById("header-bar");
+  const myBadge = document.getElementById("my-badge");
+  const roundLabel = document.getElementById("round-label");
+  const pauseBtn = document.getElementById("pause-btn");
+  const pauseOverlay = document.getElementById("pause-overlay");
+  const pauseByText = document.getElementById("pause-by-text");
+  const lobbyRing = document.getElementById("lobby-ring");
+  const lobbyHint = document.getElementById("lobby-hint");
+  const lobbySettings = document.getElementById("lobby-settings");
+  const voteSecondsSelect = document.getElementById("vote-seconds-select");
+  const startBtn = document.getElementById("start-btn");
+  const answerTitle = document.getElementById("answer-title");
+  const answerExplainer = document.getElementById("answer-explainer");
+  const answerProgress = document.getElementById("answer-progress");
+  const answerCards = document.getElementById("answer-cards");
+  const answerReady = document.getElementById("answer-ready");
+  const answerReadiness = document.getElementById("answer-readiness");
+  const voteTimerFill = document.getElementById("vote-timer-fill");
+  const matchupProgress = document.getElementById("matchup-progress");
+  const votingPromptImage = document.getElementById("voting-prompt-image");
+  const votingPrompt = document.getElementById("voting-prompt");
+  const votingChoices = document.getElementById("voting-choices");
+  const galleryChoices = document.getElementById("gallery-choices");
+  const votingWaiting = document.getElementById("voting-waiting");
+  const votingWaitingText = document.getElementById("voting-waiting-text");
+  const votingReveal = document.getElementById("voting-reveal");
+  const revealA = document.getElementById("reveal-a");
+  const revealB = document.getElementById("reveal-b");
+  const galleryRevealList = document.getElementById("gallery-reveal-list");
+  const roundEndTitle = document.getElementById("round-end-title");
+  const galleryRecap = document.getElementById("gallery-recap");
+  const roundScoreboard = document.getElementById("round-scoreboard");
+  const finalScoreboard = document.getElementById("final-scoreboard");
+  const restartBtn = document.getElementById("restart-btn");
+  const choiceA = document.getElementById("choice-a");
+  const choiceB = document.getElementById("choice-b");
+
+  function renderBadge() {
+    myBadge.innerHTML = "";
+    const p = lastState && lastState.players && lastState.players[session];
+    const dot = document.createElement("span");
+    dot.className = "score-dot";
+    dot.style.background = (p && p.color) || "#999";
+    const label = document.createElement("span");
+    label.textContent = session;
+    myBadge.appendChild(dot);
+    myBadge.appendChild(label);
+  }
+
+  function applySessionBackground(seed) {
+    if (seed === null || seed === undefined || seed === appliedSessionSeed) return;
+    appliedSessionSeed = seed;
+    const widths = [6, 8, 10, 14, 18];
+    const speeds = [90, 120, 150, 180, 220];
+    const hue = seed % 360;
+    const width = widths[seed % widths.length];
+    const speed = speeds[Math.floor(seed / 7) % speeds.length];
+    document.documentElement.style.setProperty("--ray-hue", hue);
+    document.documentElement.style.setProperty("--ray-width", width + "deg");
+    document.documentElement.style.setProperty("--ray-speed", speed + "s");
+    document.body.classList.toggle("bg-reverse", seed % 2 === 0);
+  }
+
+  function renderLobbyRing(players) {
+    const key = players.map((p) => p.name).join(",");
+    if (key === lastLobbyRingKey) return;
+    lastLobbyRingKey = key;
+    lobbyRing.querySelectorAll(".lobby-character").forEach((el) => el.remove());
+    const n = players.length;
+    players.forEach((p, i) => {
+      const angle = (360 / Math.max(n, 1)) * i - 90;
+      const rad = (angle * Math.PI) / 180;
+      const x = 50 + 40 * Math.cos(rad);
+      const y = 50 + 40 * Math.sin(rad);
+      const node = document.createElement("div");
+      node.className = "lobby-character";
+      node.style.left = x + "%";
+      node.style.top = y + "%";
+      const avatar = document.createElement("div");
+      avatar.className = "lobby-character-avatar";
+      avatar.style.background = p.color;
+      const img = document.createElement("img");
+      img.src = charImg(p);
+      img.alt = "";
+      img.onerror = function () { this.style.display = "none"; };
+      avatar.appendChild(img);
+      const label = document.createElement("div");
+      label.className = "lobby-character-name";
+      label.textContent = p.name;
+      node.appendChild(avatar);
+      node.appendChild(label);
+      lobbyRing.appendChild(node);
+    });
+  }
+
+  function renderReadinessBar(container, players, answeredNames) {
+    const answeredSet = new Set(answeredNames);
+    container.innerHTML = "";
+    players.forEach((p) => {
+      const isReady = answeredSet.has(p.name);
+      const node = document.createElement("div");
+      node.className = "readiness-avatar" + (isReady ? " is-ready" : "") + (p.name === session ? " is-me" : "");
+      const avatar = document.createElement("div");
+      avatar.className = "readiness-avatar-img";
+      avatar.style.background = p.color;
+      const img = document.createElement("img");
+      img.src = charImg(p);
+      img.onerror = function () { this.style.display = "none"; };
+      avatar.appendChild(img);
+      const label = document.createElement("div");
+      label.className = "readiness-avatar-name";
+      label.textContent = p.name;
+      node.appendChild(avatar);
+      node.appendChild(label);
+      container.appendChild(node);
+    });
+  }
+
+  function renderFinalBoard(container, entries) {
+    const max = Math.max(1, ...entries.map(([, p]) => p.score || 0));
+    container.innerHTML = "";
+    entries.forEach(([name, p], i) => {
+      const row = document.createElement("div");
+      row.className = "final-row" + (i === 0 ? " winner" : "");
+      row.innerHTML = `
+        <div class="final-rank">${i + 1}</div>
+        <div class="final-avatar" style="background:${p.color || "#888"}">
+          <img src="${charImg(p)}" onerror="this.style.display='none'">
+        </div>
+        <div class="final-info">
+          <div class="final-name">${escapeHtml(name)}</div>
+          <div class="final-bar-track"><div class="final-bar-fill" style="width:0%"></div></div>
+        </div>
+        <div class="final-score">${p.score || 0}</div>`;
+      container.appendChild(row);
+      requestAnimationFrame(() => {
+        row.querySelector(".final-bar-fill").style.width = Math.round(((p.score || 0) / max) * 100) + "%";
+      });
+    });
+  }
+
+  function setTimerFill(deadline, totalMs) {
+    if (!deadline) { voteTimerFill.style.width = "100%"; return; }
+    const remaining = Math.max(0, deadline - Date.now());
+    voteTimerFill.style.width = Math.max(0, Math.min(100, (remaining / totalMs) * 100)) + "%";
+  }
+
+  function makeRevealBlock(name, answer, count, points) {
+    const wrap = document.createElement("div");
+    wrap.innerHTML = `<p class="reveal-name">${escapeHtml(name)}</p>
+      <p class="reveal-answer-text">${escapeHtml(answer)}</p>
+      <p class="hint">${count || 0} голос(и) · +${points || 0} очок</p>`;
+    return wrap;
+  }
+
+  function renderAnswering(state) {
+    const players = Object.entries(state.players || {}).map(([n, p]) => ({ name: n, ...p }));
+
+    if (state.gallery) {
+      answerTitle.classList.add("hidden");
+      answerProgress.classList.add("hidden");
+      answerExplainer.classList.remove("hidden");
+      const already = state.gallery.answers && state.gallery.answers[session] !== undefined;
+      renderReadinessBar(answerReadiness, players, Object.keys(state.gallery.answers || {}));
+      if (already) {
+        answerCards.classList.add("hidden");
+        answerReady.classList.remove("hidden");
+        return;
+      }
+      answerCards.classList.remove("hidden");
+      answerReady.classList.add("hidden");
+      answerCards.innerHTML = `<div class="answer-card">
+        <img class="prompt-image" src="${escapeHtml(state.gallery.image)}" onerror="this.style.display='none'">
+        <p class="prompt-text">${escapeHtml(state.gallery.text)}</p>
+        <textarea id="galleryInput" maxlength="100" placeholder="Одне слово чи ціла фраза…"></textarea>
+        <button id="gallerySubmit">Надіслати</button>
+      </div>`;
+      document.getElementById("gallerySubmit").addEventListener("click", () => {
+        const t = document.getElementById("galleryInput").value.trim();
+        if (t) QuiplashGame.submitAnswer(null, t);
+      });
+      return;
+    }
+
+    answerExplainer.classList.add("hidden");
+    const mine = Object.values(state.matchups || {}).filter((m) => m.playerAId === session || m.playerBId === session);
+    const answeredNames = players.filter((p) =>
+      Object.values(state.matchups || {}).every((m) =>
+        (m.playerAId !== p.name || m.answerA !== null) && (m.playerBId !== p.name || m.answerB !== null)
+      )
+    ).map((p) => p.name);
+    renderReadinessBar(answerReadiness, players, answeredNames);
+
+    const pending = mine.filter((m) => (m.playerAId === session ? m.answerA === null : m.answerB === null));
+    if (mine.length && !pending.length) {
+      answerTitle.classList.add("hidden");
+      answerProgress.classList.add("hidden");
+      answerCards.classList.add("hidden");
+      answerReady.classList.remove("hidden");
+      return;
+    }
+    answerTitle.classList.remove("hidden");
+    answerReady.classList.add("hidden");
+    answerCards.classList.remove("hidden");
+    const current = pending[0];
+    if (!current) { answerCards.innerHTML = ""; return; }
+    const doneCount = mine.length - pending.length;
+    answerProgress.classList.toggle("hidden", mine.length <= 1);
+    answerProgress.textContent = `Питання ${doneCount + 1} з ${mine.length}`;
+    answerCards.innerHTML = `<div class="answer-card">
+      <p class="prompt-text">${escapeHtml(current.promptText)}</p>
+      <textarea id="matchupInput" maxlength="100" placeholder="Твоя смішна відповідь…"></textarea>
+      <button id="matchupSubmit">Надіслати</button>
+    </div>`;
+    document.getElementById("matchupSubmit").addEventListener("click", () => {
+      const t = document.getElementById("matchupInput").value.trim();
+      if (t) QuiplashGame.submitAnswer(current.id, t);
+    });
+  }
+
+  function renderVoting(state) {
+    galleryChoices.classList.add("hidden");
+    votingChoices.classList.add("hidden");
+    votingWaiting.classList.add("hidden");
+    votingReveal.classList.add("hidden");
+
+    if (state.gallery) {
+      const g = state.gallery;
+      matchupProgress.textContent = "Голосування за найкращий підпис";
+      votingPromptImage.src = g.image; votingPromptImage.classList.remove("hidden");
+      votingPrompt.textContent = g.text;
+
+      if (state.phase === "reveal") {
+        setTimerFill(null, 1);
+        votingReveal.classList.remove("hidden");
+        revealA.parentElement.classList.add("hidden");
+        galleryRevealList.classList.remove("hidden");
+        galleryRevealList.innerHTML = "";
+        const results = Object.entries(g.results || {}).sort((a, b) => b[1].count - a[1].count);
+        results.forEach(([n, r], i) => {
+          const row = document.createElement("div");
+          row.className = "reveal-answer" + (i === 0 && r.count > 0 ? " reveal-winner" : "");
+          row.appendChild(makeRevealBlock(n, g.answers[n], r.count, r.points));
+          galleryRevealList.appendChild(row);
+        });
+        return;
+      }
+      setTimerFill(state.phaseDeadline, ((state.settings.voteSeconds || 25) + 10) * 1000);
+      const haveAnswered = g.answers && g.answers[session] !== undefined;
+      const myVote = g.votes && g.votes[session];
+      if (haveAnswered && !myVote) {
+        galleryChoices.classList.remove("hidden");
+        galleryChoices.innerHTML = "";
+        Object.entries(g.answers || {}).filter(([n]) => n !== session).forEach(([n, text]) => {
+          const btn = document.createElement("button");
+          btn.className = "answer-btn";
+          btn.textContent = text;
+          btn.addEventListener("click", () => { galleryChoices.classList.add("hidden"); QuiplashGame.submitGalleryVote(n); });
+          galleryChoices.appendChild(btn);
+        });
+      } else {
+        votingWaiting.classList.remove("hidden");
+        votingWaitingText.textContent = !haveAnswered
+          ? "Ти не встиг(-ла) відповісти цього раунду — просто дивись 👀"
+          : "Твій голос зараховано. Чекаємо решту…";
+      }
+      return;
+    }
+
+    const list = Object.values(state.matchups || {});
+    const m = list[state.currentMatchupIndex];
+    if (!m) return;
+    matchupProgress.textContent = `Пара ${state.currentMatchupIndex + 1}/${list.length}`;
+    votingPromptImage.classList.add("hidden");
+    votingPrompt.textContent = m.promptText;
+
+    const isParticipant = m.playerAId === session || m.playerBId === session;
+    const myVote = m.votes && m.votes[session];
+
+    if (state.phase === "reveal") {
+      setTimerFill(null, 1);
+      votingReveal.classList.remove("hidden");
+      galleryRevealList.classList.add("hidden");
+      revealA.parentElement.classList.remove("hidden");
+      const aWon = (m.pointsA || 0) > (m.pointsB || 0);
+      const bWon = (m.pointsB || 0) > (m.pointsA || 0);
+      revealA.className = "reveal-answer" + (aWon ? " reveal-winner" : "");
+      revealB.className = "reveal-answer" + (bWon ? " reveal-winner" : "");
+      revealA.innerHTML = ""; revealB.innerHTML = "";
+      revealA.appendChild(makeRevealBlock(m.playerAId, m.answerA, m.countA, m.pointsA));
+      revealB.appendChild(makeRevealBlock(m.playerBId, m.answerB, m.countB, m.pointsB));
+      return;
+    }
+
+    setTimerFill(state.phaseDeadline, (state.settings.voteSeconds || 25) * 1000);
+    if (!isParticipant && !myVote) {
+      votingChoices.classList.remove("hidden");
+      choiceA.textContent = m.answerA;
+      choiceB.textContent = m.answerB;
+      choiceA.onclick = () => QuiplashGame.submitVote(m.id, "A");
+      choiceB.onclick = () => QuiplashGame.submitVote(m.id, "B");
+    } else {
+      votingWaiting.classList.remove("hidden");
+      const votesIn = Object.keys(m.votes || {}).length;
+      votingWaitingText.textContent = isParticipant
+        ? `Люди голосують за вашу пару відповідей… (${votesIn})`
+        : `Твій голос зараховано. Чекаємо решту…`;
+    }
+  }
+
+  function onState(state, ctx) {
+    document.body.dataset.scene = state.phase;
+    applySessionBackground(state.round);
+    if (!ctx.username) { screen("locked"); headerBar.classList.add("hidden"); return; }
+
+    headerBar.classList.remove("hidden");
+    renderBadge();
+    roundLabel.textContent = state.phase === "lobby" ? "" : `Раунд ${state.round}/${QuiplashGame.TOTAL_ROUNDS}`;
+    const pausable = state.phase !== "lobby" && state.phase !== "game_over";
+    pauseBtn.classList.toggle("hidden", !pausable);
+    pauseBtn.textContent = state.paused ? "▶" : "⏸";
+    pauseOverlay.classList.toggle("hidden", !state.paused);
+    if (state.paused) pauseByText.textContent = state.pausedByName ? `${state.pausedByName} поставив(-ла) гру на паузу` : "Гру поставлено на паузу";
+
+    const iAmIn = state.players && state.players[ctx.username];
+    if (!iAmIn && (state.phase === "answering" || state.phase === "voting" || state.phase === "reveal" || state.phase === "round_end")) {
+      screen("waiting");
+      return;
+    }
+
+    const players = Object.entries(state.players || {});
+
+    if (state.phase === "lobby") {
+      screen("lobby");
+      renderLobbyRing(players.map(([n, p]) => ({ name: n, ...p })));
+      const conn = QuiplashGame.connectedEntries(state.players);
+      lobbySettings.classList.toggle("hidden", !ctx.host);
+      startBtn.classList.toggle("hidden", !ctx.host);
+      if (conn.length < QuiplashGame.MIN_PLAYERS) {
+        lobbyHint.textContent = `Потрібно ще щонайменше ${QuiplashGame.MIN_PLAYERS - conn.length} гравців(-я).`;
+        startBtn.disabled = true;
+      } else {
+        lobbyHint.textContent = `Готово! Гравців: ${conn.length}/${QuiplashGame.MAX_PLAYERS}.`;
+        startBtn.disabled = false;
+      }
+      if (document.activeElement !== voteSecondsSelect) voteSecondsSelect.value = String(state.settings.voteSeconds || 25);
+      return;
+    }
+
+    if (state.phase === "answering") { screen("answer"); renderAnswering(state); return; }
+    if (state.phase === "voting" || state.phase === "reveal") { screen("voting"); renderVoting(state); return; }
+
+    if (state.phase === "round_end") {
+      screen("round-end");
+      roundEndTitle.textContent = `Результати раунду ${state.round}`;
+      if (state.gallery && state.gallery.results) {
+        galleryRecap.classList.remove("hidden");
+        const results = Object.entries(state.gallery.results).sort((a, b) => b[1].count - a[1].count);
+        galleryRecap.innerHTML = `<img class="prompt-image" src="${escapeHtml(state.gallery.image)}" onerror="this.style.display='none'">
+          <p class="prompt-text">${escapeHtml(state.gallery.text)}</p>` +
+          results.map(([n, r]) => `<p class="hint">${escapeHtml(n)}: "${escapeHtml(state.gallery.answers[n])}" — ${r.count} голос(и), +${r.points} очок</p>`).join("");
+      } else {
+        galleryRecap.classList.add("hidden");
+        galleryRecap.innerHTML = "";
+      }
+      renderFinalBoard(roundScoreboard, players.sort((a, b) => (b[1].score || 0) - (a[1].score || 0)));
+      return;
+    }
+
+    if (state.phase === "game_over") {
+      screen("game-over");
+      renderFinalBoard(finalScoreboard, players.sort((a, b) => (b[1].score || 0) - (a[1].score || 0)));
+      restartBtn.classList.toggle("hidden", !ctx.host);
+      return;
+    }
+  }
+
+  pauseBtn.addEventListener("click", () => QuiplashGame.setPause(!(lastState && lastState.paused)));
+  document.getElementById("resume-btn").addEventListener("click", () => QuiplashGame.setPause(false));
+  startBtn.addEventListener("click", () => QuiplashGame.startGame(lastState));
+  voteSecondsSelect.addEventListener("change", (e) => QuiplashGame.updateSettings(Number(e.target.value)));
+  restartBtn.addEventListener("click", () => QuiplashGame.resetGame());
+
+  const authSession = window.AppAuth && window.AppAuth.getSession();
+  if (authSession && window.rtdbReady) {
+    session = authSession.username;
+    QuiplashGame.onStateChange = (state, ctx) => { lastState = state; onState(state, ctx); };
+    QuiplashGame.start(session);
+  } else {
+    screen("locked");
+  }
+
+  window.addEventListener("beforeunload", () => { if (window.QuiplashGame) window.QuiplashGame.stop(); });
+})();
+</script>
+</body>
+</html>

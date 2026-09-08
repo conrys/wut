@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<title>Стрибунець</title>
+<style>
+  :root {
+    --sky: #f2e9d8;
+    --grid: rgba(120, 100, 70, 0.12);
+    --bar-bg: #cdd6d6;
+    --text-dark: #23261f;
+    --text-muted: #5a6652;
+    --platform: #6fbd4f;
+    --platform-dark: #3f8a2a;
+    --platform-move: #4fa8d6;
+    --platform-move-dark: #2c7aa8;
+    --platform-break: #b98a52;
+    --platform-break-dark: #8a6238;
+  }
+  * {
+    box-sizing: border-box; -webkit-tap-highlight-color: transparent;
+    user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none;
+    -webkit-touch-callout: none;
+  }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+    background: #14161a; font-family: 'Inter', sans-serif;
+    touch-action: none; overscroll-behavior: none;
+    display: flex; align-items: stretch; justify-content: center;
+  }
+  .page {
+    position: relative;
+    width: 100%;
+    max-width: 480px;
+    height: 100dvh;
+    margin: 0 auto;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  #gameArea {
+    position: relative;
+    flex: 1 1 auto;
+    overflow: hidden;
+    background: var(--sky);
+    touch-action: none;
+  }
+  #game {
+    position: absolute; inset: 0; display: block; touch-action: none;
+  }
+  .hud-bar {
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 46px;
+    background: var(--bar-bg);
+    border-bottom: 3px solid var(--text-dark);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 14px;
+    z-index: 5;
+    font-weight: bold;
+    color: var(--text-dark);
+    font-family: 'Space Grotesk', sans-serif;
+  }
+  .hud-bar span { font-size: 20px; letter-spacing: 0.02em; }
+  .hud-bar button {
+    background: none; border: none; color: var(--text-dark);
+    font-size: 20px; font-family: inherit; font-weight: bold;
+    touch-action: manipulation;
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+    padding: 4px 8px;
+  }
+  #overlay {
+    position: absolute; inset: 0;
+    background: rgba(242, 233, 216, 0.94);
+    display: none;
+    align-items: center; justify-content: center;
+    flex-direction: column; gap: 12px;
+    text-align: center;
+    color: var(--text-dark);
+    font-weight: bold;
+    padding: 20px;
+    z-index: 10;
+  }
+  #overlayTitle { font-size: 24px; font-family: 'Space Grotesk', sans-serif; }
+  #overlayScores { font-size: 14px; color: var(--text-muted); font-weight: normal; line-height: 1.6; }
+  #overlayMsg { font-size: 12px; color: var(--text-muted); font-weight: normal; max-width: 240px; }
+  #overlayBtn {
+    margin-top: 6px;
+    background: var(--platform-dark);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 24px;
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    font-weight: bold;
+    touch-action: manipulation;
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div id="gameArea">
+    <div class="hud-bar">
+      <span id="scoreVal">0</span>
+      <button id="pauseBtn">II</button>
+    </div>
+    <canvas id="game"></canvas>
+    <div id="overlay">
+      <div id="overlayTitle">ГРА ЗАКІНЧЕНА</div>
+      <div id="overlayScores">Рахунок: 0<br/>Рекорд: 0</div>
+      <div id="overlayMsg"></div>
+      <button id="overlayBtn">Нова гра</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const gameAreaEl = document.getElementById('gameArea');
+  const scoreVal = document.getElementById('scoreVal');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const overlay = document.getElementById('overlay');
+  const overlayTitle = document.getElementById('overlayTitle');
+  const overlayScores = document.getElementById('overlayScores');
+  const overlayMsg = document.getElementById('overlayMsg');
+  const overlayBtn = document.getElementById('overlayBtn');
+
+  let W = 0, H = 0, DPR = 1;
+  function resize() {
+    W = gameAreaEl.clientWidth;
+    H = gameAreaEl.clientHeight;
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = W * DPR;
+    canvas.height = H * DPR;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // ---- фізичні константи ----
+  const GRAVITY = 1300;      // px/s^2
+  const JUMP_V = 780;        // px/s, швидкість підкидання при приземленні
+  const MOVE_ACCEL = 1900;   // px/s^2 керування вліво/вправо
+  const MAX_VX = 420;        // px/s
+  const DAMPING = 5.5;       // гальмування, коли нема вводу
+  const PLAYER_R = 20;
+  const PLATFORM_W = 108, PLATFORM_H = 20;
+  const MIN_GAP = 70, MAX_GAP = 170;
+  const UPPER_THRESHOLD_FRAC = 0.42; // на якій долі екрана "тримається" гравець при підйомі
+
+  // ---- SVG-асети ----
+  // Хочеш замінити на свій арт — просто підклади інший SVG-рядок (той самий viewBox
+  // не обов'язковий, розмір на екрані все одно задається в drawXxxIcon/drawEnemy нижче).
+  // Можна навіть підвантажувати з окремих .svg-файлів замість inline-рядків:
+  // const img = new Image(); img.src = 'img/enemy.svg';
+  const ASSET_SVG = {
+    enemy: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
+      <circle cx="20" cy="20" r="17" fill="#8a5fd6" stroke="#4a3080" stroke-width="2.5"/>
+      <path d="M9 15 L16 18 M31 15 L24 18" stroke="#2a1a55" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+      <circle cx="14" cy="21" r="4" fill="#fff"/>
+      <circle cx="26" cy="21" r="4" fill="#fff"/>
+      <circle cx="14" cy="21" r="1.8" fill="#241740"/>
+      <circle cx="26" cy="21" r="1.8" fill="#241740"/>
+    </svg>`,
+    jetpack: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 36">
+      <rect x="4" y="2" width="16" height="22" rx="4" fill="#e0522f" stroke="#8a2e17" stroke-width="2"/>
+      <path d="M7 24 L12 34 L17 24 Z" fill="#f5c542"/>
+    </svg>`,
+    spring: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 26 16">
+      <path d="M2 14 L7 4 L13 14 L19 4 L24 14" stroke="#8a8f96" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>`,
+  };
+  function svgToImage(svgString) {
+    const img = new Image();
+    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgString)));
+    return img;
+  }
+  const ASSETS = {};
+  for (const key in ASSET_SVG) ASSETS[key] = svgToImage(ASSET_SVG[key]);
+
+  const JETPACK_UNLOCK_SCORE = 500;
+  const SPRING_UNLOCK_SCORE = 200;
+  const ENEMY_UNLOCK_SCORE = 1000;
+  const JETPACK_DURATION = 1.3;   // с
+  const JETPACK_VY = -900;        // px/s під час дії джетпака
+  const JETPACK_PERIOD_MIN = 260, JETPACK_PERIOD_MAX = 520; // рандомна періодичність (в очках висоти)
+  const SPRING_BOUNCE_MULT = 1.6;
+  const SPRING_CHANCE = 0.15;
+  const ENEMY_R = 18;
+  const ENEMY_SPAWN_CHANCE = 0.12;
+
+  let best = 0;
+  try {
+    const s = localStorage.getItem('doodleBest');
+    if (s) best = parseInt(s, 10) || 0;
+  } catch (e) {}
+
+  const rootStyle = getComputedStyle(document.documentElement);
+  const COLORS = {
+    normal: [rootStyle.getPropertyValue('--platform').trim(), rootStyle.getPropertyValue('--platform-dark').trim()],
+    move: [rootStyle.getPropertyValue('--platform-move').trim(), rootStyle.getPropertyValue('--platform-move-dark').trim()],
+    break: [rootStyle.getPropertyValue('--platform-break').trim(), rootStyle.getPropertyValue('--platform-break-dark').trim()],
+  };
+
+  let player, platforms, camTop, score, phase, moveDir, touchDir, sparkles, enemies, jetpackTimer, nextJetpackScore;
+
+  function heightScore(y) {
+    return Math.max(0, Math.floor((H - 140 - y) / 8));
+  }
+
+  function resetGame() {
+    player = { x: W / 2, y: H - 140, vx: 0, vy: -JUMP_V, r: PLAYER_R, facing: 1 };
+    camTop = 0;
+    score = 0;
+    phase = 'playing';
+    moveDir = 0;
+    touchDir = 0;
+    jetpackTimer = 0;
+    nextJetpackScore = JETPACK_UNLOCK_SCORE + JETPACK_PERIOD_MIN + Math.random() * (JETPACK_PERIOD_MAX - JETPACK_PERIOD_MIN);
+    platforms = [];
+    sparkles = [];
+    enemies = [];
+    // стартова платформа прямо під гравцем
+    platforms.push(makePlatform(W / 2 - PLATFORM_W / 2, H - 90, 'normal'));
+    let y = H - 90;
+    while (y > -H * 1.5) {
+      y -= MIN_GAP + Math.random() * (MAX_GAP - MIN_GAP);
+      spawnPlatformAt(y);
+    }
+    scoreVal.textContent = '0';
+    hideOverlay();
+  }
+
+  function pickType() {
+    const r = Math.random();
+    if (r < 0.18) return 'break';
+    if (r < 0.36) return 'move';
+    return 'normal';
+  }
+
+  function makePlatform(x, y, type) {
+    const p = { x, y, w: PLATFORM_W, h: PLATFORM_H, type, alive: true, breakT: 0 };
+    if (type === 'move') {
+      const desiredRange = 30 + Math.random() * 50; // 30-80px
+      const minX = 4 + desiredRange;
+      const maxX = (W - p.w - 4) - desiredRange;
+      if (maxX > minX) {
+        p.baseX = Math.min(Math.max(x, minX), maxX);
+        p.range = desiredRange;
+      } else {
+        // на вузькому екрані звужуємо розмах, щоб він все одно вміщався
+        p.baseX = (W - p.w) / 2;
+        p.range = Math.max(0, (W - p.w - 8) / 2);
+      }
+      p.x = p.baseX;
+      p.speed = 0.7 + Math.random() * 0.6;
+      p.phase = Math.random() * Math.PI * 2;
+    }
+    return p;
+  }
+
+  function makeEnemy(x, y) {
+    const desiredRange = 30 + Math.random() * 40;
+    const minX = ENEMY_R + 4 + desiredRange;
+    const maxX = (W - ENEMY_R - 4) - desiredRange;
+    let baseX, range;
+    if (maxX > minX) {
+      baseX = Math.min(Math.max(x, minX), maxX);
+      range = desiredRange;
+    } else {
+      baseX = W / 2;
+      range = Math.max(0, (W - 2 * (ENEMY_R + 8)) / 2);
+    }
+    return {
+      x: baseX, y, r: ENEMY_R, alive: true,
+      baseX, range,
+      speed: 0.6 + Math.random() * 0.5,
+      phase: Math.random() * Math.PI * 2,
+    };
+  }
+
+  // створює платформу на висоті y (+ можливо джетпак/пружину/ворога поруч),
+  // плановано за еквівалентом висоти-в-очках, а не за поточним живим рахунком —
+  // так предмети з'являються там, де гравець реально буде, коли долетить туди
+  function spawnPlatformAt(y) {
+    const type = pickType();
+    const px = Math.random() * (W - PLATFORM_W);
+    const p = makePlatform(px, y, type);
+    const hs = heightScore(y);
+
+    if (type === 'normal') {
+      if (hs >= JETPACK_UNLOCK_SCORE && hs >= nextJetpackScore) {
+        p.hasJetpack = true;
+        nextJetpackScore = hs + JETPACK_PERIOD_MIN + Math.random() * (JETPACK_PERIOD_MAX - JETPACK_PERIOD_MIN);
+      } else if (hs >= SPRING_UNLOCK_SCORE && Math.random() < SPRING_CHANCE) {
+        p.hasSpring = true;
+      }
+    }
+
+    platforms.push(p);
+
+    if (hs >= ENEMY_UNLOCK_SCORE && type === 'normal' && !p.hasJetpack && !p.hasSpring && Math.random() < ENEMY_SPAWN_CHANCE) {
+      const ex = Math.max(ENEMY_R + 4, Math.min(W - ENEMY_R - 4, px + PLATFORM_W / 2 + (Math.random() < 0.5 ? -1 : 1) * (60 + Math.random() * 40)));
+      enemies.push(makeEnemy(ex, y - 55));
+    }
+  }
+
+  function ensurePlatformsAbove() {
+    let minY = platforms.length ? Math.min(...platforms.map((p) => p.y)) : H;
+    while (minY > camTop - H) {
+      minY -= MIN_GAP + Math.random() * (MAX_GAP - MIN_GAP);
+      spawnPlatformAt(minY);
+    }
+  }
+
+  function cullPlatforms() {
+    platforms = platforms.filter((p) => p.alive && p.y - camTop < H + 80);
+  }
+
+  function cullEnemies() {
+    enemies = enemies.filter((en) => en.alive && en.y - camTop < H + 80);
+  }
+
+  function update(dt) {
+    if (phase !== 'playing') return;
+
+    // керування
+    const dir = touchDir !== 0 ? touchDir : moveDir;
+    if (dir !== 0) {
+      player.vx += dir * MOVE_ACCEL * dt;
+      player.facing = dir;
+    } else {
+      const damp = Math.max(0, 1 - DAMPING * dt);
+      player.vx *= damp;
+    }
+    player.vx = Math.max(-MAX_VX, Math.min(MAX_VX, player.vx));
+
+    if (jetpackTimer > 0) {
+      jetpackTimer -= dt;
+      player.vy = JETPACK_VY;
+      if (jetpackTimer <= 0) player.vy = -JUMP_V;
+    } else {
+      player.vy += GRAVITY * dt;
+    }
+    const prevY = player.y;
+    player.x += player.vx * dt;
+    player.y += player.vy * dt;
+
+    // тор-перехід країв екрана
+    if (player.x < -player.r) player.x = W + player.r;
+    if (player.x > W + player.r) player.x = -player.r;
+
+    // рух платформ, що рухаються
+    for (const p of platforms) {
+      if (p.type === 'move' && p.alive) {
+        p.phase += p.speed * dt;
+        p.x = p.baseX + Math.sin(p.phase) * p.range;
+      }
+      if (p.type === 'break' && p.breakT > 0) {
+        p.breakT -= dt;
+        if (p.breakT <= 0) p.alive = false;
+      }
+    }
+
+    // рух ворогів
+    for (const en of enemies) {
+      if (!en.alive) continue;
+      en.phase += en.speed * dt;
+      en.x = en.baseX + Math.sin(en.phase) * en.range;
+    }
+
+    // колізії з платформами — тільки коли гравець падає і не летить на джетпаку
+    if (player.vy > 0 && jetpackTimer <= 0) {
+      for (const p of platforms) {
+        if (!p.alive || p.type === 'break' && p.breakT > 0) continue;
+        const feetPrev = prevY + player.r;
+        const feetNow = player.y + player.r;
+        const withinX = player.x + player.r * 0.6 > p.x && player.x - player.r * 0.6 < p.x + p.w;
+        const crossed = feetPrev <= p.y && feetNow >= p.y;
+        if (withinX && crossed) {
+          if (p.hasJetpack) {
+            p.hasJetpack = false;
+            jetpackTimer = JETPACK_DURATION;
+            player.y = p.y - player.r;
+            spawnSparkles(player.x, player.y);
+          } else if (p.hasSpring) {
+            player.vy = -JUMP_V * SPRING_BOUNCE_MULT;
+            player.y = p.y - player.r;
+            spawnSparkles(player.x, player.y);
+          } else {
+            player.vy = -JUMP_V;
+            player.y = p.y - player.r;
+            if (p.type === 'break') p.breakT = 0.18;
+            spawnSparkles(player.x, player.y);
+          }
+          break;
+        }
+      }
+    }
+
+    // колізії з ворогами — стрибок згори "затоптує", інакше кінець гри (джетпак = недоторканність)
+    if (jetpackTimer <= 0) {
+      for (const en of enemies) {
+        if (!en.alive) continue;
+        const dist = Math.hypot(player.x - en.x, player.y - en.y);
+        if (dist < player.r + en.r) {
+          const feetPrev = prevY + player.r;
+          if (player.vy > 0 && feetPrev <= en.y - en.r + 6) {
+            player.vy = -JUMP_V * 0.9;
+            player.y = en.y - en.r - player.r;
+            en.alive = false;
+            spawnSparkles(player.x, player.y);
+          } else {
+            endGame();
+            return;
+          }
+        }
+      }
+    }
+
+    // камера тільки піднімається
+    const targetCamTop = player.y - H * UPPER_THRESHOLD_FRAC;
+    if (targetCamTop < camTop) camTop = targetCamTop;
+
+    const climbed = Math.max(0, Math.floor((H - 140 - player.y) / 8));
+    if (climbed > score) {
+      score = climbed;
+      scoreVal.textContent = String(score);
+    }
+
+    ensurePlatformsAbove();
+    cullPlatforms();
+    cullEnemies();
+
+    for (const s of sparkles) s.life += dt;
+    sparkles = sparkles.filter((s) => s.life < s.maxLife);
+
+    // програш — впав нижче видимого екрана
+    if (player.y - camTop > H + player.r + 20) {
+      endGame();
+    }
+  }
+
+  function endGame() {
+    phase = 'over';
+    if (score > best) {
+      best = score;
+      try { localStorage.setItem('doodleBest', String(best)); } catch (e) {}
+    }
+    overlayTitle.textContent = 'ГРА ЗАКІНЧЕНА';
+    overlayScores.innerHTML = `Рахунок: ${score}<br/>Рекорд: ${best}`;
+    overlayBtn.textContent = 'Нова гра';
+    overlay.style.display = 'flex';
+
+    if (window.AppScore) window.AppScore.sendScore('doodle', score);
+    if (!window.AppAuth || !window.AppAuth.getSession()) {
+      overlayMsg.textContent = 'Увійди в профіль, щоб зберігати рекорди';
+    } else {
+      overlayMsg.textContent = '';
+    }
+  }
+
+  function hideOverlay() { overlay.style.display = 'none'; }
+
+  function drawBackground() {
+    ctx.fillStyle = '#f2e9d8';
+    ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = 'rgba(120,100,70,0.12)';
+    ctx.lineWidth = 1;
+    const step = 34;
+    const offsetY = ((camTop % step) + step) % step;
+    for (let y = -offsetY; y < H; y += step) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(W, y);
+      ctx.stroke();
+    }
+    for (let x = 0; x < W; x += step) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, H);
+      ctx.stroke();
+    }
+  }
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function drawPlatform(p) {
+    const sy = p.y - camTop;
+    if (sy < -40 || sy > H + 40) return;
+    const [fill, dark] = COLORS[p.type];
+
+    let scale = 1;
+    if (p.type === 'break' && p.breakT > 0) scale = Math.max(0, p.breakT / 0.18);
+
+    ctx.save();
+    ctx.globalAlpha = p.type === 'break' && p.breakT > 0 ? scale : 1;
+    ctx.fillStyle = fill;
+    roundRect(p.x, sy, p.w, p.h, 8);
+    ctx.fill();
+    ctx.strokeStyle = dark;
+    ctx.lineWidth = 2;
+    roundRect(p.x, sy, p.w, p.h, 8);
+    ctx.stroke();
+    ctx.restore();
+
+    if (p.hasJetpack) drawJetpackIcon(p.x + p.w / 2, sy);
+    if (p.hasSpring) drawSpringIcon(p.x + p.w / 2, sy);
+  }
+
+  function drawSpringIcon(cx, platformSy) {
+    const img = ASSETS.spring;
+    if (!img.complete) return;
+    const w = 26, h = 16;
+    ctx.drawImage(img, cx - w / 2, platformSy - h + 2, w, h);
+  }
+
+  function drawJetpackIcon(cx, platformSy) {
+    const img = ASSETS.jetpack;
+    if (!img.complete) return;
+    const w = 22, h = 33;
+    ctx.drawImage(img, cx - w / 2, platformSy - h + 4, w, h);
+  }
+
+  function drawEnemy(en) {
+    const sy = en.y - camTop;
+    if (sy < -40 || sy > H + 40) return;
+    const img = ASSETS.enemy;
+    if (!img.complete) return;
+    const size = en.r * 2.3;
+    ctx.drawImage(img, en.x - size / 2, sy - size / 2, size, size);
+  }
+
+  function spawnSparkles(worldX, worldY) {
+    const n = 3;
+    for (let i = 0; i < n; i++) {
+      sparkles.push({
+        x: worldX + (Math.random() - 0.5) * 40,
+        y: worldY + (Math.random() - 0.5) * 18 - 6,
+        life: 0,
+        maxLife: 0.3 + Math.random() * 0.15,
+        size: 3 + Math.random() * 3,
+      });
+    }
+  }
+
+  function drawStarShape(cx, cy, r) {
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - r);
+    ctx.quadraticCurveTo(cx, cy, cx + r, cy);
+    ctx.quadraticCurveTo(cx, cy, cx, cy + r);
+    ctx.quadraticCurveTo(cx, cy, cx - r, cy);
+    ctx.quadraticCurveTo(cx, cy, cx, cy - r);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function drawSparkles() {
+    ctx.save();
+    ctx.fillStyle = '#e0b83f';
+    for (const s of sparkles) {
+      const t = s.life / s.maxLife;
+      ctx.globalAlpha = Math.max(0, 1 - t);
+      drawStarShape(s.x, s.y - camTop, s.size * (1 - t * 0.3));
+    }
+    ctx.restore();
+  }
+
+  // лінії швидкості позаду персонажа, коли він розганяється
+  function drawMotionLines() {
+    const speed = Math.hypot(player.vx, player.vy);
+    const THRESH = 260;
+    if (speed < THRESH) return;
+    const intensity = Math.min(1, (speed - THRESH) / 500);
+    const dirX = -player.vx / speed;
+    const dirY = -player.vy / speed;
+    const perpX = -dirY, perpY = dirX;
+
+    ctx.save();
+    ctx.strokeStyle = '#2f5e1f';
+    ctx.lineCap = 'round';
+    const marks = 3;
+    for (let i = 0; i < marks; i++) {
+      const spread = (i - (marks - 1) / 2) * 9;
+      const dist = PLAYER_R + 8 + i * 7;
+      const cx = dirX * dist + perpX * spread;
+      const cy = dirY * dist + perpY * spread;
+      const len = 9 + intensity * 9;
+      ctx.globalAlpha = (0.55 - i * 0.15) * intensity;
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + dirX * len, cy + dirY * len);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawJetpackFlame() {
+    if (jetpackTimer <= 0) return;
+    const flicker = 0.7 + Math.random() * 0.3;
+    ctx.save();
+    ctx.fillStyle = '#f5c542';
+    ctx.beginPath();
+    ctx.moveTo(-7, PLAYER_R - 2);
+    ctx.lineTo(0, PLAYER_R + 14 * flicker);
+    ctx.lineTo(7, PLAYER_R - 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#e0522f';
+    ctx.beginPath();
+    ctx.moveTo(-4, PLAYER_R - 2);
+    ctx.lineTo(0, PLAYER_R + 8 * flicker);
+    ctx.lineTo(4, PLAYER_R - 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawPlayer() {
+    const sy = player.y - camTop;
+    ctx.save();
+    ctx.translate(player.x, sy);
+    drawMotionLines();
+    drawJetpackFlame();
+    // тіло
+    ctx.fillStyle = '#6fbd4f';
+    ctx.strokeStyle = '#2f5e1f';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, PLAYER_R, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    // ніжки
+    ctx.strokeStyle = '#2f5e1f';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(-8, PLAYER_R - 2); ctx.lineTo(-10, PLAYER_R + 8);
+    ctx.moveTo(8, PLAYER_R - 2); ctx.lineTo(10, PLAYER_R + 8);
+    ctx.stroke();
+    // очі
+    const eyeDx = 6 * player.facing;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(-7 + eyeDx * 0.3, -4, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(7 + eyeDx * 0.3, -4, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#23261f';
+    ctx.beginPath(); ctx.arc(-7 + eyeDx * 0.6, -4, 2.6, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(7 + eyeDx * 0.6, -4, 2.6, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  function render() {
+    drawBackground();
+    for (const p of platforms) drawPlatform(p);
+    for (const en of enemies) drawEnemy(en);
+    drawSparkles();
+    drawPlayer();
+  }
+
+  let lastT = null;
+  function loop(t) {
+    if (lastT === null) lastT = t;
+    const dt = Math.min((t - lastT) / 1000, 0.033);
+    lastT = t;
+    update(dt);
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  function togglePause() {
+    if (phase === 'playing') {
+      phase = 'paused';
+      overlayTitle.textContent = 'ПАУЗА';
+      overlayScores.innerHTML = `Рахунок: ${score}<br/>Рекорд: ${best}`;
+      overlayMsg.textContent = '';
+      overlayBtn.textContent = 'Продовжити';
+      overlay.style.display = 'flex';
+    } else if (phase === 'paused') {
+      phase = 'playing';
+      hideOverlay();
+    }
+  }
+
+  pauseBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); togglePause(); });
+  pauseBtn.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
+
+  overlayBtn.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    if (phase === 'paused') { phase = 'playing'; hideOverlay(); }
+    else resetGame();
+  });
+  overlayBtn.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
+
+  // керування дотиком: ліва/права половина екрана = утримувана "кнопка"
+  function touchXToDir(clientX) {
+    const rect = gameAreaEl.getBoundingClientRect();
+    const localX = clientX - rect.left;
+    return localX < W / 2 ? -1 : 1;
+  }
+  canvas.addEventListener('touchstart', (e) => {
+    touchDir = touchXToDir(e.touches[0].clientX);
+  }, { passive: true });
+  canvas.addEventListener('touchmove', (e) => {
+    touchDir = touchXToDir(e.touches[0].clientX);
+  }, { passive: true });
+  canvas.addEventListener('touchend', () => { touchDir = 0; }, { passive: true });
+  canvas.addEventListener('touchcancel', () => { touchDir = 0; }, { passive: true });
+
+  // клавіатура (для тестування на десктопі)
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'ArrowLeft') moveDir = -1;
+    else if (e.code === 'ArrowRight') moveDir = 1;
+  });
+  document.addEventListener('keyup', (e) => {
+    if (e.code === 'ArrowLeft' && moveDir === -1) moveDir = 0;
+    else if (e.code === 'ArrowRight' && moveDir === 1) moveDir = 0;
+  });
+
+  document.addEventListener('selectstart', (e) => e.preventDefault());
+  document.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  resetGame();
+  requestAnimationFrame(loop);
+})();
+</script>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/login.js"></script>
+<script src="js/score-connect.js"></script>
+<script src="js/records.js"></script>
+<script src="js/help.js"></script>
+<script src="js/back-button.js"></script>
+</body>
+</html>

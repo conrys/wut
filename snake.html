@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+  <title>Змійка</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #14161a;
+      --tile-bg: #22252b;
+      --text-light: #f4f5f1;
+      --text-muted: #8b909c;
+      --accent: #38cfa0;
+      /* Динамічні розміри кнопок за замовчуванням */
+      --ctrl-size: 58px;
+      --ctrl-font: 22px;
+      --ctrl-gap: 6px;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none;
+        -webkit-user-select: none; -webkit-touch-callout: none; }
+    html, body { margin: 0; padding: 0; min-height: 100dvh; background: var(--bg);
+        font-family: 'Inter', sans-serif; color: var(--text-light); overflow-x: hidden; overflow-y: auto; touch-action: manipulation; }
+    .page { max-width: 480px; margin: 0 auto; padding: 50px 14px 16px; display: flex;
+        flex-direction: column; align-items: center; min-height: 100dvh; }
+
+    .top-bar { display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 330px; margin-bottom: 10px; }
+    .scoreboard { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; min-height: 28px; }
+    .sb-pill { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 12px; background: var(--tile-bg); }
+    .sb-pill.dead { opacity: 0.35; text-decoration: line-through; }
+
+    .icon-btn { background: var(--tile-bg); border: 1px solid rgba(255,255,255,0.12); color: var(--text-light);
+        border-radius: 10px; padding: 6px 10px; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .icon-btn:active { background: rgba(255,255,255,0.1); }
+
+    canvas { background: var(--tile-bg); border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); touch-action: none; }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(3, var(--ctrl-size));
+      grid-template-rows: repeat(2, var(--ctrl-size));
+      gap: var(--ctrl-gap);
+      margin-top: 16px;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+    .ctrl-btn { background: var(--tile-bg); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px;
+        color: var(--text-light); font-size: var(--ctrl-font); cursor: pointer; touch-action: manipulation; }
+    .ctrl-btn:active { background: rgba(255,255,255,0.15); }
+    .ctrl-up { grid-column: 2; grid-row: 1; }
+    .ctrl-left { grid-column: 1; grid-row: 2; }
+    .ctrl-down { grid-column: 2; grid-row: 2; }
+    .ctrl-right { grid-column: 3; grid-row: 2; }
+
+    .msg { font-size: 13px; color: var(--text-muted); margin-top: 10px; text-align: center; min-height: 18px; }
+
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none;
+        align-items: center; justify-content: center; z-index: 9999; padding: 20px; }
+    .overlay.open { display: flex; }
+    .modal { background: #22252b; border-radius: 16px; padding: 22px; width: 100%; max-width: 320px; text-align: center; }
+    .modal h3 { font-family: 'Space Grotesk', sans-serif; margin: 0 0 14px; font-size: 18px; }
+    .modal button { display: block; width: 100%; border: none; border-radius: 10px; padding: 12px;
+        font-weight: 700; font-size: 14px; margin-bottom: 8px; cursor: pointer; }
+    .modal .btn-primary { background: var(--accent); color: #0e2318; }
+    .modal .btn-secondary { background: #14161a; color: var(--text-light); border: 1px solid rgba(255,255,255,0.12) !important; }
+
+    /* Опції налаштувань розмірів */
+    .size-options { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 16px; }
+    .size-btn { background: #14161a; border: 1px solid rgba(255,255,255,0.12); color: var(--text-light);
+        padding: 10px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .size-btn.active { border-color: var(--accent); background: rgba(56, 207, 160, 0.15); color: var(--accent); }
+  </style>
+</head>
+<body>
+<div class="page">
+  <div class="top-bar">
+    <div class="scoreboard" id="scoreboard"></div>
+    <button class="icon-btn" id="settingsBtn" title="Налаштування">⚙️</button>
+  </div>
+
+  <canvas id="board" width="330" height="330"></canvas>
+  <div class="msg" id="msg">Свайпай або тисни стрілки</div>
+
+  <div class="controls">
+    <button class="ctrl-btn ctrl-up" data-dir="up">▲</button>
+    <button class="ctrl-btn ctrl-left" data-dir="left">◀</button>
+    <button class="ctrl-btn ctrl-down" data-dir="down">▼</button>
+    <button class="ctrl-btn ctrl-right" data-dir="right">▶</button>
+  </div>
+</div>
+
+<!-- Модальне вікно налаштувань -->
+<div class="overlay" id="settingsOverlay">
+  <div class="modal">
+    <h3>⚙️ Керування</h3>
+    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">Розмір кнопок:</div>
+    <div class="size-options">
+      <button class="size-btn" data-size="S">Малі</button>
+      <button class="size-btn" data-size="M">Звичайні</button>
+      <button class="size-btn" data-size="L">Великі</button>
+      <button class="size-btn" data-size="XL">Макс</button>
+    </div>
+    <button class="btn-primary" id="closeSettingsBtn">Зберегти</button>
+  </div>
+</div>
+
+<div class="overlay" id="joinOverlay">
+  <div class="modal">
+    <h3 id="joinTitle">Хтось грає прямо зараз</h3>
+    <button class="btn-primary" id="joinMultiBtn">Приєднатись (мультиплеєр)</button>
+    <button class="btn-secondary" id="joinSoloBtn">Грати соло</button>
+  </div>
+</div>
+
+<div class="overlay" id="deadOverlay">
+  <div class="modal">
+    <h3 id="deadTitle">💀 Ти вибув</h3>
+    <button class="btn-primary" id="respawnBtn">Приєднатись знову</button>
+    <button class="btn-secondary" id="leaveBtn">Вийти в меню</button>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/login.js"></script>
+<script src="js/score-connect.js"></script>
+<script src="js/records.js"></script>
+<script src="js/snake-multiplayer.js"></script>
+<script src="js/back-button.js"></script>
+<script>
+  (function () {
+    const GRID = 22;
+    const CELL = 330 / GRID;
+    const canvas = document.getElementById("board");
+    const ctx = canvas.getContext("2d");
+    const msgEl = document.getElementById("msg");
+    const scoreboardEl = document.getElementById("scoreboard");
+    const joinOverlay = document.getElementById("joinOverlay");
+    const deadOverlay = document.getElementById("deadOverlay");
+    const settingsOverlay = document.getElementById("settingsOverlay");
+
+    // ---------------- Налаштування розмірів ----------------
+    const SIZE_CONFIGS = {
+      S:  { size: "48px", font: "18px", gap: "5px" },
+      M:  { size: "58px", font: "22px", gap: "6px" },
+      L:  { size: "70px", font: "28px", gap: "8px" },
+      XL: { size: "84px", font: "34px", gap: "10px" }
+    };
+
+    function applyControlSize(sizeKey) {
+      const config = SIZE_CONFIGS[sizeKey] || SIZE_CONFIGS.M;
+      document.documentElement.style.setProperty("--ctrl-size", config.size);
+      document.documentElement.style.setProperty("--ctrl-font", config.font);
+      document.documentElement.style.setProperty("--ctrl-gap", config.gap);
+      localStorage.setItem("snake_ctrl_size", sizeKey);
+
+      document.querySelectorAll(".size-btn").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.size === sizeKey);
+      });
+    }
+
+    const savedSize = localStorage.getItem("snake_ctrl_size") || "M";
+    applyControlSize(savedSize);
+
+    document.getElementById("settingsBtn").addEventListener("click", () => {
+      settingsOverlay.classList.add("open");
+    });
+    document.getElementById("closeSettingsBtn").addEventListener("click", () => {
+      settingsOverlay.classList.remove("open");
+    });
+    document.querySelectorAll(".size-btn").forEach((btn) => {
+      btn.addEventListener("click", () => applyControlSize(btn.dataset.size));
+    });
+
+    function setMsg(text) { if (msgEl) msgEl.textContent = text; }
+
+    let mode = "solo-local"; // solo-local | room
+    let session = null;
+    let promptedOnce = false;
+
+    // ---------------- локальна соло-гра ----------------
+    let soloBody, soloDir, soloNextDir, soloFood, soloScore, soloAlive, soloTimer;
+
+    function rnd(n) { return Math.floor(Math.random() * n); }
+
+    function startSolo() {
+      mode = "solo-local";
+      soloBody = [{ x: rnd(GRID), y: rnd(GRID) }];
+      soloDir = "right";
+      soloNextDir = "right";
+      soloFood = { x: rnd(GRID), y: rnd(GRID) };
+      soloScore = 0;
+      soloAlive = true;
+      deadOverlay.classList.remove("open");
+      if (soloTimer) clearInterval(soloTimer);
+      soloTimer = setInterval(soloTick, 160);
+    }
+
+    function soloTick() {
+      if (!soloAlive) return;
+      soloDir = soloNextDir;
+
+      const d = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }[soloDir];
+      const head = { x: (soloBody[0].x + d[0] + GRID) % GRID, y: (soloBody[0].y + d[1] + GRID) % GRID };
+
+      if (soloBody.some((c) => c.x === head.x && c.y === head.y)) {
+        soloAlive = false;
+        clearInterval(soloTimer);
+        if (window.AppScore) window.AppScore.sendScore("snake", soloScore);
+        document.getElementById("deadTitle").textContent = `💀 Рахунок: ${soloScore}`;
+        deadOverlay.classList.add("open");
+        return;
+      }
+
+      const ate = head.x === soloFood.x && head.y === soloFood.y;
+      soloBody = [head, ...(ate ? soloBody : soloBody.slice(0, -1))];
+      if (ate) { soloScore += 10; soloFood = { x: rnd(GRID), y: rnd(GRID) }; }
+      renderSolo();
+    }
+
+    function renderSolo() {
+      clearCanvas();
+      drawCell(soloFood, "#e0b84c");
+      soloBody.forEach((c, i) => drawCell(c, i === 0 ? "#38cfa0" : "rgba(56,207,160,0.6)"));
+      scoreboardEl.innerHTML = `<span class="sb-pill">Рахунок: ${soloScore}</span>`;
+    }
+
+    // ---------------- рендер ----------------
+    function clearCanvas() {
+      ctx.fillStyle = "#22252b";
+      ctx.fillRect(0, 0, 330, 330);
+    }
+    function drawCell(c, color) {
+      ctx.fillStyle = color;
+      ctx.fillRect(c.x * CELL + 1, c.y * CELL + 1, CELL - 2, CELL - 2);
+    }
+
+    function renderRoom(room) {
+      clearCanvas();
+      if (room.food) drawCell(room.food, "#e0b84c");
+      const names = Object.keys(room.players || {}).sort(
+        (a, b) => (room.players[a].joinedAt || 0) - (room.players[b].joinedAt || 0)
+      );
+      scoreboardEl.innerHTML = names
+        .map((n, i) => {
+          const p = room.players[n];
+          const color = window.SnakeMP.COLORS[i % window.SnakeMP.COLORS.length];
+          return `<span class="sb-pill${p.alive ? "" : " dead"}" style="border:1px solid ${color}">${escapeHtml(n)}: ${p.score || 0}</span>`;
+        })
+        .join("");
+      names.forEach((n, i) => {
+        const p = room.players[n];
+        if (!p.alive) return;
+        const color = window.SnakeMP.COLORS[i % window.SnakeMP.COLORS.length];
+        (p.body || []).forEach((c, ci) => drawCell(c, ci === 0 ? color : color + "99"));
+      });
+    }
+
+    function escapeHtml(s) {
+      const d = document.createElement("div");
+      d.textContent = s || "";
+      return d.innerHTML;
+    }
+
+    // ---------------- керування ----------------
+    const OPPOSITE = { up: "down", down: "up", left: "right", right: "left" };
+
+    function setDirection(dir) {
+      if (mode === "room") {
+        window.SnakeMP.sendDirection(dir);
+      } else {
+        if (soloBody.length > 1 && OPPOSITE[dir] === soloDir) return;
+        soloNextDir = dir;
+      }
+    }
+    document.querySelectorAll(".ctrl-btn").forEach((btn) => {
+      btn.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        setDirection(btn.dataset.dir);
+      });
+    });
+    document.addEventListener("keydown", (e) => {
+      const map = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" };
+      if (map[e.key]) setDirection(map[e.key]);
+    });
+    let touchStart = null;
+    canvas.addEventListener("touchstart", (e) => { touchStart = e.touches[0]; }, { passive: true });
+    canvas.addEventListener("touchend", (e) => {
+      if (!touchStart) return;
+      const dx = e.changedTouches[0].clientX - touchStart.clientX;
+      const dy = e.changedTouches[0].clientY - touchStart.clientY;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) < 20) return;
+      setDirection(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up"));
+    });
+
+    // ---------------- мультиплеєр-інтеграція ----------------
+    let pendingJoinTarget = null;
+
+    document.getElementById("joinMultiBtn").addEventListener("click", () => {
+      joinOverlay.classList.remove("open");
+      if (pendingJoinTarget) window.SnakeMP.requestJoinMultiplayer(pendingJoinTarget);
+    });
+    document.getElementById("joinSoloBtn").addEventListener("click", () => {
+      joinOverlay.classList.remove("open");
+    });
+    document.getElementById("respawnBtn").addEventListener("click", () => {
+      deadOverlay.classList.remove("open");
+      if (mode === "room") window.SnakeMP.respawn();
+      else startSolo();
+    });
+    document.getElementById("leaveBtn").addEventListener("click", () => {
+      window.location.href = "index.html";
+    });
+
+    function startMultiplayer(username) {
+      session = username;
+      window.SnakeMP.onStateChange = (type, data) => {
+        if (type === "lobby-update") {
+          if (mode !== "room" && !promptedOnce) {
+            const others = (data.active || []).filter(([name]) => name !== session);
+            if (!others.length) return;
+
+            const inRoom = others.find(([, v]) => v.status === "in-room" && v.roomId);
+            if (inRoom) {
+              promptedOnce = true;
+              window.SnakeMP.joinAsSpectatorOrPlayer(inRoom[1].roomId);
+              return;
+            }
+
+            const solo = others.find(([, v]) => v.status === "solo");
+            if (solo) {
+              promptedOnce = true;
+              pendingJoinTarget = solo[0];
+              document.getElementById("joinTitle").textContent = `${solo[0]} зараз грає — приєднатись?`;
+              joinOverlay.classList.add("open");
+            }
+          }
+        } else if (type === "room-update") {
+          mode = "room";
+          setMsg("Мультиплеєр: спільне поле");
+          if (soloTimer) clearInterval(soloTimer);
+          renderRoom(data.room);
+          const me = data.room.players && data.room.players[session];
+          if (me && !me.alive) {
+            document.getElementById("deadTitle").textContent = `💀 Рахунок: ${me.score || 0}`;
+            if (!deadOverlay.classList.contains("open")) {
+              if (window.AppScore) window.AppScore.sendScore("snake", me.score || 0);
+              deadOverlay.classList.add("open");
+            }
+          } else {
+            deadOverlay.classList.remove("open");
+          }
+        }
+      };
+      window.SnakeMP.startPresence(username);
+    }
+
+    // ---------------- старт ----------------
+    const authSession = window.AppAuth && window.AppAuth.getSession();
+    if (authSession && window.rtdbReady) {
+      startMultiplayer(authSession.username);
+      startSolo();
+    } else if (authSession && !window.rtdbReady) {
+      setMsg("Мультиплеєр недоступний (немає з'єднання)");
+      startSolo();
+    } else {
+      setMsg("Увійди в профіль, щоб грати з друзями");
+      startSolo();
+    }
+
+    window.addEventListener("beforeunload", () => {
+      if (window.SnakeMP) window.SnakeMP.stopPresence();
+    });
+  })();
+</script>
+</body>
+</html>
