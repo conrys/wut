@@ -154,30 +154,64 @@
   const PLAYER_R = 20;
   const PLATFORM_W = 108, PLATFORM_H = 20;
   const MIN_GAP = 70, MAX_GAP = 170;
-  const UPPER_THRESHOLD_FRAC = 0.42; // на якій долі екрана "тримається" гравець при підйомі
+  const UPPER_THRESHOLD_FRAC = 0.42;
 
   // ---- SVG-асети ----
-  // Хочеш замінити на свій арт — просто підклади інший SVG-рядок (той самий viewBox
-  // не обов'язковий, розмір на екрані все одно задається в drawXxxIcon/drawEnemy нижче).
-  // Можна навіть підвантажувати з окремих .svg-файлів замість inline-рядків:
-  // const img = new Image(); img.src = 'img/enemy.svg';
   const ASSET_SVG = {
-    enemy: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
-      <circle cx="20" cy="20" r="17" fill="#8a5fd6" stroke="#4a3080" stroke-width="2.5"/>
-      <path d="M9 15 L16 18 M31 15 L24 18" stroke="#2a1a55" stroke-width="2.4" stroke-linecap="round" fill="none"/>
-      <circle cx="14" cy="21" r="4" fill="#fff"/>
-      <circle cx="26" cy="21" r="4" fill="#fff"/>
-      <circle cx="14" cy="21" r="1.8" fill="#241740"/>
-      <circle cx="26" cy="21" r="1.8" fill="#241740"/>
+    playerBody: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+      <!-- Ніжки (закруглені лапки знизу) -->
+      <path d="M 36 80 C 34 92, 24 94, 26 84 C 28 76, 36 78, 36 80 Z" fill="#6fbd4f" stroke="#2f5e1f" stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round"/>
+      <path d="M 64 80 C 66 92, 76 94, 74 84 C 72 76, 64 78, 64 80 Z" fill="#6fbd4f" stroke="#2f5e1f" stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round"/>
+      <!-- Тулуб -->
+      <circle cx="50" cy="48" r="38" fill="#6fbd4f" stroke="#2f5e1f" stroke-width="5"/>
     </svg>`,
-    jetpack: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 36">
-      <rect x="4" y="2" width="16" height="22" rx="4" fill="#e0522f" stroke="#8a2e17" stroke-width="2"/>
-      <path d="M7 24 L12 34 L17 24 Z" fill="#f5c542"/>
+
+    enemy: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+      <path d="M 25 30 L 10 10 L 35 20 Z" fill="#5a189a" stroke="#240046" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M 75 30 L 90 10 L 65 20 Z" fill="#5a189a" stroke="#240046" stroke-width="3" stroke-linejoin="round"/>
+      <circle cx="50" cy="55" r="38" fill="#7b2cbf" stroke="#240046" stroke-width="5"/>
+      <circle cx="50" cy="55" r="32" fill="#9d4edd"/>
+      <circle cx="50" cy="45" r="16" fill="#ffffff" stroke="#240046" stroke-width="3"/>
+      <circle cx="50" cy="45" r="7" fill="#10002b"/>
+      <circle cx="53" cy="42" r="3" fill="#ffffff"/>
+      <path d="M 32 70 Q 50 82 68 70 Z" fill="#240046"/>
+      <polygon points="38,70 42,75 46,70" fill="#ffffff"/>
+      <polygon points="54,70 58,75 62,70" fill="#ffffff"/>
     </svg>`,
-    spring: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 26 16">
-      <path d="M2 14 L7 4 L13 14 L19 4 L24 14" stroke="#8a8f96" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+    spring: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="#4a4a4a">
+      <path d="M41,42h-.8a54.6,54.6,0,0,1-12.4,4H41a2,2,0,0,0,0-4Z"/>
+      <path d="M7,13a117.3,117.3,0,0,0,17.5-1.4c6.2-1,12.7-2.8,17.6-5.9a2.1,2.1,0,0,0,.6-2.8A2,2,0,0,0,41,2a2.3,2.3,0,0,0-1.1.3C32.2,7.2,17.8,9,7,9a2,2,0,0,0-1.8,1.2A1.9,1.9,0,0,0,5,11,2,2,0,0,0,7,13Z"/>
+      <path d="M7,24a118.2,118.2,0,0,0,17.5-1.4h0c6.2-1,12.7-2.8,17.5-5.9h.1a3.9,3.9,0,0,0,.8-1v-.2H43v-.5c0-.1,0-.2-.1-.2h0v-.2h0v-.2a2.7,2.7,0,0,0-1-.8H41l-2.2-.2L37,12.6l-5.6-.4a91.5,91.5,0,0,1-13.9,2.3.3.3,0,0,0,0,.5l10.1.9,3.1.2,2.6.2C25.5,19,15.2,20,7,20a2,2,0,0,0-1.8,1.2h0A1.9,1.9,0,0,0,5,22,2,2,0,0,0,7,24Z"/>
+      <path d="M7,35a118.2,118.2,0,0,0,17.5-1.4h0c6.2-1,12.6-2.8,17.4-5.8h0c.1,0,.1,0,.1-.1h.1c.1,0,.2,0,.2-.1l.4-.4a.8.8,0,0,1,.2-.4H43v-.5c0-.1,0-.2-.1-.2h0v-.2h-.1c0-.1-.1-.1-.1-.2h-.2l-.2-.2h-.2l-.4-.2h-.3a.1.1,0,0,0-.1-.1H41l-2.2-.2L37,23.6h0l-5.6-.4a91.5,91.5,0,0,1-13.9,2.3.3.3,0,0,0,0,.5l10.1.9,3.1.2,2.6.2C25.5,30,15.2,31,7,31a2,2,0,0,0-1.8,1.2h0A1.9,1.9,0,0,0,5,33,2,2,0,0,0,7,35Z"/>
+      <path d="M41.9,38.8h.2c.1,0,.2,0,.2-.1s.3-.3.4-.4h0c0-.1,0-.1.1-.2s0-.1.1-.2H43v-.5c0-.1,0-.2-.1-.2h0v-.2h-.1c0-.1-.1-.1-.1-.2h-.2l-.2-.2h-.2l-.4-.2h-.3a.1.1,0,0,0-.1-.1H41l-2.2-.2L37,34.6h0l-5.6-.4a91.5,91.5,0,0,1-13.9,2.3.3.3,0,0,0,0,.5l10.1.9,3.1.2,2.6.2C25.5,41,15.2,42,7,42a2,2,0,0,0,0,4c4.4,0,17.5-.3,28-4A36.4,36.4,0,0,0,41.9,38.8Z"/>
     </svg>`,
+
+    platformBreak: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1 169 512 172">
+        <path d="M 50 169 C 10 169 -1 207 -1 255 C -1 303 22 340 50 340 L 460 340 C 490 340 511 303 511 255 C 511 207 490 169 460 169 Z" fill="#cc8949"/>
+        <g fill="#000000">
+          <path d="M54.467,301.08c4.267-2.56,5.973-7.68,3.413-11.947c-2.56-4.267-7.68-15.36-7.68-34.133s5.12-29.867,7.68-34.133s0.853-9.387-3.413-11.947c-4.267-1.707-9.387-0.853-11.947,3.413c-2.56,5.12-9.387,19.627-9.387,42.667s6.827,37.547,9.387,42.667c1.707,2.56,5.12,4.267,7.68,4.267C51.907,301.933,53.613,301.933,54.467,301.08z"/>
+          <path d="M504.142,211.591c-0.13-1.939-0.768-3.605-1.818-4.891c-9.067-22.493-24.472-37.033-42.524-37.033H50.2C22.04,169.667-1,207.213-1,255s22.187,85.333,51.2,85.333h409.6c29.013,0,51.2-37.547,51.2-85.333C511,239.046,508.516,224.246,504.142,211.591z M16.067,255c0-40.107,17.92-68.267,34.133-68.267S84.333,214.893,84.333,255s-17.92,68.267-34.133,68.267S16.067,295.107,16.067,255z M459.8,323.267H81.773c3.752-4.824,7.082-10.576,9.886-17.067h78.007c5.12,0,8.533-3.413,8.533-8.533c0-5.12-3.413-8.533-8.533-8.533H97.361c0.982-3.94,1.787-8.048,2.422-12.283c0.021-0.136,0.044-0.271,0.064-0.408c0.146-0.995,0.277-2.001,0.403-3.01c0.075-0.593,0.148-1.187,0.216-1.785c0.091-0.814,0.176-1.632,0.254-2.455c0.078-0.821,0.148-1.646,0.213-2.475c0.054-0.697,0.109-1.393,0.154-2.095c0.065-1.02,0.114-2.049,0.158-3.081c0.024-0.558,0.055-1.111,0.073-1.672c0.051-1.611,0.083-3.233,0.083-4.869c0-1.599-0.03-3.184-0.081-4.759c-0.029-0.922-0.079-1.832-0.124-2.746c-0.028-0.551-0.05-1.105-0.085-1.652c-0.532-8.814-1.813-17.209-3.749-24.976h63.772c5.12,0,8.533-3.413,8.533-8.533s-3.413-8.533-8.533-8.533H91.66c-2.805-6.491-6.134-12.243-9.886-17.067H459.8c7.64,0,15.657,6.257,22.002,17.067H365.933c-5.12,0-8.533,3.413-8.533,8.533s3.413,8.533,8.533,8.533h123.182c2.314,7.581,3.918,16.195,4.531,25.6h-76.513c-5.12,0-8.533,3.413-8.533,8.533c0,5.12,3.413,8.533,8.533,8.533h76.513C491.329,299.039,474.836,323.267,459.8,323.267z"/>
+          <path d="M195.267,220.867H331.8c5.12,0,8.533-3.413,8.533-8.533s-3.413-8.533-8.533-8.533H195.267c-5.12,0-8.533,3.413-8.533,8.533S190.147,220.867,195.267,220.867z"/>
+          <path d="M263.533,246.467c-5.12,0-8.533,3.413-8.533,8.533c0,5.12,3.413,8.533,8.533,8.533h25.6c5.12,0,8.533-3.413,8.533-8.533c0-5.12-3.413-8.533-8.533-8.533H263.533z"/>
+          <path d="M220.867,255c0-5.12-3.413-8.533-8.533-8.533H127c-5.12,0-8.533,3.413-8.533,8.533c0,5.12,3.413,8.533,8.533,8.533h85.333C217.453,263.533,220.867,260.12,220.867,255z"/>
+          <path d="M314.733,255c0,5.12,3.413,8.533,8.533,8.533h51.2c5.12,0,8.533-3.413,8.533-8.533c0-5.12-3.413-8.533-8.533-8.533h-51.2C318.147,246.467,314.733,249.88,314.733,255z"/>
+          <path d="M451.267,289.133H383c-5.12,0-8.533,3.413-8.533,8.533c0,5.12,3.413,8.533,8.533,8.533h68.267c5.12,0,8.533-3.413,8.533-8.533C459.8,292.547,456.387,289.133,451.267,289.133z"/>
+          <path d="M323.267,289.133h-102.4c-5.12,0-8.533,3.413-8.533,8.533c0,5.12,3.413,8.533,8.533,8.533h102.4c5.12,0,8.533-3.413,8.533-8.533C331.8,292.547,328.387,289.133,323.267,289.133z"/>
+        </g>
+      </svg>`,
+
+    jetpack: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 40">
+        <rect x="2" y="10" width="28" height="20" rx="3" fill="#4a5568"/>
+        <rect x="4" y="4" width="10" height="28" rx="5" fill="#e53e3e" stroke="#9b2c2c" stroke-width="1.5"/>
+        <rect x="6" y="8" width="3" height="20" rx="1.5" fill="#feb2b2"/>
+        <rect x="18" y="4" width="10" height="28" rx="5" fill="#e53e3e" stroke="#9b2c2c" stroke-width="1.5"/>
+        <rect x="20" y="8" width="3" height="20" rx="1.5" fill="#feb2b2"/>
+        <path d="M 6 32 L 12 32 L 14 37 L 4 37 Z" fill="#2d3748"/>
+        <path d="M 20 32 L 26 32 L 28 37 L 18 37 Z" fill="#2d3748"/>
+      </svg>`
   };
+
   function svgToImage(svgString) {
     const img = new Image();
     img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgString)));
@@ -189,9 +223,9 @@
   const JETPACK_UNLOCK_SCORE = 500;
   const SPRING_UNLOCK_SCORE = 200;
   const ENEMY_UNLOCK_SCORE = 1000;
-  const JETPACK_DURATION = 1.3;   // с
-  const JETPACK_VY = -900;        // px/s під час дії джетпака
-  const JETPACK_PERIOD_MIN = 260, JETPACK_PERIOD_MAX = 520; // рандомна періодичність (в очках висоти)
+  const JETPACK_DURATION = 1.3;
+  const JETPACK_VY = -900;
+  const JETPACK_PERIOD_MIN = 260, JETPACK_PERIOD_MAX = 520;
   const SPRING_BOUNCE_MULT = 1.6;
   const SPRING_CHANCE = 0.15;
   const ENEMY_R = 18;
@@ -228,7 +262,7 @@
     platforms = [];
     sparkles = [];
     enemies = [];
-    // стартова платформа прямо під гравцем
+
     platforms.push(makePlatform(W / 2 - PLATFORM_W / 2, H - 90, 'normal'));
     let y = H - 90;
     while (y > -H * 1.5) {
@@ -249,14 +283,13 @@
   function makePlatform(x, y, type) {
     const p = { x, y, w: PLATFORM_W, h: PLATFORM_H, type, alive: true, breakT: 0 };
     if (type === 'move') {
-      const desiredRange = 30 + Math.random() * 50; // 30-80px
+      const desiredRange = 30 + Math.random() * 50;
       const minX = 4 + desiredRange;
       const maxX = (W - p.w - 4) - desiredRange;
       if (maxX > minX) {
         p.baseX = Math.min(Math.max(x, minX), maxX);
         p.range = desiredRange;
       } else {
-        // на вузькому екрані звужуємо розмах, щоб він все одно вміщався
         p.baseX = (W - p.w) / 2;
         p.range = Math.max(0, (W - p.w - 8) / 2);
       }
@@ -287,9 +320,6 @@
     };
   }
 
-  // створює платформу на висоті y (+ можливо джетпак/пружину/ворога поруч),
-  // плановано за еквівалентом висоти-в-очках, а не за поточним живим рахунком —
-  // так предмети з'являються там, де гравець реально буде, коли долетить туди
   function spawnPlatformAt(y) {
     const type = pickType();
     const px = Math.random() * (W - PLATFORM_W);
@@ -332,7 +362,6 @@
   function update(dt) {
     if (phase !== 'playing') return;
 
-    // керування
     const dir = touchDir !== 0 ? touchDir : moveDir;
     if (dir !== 0) {
       player.vx += dir * MOVE_ACCEL * dt;
@@ -354,11 +383,9 @@
     player.x += player.vx * dt;
     player.y += player.vy * dt;
 
-    // тор-перехід країв екрана
     if (player.x < -player.r) player.x = W + player.r;
     if (player.x > W + player.r) player.x = -player.r;
 
-    // рух платформ, що рухаються
     for (const p of platforms) {
       if (p.type === 'move' && p.alive) {
         p.phase += p.speed * dt;
@@ -370,14 +397,12 @@
       }
     }
 
-    // рух ворогів
     for (const en of enemies) {
       if (!en.alive) continue;
       en.phase += en.speed * dt;
       en.x = en.baseX + Math.sin(en.phase) * en.range;
     }
 
-    // колізії з платформами — тільки коли гравець падає і не летить на джетпаку
     if (player.vy > 0 && jetpackTimer <= 0) {
       for (const p of platforms) {
         if (!p.alive || p.type === 'break' && p.breakT > 0) continue;
@@ -406,7 +431,6 @@
       }
     }
 
-    // колізії з ворогами — стрибок згори "затоптує", інакше кінець гри (джетпак = недоторканність)
     if (jetpackTimer <= 0) {
       for (const en of enemies) {
         if (!en.alive) continue;
@@ -426,7 +450,6 @@
       }
     }
 
-    // камера тільки піднімається
     const targetCamTop = player.y - H * UPPER_THRESHOLD_FRAC;
     if (targetCamTop < camTop) camTop = targetCamTop;
 
@@ -443,7 +466,6 @@
     for (const s of sparkles) s.life += dt;
     sparkles = sparkles.filter((s) => s.life < s.maxLife);
 
-    // програш — впав нижче видимого екрана
     if (player.y - camTop > H + player.r + 20) {
       endGame();
     }
@@ -511,13 +533,28 @@
 
     ctx.save();
     ctx.globalAlpha = p.type === 'break' && p.breakT > 0 ? scale : 1;
-    ctx.fillStyle = fill;
-    roundRect(p.x, sy, p.w, p.h, 8);
-    ctx.fill();
-    ctx.strokeStyle = dark;
-    ctx.lineWidth = 2;
-    roundRect(p.x, sy, p.w, p.h, 8);
-    ctx.stroke();
+
+    if (p.type === 'break') {
+      const img = ASSETS.platformBreak;
+      if (img && img.complete) {
+        ctx.drawImage(img, p.x, sy, p.w, p.h);
+      }
+    } else {
+      const r = p.h / 2;
+      ctx.fillStyle = fill;
+      roundRect(p.x, sy, p.w, p.h, r);
+      ctx.fill();
+
+      ctx.strokeStyle = dark;
+      ctx.lineWidth = 3;
+      roundRect(p.x, sy, p.w, p.h, r);
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.28)';
+      roundRect(p.x + 8, sy + 3, p.w - 16, 4, 2);
+      ctx.fill();
+    }
+
     ctx.restore();
 
     if (p.hasJetpack) drawJetpackIcon(p.x + p.w / 2, sy);
@@ -582,7 +619,6 @@
     ctx.restore();
   }
 
-  // лінії швидкості позаду персонажа, коли він розганяється
   function drawMotionLines() {
     const speed = Math.hypot(player.vx, player.vy);
     const THRESH = 260;
@@ -614,22 +650,31 @@
 
   function drawJetpackFlame() {
     if (jetpackTimer <= 0) return;
+
     const flicker = 0.7 + Math.random() * 0.3;
+    const jpW = 20;
+    const jpH = 26;
+
+    const flameX = (player.facing === 1) ? -PLAYER_R - 8 + jpW / 2 : PLAYER_R - 12 + jpW / 2;
+    const flameY = jpH / 2;
+
     ctx.save();
     ctx.fillStyle = '#f5c542';
     ctx.beginPath();
-    ctx.moveTo(-7, PLAYER_R - 2);
-    ctx.lineTo(0, PLAYER_R + 14 * flicker);
-    ctx.lineTo(7, PLAYER_R - 2);
+    ctx.moveTo(flameX - 7, flameY);
+    ctx.lineTo(flameX, flameY + 18 * flicker);
+    ctx.lineTo(flameX + 7, flameY);
     ctx.closePath();
     ctx.fill();
+
     ctx.fillStyle = '#e0522f';
     ctx.beginPath();
-    ctx.moveTo(-4, PLAYER_R - 2);
-    ctx.lineTo(0, PLAYER_R + 8 * flicker);
-    ctx.lineTo(4, PLAYER_R - 2);
+    ctx.moveTo(flameX - 4, flameY);
+    ctx.lineTo(flameX, flameY + 10 * flicker);
+    ctx.lineTo(flameX + 4, flameY);
     ctx.closePath();
     ctx.fill();
+
     ctx.restore();
   }
 
@@ -637,31 +682,81 @@
     const sy = player.y - camTop;
     ctx.save();
     ctx.translate(player.x, sy);
+
     drawMotionLines();
-    drawJetpackFlame();
-    // тіло
-    ctx.fillStyle = '#6fbd4f';
+
+    const vy = player.vy || 0; 
+    let scaleX = 1;
+    let scaleY = 1;
+
+    if (vy < -3) { 
+      scaleX = 0.92;
+      scaleY = 1.08;
+    } else if (vy > 3) { 
+      scaleX = 1.08;
+      scaleY = 0.92;
+    }
+
+    // Джетпак
+    if (jetpackTimer > 0) {
+      const jpW = 22;
+      const jpH = 28;
+      const jpX = (player.facing === 1) ? -PLAYER_R - 12 : PLAYER_R - 10;
+      const jpY = -jpH / 2;
+
+      drawJetpackFlame();
+
+      const imgJp = ASSETS.jetpack;
+      if (imgJp && imgJp.complete) {
+        ctx.save();
+        if (player.facing === -1) {
+          ctx.translate(jpX + jpW / 2, jpY + jpH / 2);
+          ctx.scale(-1, 1);
+          ctx.drawImage(imgJp, -jpW / 2, -jpH / 2, jpW, jpH);
+        } else {
+          ctx.drawImage(imgJp, jpX, jpY, jpW, jpH);
+        }
+        ctx.restore();
+      }
+    }
+
+    // Тіло
+    ctx.save();
+    ctx.scale(scaleX, scaleY);
+
+    const imgBody = ASSETS.playerBody;
+    const size = PLAYER_R * 2.4;
+    if (imgBody && imgBody.complete) {
+      ctx.save();
+      if (player.facing === -1) {
+        ctx.scale(-1, 1);
+      }
+      ctx.drawImage(imgBody, -size / 2, -size / 2, size, size);
+      ctx.restore();
+    }
+
+    // Очі
+    // Очі
+    const eyeDx = 6 * player.facing;
+    let eyeDy = -4; 
+    if (vy < -2) eyeDy = -9;
+    if (vy > 2)  eyeDy = 2;
+
+    ctx.fillStyle = '#ffffff';
     ctx.strokeStyle = '#2f5e1f';
     ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.arc(0, 0, PLAYER_R, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    // ніжки
-    ctx.strokeStyle = '#2f5e1f';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(-8, PLAYER_R - 2); ctx.lineTo(-10, PLAYER_R + 8);
-    ctx.moveTo(8, PLAYER_R - 2); ctx.lineTo(10, PLAYER_R + 8);
-    ctx.stroke();
-    // очі
-    const eyeDx = 6 * player.facing;
-    ctx.fillStyle = '#fff';
-    ctx.beginPath(); ctx.arc(-7 + eyeDx * 0.3, -4, 6, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(7 + eyeDx * 0.3, -4, 6, 0, Math.PI * 2); ctx.fill();
+
+    // Ліве око
+    ctx.beginPath(); ctx.arc(-8 + eyeDx * 0.3, eyeDy, 6.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    // Праве око
+    ctx.beginPath(); ctx.arc(6 + eyeDx * 0.3, eyeDy, 6.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+    // Зіниці
     ctx.fillStyle = '#23261f';
-    ctx.beginPath(); ctx.arc(-7 + eyeDx * 0.6, -4, 2.6, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(7 + eyeDx * 0.6, -4, 2.6, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-7 + eyeDx * 0.6, eyeDy + (vy < -2 ? -1.5 : vy > 2 ? 1.5 : 0), 2.8, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(7 + eyeDx * 0.6, eyeDy + (vy < -2 ? -1.5 : vy > 2 ? 1.5 : 0), 2.8, 0, Math.PI * 2); ctx.fill();
+
+    ctx.restore();
     ctx.restore();
   }
 
@@ -707,7 +802,6 @@
   });
   overlayBtn.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
 
-  // керування дотиком: ліва/права половина екрана = утримувана "кнопка"
   function touchXToDir(clientX) {
     const rect = gameAreaEl.getBoundingClientRect();
     const localX = clientX - rect.left;
@@ -722,7 +816,6 @@
   canvas.addEventListener('touchend', () => { touchDir = 0; }, { passive: true });
   canvas.addEventListener('touchcancel', () => { touchDir = 0; }, { passive: true });
 
-  // клавіатура (для тестування на десктопі)
   document.addEventListener('keydown', (e) => {
     if (e.code === 'ArrowLeft') moveDir = -1;
     else if (e.code === 'ArrowRight') moveDir = 1;
