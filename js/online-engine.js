@@ -54,7 +54,7 @@
     const LOBBY_PATH = `${gameKey}_lobby`;
     const ROOMS_PATH = `${gameKey}_rooms`;
     const onEmptyPlayer = opts.onEmptyPlayer || (() => ({}));
-    const onDisconnectPlayerPatch = opts.onDisconnectPlayerPatch || { lastSeen: 0 };
+    const onDisconnectPlayerPatch = opts.onDisconnectPlayerPatch || { lastSeen: 0, status: "inactive" };
 
     let serverOffset = 0;
     if (window.rtdb) {
@@ -109,6 +109,7 @@
         if (myLobbyRef) myLobbyRef.child("lastSeen").set(now());
         if (currentRoomId && myPlayerRef) {
           myPlayerRef.child("lastSeen").set(now());
+          myPlayerRef.child("status").set("active");
           roomRef.child("lastActivityAt").set(now());
         }
       }, HEARTBEAT_MS);
@@ -119,13 +120,14 @@
       if (myLobbyRef) myLobbyRef.set({ status, roomId: roomId || null, lastSeen: now() });
     }
 
-    function stop() {
+    function stop(options) {
+      options = options || {};
       if (heartbeatTimer) clearInterval(heartbeatTimer);
       if (hostWatchTimer) clearInterval(hostWatchTimer);
       if (lobbyRef && listeners.lobby) lobbyRef.off("value", listeners.lobby);
       if (myLobbyRef && listeners.invite) myLobbyRef.child("roomId").off("value", listeners.invite);
       if (myLobbyRef) { myLobbyRef.onDisconnect().cancel(); myLobbyRef.remove(); }
-      leaveRoomLocally();
+      leaveRoomLocally(options.preserveRoomPresence === true);
     }
     const stopPresence = stop; // сумісна назва для room-based ігор (Змійка)
 
@@ -230,17 +232,19 @@
       if (!myPlayerRef) return Promise.resolve();
       return myPlayerRef.get().then((snap) => {
         if (!snap.exists()) {
-          return myPlayerRef.set({ joinedAt: now(), lastSeen: now(), ...onEmptyPlayer(), ...extra });
+          return myPlayerRef.set({ joinedAt: now(), lastSeen: now(), status: "active", ...onEmptyPlayer(), ...extra });
         }
+        if (snap.val().status === "active" && !extra) return;
+        return myPlayerRef.update({ lastSeen: now(), status: "active", ...(extra || {}) });
       }).then(() => {
         myPlayerRef.onDisconnect().update(onDisconnectPlayerPatch);
       });
     }
 
-    function leaveRoomLocally() {
+    function leaveRoomLocally(preservePresence) {
       if (hostWatchTimer) { clearInterval(hostWatchTimer); hostWatchTimer = null; }
       if (roomRef && listeners.room) roomRef.off("value", listeners.room);
-      if (myPlayerRef) myPlayerRef.onDisconnect().cancel();
+      if (myPlayerRef && !preservePresence) myPlayerRef.onDisconnect().cancel();
       if (isHost) { isHost = false; onLoseHost(); }
       currentRoomId = null; roomRef = null; myPlayerRef = null; latestRoom = null;
     }

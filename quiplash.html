@@ -19,8 +19,8 @@ h1, h2 { margin: 0 0 8px; }
 
 #header-bar {
   display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr); align-items: center;
-  gap: 10px; padding: 46px 16px 10px; background: #2b2b33; border-bottom: 1px solid #3a3a44;
-  font-size: 14px; position: sticky; top: 0; z-index: 2;
+  gap: 10px; margin-top: 46px; padding: 10px 16px; background: #2b2b33; border-bottom: 1px solid #3a3a44;
+  font-size: 14px; position: relative; z-index: 2;
 }
 #gameHeader {
   position: fixed;
@@ -366,9 +366,8 @@ button:disabled { opacity: 0.5; cursor: default; }
       avatarPicker.classList.add("hidden");
       return;
     }
-    const connected = new Set(QuiplashGame.connectedEntries(state.players).map(([name]) => name));
     const taken = new Set(Object.entries(state.players || {})
-      .filter(([name]) => name !== username && connected.has(name))
+      .filter(([name]) => name !== username)
       .map(([, player]) => player.character));
     if (!avatarSelect.options.length) {
       const avatarNames = ["Лука", "Ліам", "Йорк", "Лісі", "Сімон", "Кікі", "Лойд", "Карен"];

@@ -146,7 +146,7 @@
     });
     const index = Math.max(0, ordered.findIndex(([playerName]) => playerName === name));
     const used = new Set(ordered
-      .filter(([playerName, player]) => playerName !== name && Engine.isConnected(player) && Number.isInteger(player.character))
+      .filter(([playerName, player]) => playerName !== name && Number.isInteger(player.character))
       .map(([, player]) => player.character));
     const current = players && players[name];
     if (current && Number.isInteger(current.character) && current.character >= 1 && current.character <= 8 && !used.has(current.character)) {
@@ -197,13 +197,20 @@
       if (type !== "room-update") return;
       const state = data.room;
       ref = Engine.roomRef;
-      if (state.phase === "lobby" && (!state.players || !state.players[username])) {
-        const profile = playerProfile(state.players, username);
+      if (!state.players || !state.players[username]) {
+        const saved = storedProfile(username);
+        const profile = state.phase === "lobby" ? playerProfile(state.players, username) : saved;
+        if (state.phase !== "lobby" && !profile) {
+          maybeRunAsHost(state);
+          onStateChange(state, { username, host: computeHost(state.players) === username });
+          return;
+        }
         rememberProfile(username, profile);
-        Engine.becomePlayer(profile);
+        Engine.becomePlayer();
       } else if (state.players && state.players[username]) {
         const profile = playerProfile(state.players, username);
         const current = state.players[username];
+        Engine.becomePlayer(profile);
         rememberProfile(username, current.character ? current : profile);
         if (current.character !== profile.character || current.color !== profile.color) {
           ref.child(`players/${username}`).update(profile);
@@ -225,7 +232,7 @@
   function stop() {
     if (tickTimer) clearInterval(tickTimer);
     Engine.leaveRoom();
-    Engine.stop();
+    Engine.stop({ preserveRoomPresence: true });
     ref = null;
     isHost = false;
   }
@@ -308,6 +315,7 @@
   async function startRound(state, roundNumber) {
     const roundType = ROUND_PLAN[roundNumber - 1] || "classic";
     const conn = connectedEntries(state.players).map(([n]) => n);
+    if (conn.length < 2) return;
     const tvFact = pickFact(roundNumber);
 
     if (roundType === "image") {
@@ -443,13 +451,62 @@
   function classicVoteMs(state) { return (state.settings.voteSeconds || DEFAULT_VOTE_SECONDS) * 1000; }
   function galleryVoteMs(state) { return classicVoteMs(state) + GALLERY_VOTE_BONUS_SECONDS * 1000; }
 
+  function playerAnswered(state, name) {
+    return Object.values(state.matchups || {}).every((m) =>
+      (m.playerAId !== name || !unanswered(m.answerA)) &&
+      (m.playerBId !== name || !unanswered(m.answerB))
+    );
+  }
+
+  function compactClassicMatchups(state) {
+    const active = connectedEntries(state.players).map(([name]) => name);
+    if (active.length < 2) return null;
+    const old = Object.values(state.matchups || {});
+    const order = [];
+    old.forEach((m) => {
+      [m.playerAId, m.playerBId].forEach((name) => {
+        if (active.includes(name) && !order.includes(name)) order.push(name);
+      });
+    });
+    active.forEach((name) => { if (!order.includes(name)) order.push(name); });
+
+    const answerFor = (name) => {
+      const match = old.find((m) => m.playerAId === name && !unanswered(m.answerA) || m.playerBId === name && !unanswered(m.answerB));
+      if (!match) return null;
+      return match.playerAId === name ? match.answerA : match.answerB;
+    };
+    const promptFor = (a, b) => {
+      const match = old.find((m) =>
+        (m.playerAId === a && m.playerBId === b) || (m.playerAId === b && m.playerBId === a)
+      ) || old.find((m) => m.playerAId === a || m.playerBId === a);
+      return match ? match.promptText : "Придумайте відповідь";
+    };
+    const matchups = {};
+    for (let i = 0; i < order.length; i++) {
+      const a = order[i];
+      const b = order[(i + 1) % order.length];
+      const id = `${state.round}-${i}`;
+      matchups[id] = {
+        id,
+        promptText: promptFor(a, b),
+        playerAId: a,
+        playerBId: b,
+        answerA: answerFor(a),
+        answerB: answerFor(b),
+        votes: {},
+        finalized: false,
+      };
+    }
+    return { matchups, currentMatchupIndex: 0 };
+  }
+
   function allAnswered(state) {
     if (state.gallery) {
       const conn = connectedEntries(state.players).map(([n]) => n);
       return conn.every((n) => state.gallery.answers && state.gallery.answers[n] !== undefined);
     }
-    const list = Object.values(state.matchups || {});
-    return list.length > 0 && list.every((m) => !unanswered(m.answerA) && !unanswered(m.answerB));
+    const conn = connectedEntries(state.players).map(([name]) => name);
+    return conn.length >= 2 && conn.every((name) => playerAnswered(state, name));
   }
 
   function eligibleVoterCount(state, m) {
@@ -461,8 +518,8 @@
     return Object.keys(m.votes || {}).length >= eligibleVoterCount(state, m);
   }
   function galleryVotesComplete(state) {
-    const conn = connectedEntries(state.players).length;
-    return Object.keys((state.gallery && state.gallery.votes) || {}).length >= conn;
+    const eligible = connectedEntries(state.players).filter(([name]) => state.gallery.answers && state.gallery.answers[name]).length;
+    return Object.keys((state.gallery && state.gallery.votes) || {}).length >= eligible;
   }
 
   function finalizeMatchupVotes(state, m) {
@@ -492,7 +549,7 @@
   }
 
   function finalizeGalleryVotes(state) {
-    const conn = connectedEntries(state.players).map(([n]) => n);
+    const conn = Object.keys(state.gallery.answers || {});
     const counts = {};
     conn.forEach((n) => { counts[n] = 0; });
     Object.values(state.gallery.votes || {}).forEach((targetId) => { counts[targetId] = (counts[targetId] || 0) + 1; });
@@ -522,6 +579,19 @@
       const t = now();
 
       if (state.phase === "answering") {
+        if (!state.gallery && allAnswered(state)) {
+          const active = connectedEntries(state.players).map(([name]) => name);
+          const hasPendingInactive = Object.keys(state.players || {}).some((name) =>
+            !active.includes(name) && !playerAnswered(state, name)
+          );
+          if (hasPendingInactive) {
+            const compacted = compactClassicMatchups(state);
+            if (compacted) {
+              ref.update(compacted);
+              return;
+            }
+          }
+        }
         if (allAnswered(state)) {
           if (state.gallery) {
             ref.update({ phase: "answer_countdown", phaseDeadline: t + ANSWERING_COUNTDOWN_MS });
