@@ -371,9 +371,10 @@ button:disabled { opacity: 0.5; cursor: default; }
       .filter(([name]) => name !== username && connected.has(name))
       .map(([, player]) => player.character));
     if (!avatarSelect.options.length) {
-      avatarSelect.innerHTML = Array.from({ length: 8 }, (_, index) =>
-        `<option value="${index + 1}">Персонаж ${index + 1}</option>`
-      ).join("");
+      const avatarNames = ["Лука", "Ліам", "Йорк", "Лісі", "Сімон", "Кікі", "Лойд", "Карен"];
+      avatarSelect.innerHTML = avatarNames
+        .map((name, index) => `<option value="${index + 1}">${name}</option>`)
+        .join("");
     }
     Array.from(avatarSelect.options).forEach((option) => {
       option.disabled = taken.has(Number(option.value));
