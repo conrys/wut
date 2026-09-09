@@ -229,7 +229,7 @@ button:disabled { opacity: 0.5; cursor: default; }
     d.textContent = s == null ? "" : String(s);
     return d.innerHTML;
   }
-  function charImg(p) { return `img/quiplash/chars/char${p.character || 1}.svg`; }
+  function charImg(p) { return `img/char${p.character || 1}.svg`; }
 
   let lastState = null;
   let session = null;
@@ -360,6 +360,9 @@ button:disabled { opacity: 0.5; cursor: default; }
   }
 
   function renderFinalBoard(container, entries) {
+    const boardKey = entries.map(([name, p]) => `${name}:${p.score || 0}`).join("|");
+    if (container.dataset.boardKey === boardKey) return;
+    container.dataset.boardKey = boardKey;
     const max = Math.max(1, ...entries.map(([, p]) => p.score || 0));
     container.innerHTML = "";
     entries.forEach(([name, p], i) => {
@@ -388,6 +391,13 @@ button:disabled { opacity: 0.5; cursor: default; }
     voteTimerFill.style.width = Math.max(0, Math.min(100, (remaining / totalMs) * 100)) + "%";
   }
 
+  function effectiveDeadline(state) {
+    if (!state.phaseDeadline) return null;
+    return state.paused
+      ? state.phaseDeadline + Math.max(0, Date.now() - (state.pausedAt || Date.now()))
+      : state.phaseDeadline;
+  }
+
   function makeRevealBlock(name, answer, count, points) {
     const wrap = document.createElement("div");
     wrap.innerHTML = `<p class="reveal-name">${escapeHtml(name)}</p>
@@ -409,10 +419,14 @@ button:disabled { opacity: 0.5; cursor: default; }
       if (already) {
         answerCards.classList.add("hidden");
         answerReady.classList.remove("hidden");
+        answerCards.dataset.answerKey = "";
         return;
       }
       answerCards.classList.remove("hidden");
       answerReady.classList.add("hidden");
+      const galleryKey = `gallery-${state.round}`;
+      if (answerCards.dataset.answerKey === galleryKey) return;
+      answerCards.dataset.answerKey = galleryKey;
       answerCards.innerHTML = `<div class="answer-card">
         <img class="prompt-image" src="${escapeHtml(state.gallery.image)}" onerror="this.style.display='none'">
         <p class="prompt-text">${escapeHtml(state.gallery.text)}</p>
@@ -430,17 +444,18 @@ button:disabled { opacity: 0.5; cursor: default; }
     const mine = Object.values(state.matchups || {}).filter((m) => m.playerAId === session || m.playerBId === session);
     const answeredNames = players.filter((p) =>
       Object.values(state.matchups || {}).every((m) =>
-        (m.playerAId !== p.name || m.answerA !== null) && (m.playerBId !== p.name || m.answerB !== null)
+        (m.playerAId !== p.name || m.answerA != null) && (m.playerBId !== p.name || m.answerB != null)
       )
     ).map((p) => p.name);
     renderReadinessBar(answerReadiness, players, answeredNames);
 
-    const pending = mine.filter((m) => (m.playerAId === session ? m.answerA === null : m.answerB === null));
+    const pending = mine.filter((m) => (m.playerAId === session ? m.answerA == null : m.answerB == null));
     if (mine.length && !pending.length) {
       answerTitle.classList.add("hidden");
       answerProgress.classList.add("hidden");
       answerCards.classList.add("hidden");
       answerReady.classList.remove("hidden");
+      answerCards.dataset.answerKey = "";
       return;
     }
     answerTitle.classList.remove("hidden");
@@ -451,6 +466,9 @@ button:disabled { opacity: 0.5; cursor: default; }
     const doneCount = mine.length - pending.length;
     answerProgress.classList.toggle("hidden", mine.length <= 1);
     answerProgress.textContent = `Питання ${doneCount + 1} з ${mine.length}`;
+    const answerKey = `classic-${current.id}`;
+    if (answerCards.dataset.answerKey === answerKey) return;
+    answerCards.dataset.answerKey = answerKey;
     answerCards.innerHTML = `<div class="answer-card">
       <p class="prompt-text">${escapeHtml(current.promptText)}</p>
       <textarea id="matchupInput" maxlength="100" placeholder="Твоя смішна відповідь…"></textarea>
@@ -496,7 +514,7 @@ button:disabled { opacity: 0.5; cursor: default; }
         });
         return;
       }
-      setTimerFill(state.phaseDeadline, ((state.settings.voteSeconds || 25) + 10) * 1000);
+      setTimerFill(effectiveDeadline(state), ((state.settings.voteSeconds || 25) + 10) * 1000);
       const haveAnswered = g.answers && g.answers[session] !== undefined;
       const myVote = g.votes && g.votes[session];
       if (haveAnswered && !myVote) {
@@ -543,11 +561,14 @@ button:disabled { opacity: 0.5; cursor: default; }
       return;
     }
 
-    setTimerFill(state.phaseDeadline, (state.settings.voteSeconds || 25) * 1000);
-    if (!isParticipant && !myVote) {
+    setTimerFill(effectiveDeadline(state), (state.settings.voteSeconds || 25) * 1000);
+    const twoPlayerTest = Object.keys(state.players || {}).length === 2;
+    if ((!isParticipant || twoPlayerTest) && !myVote) {
       votingChoices.classList.remove("hidden");
       choiceA.textContent = m.answerA;
       choiceB.textContent = m.answerB;
+      choiceA.disabled = twoPlayerTest && m.playerAId === session;
+      choiceB.disabled = twoPlayerTest && m.playerBId === session;
       choiceA.onclick = () => QuiplashGame.submitVote(m.id, "A");
       choiceB.onclick = () => QuiplashGame.submitVote(m.id, "B");
     } else {
@@ -583,6 +604,7 @@ button:disabled { opacity: 0.5; cursor: default; }
 
     if (state.phase === "lobby") {
       screen("lobby");
+      answerCards.dataset.answerKey = "";
       renderLobbyRing(players.map(([n, p]) => ({ name: n, ...p })));
       const conn = QuiplashGame.connectedEntries(state.players);
       lobbySettings.classList.toggle("hidden", !ctx.host);

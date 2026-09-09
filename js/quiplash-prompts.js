@@ -115,7 +115,11 @@ const QUIPLASH_FACTS = [
 
 // Картинкові раунди завантажуються з ql_img/image-prompts.json.
 // У JSON достатньо вказати ім'я файлу; шлях до ql_img додається тут.
-const QUIPLASH_IMAGE_PROMPTS = [];
+const QUIPLASH_IMAGE_PROMPTS = [
+  "1.jpg", "2.jpg", "3.png", "4.jpg", "5.jpg", "6.jpg", "7.jpg", "8.png",
+  "9.jpg", "10.jpg", "11.jpg", "12.jpg", "13.jpg", "14.png", "15.jpg", "16.png",
+  "17.png", "18.webp", "19.jpg", "20.jpg", "21.png", "22.webp",
+].map((image) => ({ image: `ql_img/${image}`, text: "Придумайте смішний підпис до цієї картинки" }));
 const QUIPLASH_IMAGE_PROMPTS_READY = fetch("ql_img/image-prompts.json")
   .then((response) => {
     if (!response.ok) throw new Error(`image-prompts.json: ${response.status}`);
@@ -123,6 +127,7 @@ const QUIPLASH_IMAGE_PROMPTS_READY = fetch("ql_img/image-prompts.json")
   })
   .then((items) => {
     if (!Array.isArray(items)) return;
+    QUIPLASH_IMAGE_PROMPTS.length = 0;
     items.forEach((item) => {
       if (!item || !item.image) return;
       const text = typeof item.text === "string" && item.text.trim()

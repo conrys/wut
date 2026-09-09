@@ -57,6 +57,8 @@
     return (text || "").toString().replace(/[\r\n\t]/g, " ").trim().slice(0, maxLen);
   }
 
+  function unanswered(value) { return value === null || value === undefined; }
+
   function shuffle(arr) {
     const a = arr.slice();
     for (let i = a.length - 1; i > 0; i--) {
@@ -124,6 +126,18 @@
     return conn.sort((a, b) => (a[1].joinedAt || 0) - (b[1].joinedAt || 0))[0][0];
   }
 
+  function playerProfile(players, name) {
+    const ordered = Object.entries(players || {}).sort((a, b) => {
+      const joinedDiff = (a[1].joinedAt || 0) - (b[1].joinedAt || 0);
+      return joinedDiff || a[0].localeCompare(b[0]);
+    });
+    const index = Math.max(0, ordered.findIndex(([playerName]) => playerName === name));
+    return {
+      color: QUIPLASH_AVATAR_COLORS[index % QUIPLASH_AVATAR_COLORS.length],
+      character: (index % 8) + 1,
+    };
+  }
+
   function emptyState() {
     return {
       phase: "lobby",
@@ -148,7 +162,13 @@
       const state = data.room;
       ref = Engine.roomRef;
       if (state.phase === "lobby" && (!state.players || !state.players[username])) {
-        Engine.becomePlayer();
+        Engine.becomePlayer(playerProfile(state.players, username));
+      } else if (state.players && state.players[username]) {
+        const profile = playerProfile(state.players, username);
+        const current = state.players[username];
+        if (current.character !== profile.character || current.color !== profile.color) {
+          ref.child(`players/${username}`).update(profile);
+        }
       }
       maybeRunAsHost(state);
       onStateChange(state, { username, host: computeHost(state.players) === username });
@@ -162,6 +182,7 @@
 
   function stop() {
     if (tickTimer) clearInterval(tickTimer);
+    Engine.leaveRoom();
     Engine.stop();
     ref = null;
     isHost = false;
@@ -282,8 +303,8 @@
       }
       const m = state.matchups && state.matchups[matchupId];
       if (!m) return;
-      if (m.playerAId === username && m.answerA === null) ref.child(`matchups/${matchupId}/answerA`).set(clean);
-      else if (m.playerBId === username && m.answerB === null) ref.child(`matchups/${matchupId}/answerB`).set(clean);
+      if (m.playerAId === username && unanswered(m.answerA)) ref.child(`matchups/${matchupId}/answerA`).set(clean);
+      else if (m.playerBId === username && unanswered(m.answerB)) ref.child(`matchups/${matchupId}/answerB`).set(clean);
     });
   }
 
@@ -294,7 +315,10 @@
       if (state.gallery) return; // голосування в галереї — окрема функція
       const m = state.matchups[matchupId];
       if (!m || m.id !== matchupId) return;
-      if (username === m.playerAId || username === m.playerBId) return;
+      const twoPlayerTest = connectedEntries(state.players).length === 2;
+      const isParticipant = username === m.playerAId || username === m.playerBId;
+      if (isParticipant && !twoPlayerTest) return;
+      if (twoPlayerTest && ((username === m.playerAId && choice === "A") || (username === m.playerBId && choice === "B"))) return;
       if (m.votes && m.votes[username]) return;
       ref.child(`matchups/${matchupId}/votes/${username}`).set(choice);
     });
@@ -361,11 +385,13 @@
       return conn.every((n) => state.gallery.answers && state.gallery.answers[n] !== undefined);
     }
     const list = Object.values(state.matchups || {});
-    return list.length > 0 && list.every((m) => m.answerA !== null && m.answerB !== null);
+    return list.length > 0 && list.every((m) => !unanswered(m.answerA) && !unanswered(m.answerB));
   }
 
   function eligibleVoterCount(state, m) {
-    return connectedEntries(state.players).filter(([n]) => n !== m.playerAId && n !== m.playerBId).length;
+    const connected = connectedEntries(state.players);
+    if (connected.length === 2) return 2;
+    return connected.filter(([n]) => n !== m.playerAId && n !== m.playerBId).length;
   }
   function votesComplete(state, m) {
     return Object.keys(m.votes || {}).length >= eligibleVoterCount(state, m);

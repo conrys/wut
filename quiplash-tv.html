@@ -195,6 +195,7 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
 <script src="js/firebase-config.js"></script>
 <script src="js/quiplash-prompts.js"></script>
@@ -203,7 +204,7 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
 <script>
 (function () {
   function escapeHtml(s) { const d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML; }
-  function charImg(p) { return `img/quiplash/chars/char${(p && p.character) || 1}.svg`; }
+  function charImg(p) { return `img/char${(p && p.character) || 1}.svg`; }
   function screen(id) {
     document.querySelectorAll(".host-screen").forEach((el) => el.classList.add("hidden"));
     document.getElementById(id).classList.remove("hidden");
@@ -266,6 +267,13 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
     if (!deadline) { el.style.width = "100%"; return; }
     const remaining = Math.max(0, deadline - Date.now());
     el.style.width = Math.max(0, Math.min(100, (remaining / totalMs) * 100)) + "%";
+  }
+
+  function effectiveDeadline(state) {
+    if (!state.phaseDeadline) return null;
+    return state.paused
+      ? state.phaseDeadline + Math.max(0, Date.now() - (state.pausedAt || Date.now()))
+      : state.phaseDeadline;
   }
 
   function pointsRowHtml(count, basePoints, bonusPoints, key) {
@@ -425,7 +433,7 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
           document.getElementById("host-vote-main").classList.toggle("hidden", showIntro);
 
           document.getElementById("host-vote-progress").textContent = `Раунд ${state.round}/${QuiplashGame.TOTAL_ROUNDS} · Голосування за найкращий підпис`;
-          setTimerFill(document.getElementById("host-vote-timer"), state.phaseDeadline, ((state.settings.voteSeconds || 25) + 10) * 1000);
+          setTimerFill(document.getElementById("host-vote-timer"), effectiveDeadline(state), ((state.settings.voteSeconds || 25) + 10) * 1000);
           document.getElementById("host-prompt").textContent = g.text;
           const promptImg = document.getElementById("host-prompt-image");
           promptImg.src = g.image; promptImg.classList.remove("hidden");
@@ -476,7 +484,7 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
         document.getElementById("host-pair-choices").classList.remove("hidden");
         document.getElementById("host-gallery-choices").classList.add("hidden");
         document.getElementById("host-vote-progress").textContent = `Раунд ${state.round}/${QuiplashGame.TOTAL_ROUNDS} · Пара ${state.currentMatchupIndex + 1}/${list.length}`;
-        setTimerFill(document.getElementById("host-vote-timer"), state.phaseDeadline, (state.settings.voteSeconds || 25) * 1000);
+        setTimerFill(document.getElementById("host-vote-timer"), effectiveDeadline(state), (state.settings.voteSeconds || 25) * 1000);
         document.getElementById("host-prompt").textContent = m.promptText;
         document.getElementById("host-prompt-image").classList.add("hidden");
         document.getElementById("host-answer-a-text").textContent = m.answerA;
