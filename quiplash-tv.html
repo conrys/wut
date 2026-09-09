@@ -83,6 +83,15 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
     font-size: 20px; text-align: center; display: flex; align-items: center; justify-content: center; min-height: 90px; }
 #host-reveal-gallery-list { display: flex; flex-direction: column; gap: 14px; max-width: 900px; margin: 0 auto; }
 #host-reveal-gallery-list .reveal-answer { background: #2b2b33; border: 1px solid #3a3a44; border-radius: 8px; padding: 16px; text-align: left; }
+.smihlystok-reaction { display: flex; align-items: center; gap: 14px; margin: -4px 0 12px; color: #ffd76f; font-size: 24px; font-weight: 800; }
+.smihlystok-reaction img { width: 96px; height: 96px; border-radius: 50%; object-fit: contain; background: #ffd76f; box-shadow: 0 0 0 3px rgba(255,215,111,0.55), 0 0 24px rgba(255,215,111,0.45); animation: smihlystok-expression 1.3s ease-in-out both; transform-origin: 50% 72%; }
+.smihlystok-reaction span { text-shadow: 0 0 14px rgba(255,215,111,0.55); }
+@keyframes smihlystok-expression {
+  0% { opacity: 0; transform: scale(0.7) rotate(-4deg); filter: saturate(1) contrast(1); }
+  23.08% { opacity: 1; transform: scale(1.35) rotate(3deg); filter: saturate(2.2) contrast(1.35) brightness(1.08); }
+  76.92% { opacity: 1; transform: scale(1.35) rotate(-2deg); filter: saturate(2.2) contrast(1.35) brightness(1.08); }
+  100% { opacity: 1; transform: scale(1) rotate(0); filter: saturate(1) contrast(1) brightness(1); }
+}
 
 .points-row { display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
 .points-base { font-size: 20px; color: #e6e6ea; }
@@ -105,6 +114,12 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
 #host-gallery-recap .recap-row .recap-text { flex: 1; min-width: 0; }
 #host-gallery-recap .recap-row .recap-name { font-weight: 700; margin-right: 8px; }
 #host-gallery-recap .recap-row .recap-caption { color: #d6d6dc; }
+#host-classic-recap { display: flex; flex-direction: column; gap: 14px; max-width: 1000px; margin: 0 auto; }
+#host-classic-recap .classic-recap-row { background: #26262e; border-radius: 14px; padding: 18px 24px; text-align: left; }
+#host-classic-recap .classic-recap-prompt { font-size: 20px; font-weight: 700; margin-bottom: 12px; }
+#host-classic-recap .classic-recap-answers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+#host-classic-recap .classic-recap-answer { background: #2b2b33; border: 1px solid #3a3a44; border-radius: 8px; padding: 12px; }
+@media (max-width: 700px) { #host-classic-recap .classic-recap-answers { grid-template-columns: 1fr; } }
 
 .section-subtitle { font-size: 22px; color: #9c9ca6; font-weight: 600; margin: 36px auto 16px; padding-top: 24px;
     border-top: 1px solid #38383f; max-width: 920px; }
@@ -150,6 +165,7 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
   <p class="hint hidden" id="host-answer-explainer">Перед вами картинка, вигадайте смішний або цікавий підпис</p>
   <img id="host-answer-image" class="prompt-image hidden" alt="">
   <h2 id="host-answer-title">Всі пишуть відповіді…</h2>
+  <p class="hint" id="host-answer-countdown"></p>
   <p class="hint" id="host-answer-fact"></p>
   <div id="host-answer-progress" class="readiness-bar"></div>
 </div>
@@ -186,6 +202,7 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
 <div id="host-screen-round-end" class="host-screen hidden">
   <h1 id="host-round-end-title"></h1>
   <div id="host-gallery-recap" class="hidden"></div>
+  <div id="host-classic-recap" class="hidden"></div>
   <h2 id="host-scoreboard-title" class="section-subtitle hidden">Загальний рахунок</h2>
   <div id="host-round-scoreboard" class="final-board"></div>
   <p class="hint" id="host-round-end-hint"></p>
@@ -217,6 +234,7 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
   const VOTE_INTRO_MS = 1800;
   let voteIntroKey = null;
   let voteIntroUntil = 0;
+  let latestState = null;
 
   function playersArray(state) {
     return Object.entries(state.players || {}).map(([id, p]) => ({ id, name: id, ...p }));
@@ -234,7 +252,7 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
   }
 
   function renderLobbyRing(players) {
-    const key = players.map((p) => p.id).join(",");
+    const key = players.map((p) => `${p.id}:${p.character || 1}:${p.color || ""}`).join(",");
     if (key === lastLobbyRingKey) return;
     lastLobbyRingKey = key;
     const ring = document.getElementById("lobby-ring");
@@ -334,8 +352,10 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
 
   function renderScoreBars(container, players, opts) {
     opts = opts || {};
-    if (opts.key && container.dataset.key === opts.key) return;
-    if (opts.key) container.dataset.key = opts.key;
+    const avatarKey = players.map((p) => `${p.id}:${p.character || 1}:${p.color || ""}`).join("|");
+    const renderKey = opts.key ? `${opts.key}|${avatarKey}` : avatarKey;
+    if (container.dataset.key === renderKey) return;
+    container.dataset.key = renderKey;
     const maxScore = players.reduce((m, p) => Math.max(m, p.score || 0), 0) || 1;
     container.innerHTML = "";
     const fills = [];
@@ -355,6 +375,7 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
   }
 
   function render(state) {
+    latestState = state;
     document.body.dataset.scene = state.phase;
     applySessionBackground(state.round);
     if (state.phase !== "voting") voteIntroKey = null;
@@ -391,6 +412,7 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
       const explainer = document.getElementById("host-answer-explainer");
       const image = document.getElementById("host-answer-image");
       const title = document.getElementById("host-answer-title");
+      document.getElementById("host-answer-countdown").textContent = "";
       let answeredNames;
       if (state.gallery) {
         explainer.classList.remove("hidden");
@@ -401,7 +423,7 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
         explainer.classList.add("hidden"); image.classList.add("hidden");
         title.textContent = "Всі пишуть відповіді…";
         answeredNames = players.filter((p) => Object.values(state.matchups || {}).every((m) =>
-          (m.playerAId !== p.id || m.answerA !== null) && (m.playerBId !== p.id || m.answerB !== null)
+          (m.playerAId !== p.id || m.answerA != null) && (m.playerBId !== p.id || m.answerB != null)
         )).map((p) => p.id);
       }
       renderReadinessBar(document.getElementById("host-answer-progress"), players, answeredNames);
@@ -414,6 +436,7 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
       document.getElementById("host-answer-explainer").classList.add("hidden");
       document.getElementById("host-answer-image").classList.add("hidden");
       document.getElementById("host-answer-title").textContent = "Всі відповіли. Готуємось до голосування…";
+      document.getElementById("host-answer-countdown").textContent = "";
       document.getElementById("host-answer-fact").textContent = state.tvFact ? `Цікавий факт: ${state.tvFact}` : "";
       return;
     }
@@ -448,7 +471,8 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
           galleryBox.classList.remove("hidden");
           setTwoRowGrid(galleryBox, candidates.length);
           galleryBox.innerHTML = candidates.map((c) => `<div class="gallery-tile">${escapeHtml(c.text)}</div>`).join("");
-          document.getElementById("host-vote-count").textContent = `Голосів: ${Object.keys(g.votes || {}).length}/${conn.length}`;
+          const galleryVoters = conn.filter(([name]) => g.answers && g.answers[name] !== undefined).length;
+          document.getElementById("host-vote-count").textContent = `Голосів: ${Object.keys(g.votes || {}).length}/${galleryVoters}`;
         } else {
           document.getElementById("host-reveal-prompt").textContent = g.text;
           const img = document.getElementById("host-reveal-prompt-image");
@@ -461,7 +485,8 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
             list.dataset.key = key;
             const results = Object.entries(g.results || {}).sort((a, b) => b[1].count - a[1].count);
             list.innerHTML = results.map(([n, r], i) => `<div class="reveal-answer${i === 0 && r.count > 0 ? " reveal-winner" : ""}">
-                <p class="reveal-name">${escapeHtml(n)}</p>
+              ${i === 0 && r.count > 0 ? `<div class="smihlystok-reaction"><img src="${charImg(byId[n] || { character: 1 })}" alt=""><span>СМІХЛИСТ!</span></div>` : ""}
+              <p class="reveal-name">${escapeHtml(n)}</p>
                 <p class="reveal-answer-text">${escapeHtml(g.answers[n])}</p>
                 ${pointsRowHtml(r.count, r.basePoints, r.bonusPoints, `${state.round}-${n}`)}
               </div>`).join("");
@@ -496,7 +521,7 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
         document.getElementById("host-answer-a-text").textContent = m.answerA;
         document.getElementById("host-answer-b-text").textContent = m.answerB;
         const votesIn = Object.keys(m.votes || {}).length;
-        const votesNeeded = conn.filter(([n]) => n !== m.playerAId && n !== m.playerBId).length;
+        const votesNeeded = conn.length === 2 ? 2 : conn.filter(([n]) => n !== m.playerAId && n !== m.playerBId).length;
         document.getElementById("host-vote-count").textContent = `Голосів: ${votesIn}/${votesNeeded}`;
       } else {
         document.getElementById("host-reveal-prompt").textContent = m.promptText;
@@ -546,6 +571,27 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
         recap.dataset.key = ""; recap.classList.add("hidden"); recap.innerHTML = "";
       }
 
+      const classicRecap = document.getElementById("host-classic-recap");
+      if (!state.gallery && state.matchups) {
+        const key = `round-${state.round}-classic-${Object.values(state.matchups).map((m) => `${m.id}:${m.pointsA || 0}:${m.pointsB || 0}`).join("|")}`;
+        classicRecap.classList.remove("hidden");
+        if (classicRecap.dataset.key !== key) {
+          classicRecap.dataset.key = key;
+          classicRecap.innerHTML = Object.values(state.matchups).map((m) => `
+            <div class="classic-recap-row">
+              <div class="classic-recap-prompt">${escapeHtml(m.promptText)}</div>
+              <div class="classic-recap-answers">
+                <div class="classic-recap-answer"><b>${escapeHtml(m.playerAId)}</b><br>${escapeHtml(m.answerA || "Без відповіді")}<br><span class="hint">${m.countA || 0} голос(и) · +${m.pointsA || 0}</span></div>
+                <div class="classic-recap-answer"><b>${escapeHtml(m.playerBId)}</b><br>${escapeHtml(m.answerB || "Без відповіді")}<br><span class="hint">${m.countB || 0} голос(и) · +${m.pointsB || 0}</span></div>
+              </div>
+            </div>`).join("");
+        }
+      } else {
+        classicRecap.dataset.key = "";
+        classicRecap.classList.add("hidden");
+        classicRecap.innerHTML = "";
+      }
+
       const scoreboardTitle = document.getElementById("host-scoreboard-title");
       {
         scoreboardTitle.classList.toggle("hidden", !state.gallery);
@@ -554,7 +600,7 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
       }
       document.getElementById("host-round-end-hint").textContent = isFinalRound
         ? (state.awaitingContinuation ? "Ведучий вирішує, що робимо далі…" : "")
-        : "Наступний раунд ось-ось почнеться…";
+        : (conn.length < 2 ? "Чекаємо, поки гравці повернуться…" : "Наступний раунд ось-ось почнеться…");
       return;
     }
 
@@ -573,6 +619,20 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
       if (state) render(state);
     });
   }
+  setInterval(() => {
+    if (!latestState) return;
+    if (latestState.phase === "answer_countdown") {
+      const remaining = Math.max(0, (latestState.phaseDeadline || Date.now()) - Date.now());
+      document.getElementById("host-answer-countdown").textContent = `Старт голосування через ${Math.ceil(remaining / 1000)}…`;
+      return;
+    }
+    if (latestState.phase !== "voting") return;
+    const timer = document.getElementById("host-vote-timer");
+    const total = latestState.gallery
+      ? ((latestState.settings.voteSeconds || 25) + 10) * 1000
+      : (latestState.settings.voteSeconds || 25) * 1000;
+    setTimerFill(timer, effectiveDeadline(latestState), total);
+  }, 200);
   waitForRtdb();
 })();
 </script>
