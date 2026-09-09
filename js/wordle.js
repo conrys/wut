@@ -92,7 +92,10 @@ const STATUS_EMOJI = { correct: "🟩", present: "🟨", absent: "⬛" };
 function buildShareText(lang, dateStr, rows, won, maxAttempts) {
   const dayNum = wordleDayNumber(dateStr);
   const grid = rows.map((r) => r.map((s) => STATUS_EMOJI[s]).join("")).join("\n");
-  const header = `Wordle ${dayNum} ${won ? rows.length : "X"}/${maxAttempts}`;
+  
+  const langLabel = lang === "uk" ? "Українське слово" : "Англійське слово";
+  const header = `41Games\n${langLabel}, день ${dayNum} ${won ? rows.length : "X"}/${maxAttempts}`;
+  
   return `${header}\n\n${grid}`;
 }
 
@@ -151,19 +154,44 @@ async function submitWordleResult({ lang, dateStr, won, rows, maxAttempts }) {
       ts: Date.now(),
     });
 
-    // стрік — єдиний, незалежний від того, яку мову грали цього дня
+    // Стрік єдиний для обох мов. За один день можна отримати максимум +1.
+    // Якщо відгадано хоча б одне слово за день — стрік зберігається / зростає.
     const userRef = db.collection(WORDLE_USERS_COLLECTION).doc(session.username);
     const snap = await userRef.get();
     const data = snap.exists ? snap.data() : { streak: 0, lastWinDate: null };
 
     if (won) {
-      let streak;
-      if (data.lastWinDate === addDaysStr(dateStr, -1)) streak = (data.streak || 0) + 1;
-      else if (data.lastWinDate === dateStr) streak = data.streak || 1; // вже рахували сьогодні
-      else streak = 1;
-      await userRef.set({ streak, lastWinDate: dateStr, updatedAt: Date.now() });
-    } else if (data.lastWinDate !== dateStr) {
-      await userRef.set({ streak: 0, lastWinDate: data.lastWinDate || null, updatedAt: Date.now() }, { merge: true });
+      if (data.lastWinDate === dateStr) {
+        // Перемога сьогодні вже була зарахована в іншій мові — повторно не додаємо
+      } else if (data.lastWinDate === addDaysStr(dateStr, -1)) {
+        // Зараховуємо новий день поспіль (+1)
+        await userRef.set({
+          streak: (data.streak || 0) + 1,
+          lastWinDate: dateStr,
+          updatedAt: Date.now()
+        });
+      } else {
+        // Стрік перервався або це перша перемога в історії — починаємо з 1
+        await userRef.set({
+          streak: 1,
+          lastWinDate: dateStr,
+          updatedAt: Date.now()
+        });
+      }
+    } else {
+      // Якщо програв:
+      // Якщо сьогодні вже була виграна гра в іншу мову (lastWinDate === dateStr)
+      // або стрік і так обнулений — нічого не робимо і не забираємо стрік.
+      // Якщо ж сьогодні перемог ще не було І вчора перемоги не було — обнуляємо.
+      const yesterdayStr = addDaysStr(dateStr, -1);
+      
+      if (data.lastWinDate !== dateStr && data.lastWinDate !== yesterdayStr) {
+        await userRef.set({
+          streak: 0,
+          lastWinDate: data.lastWinDate || null,
+          updatedAt: Date.now()
+        }, { merge: true });
+      }
     }
 
     return { saved: true, shareText };

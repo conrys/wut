@@ -18,16 +18,6 @@
 
   h2 { font-family: 'Space Grotesk', sans-serif; font-size: 20px; margin: 0 0 14px; text-align: center; }
   .status-line { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 14px; }
-  .pulse-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
-      margin-right: 6px; animation: pulse 1.4s infinite; }
-  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
-
-  .players-list { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-bottom: 18px; }
-  .player-chip { display: flex; justify-content: space-between; align-items: center;
-      background: var(--tile-bg); border-radius: 10px; padding: 10px 14px; font-size: 14px; }
-  .player-chip.offline { opacity: 0.4; }
-  .badge { font-size: 10px; font-weight: 700; background: var(--accent); color: #0e2318;
-      padding: 3px 8px; border-radius: 10px; }
 
   .host-panel { width: 100%; background: var(--tile-bg); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
   .host-panel label { display: block; font-size: 12px; color: var(--text-muted); margin: 10px 0 4px; }
@@ -36,12 +26,9 @@
 
   button.primary-btn { width: 100%; border: none; border-radius: 20px; padding: 12px; font-weight: 700;
       font-size: 14px; cursor: pointer; background: var(--accent); color: #0e2318; margin-top: 10px; }
-  button.primary-btn:disabled { opacity: 0.35; cursor: default; }
   button.secondary-btn { width: 100%; border: none; border-radius: 20px; padding: 10px; font-weight: 700;
       font-size: 13px; cursor: pointer; background: #272729; color: var(--text-light);
       border: 1px solid rgba(255,255,255,0.12); margin-top: 8px; }
-
-  .hint-text { font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 6px; min-height: 16px; }
 
   .role-hint { color: var(--text-muted); font-size: 13px; text-align: center; margin-bottom: 18px; max-width: 320px; }
 
@@ -61,9 +48,6 @@
       font-size: 13px; cursor: pointer; background: #272729; color: var(--text-light);
       border: 1px solid rgba(255,255,255,0.12); }
   .action-row button.guessed { background: var(--accent); color: #0e2318; }
-
-  .score-list { width: 100%; }
-  .score-list .row { display: flex; justify-content: space-between; }
 
   /* --------- повноекранне розкриття слова --------- */
   .fullscreen-reveal {
@@ -97,24 +81,16 @@
 <body>
 <div class="page">
 
-  <div id="view-locked" class="hidden">
+  <div id="view-setup" class="hidden">
     <h2>🙈 Хто я?</h2>
-    <div class="status-line">Увійди в профіль (кнопка зверху), щоб грати з друзями</div>
-  </div>
+    <div class="status-line">Кожен грає на своєму телефоні — налаштуй і починай</div>
 
-  <div id="view-lobby" class="hidden">
-    <h2>🙈 Хто я?</h2>
-    <div class="status-line" id="lobbyStatus"></div>
-    <div class="players-list" id="playersList"></div>
-
-    <div class="host-panel hidden" id="hostPanel">
+    <div class="host-panel">
       <label>Тема</label>
       <select id="themeSelect"></select>
       <label>Складність</label>
       <select id="difficultySelect"></select>
       <button class="primary-btn" id="startBtn">Почати гру</button>
-      <div class="hint-text" id="startHint"></div>
-      <button class="secondary-btn hidden" id="resetBtn">🔄 Скинути гру</button>
     </div>
   </div>
 
@@ -132,15 +108,7 @@
       <button class="guessed" id="guessedBtn">Я вгадав!</button>
     </div>
 
-    <div class="host-panel" style="margin-bottom:10px;">
-      <label style="margin-top:0;">Рахунок</label>
-      <div class="score-list" id="scoreList"></div>
-    </div>
-
-    <div class="hidden" id="hostActivePanel" style="width:100%;">
-      <button class="secondary-btn" id="redealBtn">Роздати всім нові слова</button>
-      <button class="secondary-btn" id="resetBtn2">🔄 Скинути гру</button>
-    </div>
+    <button class="secondary-btn" id="resetBtn">🔄 До налаштувань</button>
   </div>
 
 </div>
@@ -157,19 +125,13 @@
   </div>
 </div>
 
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
-<script src="js/firebase-config.js"></script>
-<script src="js/login.js"></script>
 <script src="js/whoami-words.js"></script>
-<script src="js/online-engine.js"></script>
 <script src="js/whoami-game.js"></script>
 <script src="js/help.js"></script>
 <script src="js/back-button.js"></script>
 <script>
 (function () {
-  const VIEWS = ["locked", "lobby", "active"];
+  const VIEWS = ["setup", "active"];
   function showView(name) {
     VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name));
   }
@@ -182,90 +144,36 @@
 
   let themeSelectBuilt = false;
   let diffSelectBuilt = false;
-  let lastState = null;
   let lastShownWord = null;
 
-  function renderLobby(state, ctx) {
-    const conn = window.WhoAmIGame.connectedEntries(state.players);
-    const hostName = window.WhoAmIGame.computeHost(state.players);
+  function buildSetup() {
+    const state = window.WhoAmIGame.getState();
 
-    document.getElementById("lobbyStatus").innerHTML =
-      `<span class="pulse-dot"></span> Гравців онлайн: ${conn.length} (потрібно мінімум ${window.WhoAmIGame.MIN_PLAYERS})`;
-
-    const allNames = Object.keys(state.players || {});
-    document.getElementById("playersList").innerHTML =
-      allNames
-        .map((n) => {
-          const online = conn.some(([cn]) => cn === n);
-          return `<div class="player-chip ${online ? "" : "offline"}">
-            <span>${escapeHtml(n)}</span>
-            ${n === hostName ? '<span class="badge">ВЕДУЧИЙ</span>' : ""}
-          </div>`;
-        })
-        .join("") || '<div class="status-line">Ще нікого немає</div>';
-
-    const hostPanel = document.getElementById("hostPanel");
-    hostPanel.classList.toggle("hidden", !ctx.host);
-    document.getElementById("resetBtn").classList.toggle("hidden", !ctx.host);
-
-    if (ctx.host) {
+    if (!themeSelectBuilt) {
       const themeSelect = document.getElementById("themeSelect");
-      if (!themeSelectBuilt) {
-        themeSelect.innerHTML =
-          `<option value="random">🎲 Випадкова</option>` +
-          window.WhoAmIGame.THEME_NAMES.map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("");
-        themeSelectBuilt = true;
-      }
+      themeSelect.innerHTML =
+        `<option value="random">🎲 Випадкова</option>` +
+        window.WhoAmIGame.THEME_NAMES.map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("");
       themeSelect.value = state.settings.theme;
+      themeSelectBuilt = true;
+    }
 
+    if (!diffSelectBuilt) {
       const diffSelect = document.getElementById("difficultySelect");
-      if (!diffSelectBuilt) {
-        diffSelect.innerHTML = window.WhoAmIGame.DIFFICULTIES
-          .map((d) => `<option value="${d}">${window.WhoAmIGame.DIFF_LABELS[d]}</option>`).join("");
-        diffSelectBuilt = true;
-      }
+      diffSelect.innerHTML = window.WhoAmIGame.DIFFICULTIES
+        .map((d) => `<option value="${d}">${window.WhoAmIGame.DIFF_LABELS[d]}</option>`).join("");
       diffSelect.value = state.settings.difficulty;
-
-      const startBtn = document.getElementById("startBtn");
-      const enough = conn.length >= window.WhoAmIGame.MIN_PLAYERS;
-      startBtn.disabled = !enough;
-      document.getElementById("startHint").textContent = enough
-        ? ""
-        : `Потрібно ще ${window.WhoAmIGame.MIN_PLAYERS - conn.length} гравців(я)`;
+      diffSelectBuilt = true;
     }
   }
 
-  function renderActive(state, ctx) {
-    const me = state.players && state.players[ctx.username];
-    document.getElementById("myScore").textContent = me ? me.score || 0 : 0;
-    document.getElementById("hostActivePanel").classList.toggle("hidden", !ctx.host);
+  function renderActive() {
+    const state = window.WhoAmIGame.getState();
+    document.getElementById("myScore").textContent = state.score;
 
-    const sorted = Object.entries(state.players || {}).sort((a, b) => (b[1].score || 0) - (a[1].score || 0));
-    document.getElementById("scoreList").innerHTML = sorted.map(([name, p]) => {
-      const online = window.WhoAmIGame.connectedEntries(state.players).some(([n]) => n === name);
-      return `<div class="row player-chip ${online ? "" : "offline"}"><span>${escapeHtml(name)}</span><span>${p.score || 0}</span></div>`;
-    }).join("");
-
-    // якщо слово змінилось (нове роздане) — ховаємо попередній показ,
-    // щоб не лишався застарілий текст під час наступного затискання
-    if (me && me.currentWord !== lastShownWord) {
-      lastShownWord = me.currentWord;
+    if (state.currentWord !== lastShownWord) {
+      lastShownWord = state.currentWord;
       resetOverlay();
-    }
-  }
-
-  function onState(state, ctx) {
-    lastState = state;
-    if (!ctx.username) { showView("locked"); return; }
-    switch (state.phase) {
-      case "lobby":
-        showView("lobby");
-        renderLobby(state, ctx);
-        break;
-      case "active":
-        showView("active");
-        renderActive(state, ctx);
-        break;
     }
   }
 
@@ -277,15 +185,23 @@
     window.WhoAmIGame.updateSettings(theme, difficulty);
   }
 
-  document.getElementById("startBtn").addEventListener("click", () => window.WhoAmIGame.startGame(lastState));
-  document.getElementById("guessedBtn").addEventListener("click", () => window.WhoAmIGame.markGuessed(lastState));
-  document.getElementById("skipBtn").addEventListener("click", () => window.WhoAmIGame.skipWord(lastState));
-  document.getElementById("redealBtn").addEventListener("click", () => window.WhoAmIGame.redealAll(lastState));
-  document.getElementById("resetBtn").addEventListener("click", () => {
-    if (confirm("Скинути гру для всіх?")) window.WhoAmIGame.resetAll(lastState);
+  document.getElementById("startBtn").addEventListener("click", () => {
+    window.WhoAmIGame.startGame();
+    showView("active");
+    renderActive();
   });
-  document.getElementById("resetBtn2").addEventListener("click", () => {
-    if (confirm("Скинути гру для всіх?")) window.WhoAmIGame.resetAll(lastState);
+  document.getElementById("guessedBtn").addEventListener("click", () => {
+    window.WhoAmIGame.markGuessed();
+    renderActive();
+  });
+  document.getElementById("skipBtn").addEventListener("click", () => {
+    window.WhoAmIGame.skipWord();
+    renderActive();
+  });
+  document.getElementById("resetBtn").addEventListener("click", () => {
+    if (confirm("Повернутися до вибору теми й складності? Поточний рахунок буде втрачено.")) {
+      showView("setup");
+    }
   });
 
   // ---- tap → відлік → повноекранний показ слова ----
@@ -304,8 +220,8 @@
   }
 
   function startCountdown() {
-    const me = lastState && lastState.players && lastState.players[window.AppAuth.getSession().username];
-    if (!me || !me.currentWord || isCounting || isRevealed) return;
+    const state = window.WhoAmIGame.getState();
+    if (!state.currentWord || isCounting || isRevealed) return;
     isCounting = true;
     fsReveal.classList.remove("revealed");
     fsReveal.classList.add("counting");
@@ -322,8 +238,8 @@
       isCounting = false; isRevealed = true;
       fsReveal.classList.remove("counting");
       fsReveal.classList.add("revealed");
-      fsTheme.textContent = me.currentThemeName || "";
-      fsWord.textContent = me.currentWord || "";
+      fsTheme.textContent = state.currentThemeName || "";
+      fsWord.textContent = state.currentWord || "";
       fitWordText();
     }, REVEAL_DELAY_MS);
   }
@@ -349,15 +265,8 @@
 
   document.addEventListener("selectstart", (e) => e.preventDefault());
 
-  const session = window.AppAuth && window.AppAuth.getSession();
-  if (session && window.rtdbReady) {
-    window.WhoAmIGame.onStateChange = onState;
-    window.WhoAmIGame.start(session.username);
-  } else {
-    showView("locked");
-  }
-
-  window.addEventListener("beforeunload", () => { if (window.WhoAmIGame) window.WhoAmIGame.stop(); });
+  showView("setup");
+  buildSetup();
 })();
 </script>
 </body>

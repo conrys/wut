@@ -414,15 +414,40 @@
     });
 
     document.getElementById("shareBtn").addEventListener("click", async () => {
+      // 1. Формуємо текст СИНХРОННО одразу при кліку
       const rows = state.guesses.map((g) => Wordle.evaluateGuess(g, answer));
       const text = Wordle.buildShareText(lang, dateStr, rows, state.won, MAX_ATTEMPTS);
-      try {
-        if (navigator.share) await navigator.share({ text });
-        else {
-          await navigator.clipboard.writeText(text);
-          msgEl.textContent = "Скопійовано в буфер";
+
+      // 2. Спроба викликати системне меню (Мобільні пристрої)
+      if (navigator.share) {
+        try {
+          await navigator.share({ text });
+          return; // Якщо успішно відкрили системне вікно — виходимо
+        } catch (err) {
+          // Якщо користувач сам скасував шеринг — нічого не робимо
+          if (err.name === 'AbortError') return;
         }
-      } catch {}
+      }
+
+      // 3. Фолбек (для ПК або якщо мобільний Web Share не спрацював) — копіюємо в буфер
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          const ta = document.createElement("textarea");
+          ta.value = text;
+          ta.style.position = "fixed";
+          ta.style.opacity = "0";
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          document.body.removeChild(ta);
+        }
+        msgEl.textContent = "Скопійовано в буфер!";
+        setTimeout(() => { msgEl.textContent = ""; }, 3000);
+      } catch (err) {
+        msgEl.textContent = "Не вдалося скопіювати";
+      }
     });
 
     const feedOverlay = document.getElementById("feedOverlay");
