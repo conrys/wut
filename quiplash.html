@@ -164,6 +164,7 @@ button:disabled { opacity: 0.5; cursor: default; }
     <p class="ready-icon">✅</p>
     <p class="hint">Відповідь(-і) надіслано! Чекаємо решту гравців…</p>
   </div>
+  <p class="hint hidden" id="answer-countdown">Всі відповіли. Готуємось до голосування…</p>
   <div id="answer-readiness" class="readiness-bar"></div>
 </div>
 
@@ -194,7 +195,11 @@ button:disabled { opacity: 0.5; cursor: default; }
   <h2 id="round-end-title"></h2>
   <div id="gallery-recap" class="hidden"></div>
   <div id="round-scoreboard" class="final-board"></div>
-  <p class="hint">Наступний раунд ось-ось почнеться…</p>
+  <p class="hint" id="round-end-hint">Наступний раунд ось-ось почнеться…</p>
+  <div id="round-end-actions" class="hidden">
+    <button id="continue-btn">Продовжити гру</button>
+    <button id="finish-btn">Завершити гру</button>
+  </div>
 </div>
 
 <div id="screen-game-over" class="screen hidden">
@@ -209,6 +214,7 @@ button:disabled { opacity: 0.5; cursor: default; }
 <script src="js/firebase-config.js"></script>
 <script src="js/login.js"></script>
 <script src="js/quiplash-prompts.js"></script>
+<script src="js/online-engine.js"></script>
 <script src="js/quiplash-game.js"></script>
 <script src="js/help.js"></script>
 <script src="js/back-button.js"></script>
@@ -246,6 +252,7 @@ button:disabled { opacity: 0.5; cursor: default; }
   const answerProgress = document.getElementById("answer-progress");
   const answerCards = document.getElementById("answer-cards");
   const answerReady = document.getElementById("answer-ready");
+  const answerCountdown = document.getElementById("answer-countdown");
   const answerReadiness = document.getElementById("answer-readiness");
   const voteTimerFill = document.getElementById("vote-timer-fill");
   const matchupProgress = document.getElementById("matchup-progress");
@@ -262,6 +269,10 @@ button:disabled { opacity: 0.5; cursor: default; }
   const roundEndTitle = document.getElementById("round-end-title");
   const galleryRecap = document.getElementById("gallery-recap");
   const roundScoreboard = document.getElementById("round-scoreboard");
+  const roundEndHint = document.getElementById("round-end-hint");
+  const roundEndActions = document.getElementById("round-end-actions");
+  const continueBtn = document.getElementById("continue-btn");
+  const finishBtn = document.getElementById("finish-btn");
   const finalScoreboard = document.getElementById("final-scoreboard");
   const restartBtn = document.getElementById("restart-btn");
   const choiceA = document.getElementById("choice-a");
@@ -386,6 +397,7 @@ button:disabled { opacity: 0.5; cursor: default; }
   }
 
   function renderAnswering(state) {
+    answerCountdown.classList.add("hidden");
     const players = Object.entries(state.players || {}).map(([n, p]) => ({ name: n, ...p }));
 
     if (state.gallery) {
@@ -448,6 +460,13 @@ button:disabled { opacity: 0.5; cursor: default; }
       const t = document.getElementById("matchupInput").value.trim();
       if (t) QuiplashGame.submitAnswer(current.id, t);
     });
+  }
+
+  function renderAnswerCountdown() {
+    answerCards.classList.add("hidden");
+    answerReady.classList.add("hidden");
+    answerCountdown.classList.remove("hidden");
+    answerCountdown.textContent = "Всі відповіли. Готуємось до голосування…";
   }
 
   function renderVoting(state) {
@@ -555,7 +574,7 @@ button:disabled { opacity: 0.5; cursor: default; }
     if (state.paused) pauseByText.textContent = state.pausedByName ? `${state.pausedByName} поставив(-ла) гру на паузу` : "Гру поставлено на паузу";
 
     const iAmIn = state.players && state.players[ctx.username];
-    if (!iAmIn && (state.phase === "answering" || state.phase === "voting" || state.phase === "reveal" || state.phase === "round_end")) {
+    if (!iAmIn && (state.phase === "answering" || state.phase === "answer_countdown" || state.phase === "voting" || state.phase === "reveal" || state.phase === "round_end")) {
       screen("waiting");
       return;
     }
@@ -580,11 +599,17 @@ button:disabled { opacity: 0.5; cursor: default; }
     }
 
     if (state.phase === "answering") { screen("answer"); renderAnswering(state); return; }
+    if (state.phase === "answer_countdown") { screen("answer"); renderAnswerCountdown(); return; }
     if (state.phase === "voting" || state.phase === "reveal") { screen("voting"); renderVoting(state); return; }
 
     if (state.phase === "round_end") {
       screen("round-end");
       roundEndTitle.textContent = `Результати раунду ${state.round}`;
+      const finalRound = state.round >= QuiplashGame.TOTAL_ROUNDS;
+      roundEndHint.textContent = finalRound
+        ? (state.awaitingContinuation ? "Ведучий вирішує, що робимо далі…" : "")
+        : "Наступний раунд ось-ось почнеться…";
+      roundEndActions.classList.toggle("hidden", !(finalRound && state.awaitingContinuation && ctx.host));
       if (state.gallery && state.gallery.results) {
         galleryRecap.classList.remove("hidden");
         const results = Object.entries(state.gallery.results).sort((a, b) => b[1].count - a[1].count);
@@ -612,6 +637,8 @@ button:disabled { opacity: 0.5; cursor: default; }
   startBtn.addEventListener("click", () => QuiplashGame.startGame(lastState));
   voteSecondsSelect.addEventListener("change", (e) => QuiplashGame.updateSettings(Number(e.target.value)));
   restartBtn.addEventListener("click", () => QuiplashGame.resetGame());
+  continueBtn.addEventListener("click", () => QuiplashGame.continueGame());
+  finishBtn.addEventListener("click", () => QuiplashGame.finishGame());
 
   const authSession = window.AppAuth && window.AppAuth.getSession();
   if (authSession && window.rtdbReady) {

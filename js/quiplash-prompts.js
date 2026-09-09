@@ -100,12 +100,39 @@ const QUIPLASH_PROMPTS = [
 "Найгірший заголовок для новинного сюжету про оновлення Windows — ___",
 ];
 
-// Картинкові раунди — формат { image: "назва-файлу.jpg", text: "завдання ___" }.
-// Картинки клади в img/quiplash/ і дописуй сюди запис на кожну — тоді
-// картинкові раунди самі увімкнуться (поки список порожній, гра тихо
-// їде тільки класичними раундами, як і в оригіналі).
-const QUIPLASH_IMAGE_PROMPTS = [
-  // { image: "img/quiplash/1.jpg", text: "Доверши репліку персонажа: ___" },
+const QUIPLASH_FACTS = [
+  "Восьминоги мають три серця.",
+  "Банани технічно є ягодами, а полуниця — ні.",
+  "Мед може зберігатися їстівним дуже довго, якщо його не заливати водою.",
+  "У космосі не чути звуку, бо там майже немає середовища для його поширення.",
+  "Ворони можуть запам'ятовувати обличчя людей.",
+  "День на Венері довший за її рік.",
+  "Шахи мають більше можливих партій, ніж атомів у видимому Всесвіті.",
+  "Жирафи сплять лише кілька годин на добу.",
+  "Деякі види бамбука можуть виростати майже на метр за день.",
+  "Людський мозок споживає приблизно п'яту частину енергії організму.",
 ];
+
+// Картинкові раунди завантажуються з ql_img/image-prompts.json.
+// У JSON достатньо вказати ім'я файлу; шлях до ql_img додається тут.
+const QUIPLASH_IMAGE_PROMPTS = [];
+const QUIPLASH_IMAGE_PROMPTS_READY = fetch("ql_img/image-prompts.json")
+  .then((response) => {
+    if (!response.ok) throw new Error(`image-prompts.json: ${response.status}`);
+    return response.json();
+  })
+  .then((items) => {
+    if (!Array.isArray(items)) return;
+    items.forEach((item) => {
+      if (!item || !item.image) return;
+      const text = typeof item.text === "string" && item.text.trim()
+        ? item.text.trim()
+        : "Придумайте смішний підпис до цієї картинки";
+      QUIPLASH_IMAGE_PROMPTS.push({ image: `ql_img/${item.image}`, text });
+    });
+  })
+  .catch((error) => {
+    console.warn("Не вдалося завантажити image-prompts.json:", error);
+  });
 
 const QUIPLASH_AVATAR_COLORS = ["#e74c3c","#3498db","#2ecc71","#f1c40f","#9b59b6","#1abc9c","#e67e22","#ff6fa5"];

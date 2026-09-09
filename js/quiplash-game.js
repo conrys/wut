@@ -15,17 +15,18 @@
   const HEARTBEAT_MS = 2000;
   const PRESENCE_TIMEOUT_MS = 5000;
   const TICK_MS = 500;
-  const MIN_PLAYERS = 3;
+  const MIN_PLAYERS = 2;
   const MAX_PLAYERS = 8;
   const ABANDON_MS = 15 * 60 * 1000; // гра без жодного живого lastSeen 15хв — скидаємо
 
-  const ROUND_PLAN = ["classic", "classic", "classic", "image"];
+  const ROUND_PLAN = ["classic", "classic", "image"];
   const TOTAL_ROUNDS = ROUND_PLAN.length;
 
   const DEFAULT_VOTE_SECONDS = 25;
   const MIN_VOTE_SECONDS = 10;
   const MAX_VOTE_SECONDS = 90;
   const GALLERY_VOTE_BONUS_SECONDS = 10;
+  const ANSWERING_COUNTDOWN_MS = 4000;
   const REVEAL_TIME_MS = 6000;
   const ROUND_END_TIME_MS = 8000;
 
@@ -36,7 +37,12 @@
   const PROMPT_COOLDOWN_DAYS = 30;
   const PROMPT_HISTORY_COLLECTION = "games41_quiplash_prompt_history";
 
-  const PATH = "quiplash_game";
+  const ROOM_SCHEMA = {
+    ...emptyState(),
+  };
+  const Engine = window.OnlineEngine.create("quiplash", {
+    phases: ["lobby", "answering", "answer_countdown", "voting", "reveal", "round_end", "game_over"],
+  });
 
   let username = null;
   let ref = null;
@@ -45,8 +51,7 @@
   let isHost = false;
   let onStateChange = () => {};
 
-  let serverOffset = 0;
-  function now() { return Date.now() + serverOffset; }
+  function now() { return Engine.now(); }
 
   function sanitize(text, maxLen) {
     return (text || "").toString().replace(/[\r\n\t]/g, " ").trim().slice(0, maxLen);
@@ -103,11 +108,14 @@
     return QUIPLASH_IMAGE_PROMPTS[Math.floor(Math.random() * QUIPLASH_IMAGE_PROMPTS.length)];
   }
 
+  function pickFact(roundNumber) {
+    if (!QUIPLASH_FACTS.length) return null;
+    return QUIPLASH_FACTS[(roundNumber - 1) % QUIPLASH_FACTS.length];
+  }
+
   // ------------------------- presence -------------------------
   function connectedEntries(players) {
-    return Object.entries(players || {}).filter(
-      ([, p]) => p.lastSeen && now() - p.lastSeen < PRESENCE_TIMEOUT_MS
-    );
+    return Object.entries(players || {}).filter(([, p]) => Engine.isConnected(p));
   }
 
   function computeHost(players) {
@@ -125,42 +133,37 @@
       matchups: null,
       currentMatchupIndex: 0,
       gallery: null,
+      tvFact: null,
       phaseDeadline: null,
       paused: false,
+      awaitingContinuation: false,
     };
   }
 
   function start(user) {
     username = user;
-    ref = window.rtdb.ref(PATH);
-
-    if (window.rtdb) {
-      window.rtdb.ref(".info/serverTimeOffset").on("value", (snap) => { serverOffset = snap.val() || 0; });
-    }
-
-    cleanupIfAbandoned();
-    joinIfPossible();
-
-    heartbeatTimer = setInterval(() => {
-      ref.child("players/" + username + "/lastSeen").set(now());
-    }, HEARTBEAT_MS);
-
-    ref.child("players/" + username).onDisconnect().update({ lastSeen: 0 });
-
-    ref.on("value", (snap) => {
-      const state = snap.val() || emptyState();
-      if ((!state.players || !state.players[username]) && state.phase !== "answering" && state.phase !== "voting") {
-        joinIfPossible();
+    Engine.start(user, { useLobby: false });
+    Engine.onStateChange = (type, data) => {
+      if (type !== "room-update") return;
+      const state = data.room;
+      ref = Engine.roomRef;
+      if (state.phase === "lobby" && (!state.players || !state.players[username])) {
+        Engine.becomePlayer();
       }
       maybeRunAsHost(state);
       onStateChange(state, { username, host: computeHost(state.players) === username });
+    };
+
+    Engine.getOrCreateRoom(Engine.SHARED_ROOM_ID, ROOM_SCHEMA, () => emptyState()).then(({ room }) => {
+      ref = Engine.roomRef;
+      Engine.joinRoom(Engine.SHARED_ROOM_ID, { asPlayer: room.phase === "lobby" });
     });
   }
 
   function stop() {
-    if (heartbeatTimer) clearInterval(heartbeatTimer);
     if (tickTimer) clearInterval(tickTimer);
-    if (ref) ref.off("value");
+    Engine.stop();
+    ref = null;
     isHost = false;
   }
 
@@ -213,6 +216,7 @@
   }
 
   async function startGame(state) {
+    if (!state || state.phase !== "lobby" || computeHost(state.players) !== username) return;
     const conn = connectedEntries(state.players);
     if (conn.length < MIN_PLAYERS) return;
     await startRound(state, 1);
@@ -221,8 +225,10 @@
   async function startRound(state, roundNumber) {
     const roundType = ROUND_PLAN[roundNumber - 1] || "classic";
     const conn = connectedEntries(state.players).map(([n]) => n);
+    const tvFact = pickFact(roundNumber);
 
     if (roundType === "image") {
+      await QUIPLASH_IMAGE_PROMPTS_READY;
       const p = pickImagePrompt();
       if (p) {
         await ref.update({
@@ -231,7 +237,9 @@
           gallery: { image: p.image, text: p.text, answers: {}, votes: {}, results: null, finalized: false },
           matchups: null,
           currentMatchupIndex: 0,
+          tvFact,
           phaseDeadline: null,
+          awaitingContinuation: false,
         });
         return;
       }
@@ -255,7 +263,9 @@
       gallery: null,
       matchups,
       currentMatchupIndex: 0,
+      tvFact,
       phaseDeadline: null,
+      awaitingContinuation: false,
     });
   }
 
@@ -318,7 +328,27 @@
   }
 
   function resetGame() {
-    ref.set(emptyState()).then(() => joinIfPossible());
+    Engine.forceResetRoom(Engine.SHARED_ROOM_ID, ROOM_SCHEMA, () => emptyState()).then(({ room }) => {
+      Engine.joinRoom(Engine.SHARED_ROOM_ID, { asPlayer: room.phase === "lobby" });
+    });
+  }
+
+  function continueGame() {
+    ref.once("value").then((snap) => {
+      const state = snap.val();
+      if (!state || state.phase !== "round_end" || !state.awaitingContinuation) return;
+      if (computeHost(state.players) !== username) return;
+      startRound(state, state.round + 1);
+    });
+  }
+
+  function finishGame() {
+    ref.once("value").then((snap) => {
+      const state = snap.val();
+      if (!state || state.phase !== "round_end" || !state.awaitingContinuation) return;
+      if (computeHost(state.players) !== username) return;
+      ref.update({ phase: "game_over", phaseDeadline: null, awaitingContinuation: false });
+    });
   }
 
   // ------------------------- хост-тік: переходи фаз -------------------------
@@ -404,10 +434,17 @@
       if (state.phase === "answering") {
         if (allAnswered(state)) {
           if (state.gallery) {
-            ref.update({ phase: "voting", phaseDeadline: t + galleryVoteMs(state) });
+            ref.update({ phase: "answer_countdown", phaseDeadline: t + ANSWERING_COUNTDOWN_MS });
           } else {
-            ref.update({ phase: "voting", currentMatchupIndex: 0, phaseDeadline: t + classicVoteMs(state) });
+            ref.update({ phase: "answer_countdown", currentMatchupIndex: 0, phaseDeadline: t + ANSWERING_COUNTDOWN_MS });
           }
+        }
+        return;
+      }
+
+      if (state.phase === "answer_countdown") {
+        if (t >= state.phaseDeadline) {
+          ref.update({ phase: "voting", phaseDeadline: t + (state.gallery ? galleryVoteMs(state) : classicVoteMs(state)) });
         }
         return;
       }
@@ -452,9 +489,9 @@
       }
 
       if (state.phase === "round_end") {
-        if (t >= state.phaseDeadline) {
+        if (!state.awaitingContinuation && t >= state.phaseDeadline) {
           if (state.round >= TOTAL_ROUNDS) {
-            ref.update({ phase: "game_over", phaseDeadline: null });
+            ref.update({ phase: "round_end", phaseDeadline: null, awaitingContinuation: true });
           } else {
             startRound(state, state.round + 1);
           }
@@ -470,7 +507,7 @@
     start, stop,
     updateSettings, startGame,
     submitAnswer, submitVote, submitGalleryVote,
-    setPause, resetGame,
+    setPause, resetGame, continueGame, finishGame,
     set onStateChange(fn) { onStateChange = fn; },
   };
 })();

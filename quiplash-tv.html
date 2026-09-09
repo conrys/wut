@@ -148,6 +148,7 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
   <p class="hint hidden" id="host-answer-explainer">Перед вами картинка, вигадайте смішний або цікавий підпис</p>
   <img id="host-answer-image" class="prompt-image hidden" alt="">
   <h2 id="host-answer-title">Всі пишуть відповіді…</h2>
+  <p class="hint" id="host-answer-fact"></p>
   <div id="host-answer-progress" class="readiness-bar"></div>
 </div>
 
@@ -185,6 +186,7 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
   <div id="host-gallery-recap" class="hidden"></div>
   <h2 id="host-scoreboard-title" class="section-subtitle hidden">Загальний рахунок</h2>
   <div id="host-round-scoreboard" class="final-board"></div>
+  <p class="hint" id="host-round-end-hint"></p>
 </div>
 
 <div id="host-screen-game-over" class="host-screen hidden">
@@ -195,6 +197,8 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
 <script src="js/firebase-config.js"></script>
+<script src="js/quiplash-prompts.js"></script>
+<script src="js/online-engine.js"></script>
 <script src="js/quiplash-game.js"></script>
 <script>
 (function () {
@@ -369,6 +373,7 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
     if (state.phase === "answering") {
       screen("host-screen-answering");
       document.getElementById("host-round-label").textContent = `Раунд ${state.round}/${QuiplashGame.TOTAL_ROUNDS}`;
+      document.getElementById("host-answer-fact").textContent = state.tvFact ? `Цікавий факт: ${state.tvFact}` : "";
       const explainer = document.getElementById("host-answer-explainer");
       const image = document.getElementById("host-answer-image");
       const title = document.getElementById("host-answer-title");
@@ -386,6 +391,16 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
         )).map((p) => p.id);
       }
       renderReadinessBar(document.getElementById("host-answer-progress"), players, answeredNames);
+      return;
+    }
+
+    if (state.phase === "answer_countdown") {
+      screen("host-screen-answering");
+      document.getElementById("host-round-label").textContent = `Раунд ${state.round}/${QuiplashGame.TOTAL_ROUNDS}`;
+      document.getElementById("host-answer-explainer").classList.add("hidden");
+      document.getElementById("host-answer-image").classList.add("hidden");
+      document.getElementById("host-answer-title").textContent = "Всі відповіли. Готуємось до голосування…";
+      document.getElementById("host-answer-fact").textContent = state.tvFact ? `Цікавий факт: ${state.tvFact}` : "";
       return;
     }
 
@@ -518,14 +533,14 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
       }
 
       const scoreboardTitle = document.getElementById("host-scoreboard-title");
-      if (!isFinalRound) {
+      {
         scoreboardTitle.classList.toggle("hidden", !state.gallery);
         renderScoreBars(document.getElementById("host-round-scoreboard"),
           players.slice().sort((a, b) => (b.score || 0) - (a.score || 0)), { key: `round-${state.round}` });
-      } else {
-        scoreboardTitle.classList.add("hidden");
-        document.getElementById("host-round-scoreboard").innerHTML = "";
       }
+      document.getElementById("host-round-end-hint").textContent = isFinalRound
+        ? (state.awaitingContinuation ? "Ведучий вирішує, що робимо далі…" : "")
+        : "Наступний раунд ось-ось почнеться…";
       return;
     }
 
@@ -539,7 +554,7 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
 
   function waitForRtdb() {
     if (!window.rtdbReady) { setTimeout(waitForRtdb, 300); return; }
-    window.rtdb.ref("quiplash_game").on("value", (snap) => {
+    window.rtdb.ref("quiplash_rooms/shared").on("value", (snap) => {
       const state = snap.val();
       if (state) render(state);
     });
