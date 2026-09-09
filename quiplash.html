@@ -22,6 +22,18 @@ h1, h2 { margin: 0 0 8px; }
   gap: 10px; padding: 46px 16px 10px; background: #2b2b33; border-bottom: 1px solid #3a3a44;
   font-size: 14px; position: sticky; top: 0; z-index: 2;
 }
+#gameHeader {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 20;
+  padding: max(8px, env(safe-area-inset-top)) 16px 8px;
+  background: rgba(30,30,36,0.96);
+  border-bottom: 1px solid #3a3a44;
+}
+#gameHeader .slot-left,
+#gameHeader .slot-right { min-width: 96px; }
+#gameHeader .slot-right { justify-content: flex-end; }
+#gameHeader #my-badge { justify-self: center; }
 #my-badge { display: flex; align-items: center; gap: 8px; font-weight: 600; justify-self: start; min-width: 0; }
 #round-label { justify-self: center; text-align: center; }
 #pause-btn { place-self: center end; }
@@ -33,6 +45,8 @@ button:disabled { opacity: 0.5; cursor: default; }
 
 #lobby-settings { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 20px 0 4px; font-size: 14px; color: #c8c8d0; flex-wrap: wrap; }
 #vote-seconds-select { padding: 8px 10px; border-radius: 6px; border: 1px solid #444; background: #2b2b33; color: #fff; font-size: 14px; }
+#avatar-picker { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 12px 0 4px; font-size: 14px; color: #c8c8d0; }
+#avatar-select { padding: 8px 10px; border-radius: 6px; border: 1px solid #444; background: #2b2b33; color: #fff; font-size: 14px; }
 #start-btn, #restart-btn { background: #2ecc71; color: #10331e; font-weight: 600; margin-top: 12px; }
 
 .player-list { text-align: left; max-width: 320px; margin: 0 auto 12px; }
@@ -108,11 +122,15 @@ button:disabled { opacity: 0.5; cursor: default; }
 </style>
 </head>
 <body>
+<div id="gameHeader" class="game-header">
+  <div class="slot-left"></div>
+  <div class="slot-center"><span id="my-badge"></span></div>
+  <div class="slot-right"><div id="top-bar"></div></div>
+</div>
 
 <div id="scene-bg" aria-hidden="true"></div>
 
 <div id="header-bar" class="hidden">
-  <span id="my-badge"></span>
   <span id="round-label"></span>
   <button id="pause-btn" class="pause-btn" title="Пауза">⏸</button>
 </div>
@@ -151,6 +169,10 @@ button:disabled { opacity: 0.5; cursor: default; }
       <option value="40">40 секунд</option>
       <option value="60">60 секунд</option>
     </select>
+  </div>
+  <div id="avatar-picker">
+    <label for="avatar-select">Аватар</label>
+    <select id="avatar-select"></select>
   </div>
   <button id="start-btn" class="hidden">Почати гру</button>
 </div>
@@ -245,6 +267,8 @@ button:disabled { opacity: 0.5; cursor: default; }
   const lobbyRing = document.getElementById("lobby-ring");
   const lobbyHint = document.getElementById("lobby-hint");
   const lobbySettings = document.getElementById("lobby-settings");
+  const avatarPicker = document.getElementById("avatar-picker");
+  const avatarSelect = document.getElementById("avatar-select");
   const voteSecondsSelect = document.getElementById("vote-seconds-select");
   const startBtn = document.getElementById("start-btn");
   const answerTitle = document.getElementById("answer-title");
@@ -305,7 +329,7 @@ button:disabled { opacity: 0.5; cursor: default; }
   }
 
   function renderLobbyRing(players) {
-    const key = players.map((p) => p.name).join(",");
+    const key = players.map((p) => `${p.name}:${p.character || 1}:${p.color || ""}`).join(",");
     if (key === lastLobbyRingKey) return;
     lastLobbyRingKey = key;
     lobbyRing.querySelectorAll(".lobby-character").forEach((el) => el.remove());
@@ -334,6 +358,28 @@ button:disabled { opacity: 0.5; cursor: default; }
       node.appendChild(label);
       lobbyRing.appendChild(node);
     });
+  }
+
+  function renderAvatarPicker(state, username) {
+    const me = state.players && state.players[username];
+    if (!me) {
+      avatarPicker.classList.add("hidden");
+      return;
+    }
+    const connected = new Set(QuiplashGame.connectedEntries(state.players).map(([name]) => name));
+    const taken = new Set(Object.entries(state.players || {})
+      .filter(([name]) => name !== username && connected.has(name))
+      .map(([, player]) => player.character));
+    if (!avatarSelect.options.length) {
+      avatarSelect.innerHTML = Array.from({ length: 8 }, (_, index) =>
+        `<option value="${index + 1}">Персонаж ${index + 1}</option>`
+      ).join("");
+    }
+    Array.from(avatarSelect.options).forEach((option) => {
+      option.disabled = taken.has(Number(option.value));
+    });
+    if (document.activeElement !== avatarSelect) avatarSelect.value = String(me.character || 1);
+    avatarPicker.classList.remove("hidden");
   }
 
   function renderReadinessBar(container, players, answeredNames) {
@@ -606,6 +652,7 @@ button:disabled { opacity: 0.5; cursor: default; }
       screen("lobby");
       answerCards.dataset.answerKey = "";
       renderLobbyRing(players.map(([n, p]) => ({ name: n, ...p })));
+      renderAvatarPicker(state, ctx.username);
       const conn = QuiplashGame.connectedEntries(state.players);
       lobbySettings.classList.toggle("hidden", !ctx.host);
       startBtn.classList.toggle("hidden", !ctx.host);
@@ -658,6 +705,7 @@ button:disabled { opacity: 0.5; cursor: default; }
   document.getElementById("resume-btn").addEventListener("click", () => QuiplashGame.setPause(false));
   startBtn.addEventListener("click", () => QuiplashGame.startGame(lastState));
   voteSecondsSelect.addEventListener("change", (e) => QuiplashGame.updateSettings(Number(e.target.value)));
+  avatarSelect.addEventListener("change", (e) => QuiplashGame.setAvatar(Number(e.target.value)));
   restartBtn.addEventListener("click", () => QuiplashGame.resetGame());
   continueBtn.addEventListener("click", () => QuiplashGame.continueGame());
   finishBtn.addEventListener("click", () => QuiplashGame.finishGame());

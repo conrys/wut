@@ -36,6 +36,7 @@
 
   const PROMPT_COOLDOWN_DAYS = 30;
   const PROMPT_HISTORY_COLLECTION = "games41_quiplash_prompt_history";
+  const AVATAR_STORAGE_PREFIX = "games41_quiplash_avatar_";
 
   const ROOM_SCHEMA = {
     ...emptyState(),
@@ -126,16 +127,51 @@
     return conn.sort((a, b) => (a[1].joinedAt || 0) - (b[1].joinedAt || 0))[0][0];
   }
 
+  function storedProfile(name) {
+    try {
+      const value = JSON.parse(localStorage.getItem(AVATAR_STORAGE_PREFIX + name) || "null");
+      if (value && Number.isInteger(value.character) && value.character >= 1 && value.character <= 8 && value.color) return value;
+    } catch {}
+    return null;
+  }
+
+  function rememberProfile(name, profile) {
+    try { localStorage.setItem(AVATAR_STORAGE_PREFIX + name, JSON.stringify(profile)); } catch {}
+  }
+
   function playerProfile(players, name) {
     const ordered = Object.entries(players || {}).sort((a, b) => {
       const joinedDiff = (a[1].joinedAt || 0) - (b[1].joinedAt || 0);
       return joinedDiff || a[0].localeCompare(b[0]);
     });
     const index = Math.max(0, ordered.findIndex(([playerName]) => playerName === name));
+    const used = new Set(ordered
+      .filter(([playerName, player]) => playerName !== name && Engine.isConnected(player) && Number.isInteger(player.character))
+      .map(([, player]) => player.character));
+    const current = players && players[name];
+    if (current && Number.isInteger(current.character) && current.character >= 1 && current.character <= 8 && !used.has(current.character)) {
+      return { character: current.character, color: current.color || QUIPLASH_AVATAR_COLORS[(current.character - 1) % QUIPLASH_AVATAR_COLORS.length] };
+    }
+    const saved = storedProfile(name);
+    if (saved && !used.has(saved.character)) return saved;
+    const character = Array.from({ length: 8 }, (_, i) => i + 1).find((value) => !used.has(value)) || ((index % 8) + 1);
     return {
-      color: QUIPLASH_AVATAR_COLORS[index % QUIPLASH_AVATAR_COLORS.length],
-      character: (index % 8) + 1,
+      color: QUIPLASH_AVATAR_COLORS[(character - 1) % QUIPLASH_AVATAR_COLORS.length],
+      character,
     };
+  }
+
+  function syncPlayerProfiles(state) {
+    if (!ref || computeHost(state.players) !== username) return;
+    const updates = {};
+    Object.keys(state.players || {}).forEach((name) => {
+      const profile = playerProfile(state.players, name);
+      const current = state.players[name];
+      if (current.character !== profile.character) updates[`players/${name}/character`] = profile.character;
+      if (current.color !== profile.color) updates[`players/${name}/color`] = profile.color;
+      if (name === username) rememberProfile(name, profile);
+    });
+    if (Object.keys(updates).length) ref.update(updates);
   }
 
   function emptyState() {
@@ -162,21 +198,27 @@
       const state = data.room;
       ref = Engine.roomRef;
       if (state.phase === "lobby" && (!state.players || !state.players[username])) {
-        Engine.becomePlayer(playerProfile(state.players, username));
+        const profile = playerProfile(state.players, username);
+        rememberProfile(username, profile);
+        Engine.becomePlayer(profile);
       } else if (state.players && state.players[username]) {
         const profile = playerProfile(state.players, username);
         const current = state.players[username];
+        rememberProfile(username, current.character ? current : profile);
         if (current.character !== profile.character || current.color !== profile.color) {
           ref.child(`players/${username}`).update(profile);
         }
       }
+      syncPlayerProfiles(state);
       maybeRunAsHost(state);
       onStateChange(state, { username, host: computeHost(state.players) === username });
     };
 
     Engine.getOrCreateRoom(Engine.SHARED_ROOM_ID, ROOM_SCHEMA, () => emptyState()).then(({ room }) => {
       ref = Engine.roomRef;
-      Engine.joinRoom(Engine.SHARED_ROOM_ID, { asPlayer: room.phase === "lobby" });
+      const extra = room.phase === "lobby" ? playerProfile(room.players, username) : null;
+      if (extra) rememberProfile(username, extra);
+      Engine.joinRoom(Engine.SHARED_ROOM_ID, { asPlayer: room.phase === "lobby", extra });
     });
   }
 
@@ -234,6 +276,26 @@
   function updateSettings(voteSeconds) {
     const clamped = Math.min(MAX_VOTE_SECONDS, Math.max(MIN_VOTE_SECONDS, Math.round(voteSeconds)));
     ref.child("settings/voteSeconds").set(clamped);
+  }
+
+  function setAvatar(character) {
+    const selected = Number(character);
+    if (!Number.isInteger(selected) || selected < 1 || selected > 8) return;
+    const profile = {
+      character: selected,
+      color: QUIPLASH_AVATAR_COLORS[(selected - 1) % QUIPLASH_AVATAR_COLORS.length],
+    };
+    ref.transaction((state) => {
+      if (!state || state.phase !== "lobby" || !state.players || !state.players[username]) return;
+      const taken = Object.entries(state.players).some(([name, player]) =>
+        name !== username && Engine.isConnected(player) && player.character === selected
+      );
+      if (taken) return;
+      state.players[username] = { ...state.players[username], ...profile };
+      return state;
+    }).then((result) => {
+      if (result.committed) rememberProfile(username, profile);
+    });
   }
 
   async function startGame(state) {
@@ -353,7 +415,9 @@
 
   function resetGame() {
     Engine.forceResetRoom(Engine.SHARED_ROOM_ID, ROOM_SCHEMA, () => emptyState()).then(({ room }) => {
-      Engine.joinRoom(Engine.SHARED_ROOM_ID, { asPlayer: room.phase === "lobby" });
+      const extra = playerProfile(room.players, username);
+      rememberProfile(username, extra);
+      Engine.joinRoom(Engine.SHARED_ROOM_ID, { asPlayer: room.phase === "lobby", extra });
     });
   }
 
@@ -533,7 +597,7 @@
     start, stop,
     updateSettings, startGame,
     submitAnswer, submitVote, submitGalleryVote,
-    setPause, resetGame, continueGame, finishGame,
+    setPause, resetGame, continueGame, finishGame, setAvatar,
     set onStateChange(fn) { onStateChange = fn; },
   };
 })();

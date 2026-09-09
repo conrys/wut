@@ -203,7 +203,7 @@
     // коли гра дозволить (напр. коли room.phase знову стане "lobby").
     function joinRoom(roomId, joinOpts) {
       const asPlayer = !joinOpts || joinOpts.asPlayer !== false;
-      if (currentRoomId === roomId) return asPlayer ? becomePlayer() : Promise.resolve();
+      if (currentRoomId === roomId) return asPlayer ? becomePlayer(joinOpts && joinOpts.extra) : Promise.resolve();
       leaveRoomLocally();
       currentRoomId = roomId;
       roomRef = window.rtdb.ref(`${ROOMS_PATH}/${roomId}`);
@@ -219,7 +219,7 @@
       touchLobby("in-room", roomId);
       if (opts.lockedHost) startHostWatch();
 
-      return asPlayer ? becomePlayer() : Promise.resolve();
+      return asPlayer ? becomePlayer(joinOpts && joinOpts.extra) : Promise.resolve();
     }
 
     // Додає себе в players/ поточної кімнати, якщо ще не доданий (ідемпотентно).
