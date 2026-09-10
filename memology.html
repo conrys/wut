@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<title>Мемологія</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root { --bg: #14161a; --tile-bg: #22252b; --text-light: #f4f5f1; --text-muted: #8b909c; --accent: #38cfa0; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none;
+      -webkit-user-select: none; -webkit-touch-callout: none; }
+    html, body { 
+      margin: 0; padding: 0; min-height: 100dvh; 
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(circle at 50% -20%, rgba(56, 207, 160, 0.15) 0%, transparent 50%),
+        radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+      background-size: 100% 100%, 24px 24px;
+      background-attachment: fixed;
+      font-family: 'Inter', sans-serif; 
+      color: var(--text-light); 
+      overflow-x: hidden; 
+      touch-action: manipulation; 
+    }
+  .page { max-width: 480px; margin: 0 auto; padding: 60px 16px 30px; display: flex;
+      flex-direction: column; min-height: 100dvh; }
+  .hidden { display: none !important; }
+
+  h2 { font-family: 'Space Grotesk', sans-serif; font-size: 20px; margin: 0 0 14px; text-align: center; }
+  h3 { font-family: 'Space Grotesk', sans-serif; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em;
+       color: var(--text-muted); margin: 0 0 10px; }
+  .status-line { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 14px; }
+  .pulse-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+      margin-right: 6px; animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .card { background: var(--tile-bg); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .players-list { display: flex; flex-direction: column; gap: 8px; }
+  .player-chip { display: flex; justify-content: space-between; align-items: center;
+      background: #1b1e24; border-radius: 10px; padding: 10px 14px; font-size: 14px; margin-bottom: 6px; }
+  .player-chip.offline { opacity: 0.4; }
+  .badge { font-size: 10px; font-weight: 700; background: var(--accent); color: #0e2318;
+      padding: 3px 8px; border-radius: 10px; }
+
+  button.primary-btn { width: 100%; border: none; border-radius: 20px; padding: 12px; font-weight: 700;
+      font-size: 14px; cursor: pointer; background: var(--accent); color: #0e2318; margin-top: 10px; }
+  button.primary-btn:disabled { opacity: 0.35; cursor: default; }
+  button.secondary-btn { width: 100%; border: none; border-radius: 20px; padding: 10px; font-weight: 700;
+      font-size: 13px; cursor: pointer; background: #272729; color: var(--text-light);
+      border: 1px solid rgba(255,255,255,0.12); margin-top: 8px; }
+  .hint-text { font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 6px; min-height: 16px; }
+  .err-msg { color: #ff6b6b; font-size: 13px; text-align: center; min-height: 18px; }
+
+  /* --------- активна гра --------- */
+  .sidebar-toggle-btn {
+    align-self: flex-end; background: var(--tile-bg); color: var(--text-light); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 999px; padding: 8px 14px; font-size: 13px; font-weight: 600; margin-bottom: 10px;
+  }
+  .prompt-box {
+    background: var(--tile-bg); border: 1px solid var(--accent); border-radius: 16px;
+    padding: 20px; text-align: center; font-size: 17px; font-weight: 600; line-height: 1.35; margin-bottom: 14px;
+  }
+  .waiting-count { text-align: center; color: var(--text-muted); font-size: 13px; margin-bottom: 10px; }
+
+  .hand-grid, .vote-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .card-thumb {
+    position: relative; border-radius: 12px; overflow: hidden; border: 2px solid rgba(255,255,255,0.08);
+    aspect-ratio: 1 / 1; background: var(--tile-bg);
+  }
+  .card-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .card-thumb.selected, .card-thumb.voted-mine { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+  .card-thumb.disabled { opacity: 0.4; pointer-events: none; }
+
+  .vote-card { display: flex; flex-direction: column; gap: 6px; }
+  .vote-card .author-tag { text-align: center; font-size: 12px; color: var(--text-muted);
+      display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .vote-card .vote-count { font-family: 'Space Grotesk', sans-serif; font-weight: 700; color: var(--accent); font-size: 13px; }
+  .winner-crown { font-size: 15px; }
+
+  /* --------- сайдбар --------- */
+  .sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 95; }
+  .sidebar {
+    position: fixed; top: 0; right: 0; bottom: 0; width: min(320px, 86vw); z-index: 96;
+    background: var(--bg); border-left: 1px solid rgba(255,255,255,0.08);
+    padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+    display: flex; flex-direction: column; gap: 14px; overflow-y: auto;
+    transform: translateX(100%); transition: transform 0.28s ease;
+  }
+  .sidebar.open { transform: translateX(0); }
+  .sidebar-header { display: flex; align-items: center; justify-content: space-between; }
+  .sidebar-close-btn { background: var(--tile-bg); color: var(--text-light); border: none;
+      border-radius: 50%; width: 30px; height: 30px; font-size: 14px; }
+  .deck-hint { text-align: center; color: var(--text-muted); font-size: 11px; margin-top: 6px; }
+
+  /* --------- модалки обміну --------- */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 90;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  .modal-card { width: 100%; max-width: 400px; max-height: 80vh; overflow-y: auto;
+      background: var(--tile-bg); border-radius: 16px; padding: 18px; }
+  .swap-selected-preview { display: flex; align-items: center; gap: 10px; margin-top: 10px;
+      background: #1b1e24; border-radius: 12px; padding: 8px 12px; }
+  .swap-selected-preview .card-thumb { width: 52px; height: 52px; flex: none; }
+  .swap-selected-preview .swap-selected-label { font-size: 12px; color: var(--text-muted); flex: 1; }
+  .swap-change-btn { background: none; border: none; color: var(--accent); font-size: 12px;
+      text-decoration: underline; padding: 4px; }
+  .target-picker { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+  .target-picker button { border: none; border-radius: 12px; padding: 10px; font-weight: 700;
+      background: var(--accent); color: #0e2318; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div id="view-locked" class="hidden">
+    <h2>🃏 Мемологія</h2>
+    <div class="status-line">Увійди в профіль (кнопка зверху), щоб грати з друзями</div>
+  </div>
+
+  <div id="view-lobby" class="hidden">
+    <h2>🃏 Мемологія</h2>
+    <div class="status-line" id="lobbyStatus"></div>
+    <div class="card"><h3>Гравці</h3><div class="players-list" id="playersList"></div></div>
+    <div class="err-msg hidden" id="deckWarning"></div>
+    <div class="card hidden" id="hostPanel">
+      <button class="primary-btn" id="startBtn">Почати гру</button>
+      <div class="hint-text" id="startHint"></div>
+    </div>
+    <button class="secondary-btn hidden" id="resetBtn">🔄 Скинути гру</button>
+  </div>
+
+  <div id="view-active" class="hidden" style="flex:1; display:flex; flex-direction:column;">
+    <button class="sidebar-toggle-btn" id="sidebarToggleBtn">☰ Табло</button>
+    <div class="prompt-box" id="promptBox">—</div>
+
+    <div class="hidden" id="submittingStage">
+      <div class="waiting-count" id="submitWaitingLine"></div>
+      <div class="hand-grid" id="handGrid"></div>
+    </div>
+
+    <div class="hidden" id="votingStage">
+      <div class="waiting-count" id="voteWaitingLine">Оберіть найсмішнішу картку</div>
+      <div class="vote-grid" id="voteGrid"></div>
+    </div>
+
+    <div class="hidden" id="revealStage">
+      <div class="vote-grid" id="revealGrid"></div>
+      <button class="primary-btn hidden" id="nextRoundBtn">Наступне коло</button>
+      <div class="status-line hidden" id="waitHostLine">Чекаємо на ведучого...</div>
+    </div>
+
+    <div class="hidden" id="hostActivePanel" style="margin-top:14px;">
+      <button class="secondary-btn" id="forceAdvanceBtn">Пропустити очікування</button>
+      <button class="secondary-btn" id="resetBtn2">🔄 Скинути гру</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- сайдбар: табло + керування колодою -->
+<div class="hidden sidebar-overlay" id="sidebarOverlay"></div>
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-header"><h3 style="margin:0;">Меню</h3><button class="sidebar-close-btn" id="sidebarCloseBtn">✕</button></div>
+  <div class="card"><h3>Рахунок</h3><div id="scoreList"></div></div>
+  <div class="card">
+    <h3>Керування колодою</h3>
+    <button class="secondary-btn" id="openSwapBtn" style="margin-top:0;">🔄 Обміняти картку (−<span id="swapCostLabel">1</span> бал)</button>
+    <button class="secondary-btn" id="fullResetBtn">🃏 Змінити всю колоду</button>
+    <div class="deck-hint" id="fullResetHint"></div>
+  </div>
+</div>
+
+<!-- модалка: я пропоную обмін -->
+<div class="hidden modal-overlay" id="swapModal">
+  <div class="modal-card" id="swapModalCard">
+    <h3 id="swapStepLabel" style="text-transform:none; font-size:15px; color:var(--text-light);">Крок 1: оберіть свою картку</h3>
+    <div class="hand-grid" id="swapHandGrid"></div>
+    <div class="hidden swap-selected-preview" id="swapSelectedPreview"></div>
+    <div class="hidden target-picker" id="swapTargetPicker"></div>
+    <div class="hidden status-line" id="swapWaitingBox" style="margin-top:12px;"></div>
+    <button class="secondary-btn" id="swapCancelBtn">Скасувати</button>
+  </div>
+</div>
+
+<!-- модалка: мені надійшов запит -->
+<div class="hidden modal-overlay" id="incomingSwapModal">
+  <div class="modal-card">
+    <div id="incomingSwapConfirmStep">
+      <h3 style="text-transform:none; font-size:15px; color:var(--text-light);">Запит на обмін</h3>
+      <div class="status-line" id="incomingSwapText"></div>
+      <div class="hand-grid" id="incomingSwapOfferedCard" style="grid-template-columns:1fr; max-width:160px; margin:12px auto;"></div>
+      <button class="primary-btn" id="incomingSwapAcceptBtn">Підтвердити</button>
+      <button class="secondary-btn" id="incomingSwapDeclineBtn">Скасувати</button>
+    </div>
+    <div class="hidden" id="incomingSwapChooseStep">
+      <h3 style="text-transform:none; font-size:15px; color:var(--text-light);">Яку картку віддаєте?</h3>
+      <div class="hand-grid" id="incomingSwapHandGrid"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/login.js"></script>
+<script src="js/memology-prompts.js"></script>
+<script src="js/memology-cards.js"></script>
+<script src="js/online-engine.js"></script>
+<script src="js/memology-game.js"></script>
+<script src="js/help.js"></script>
+<script src="js/back-button.js"></script>
+<script>
+(function () {
+  const VIEWS = ["locked", "lobby", "active"];
+  function showView(name) {
+    VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name));
+  }
+  function escapeHtml(s) {
+    const d = document.createElement("div");
+    d.textContent = s || "";
+    return d.innerHTML;
+  }
+  function cardUrl(cardId) { return "memes/" + encodeURIComponent(cardId); }
+
+  let lastState = null;
+  let username = null;
+  let mySubmittedCardId = null;
+  let myVotedFor = null;
+  let lastPromptText = null;
+  let revealAutoTimer = null;
+  let revealAutoScheduledFor = null;
+
+  // ---- сайдбар ----
+  const sidebar = document.getElementById("sidebar");
+  const sidebarOverlay = document.getElementById("sidebarOverlay");
+  document.getElementById("sidebarToggleBtn").addEventListener("click", () => { sidebar.classList.add("open"); sidebarOverlay.classList.remove("hidden"); });
+  document.getElementById("sidebarCloseBtn").addEventListener("click", closeSidebar);
+  sidebarOverlay.addEventListener("click", closeSidebar);
+  function closeSidebar() { sidebar.classList.remove("open"); sidebarOverlay.classList.add("hidden"); }
+
+  // ------------------------- лобі -------------------------
+  function renderLobby(state, ctx) {
+    const conn = window.MemologyGame.connectedEntries(state.players);
+    const hostName = window.MemologyGame.computeHost(state.players);
+
+    document.getElementById("lobbyStatus").innerHTML =
+      `<span class="pulse-dot"></span> Гравців онлайн: ${conn.length} (потрібно мінімум ${window.MemologyGame.MIN_PLAYERS})`;
+
+    const allNames = Object.keys(state.players || {});
+    document.getElementById("playersList").innerHTML =
+      allNames.map((n) => {
+        const online = conn.some(([cn]) => cn === n);
+        return `<div class="player-chip ${online ? "" : "offline"}"><span>${escapeHtml(n)}</span>${n === hostName ? '<span class="badge">ВЕДУЧИЙ</span>' : ""}</div>`;
+      }).join("") || '<div class="status-line">Ще нікого немає</div>';
+
+    const deckWarning = document.getElementById("deckWarning");
+    if (!MEMOLOGY_CARD_IDS.length) {
+      deckWarning.textContent = "Список карток порожній — запусти generate-card-list.js локально й задеплой заново";
+      deckWarning.classList.remove("hidden");
+    } else {
+      deckWarning.classList.add("hidden");
+    }
+
+    document.getElementById("hostPanel").classList.toggle("hidden", !ctx.host);
+    document.getElementById("resetBtn").classList.toggle("hidden", !ctx.host);
+
+    if (ctx.host) {
+      const enough = conn.length >= window.MemologyGame.MIN_PLAYERS && MEMOLOGY_CARD_IDS.length > 0;
+      document.getElementById("startBtn").disabled = !enough;
+      document.getElementById("startHint").textContent = conn.length < window.MemologyGame.MIN_PLAYERS
+        ? `Потрібно ще ${window.MemologyGame.MIN_PLAYERS - conn.length} гравців(я)` : "";
+    }
+  }
+
+  // ------------------------- активна гра -------------------------
+  function renderActive(state, ctx) {
+    if (!state.round) return;
+    document.getElementById("promptBox").textContent = state.round.promptText;
+
+    if (state.round.promptText !== lastPromptText) {
+      lastPromptText = state.round.promptText;
+      mySubmittedCardId = null;
+      myVotedFor = null;
+      clearRevealAutoTimer();
+    }
+
+    const me = state.players[ctx.username];
+    const myHand = (me && me.hand) || [];
+    const conn = window.MemologyGame.connectedEntries(state.players);
+
+    document.getElementById("hostActivePanel").classList.toggle("hidden", !ctx.host);
+    document.getElementById("swapCostLabel").textContent = window.MemologyGame.SWAP_COST;
+
+    const fullResetBtn = document.getElementById("fullResetBtn");
+    const fullResetHint = document.getElementById("fullResetHint");
+    const cost = window.MemologyGame.deckResetCost(state);
+    const roundsLeft = window.MemologyGame.deckResetRoundsLeft(state);
+    if (roundsLeft > 0) {
+      fullResetBtn.disabled = true;
+      fullResetHint.textContent = `Доступно ще через ${roundsLeft} ${roundsLeft === 1 ? "коло" : "кола"}`;
+    } else {
+      fullResetBtn.disabled = false;
+      fullResetHint.textContent = `Коштує ${cost} бал(ів) — тільки ваша рука скидається`;
+    }
+    fullResetBtn.textContent = `🃏 Змінити всю колоду (−${cost})`;
+
+    const submittingStage = document.getElementById("submittingStage");
+    const votingStage = document.getElementById("votingStage");
+    const revealStage = document.getElementById("revealStage");
+    [submittingStage, votingStage, revealStage].forEach((el) => el.classList.add("hidden"));
+
+    if (state.round.subPhase === "submitting") {
+      submittingStage.classList.remove("hidden");
+      const submittedCount = Object.keys(state.round.submissions || {}).length;
+      document.getElementById("submitWaitingLine").textContent = `Подали відповідь: ${submittedCount} з ${conn.length}`;
+      renderHand(state, myHand);
+    } else if (state.round.subPhase === "voting") {
+      votingStage.classList.remove("hidden");
+      const votedCount = Object.keys(state.round.votes || {}).length;
+      document.getElementById("voteWaitingLine").textContent = myVotedFor
+        ? `Голос зараховано. Проголосувало: ${votedCount} з ${conn.length}`
+        : `Оберіть найсмішнішу картку (${votedCount} з ${conn.length} вже проголосували)`;
+      renderVoting(state);
+    } else if (state.round.subPhase === "reveal") {
+      revealStage.classList.remove("hidden");
+      renderReveal(state, ctx);
+      scheduleAutoNextRound(state, ctx);
+    }
+
+    const sorted = Object.entries(state.players || {}).sort((a, b) => (b[1].score || 0) - (a[1].score || 0));
+    const hostName = window.MemologyGame.computeHost(state.players);
+    document.getElementById("scoreList").innerHTML = sorted.map(([name, p]) => {
+      const online = conn.some(([n]) => n === name);
+      return `<div class="player-chip ${online ? "" : "offline"}"><span>${escapeHtml(name)}${name === hostName ? ' <span class="badge">ВЕДУЧИЙ</span>' : ""}</span><span>${p.score || 0}</span></div>`;
+    }).join("");
+  }
+
+  function renderHand(state, myHand) {
+    const grid = document.getElementById("handGrid");
+    if (!myHand.length && mySubmittedCardId) {
+      grid.innerHTML = '<div class="status-line" style="grid-column: 1 / -1;">Відповідь подано. Чекаємо на інших...</div>';
+      return;
+    }
+    grid.innerHTML = myHand.map((cardId) =>
+      `<div class="card-thumb ${mySubmittedCardId ? "disabled" : ""}" data-card="${escapeHtml(cardId)}"><img src="${cardUrl(cardId)}" alt="картка" loading="lazy" /></div>`
+    ).join("");
+    grid.querySelectorAll(".card-thumb[data-card]").forEach((el) => {
+      el.addEventListener("click", () => {
+        if (mySubmittedCardId) return;
+        mySubmittedCardId = el.dataset.card;
+        window.MemologyGame.submitCard(state, mySubmittedCardId);
+        renderHand(state, myHand);
+      });
+    });
+  }
+
+  function renderVoting(state) {
+    const grid = document.getElementById("voteGrid");
+    const entries = Object.entries(state.round.submissions || {});
+    // перемішуємо порядок, щоб позиція картки не видавала автора; самих
+    // імен авторів під час voting-фази в розмітку не кладемо взагалі
+    const shuffled = entries.map(([, cardId]) => cardId).sort(() => Math.random() - 0.5);
+    grid.innerHTML = shuffled.map((cardId) => {
+      const isMine = cardId === mySubmittedCardId;
+      return `<div class="vote-card">
+        <div class="card-thumb ${myVotedFor === cardId ? "voted-mine" : ""} ${isMine ? "disabled" : ""}" data-card="${escapeHtml(cardId)}">
+          <img src="${cardUrl(cardId)}" alt="картка" loading="lazy" />
+        </div>
+        ${isMine ? '<div class="author-tag">Ваша картка</div>' : ""}
+      </div>`;
+    }).join("");
+    if (myVotedFor !== null) return;
+    grid.querySelectorAll(".card-thumb[data-card]").forEach((el) => {
+      if (el.classList.contains("disabled")) return;
+      el.addEventListener("click", () => {
+        if (myVotedFor !== null) return;
+        const cardId = el.dataset.card;
+        myVotedFor = cardId;
+        window.MemologyGame.castVote(state, cardId);
+        renderVoting(state);
+      });
+    });
+  }
+
+  function renderReveal(state, ctx) {
+    const grid = document.getElementById("revealGrid");
+    const tally = state.round.tally || {};
+    const entries = Object.entries(state.round.submissions || {}).map(([author, cardId]) => ({
+      author, cardId, votes: tally[author] || 0,
+    })).sort((a, b) => b.votes - a.votes);
+    const maxVotes = Math.max(0, ...entries.map((e) => e.votes));
+    grid.innerHTML = entries.map((e) =>
+      `<div class="vote-card">
+        <div class="card-thumb"><img src="${cardUrl(e.cardId)}" alt="картка" loading="lazy" /></div>
+        <div class="author-tag">${e.votes === maxVotes && maxVotes > 0 ? '<span class="winner-crown">👑</span>' : ""}${escapeHtml(e.author)} <span class="vote-count">+${e.votes}</span></div>
+      </div>`
+    ).join("");
+    document.getElementById("nextRoundBtn").classList.toggle("hidden", !ctx.host);
+    document.getElementById("waitHostLine").classList.toggle("hidden", ctx.host);
+  }
+
+  function clearRevealAutoTimer() {
+    if (revealAutoTimer) { clearTimeout(revealAutoTimer); revealAutoTimer = null; }
+    revealAutoScheduledFor = null;
+  }
+  function scheduleAutoNextRound(state, ctx) {
+    const key = state.round.promptText;
+    if (revealAutoScheduledFor === key) return;
+    clearRevealAutoTimer();
+    revealAutoScheduledFor = key;
+    revealAutoTimer = setTimeout(() => {
+      if (ctx.host) window.MemologyGame.nextRound(state);
+      revealAutoTimer = null;
+    }, 4500);
+  }
+
+  function onState(state, ctx) {
+    lastState = state;
+    if (!ctx.username) { showView("locked"); return; }
+    if (state.phase === "lobby") { showView("lobby"); renderLobby(state, ctx); return; }
+    showView("active");
+    renderActive(state, ctx);
+  }
+
+  document.getElementById("startBtn").addEventListener("click", () => window.MemologyGame.startGame(lastState));
+  document.getElementById("resetBtn").addEventListener("click", () => { if (confirm("Скинути гру для всіх?")) window.MemologyGame.resetAll(lastState); });
+  document.getElementById("resetBtn2").addEventListener("click", () => { if (confirm("Скинути гру для всіх?")) window.MemologyGame.resetAll(lastState); });
+  document.getElementById("forceAdvanceBtn").addEventListener("click", () => window.MemologyGame.forceAdvance(lastState));
+  document.getElementById("nextRoundBtn").addEventListener("click", () => window.MemologyGame.nextRound(lastState));
+  document.getElementById("fullResetBtn").addEventListener("click", () => {
+    if (!lastState) return;
+    const cost = window.MemologyGame.deckResetCost(lastState);
+    if (window.MemologyGame.deckResetRoundsLeft(lastState) > 0) return;
+    if (confirm(`Змінити ВАШУ колоду коштуватиме ${cost} бал(ів). Точно?`)) window.MemologyGame.resetMyDeck(lastState);
+  });
+
+  // ---- обмін карткою: я пропоную ----
+  const swapModal = document.getElementById("swapModal");
+  const swapModalCard = document.getElementById("swapModalCard");
+  const swapHandGrid = document.getElementById("swapHandGrid");
+  const swapSelectedPreview = document.getElementById("swapSelectedPreview");
+  const swapTargetPicker = document.getElementById("swapTargetPicker");
+  const swapStepLabel = document.getElementById("swapStepLabel");
+  const swapWaitingBox = document.getElementById("swapWaitingBox");
+  const swapCancelBtn = document.getElementById("swapCancelBtn");
+  let swapSelectedCard = null;
+  let pendingOutgoingSwap = null; // { requestId, targetUsername }
+
+  document.getElementById("openSwapBtn").addEventListener("click", () => {
+    closeSidebar();
+    swapSelectedCard = null;
+    swapTargetPicker.classList.add("hidden"); swapTargetPicker.innerHTML = "";
+    swapSelectedPreview.classList.add("hidden");
+    swapWaitingBox.classList.add("hidden");
+    swapHandGrid.classList.remove("hidden");
+    swapStepLabel.textContent = "Крок 1: оберіть свою картку";
+    swapCancelBtn.textContent = "Скасувати";
+    renderSwapHandGrid();
+    swapModal.classList.remove("hidden");
+    swapModalCard.scrollTop = 0;
+  });
+  swapCancelBtn.addEventListener("click", () => {
+    if (pendingOutgoingSwap) { window.MemologyGame.cancelSwap(pendingOutgoingSwap.requestId); pendingOutgoingSwap = null; }
+    swapModal.classList.add("hidden");
+  });
+
+  function renderSwapHandGrid() {
+    const me = lastState.players[username];
+    const myHand = (me && me.hand) || [];
+    swapHandGrid.innerHTML = myHand.map((cardId) =>
+      `<div class="card-thumb ${swapSelectedCard === cardId ? "selected" : ""}" data-card="${escapeHtml(cardId)}"><img src="${cardUrl(cardId)}" alt="картка" loading="lazy" /></div>`
+    ).join("");
+    swapHandGrid.querySelectorAll(".card-thumb[data-card]").forEach((el) => {
+      el.addEventListener("click", () => {
+        swapSelectedCard = el.dataset.card;
+        swapStepLabel.textContent = "Крок 2: з ким мінятись?";
+        swapHandGrid.classList.add("hidden");
+        renderSwapSelectedPreview();
+        renderSwapTargetPicker();
+        swapModalCard.scrollTop = 0;
+      });
+    });
+  }
+  function renderSwapSelectedPreview() {
+    swapSelectedPreview.innerHTML = `
+      <div class="card-thumb"><img src="${cardUrl(swapSelectedCard)}" alt="картка" /></div>
+      <div class="swap-selected-label">Ваша картка для обміну</div>
+      <button class="swap-change-btn" id="swapChangeCardBtn">Змінити</button>`;
+    swapSelectedPreview.classList.remove("hidden");
+    document.getElementById("swapChangeCardBtn").addEventListener("click", () => {
+      swapSelectedCard = null;
+      swapStepLabel.textContent = "Крок 1: оберіть свою картку";
+      swapSelectedPreview.classList.add("hidden");
+      swapTargetPicker.classList.add("hidden"); swapTargetPicker.innerHTML = "";
+      swapHandGrid.classList.remove("hidden");
+      renderSwapHandGrid();
+      swapModalCard.scrollTop = 0;
+    });
+  }
+  function renderSwapTargetPicker() {
+    const others = Object.entries(lastState.players).filter(([n, p]) => window.MemologyGame.connectedEntries({ [n]: p }).length && n !== username && p.hand && p.hand.length > 0);
+    swapTargetPicker.classList.remove("hidden");
+    swapTargetPicker.innerHTML = others.length
+      ? others.map(([n]) => `<button data-target="${escapeHtml(n)}">${escapeHtml(n)}</button>`).join("")
+      : '<div class="status-line">Немає доступних гравців для обміну</div>';
+    swapTargetPicker.querySelectorAll("button[data-target]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const reqId = window.MemologyGame.requestSwap(lastState, swapSelectedCard, btn.dataset.target);
+        if (!reqId) { alert("Не вдалось надіслати запит — спробуй ще раз"); return; }
+        pendingOutgoingSwap = { requestId: reqId, targetUsername: btn.dataset.target };
+        swapHandGrid.classList.add("hidden"); swapSelectedPreview.classList.add("hidden"); swapTargetPicker.classList.add("hidden");
+        swapWaitingBox.classList.remove("hidden");
+        swapWaitingBox.textContent = `Очікуємо відповіді від ${btn.dataset.target}...`;
+        swapStepLabel.textContent = "Крок 3: очікування";
+        swapCancelBtn.textContent = "Скасувати запит";
+      });
+    });
+  }
+
+  // ---- обмін карткою: мені надійшов запит ----
+  const incomingSwapModal = document.getElementById("incomingSwapModal");
+  const incomingSwapText = document.getElementById("incomingSwapText");
+  const incomingSwapOfferedCard = document.getElementById("incomingSwapOfferedCard");
+  const incomingSwapConfirmStep = document.getElementById("incomingSwapConfirmStep");
+  const incomingSwapChooseStep = document.getElementById("incomingSwapChooseStep");
+  const incomingSwapHandGrid = document.getElementById("incomingSwapHandGrid");
+  let shownIncomingReqId = null;
+
+  function checkIncomingSwap(state) {
+    if (!state.pendingSwaps) { incomingSwapModal.classList.add("hidden"); shownIncomingReqId = null; return; }
+    const entry = Object.entries(state.pendingSwaps).find(([, r]) => r.targetUsername === username);
+    if (!entry) {
+      if (shownIncomingReqId && pendingOutgoingSwap === null) incomingSwapModal.classList.add("hidden");
+      shownIncomingReqId = null;
+      return;
+    }
+    const [reqId, req] = entry;
+    if (shownIncomingReqId === reqId) return; // вже показано
+    shownIncomingReqId = reqId;
+    incomingSwapText.textContent = `${req.fromUsername} пропонує обмін карткою:`;
+    incomingSwapOfferedCard.innerHTML = `<img src="${cardUrl(req.myCardId)}" alt="картка" style="width:100%;"/>`;
+    incomingSwapConfirmStep.classList.remove("hidden");
+    incomingSwapChooseStep.classList.add("hidden");
+    incomingSwapModal.classList.remove("hidden");
+
+    document.getElementById("incomingSwapDeclineBtn").onclick = () => {
+      window.MemologyGame.respondSwap(state, reqId, false);
+      incomingSwapModal.classList.add("hidden"); shownIncomingReqId = null;
+    };
+    document.getElementById("incomingSwapAcceptBtn").onclick = () => {
+      incomingSwapConfirmStep.classList.add("hidden");
+      incomingSwapChooseStep.classList.remove("hidden");
+      const me = state.players[username];
+      incomingSwapHandGrid.innerHTML = (me.hand || []).map((cardId) =>
+        `<div class="card-thumb" data-card="${escapeHtml(cardId)}"><img src="${cardUrl(cardId)}" alt="картка" loading="lazy" /></div>`
+      ).join("");
+      incomingSwapHandGrid.querySelectorAll(".card-thumb[data-card]").forEach((el) => {
+        el.addEventListener("click", () => {
+          window.MemologyGame.respondSwap(state, reqId, true, el.dataset.card);
+          incomingSwapModal.classList.add("hidden"); shownIncomingReqId = null;
+        });
+      });
+    };
+  }
+
+  document.addEventListener("selectstart", (e) => e.preventDefault());
+
+  const session = window.AppAuth && window.AppAuth.getSession();
+  if (session && window.rtdbReady) {
+    username = session.username;
+    window.MemologyGame.onStateChange = (state, ctx) => {
+      onState(state, ctx);
+      if (state.phase === "active") checkIncomingSwap(state);
+      // мій вихідний запит скасовано ззовні (інший гравець вже не в списку) — закриваємо очікування
+      if (pendingOutgoingSwap && (!state.pendingSwaps || !state.pendingSwaps[pendingOutgoingSwap.requestId])) {
+        pendingOutgoingSwap = null;
+        if (!swapModal.classList.contains("hidden") && swapWaitingBox && !swapWaitingBox.classList.contains("hidden")) {
+          swapModal.classList.add("hidden");
+        }
+      }
+    };
+    window.MemologyGame.start(session.username);
+  } else {
+    showView("locked");
+  }
+
+  window.addEventListener("beforeunload", () => { if (window.MemologyGame) window.MemologyGame.stop(); });
+})();
+</script>
+</body>
+</html>
