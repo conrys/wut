@@ -1,87 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
 <svg viewBox="0 0 640 480" xmlns="http://www.w3.org/2000/svg">
-  <g class="layer">
-    <style>
-      .eye-blink-l, .eye-blink-r { 
-        transform-box: fill-box; 
-        transform-origin: center; 
-        animation: c3-blink 5.2s ease-in-out infinite; 
-        animation-delay: 0.2s; 
-      }
-      .pupil-look-l, .pupil-look-r { 
-        transform-box: fill-box; 
-        transform-origin: center; 
-        animation: c3-look 8.1s cubic-bezier(0.25, 1, 0.5, 1) infinite; 
-      }
-      .body-breathe {
-        transform-box: fill-box;
-        transform-origin: bottom center;
-        animation: c3-breathe 4.5s ease-in-out infinite;
-      }
-      .mouth-anim {
-        transform-box: fill-box;
-        transform-origin: center;
-        animation: c3-mouth 7.0s ease-in-out infinite;
-        animation-delay: 0.8s;
-      }
+  <defs>
+    <!-- Маска рота, щоб ікла та язик ніколи не виходили за контур -->
+    <clipPath id="mouth-clip">
+      <path d="M 240 260 C 290 280, 350 280, 400 250 C 385 330, 255 330, 240 260 Z"/>
+    </clipPath>
+  </defs>
+
+  <style>
+    .devil-body-group {
+      transform-box: fill-box;
+      transform-origin: 50% 90%;
+      animation: c3-breathe 4s ease-in-out infinite;
+    }
+    .tail-anim {
+      transform-box: fill-box;
+      transform-origin: left center;
+      animation: c3-tail 2.8s ease-in-out infinite;
+    }
+    .eye-blink-r, .eye-blink-l {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: c3-blink 4.8s ease-in-out infinite;
+    }
+    .pupil-look {
+      transform-box: fill-box;
+      transform-origin: center;
+      /* Зменшено загальний час та змінено анімацію на швидші рухи */
+      animation: c3-look 5s ease-in-out infinite;
+    }
+
+    /* Анімації */
+    @keyframes c3-breathe {
+      0%, 100% { transform: scale(1, 1) rotate(0deg); }
+      50% { transform: scale(1.02, 0.97) rotate(1deg) translateY(3px); }
+    }
+    @keyframes c3-tail {
+      0%, 100% { transform: rotate(0deg); }
+      50% { transform: rotate(14deg); }
+    }
+    @keyframes c3-blink {
+      0%, 93%, 100% { transform: scaleY(1); }
+      96% { transform: scaleY(0.08); }
+    }
+    @keyframes c3-look {
+      /* Швидкі та різкі рухи */
+      0%, 5% { transform: translate(0, 0); } /* Початкова пауза */
+      10% { transform: translate(5px, -3px); } /* Швидкий перескок 1 */
+      12%, 15% { transform: translate(5px, -3px); } /* Коротка пауза 1 */
+      20% { transform: translate(-4px, 2px); } /* Швидкий перескок 2 */
+      22%, 25% { transform: translate(-4px, 2px); } /* Коротка пауза 2 */
+      30%, 100% { transform: translate(0, 0); } /* Швидке повернення та довга пауза для циклу */
+    }
+  </style>
+
+  <g id="character">
+    <g class="devil-body-group">
       
-      /* Клипання */
-      @keyframes c3-blink { 
-        0%, 93%, 100% { transform: scaleY(1); } 
-        96% { transform: scaleY(0.08); } 
-      }
+      <!-- Хвіст -->
+      <g class="tail-anim">
+        <path d="M 420 340 C 477.329 355.03 504.401 319.883 510 290 C 512.605 276.1 524.539 294.702 515 310 C 496.954 338.942 500.258 353.198 410 365" fill="#d32f2f" stroke="#000000" stroke-width="8" stroke-linejoin="round"/>
+        <!-- Накінечник хвоста (стрілка) -->
+        <polygon points="499.341 287.62 528.586 257.104 526.551 304.356" fill="#d32f2f" stroke="#000000" stroke-width="6" stroke-linejoin="round"/>
+      </g>
 
-      /* Погляд: Вгору-праворуч -> Вниз-ліворуч -> Вгору */
-      @keyframes c3-look { 
-        0%, 15%   { transform: translate(0, 0); }
-        20%, 40%  { transform: translate(6px, -5px); }
-        45%, 68%  { transform: translate(-7px, 3px); }
-        72%, 85%  { transform: translate(0, -6px); }
-        90%, 100% { transform: translate(0, 0); }
-      }
+      <!-- Роги -->
+      <g id="horns">
+        <!-- Лівий ріг -->
+        <path d="M 251.921 149.23 C 251.921 149.23 227.379 101.099 243.33 70.689 C 214.813 87.61 208.013 140.852 233.013 163.852 L 251.921 149.23 Z" fill="#d32f2f" stroke="#000000" stroke-width="8" stroke-linejoin="round"/>
+        <!-- Правий ріг -->
+        <path d="M 402.18 158.059 C 402.18 158.059 425.041 109.107 408.046 79.268 C 437.132 95.191 445.772 148.166 421.582 172.018 L 402.18 158.059 Z" fill="#d32f2f" stroke="#000000" stroke-width="8" stroke-linejoin="round" style="transform-origin: 412.518px 119.094px;"/>
+      </g>
 
-      /* Глибоке дихання з похидуванням */
-      @keyframes c3-breathe {
-        0%, 100% { transform: scale(1, 1) rotate(0deg); }
-        40%      { transform: scale(1.03, 0.96) rotate(1deg) translateY(4px); }
-        70%      { transform: scale(0.98, 1.02) rotate(-0.5deg) translateY(-2px); }
-      }
+      <!-- Тіло (Оновлена форма) -->
+      <path id="body" d="M 320 120 C 450 120 457.059 208.484 460 320 C 462.431 412.163 185.869 412.05 187.545 319.87 C 189.959 187.122 190 120 320 120 Z" fill="#e53935" stroke="#000000" stroke-width="9" stroke-linejoin="round"/>
 
-      /* Перехід оскалу в спокійніший стан */
-      @keyframes c3-mouth {
-        0%, 30%   { transform: scale(1, 1) rotate(0deg); }
-        45%, 72%  { transform: scale(0.65, 0.3) translateY(-15px) rotate(-4deg); }
-        85%, 100% { transform: scale(1, 1) rotate(0deg); }
-      }
-    </style>
-
-    <g id="character">
-      <!-- Тіло із модифікованою формою та диханням -->
-      <path class="body-breathe" fill="#ff0000" stroke="#000000" stroke-width="10" d="m320.22,75.5c-55,0 -155,20 -185.86,45.15c-20,85 110,225.9 135.73,313.9c80,15 150,5 198.78,-15.67c45,-85 115.46,-208.79 75.46,-288.79c-35,-45 -125.03,-60.05 -150.03,-50.05z" id="body"/>
-
-      <!-- Очі -->
+      <!-- Очі (smug face та прижмур) -->
       <g class="eyes-group">
-        <g class="eye-blink-r" transform="translate(52.73, 15.69)">
-          <ellipse fill="#ffffff" cx="394.27" cy="168.77" rx="35" ry="27"/>
-          <g class="pupil-look-r">
-            <ellipse class="pupil" fill="#000000" cx="399.78" cy="171.34" rx="11.57" ry="9.47"/>
+        <!-- Праве око (хитро підняте) -->
+        <g class="eye-blink-r">
+          <ellipse cx="375" cy="200" rx="32" ry="24" fill="#ffffff" stroke="#000000" stroke-width="6"/>
+          <g class="pupil-look">
+            <!-- Зміїна/демонічна різка зелена зіниця з світінням -->
+            <polygon points="375,185 381,200 375,215 369,200" fill="#7efc00"/>
+            <circle cx="377" cy="195" r="3" fill="#ffffff"/>
           </g>
+          <!-- Хитрувата брова -->
+          <path d="M 340 170 Q 375 155 410 175" fill="none" stroke="#000000" stroke-width="7" stroke-linecap="round"/>
         </g>
-        <g class="eye-blink-l" transform="translate(73.45, 14.44)">
-          <ellipse fill="#ffffff" cx="288.78" cy="170.22" rx="36" ry="25"/>
-          <g class="pupil-look-l">
-            <ellipse class="pupil" fill="#7efc00" stroke="#000000" stroke-width="10" cx="294.29" cy="172.14" rx="6.71" ry="3.93"/>
+
+        <!-- Ліве око (трохи примружене) -->
+        <g class="eye-blink-l">
+          <ellipse cx="265" cy="205" rx="30" ry="18" fill="#ffffff" stroke="#000000" stroke-width="6"/>
+          <g class="pupil-look">
+            <!-- Зміїна/демонічна різка зелена зіниця з світінням -->
+            <polygon points="265,193 270,205 265,217 260,205" fill="#7efc00"/>
+            <circle cx="267" cy="201" r="2.5" fill="#ffffff"/>
           </g>
+          <!-- Нахилена брова -->
+          <path d="M 235 185 Q 265 180 295 190" fill="none" stroke="#000000" stroke-width="7" stroke-linecap="round"/>
         </g>
       </g>
 
-      <!-- Рот із анімацією та вирівняним позиціонуванням -->
-      <g class="mouth-group" transform="translate(-10, -5)">
-        <g class="mouth-anim">
-          <path fill="#aa0303" stroke="#000000" stroke-width="4" d="m267.51,253.07l77.75,16.86l65.29,7.53l77.21,-8.79c11.3,-5.65 -52.64,57.84 -52.64,57.84c0,0 -49.59,21.97 -49.68,21.88c-0.09,-0.09 -158.1,-79.01 -117.92,-95.33z"/>
-          <path fill="#720000" d="m385.48,344.16l-39.94,-22.02c5.62,-7.22 10.57,-20.32 23.79,-20.41c13.22,-0.08 3.14,20.74 6.44,19.41c3.3,-1.33 6.89,-18.06 17.6,-14.43c10.7,3.63 6.79,21.44 7.58,31.29l-15.47,6.16z"/>
-          <path fill="#ffffff" d="m384.71,346.15l-36.19,-19.64l-36.02,-21.45l1.82,-5.79c0,0 22.44,12.16 22.44,12.16c0,0 -1.98,3.31 -2.1,3.22c-0.12,-0.09 3.76,-2.39 3.64,-2.48c-0.12,-0.09 39.14,15.13 39.02,15.05c-0.12,-0.09 2.27,11.33 2.15,11.24c-0.12,-0.09 0.78,-10.99 0.66,-11.08c-0.12,-0.09 32.53,-6.2 32.41,-6.28c-0.12,-0.09 3.1,8.02 2.98,7.94c-0.12,-0.09 -0.38,-8.68 -0.5,-8.76c-0.12,-0.09 28.23,-13.64 28.11,-13.72l1.65,6.78l-10.91,11.74c-1.44,-0.42 -49.15,21.08 -49.15,21.08z"/>
+      <!-- Рот з іклами -->
+      <g id="mouth">
+        <!-- Внутрішнє наполнення рота під маскою -->
+        <g clip-path="url(#mouth-clip)">
+          <!-- Темна порожнина -->
+          <rect x="200" y="240" width="240" height="100" fill="#4a0000"/>
+          
+          <!-- Язик -->
+          <path d="M 280 300 Q 320 270 360 300 Q 320 330 280 300 Z" fill="#b71c1c"/>
+          
+          <!-- Верхні ікла -->
+          <polygon points="265,263 273,280 282,266" fill="#ffffff" stroke="#000000" stroke-width="2"/>
+          <polygon points="295,268 305,288 315,270" fill="#ffffff" stroke="#000000" stroke-width="2"/>
+          <polygon points="330,270 340,288 350,268" fill="#ffffff" stroke="#000000" stroke-width="2"/>
+          <polygon points="365,264 373,280 380,260" fill="#ffffff" stroke="#000000" stroke-width="2"/>
+
+          <!-- Нижні ікла -->
+          <polygon points="280,315 290,295 300,315" fill="#ffffff" stroke="#000000" stroke-width="2"/>
+          <polygon points="335,315 345,295 355,315" fill="#ffffff" stroke="#000000" stroke-width="2"/>
         </g>
+
+        <!-- Зовнішній чорний контур губ -->
+        <path d="M 240 260 C 290 280, 350 280, 400 250 C 385 330, 255 330, 240 260 Z" fill="none" stroke="#000000" stroke-width="6" stroke-linejoin="round"/>
       </g>
+
     </g>
   </g>
 </svg>

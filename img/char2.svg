@@ -1,5 +1,6 @@
-<svg viewBox="0 0 640 480" xmlns="http://www.w3.org/2000/svg">
-  <g class="layer">
+<?xml version="1.0" encoding="utf-8"?>
+<svg viewBox="46.501 1.5 503.091 555.993" xmlns="http://www.w3.org/2000/svg" xmlns:bx="https://boxy-svg.com">
+  <defs bx:workspace="root">
     <style>
       .eye-blink-l, .eye-blink-r { 
         transform-box: fill-box; 
@@ -23,6 +24,11 @@
         animation: c2-mouth 7.5s ease-in-out infinite;
         animation-delay: 0.5s;
       }
+      .beard-sway {
+        transform-box: fill-box;
+        transform-origin: center top;
+        animation: beard-sway 3.2s ease-in-out infinite;
+      }
       
       /* Клипання з власною затримкою */
       @keyframes c2-blink { 
@@ -30,7 +36,7 @@
         95% { transform: scaleY(0.08); } 
       }
 
-      /* Саккадичний погляд: Вниз-ліворуч -> Праворуч -> Вгору-ліворуч */
+      /* Саккадичний погляд: Вниз-ліворуч -&gt; Праворуч -&gt; Вгору-ліворуч */
       @keyframes c2-look { 
         0%, 20%   { transform: translate(0, 0); }
         24%, 46%  { transform: translate(-6px, 4px); }
@@ -41,7 +47,7 @@
 
       /* М'яка пульсація тіла з легким нахилом */
       @keyframes c2-breathe {
-        0%, 100% { transform: scale(1, 1) rotate(0deg); }
+        0%, 100% { transform: scale(1, 1) rotate(0deg) translateY(0); }
         50%      { transform: scale(0.98, 1.03) rotate(-0.8deg) translateY(-2px); }
       }
 
@@ -51,37 +57,39 @@
         45%, 75%  { transform: rotate(2deg) scale(0.55, 0.35) translateY(-12px); }
         88%, 100% { transform: rotate(12deg) scale(0.85, 0.9); }
       }
+
+      /* Гойдання бороди */
+      @keyframes beard-sway {
+        0%, 100% { transform: translateY(0) rotate(0deg); }
+        50% { transform: translateY(-0.5px) rotate(0.4deg); }
+      }
     </style>
-    
-    <!-- Персонаж 2 -->
-    <g id="character">
-      <!-- Тіло з анімацією дихання -->
-      <path class="body-breathe" fill="#7f00ff" stroke="#000000" stroke-width="10" d="m181.37,156.33c-51.33,88.02 -54.56,112.4 35.94,202.43l126.69,55.23c55.62,4.05 112.32,34.1 170.84,12.14c58.52,-21.96 39.41,-287.44 -16.2,-298.12l-28.91,-43.01c-16.3,-10.18 -37.24,-9.75 -50.22,-2.01c-10.36,-7.02 -38.9,11.14 -49.26,4.12l-7.51,-23.49l-31.9,1.28l-34.56,-13.7l-29.25,16.25c-39.39,-0.9 -34.32,0.85 -85.65,88.87z" id="body"/>
-      
-      <!-- Очі -->
-      <g class="eyes-group">
+  </defs>
+  <g class="body-breathe" style="transform-origin: 358.712px 458.856px;" transform="matrix(0.979929, -0.014363, 0.013666, 1.029863, -0.027299, -2.057183)">
+    <g id="hat" transform="matrix(1, 0, 0, 1, 8.735774, -18.610977)">
+      <path style="stroke: rgb(0, 0, 0); fill: rgb(54, 79, 204);" d="M 439.91 209.755 L 334.373 166.574 L 489.072 40.961 L 439.91 209.755 Z"/>
+      <path d="M 429.448 123.371 L 432.35 129.793 L 441.188 129.932 L 434.144 134.04 L 436.704 140.548 L 429.448 136.664 L 422.192 140.548 L 424.752 134.04 L 417.708 129.932 L 426.546 129.793 Z" bx:shape="star 429.448 132.866 12.344 9.495 0.4 5 1@511ba9a5" style="fill: rgb(216, 216, 216); stroke: rgb(0, 0, 0);"/>
+      <path d="M 460.9 77.995 L 463.266 83.004 L 470.472 83.112 L 464.729 86.316 L 466.816 91.393 L 460.9 88.363 L 454.984 91.393 L 457.071 86.316 L 451.328 83.112 L 458.534 83.004 Z" bx:shape="star 460.9 85.401 10.065 7.406 0.4 5 1@8dda858e" style="fill: rgb(216, 216, 216); stroke: rgb(0, 0, 0);"/>
+      <path d="M 401.713 128.995 L 406.349 133.309 L 415.759 134.244 L 409.214 137.844 L 410.394 142.736 L 401.713 140.647 L 393.032 142.736 L 394.212 137.844 L 387.667 134.244 L 397.077 133.309 Z" bx:shape="star 401.713 136.591 14.769 7.596 0.534 5 1@b6df5275" style="fill: rgb(216, 216, 216); stroke: rgb(0, 0, 0);"/>
+    </g>
+    <g id="character_core" transform="matrix(1, 0, 0, 1, -50.440961, -2.094176)">
+      <path id="body" fill="#7f00ff" stroke="#000000" stroke-width="10" d="M 178.676 213.13 C 178.676 213.13 162.6 221.022 206.479 430.586 C 186.149 444.525 475.733 471.433 494.133 427.934 C 512.533 384.435 553.984 252.497 539.98 226.055 C 520.41 158.397 355.617 117.217 354.779 118.909 C 354.779 118.909 228.396 122.691 178.676 213.13 Z"/>
+      <g id="eyes_wrapper" transform="matrix(1, 0, 0, 1, 4.853057, 38.638169)">
         <g class="eye-blink-r">
-          <ellipse fill="#ffffff" cx="394.27" cy="168.77" rx="35" ry="27"/>
+          <ellipse fill="#ffffff" cx="405.692" cy="189.867" rx="46.422" ry="48.097"/>
           <g class="pupil-look-r">
-            <ellipse class="pupil" fill="#000000" cx="399.78" cy="171.34" rx="11.57" ry="9.47"/>
+            <ellipse class="pupil" fill="#000000" cx="413.793" cy="185.886" rx="22.185" ry="22.56"/>
           </g>
         </g>
         <g class="eye-blink-l">
-          <ellipse fill="#ffffff" cx="288.78" cy="170.22" rx="36" ry="25"/>
-          <g class="pupil-look-l">
-            <ellipse class="pupil" fill="#7efc00" stroke="#000000" stroke-width="10" cx="294.29" cy="172.14" rx="6.71" ry="3.93"/>
+          <ellipse fill="#ffffff" cx="296.475" cy="190.1" rx="43.695" ry="44.88"/>
+          <g class="pupil-look-l" style="transform-origin: 296.214px 179.835px;" transform="matrix(1, 0, 0, 1, -3, -4)">
+            <ellipse class="pupil" fill="#7efc00" stroke="#000000" stroke-width="10" cx="295.097" cy="185.309" rx="20.147" ry="16.023"/>
           </g>
         </g>
       </g>
-
-      <!-- Рот із вирівняною позицією та анімацією -->
-      <g class="mouth-group" transform="translate(0, 5)">
-        <g class="mouth-anim">
-          <path fill="#3f007f" stroke="#000000" stroke-width="3" d="m454.56,257.46c96.12,-47.1 52.83,101.85 -50.29,113.3c-103.12,11.46 -205.6,-124.76 -135.66,-107.24c69.95,17.52 89.83,41.04 185.94,-6.06z"/>
-          <path fill="#7f00ff" stroke="#000000" stroke-width="5" d="m254.85,249.65c6.1,15.22 -36.39,30.8 -38.8,30.26"/>
-          <path fill="#300063" d="m479.56,329.61c2.26,-29.34 28.47,-7.95 1.13,-29.29c-27.34,-21.34 -37.6,14.82 -38.81,10.62c-2.42,-8.4 -11.38,-46.67 -39.27,16.58l-3.54,40.82l41.49,-10.98l39,-27.76z"/>
-          <path fill="#ffffff" d="m502.27,292.16c0,0 -7.51,21.92 -19.48,32.67c-11.97,10.75 -17.65,29.83 -70.41,42.61c-52.76,12.78 -123.19,-33.58 -120.33,-38.15c2.86,-4.57 4.38,-17.56 6.42,-16.94c2.04,0.62 44.79,10.73 43.45,12.65c-1.34,1.92 -9.09,24.38 -7.1,24.83c1.99,0.45 8.47,-25.63 9.73,-25.27c1.26,0.36 30.63,2.32 31.69,3.23c1.06,0.9 -3.22,26.06 -2.01,27.28c1.22,1.22 2.2,-28.37 4.07,-27.5c1.87,0.87 30.17,0.36 30.47,-0.52c0.29,-0.88 -2.06,31.06 -0.28,30.91c1.79,-0.16 0.73,-30.2 2.15,-30.44c1.43,-0.25 35.9,-3.79 36.15,-6c0.25,-2.21 1.71,26.86 3.74,27.27c2.03,0.41 -3.01,-27.05 -1.49,-27.05c1.52,0 27.83,-10.45 27.06,-11.19c-0.77,-0.74 1.21,14.3 1.78,14.14c0.57,-0.16 0.55,-13.18 -0.81,-13.63c-1.36,-0.45 18.38,-14.7 19.51,-14.85c1.13,-0.16 0.2,2 0.98,3.12c0.78,1.13 -0.25,-1.41 0.73,-3.33c0.99,-1.92 3.97,-3.82 3.97,-3.82z"/>
-        </g>
+      <g id="mouth_group" class="mouth-anim" transform="matrix(0.831425, 0.176725, -0.187121, 0.880333, 0, 0)">
+        <path title="рот" style="fill: rgb(127, 0, 255); stroke: rgb(0, 0, 0); stroke-width: 10px; transform-box: fill-box; transform-origin: 50% 50%;" d="M 260.13 324.799 C 300.344 312.666 399.94 313.693 433.977 327.592"/>
       </g>
     </g>
   </g>
