@@ -120,24 +120,26 @@ const QUIPLASH_IMAGE_PROMPTS = [
   "9.jpg", "10.jpg", "11.jpg", "12.jpg", "13.jpg", "14.png", "15.jpg", "16.png",
   "17.png", "18.webp", "19.jpg", "20.jpg", "21.png", "22.webp",
 ].map((image) => ({ image: `ql_img/${image}`, text: "Придумайте смішний підпис до цієї картинки" }));
-const QUIPLASH_IMAGE_PROMPTS_READY = fetch("ql_img/image-prompts.json")
-  .then((response) => {
-    if (!response.ok) throw new Error(`image-prompts.json: ${response.status}`);
-    return response.json();
-  })
-  .then((items) => {
-    if (!Array.isArray(items)) return;
-    QUIPLASH_IMAGE_PROMPTS.length = 0;
-    items.forEach((item) => {
-      if (!item || !item.image) return;
-      const text = typeof item.text === "string" && item.text.trim()
-        ? item.text.trim()
-        : "Придумайте смішний підпис до цієї картинки";
-      QUIPLASH_IMAGE_PROMPTS.push({ image: `ql_img/${item.image}`, text });
+const QUIPLASH_IMAGE_PROMPTS_READY = (typeof location !== "undefined" && location.protocol === "file:")
+  ? Promise.resolve()
+  : fetch("ql_img/image-prompts.json")
+    .then((response) => {
+      if (!response.ok) throw new Error(`image-prompts.json: ${response.status}`);
+      return response.json();
+    })
+    .then((items) => {
+      if (!Array.isArray(items)) return;
+      QUIPLASH_IMAGE_PROMPTS.length = 0;
+      items.forEach((item) => {
+        if (!item || !item.image) return;
+        const text = typeof item.text === "string" && item.text.trim()
+          ? item.text.trim()
+          : "Придумайте смішний підпис до цієї картинки";
+        QUIPLASH_IMAGE_PROMPTS.push({ image: `ql_img/${item.image}`, text });
+      });
+    })
+    .catch((error) => {
+      console.warn("Не вдалося завантажити image-prompts.json:", error);
     });
-  })
-  .catch((error) => {
-    console.warn("Не вдалося завантажити image-prompts.json:", error);
-  });
 
 const QUIPLASH_AVATAR_COLORS = ["#e74c3c","#3498db","#2ecc71","#f1c40f","#9b59b6","#1abc9c","#e67e22","#ff6fa5"];

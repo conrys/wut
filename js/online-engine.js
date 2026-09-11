@@ -56,6 +56,8 @@
     const onEmptyPlayer = opts.onEmptyPlayer || (() => ({}));
     const onDisconnectPlayerPatch = opts.onDisconnectPlayerPatch || { lastSeen: 0, status: "inactive" };
 
+    const ABANDON_MS = opts.abandonMs != null ? opts.abandonMs : 15 * 60 * 1000;
+
     let serverOffset = 0;
     if (window.rtdb) {
       window.rtdb.ref(".info/serverTimeOffset").on("value", (snap) => { serverOffset = snap.val() || 0; });
@@ -106,11 +108,11 @@
       }
 
       heartbeatTimer = setInterval(() => {
-        if (myLobbyRef) myLobbyRef.child("lastSeen").set(now());
-        if (currentRoomId && myPlayerRef) {
-          myPlayerRef.child("lastSeen").set(now());
-          myPlayerRef.child("status").set("active");
-          roomRef.child("lastActivityAt").set(now());
+        const t = now();
+        if (myLobbyRef) myLobbyRef.child("lastSeen").set(t);
+        if (currentRoomId && myPlayerRef && roomRef) {
+          myPlayerRef.update({ lastSeen: t, status: "active" });
+          roomRef.child("lastActivityAt").set(t);
         }
       }, HEARTBEAT_MS);
     }
@@ -138,7 +140,12 @@
     }
 
     function isRoomStale(room) {
-      const last = room.lastActivityAt || room.createdAt || 0;
+      const players = room.players || {};
+      if (Object.values(players).some(isConnected)) return false;
+      const lastSeens = Object.values(players).map((p) => p.lastSeen || 0);
+      const mostRecentPlayer = lastSeens.length ? Math.max.apply(null, lastSeens) : 0;
+      const last = Math.max(room.lastActivityAt || 0, room.createdAt || 0, mostRecentPlayer);
+      if (!last) return true;
       return now() - last > ABANDON_MS;
     }
 
@@ -229,15 +236,21 @@
     // вручну пізніше — коли гра дозволить приєднатись гравцем, що прийшов
     // під час активного раунду як спостерігач.
     function becomePlayer(extra) {
-      if (!myPlayerRef) return Promise.resolve();
-      return myPlayerRef.get().then((snap) => {
+      const playerRef = myPlayerRef;
+      if (!playerRef) return Promise.resolve();
+      return playerRef.get().then((snap) => {
+        if (playerRef !== myPlayerRef) return;
         if (!snap.exists()) {
-          return myPlayerRef.set({ joinedAt: now(), lastSeen: now(), status: "active", ...onEmptyPlayer(), ...extra });
+          return playerRef.set({ joinedAt: now(), lastSeen: now(), status: "active", ...onEmptyPlayer(), ...extra });
         }
-        if (snap.val().status === "active" && !extra) return;
-        return myPlayerRef.update({ lastSeen: now(), status: "active", ...(extra || {}) });
+        const val = snap.val() || {};
+        const patch = extra || {};
+        const extraChanged = Object.keys(patch).some((key) => val[key] !== patch[key]);
+        if (val.status === "active" && !extraChanged) return;
+        return playerRef.update({ lastSeen: now(), status: "active", ...patch });
       }).then(() => {
-        myPlayerRef.onDisconnect().update(onDisconnectPlayerPatch);
+        if (playerRef !== myPlayerRef) return;
+        return playerRef.onDisconnect().update(onDisconnectPlayerPatch);
       });
     }
 

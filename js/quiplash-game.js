@@ -17,8 +17,6 @@
   const TICK_MS = 500;
   const MIN_PLAYERS = 2;
   const MAX_PLAYERS = 8;
-  const ABANDON_MS = 15 * 60 * 1000; // гра без жодного живого lastSeen 15хв — скидаємо
-
   const ROUND_PLAN = ["classic", "classic", "image"];
   const TOTAL_ROUNDS = ROUND_PLAN.length;
 
@@ -43,8 +41,10 @@
   const ROOM_SCHEMA = {
     ...emptyState(),
   };
+  const ABANDON_MS = 3 * 60 * 1000; // нікого онлайн 3 хв — кімнату скидаємо
   const Engine = window.OnlineEngine.create("quiplash", {
     phases: ["lobby", "answering", "answer_countdown", "voting", "reveal", "round_end", "game_over"],
+    abandonMs: ABANDON_MS,
   });
 
   let username = null;
@@ -221,6 +221,8 @@
       phaseDeadline: null,
       paused: false,
       awaitingContinuation: false,
+      superSmihlystokUsername: null,
+      superSmihlystokAt: null,
     };
   }
 
@@ -231,22 +233,21 @@
       if (type !== "room-update") return;
       const state = data.room;
       ref = Engine.roomRef;
-      if (!state.players || !state.players[username]) {
-        const saved = storedProfile(username);
-        const profile = state.phase === "lobby" ? playerProfile(state.players, username) : saved;
-        if (state.phase !== "lobby" && !profile) {
+      const me = state.players && state.players[username];
+      if (!me) {
+        if (state.phase === "lobby") {
+          const profile = playerProfile(state.players, username);
+          rememberProfile(username, profile);
+          Engine.becomePlayer(profile);
+        } else {
           maybeRunAsHost(state);
           onStateChange(state, { username, host: computeHost(state.players) === username });
           return;
         }
-        rememberProfile(username, profile);
-        Engine.becomePlayer();
-      } else if (state.players && state.players[username]) {
+      } else {
         const profile = playerProfile(state.players, username);
-        const current = state.players[username];
-        Engine.becomePlayer(profile);
-        rememberProfile(username, current.character ? current : profile);
-        if (current.character !== profile.character || current.color !== profile.color) {
+        rememberProfile(username, me.character ? me : profile);
+        if (me.character !== profile.character || me.color !== profile.color) {
           ref.child(`players/${username}`).update(profile);
         }
       }
@@ -257,6 +258,8 @@
 
     Engine.getOrCreateRoom(Engine.SHARED_ROOM_ID, ROOM_SCHEMA, () => emptyState()).then(({ room }) => {
       ref = Engine.roomRef;
+
+      
       const extra = room.phase === "lobby" ? playerProfile(room.players, username) : null;
       if (extra) rememberProfile(username, extra);
       Engine.joinRoom(Engine.SHARED_ROOM_ID, { asPlayer: room.phase === "lobby", extra });
@@ -265,7 +268,7 @@
 
   function stop() {
     if (tickTimer) clearInterval(tickTimer);
-    Engine.leaveRoom();
+    tickTimer = null;
     Engine.stop({ preserveRoomPresence: true });
     ref = null;
     isHost = false;
@@ -578,6 +581,17 @@
     updates[`matchups/${m.id}/finalized`] = true;
     if (state.players[m.playerAId]) updates[`players/${m.playerAId}/score`] = (state.players[m.playerAId].score || 0) + pointsA;
     if (state.players[m.playerBId]) updates[`players/${m.playerBId}/score`] = (state.players[m.playerBId].score || 0) + pointsB;
+    // СУПЕРСМІХЛИСТ — рівно 100% голосів за одну відповідь. Пишемо на рівень
+    // кімнати (не в matchup) окремим username+timestamp, щоб TV-екран міг
+    // підписатись на ЦЕ конкретне поле й програти повноекранну анімацію
+    // рівно один раз за подію (timestamp унікальний щоразу).
+    if (total > 0 && countA === total) {
+      updates["superSmihlystokUsername"] = m.playerAId;
+      updates["superSmihlystokAt"] = now();
+    } else if (total > 0 && countB === total) {
+      updates["superSmihlystokUsername"] = m.playerBId;
+      updates["superSmihlystokAt"] = now();
+    }
     return updates;
   }
 
@@ -598,6 +612,10 @@
       const points = basePoints + bonusPoints;
       results[n] = { count, points, basePoints, bonusPoints };
       if (state.players[n]) updates[`players/${n}/score`] = (state.players[n].score || 0) + points;
+      if (total > 0 && count === total) {
+        updates["superSmihlystokUsername"] = n;
+        updates["superSmihlystokAt"] = now();
+      }
     });
     updates["gallery/results"] = results;
     updates["gallery/finalized"] = true;
@@ -697,8 +715,8 @@
     MIN_PLAYERS, MAX_PLAYERS, TOTAL_ROUNDS,
     MIN_VOTE_SECONDS, MAX_VOTE_SECONDS, DEFAULT_VOTE_SECONDS,
     connectedEntries, computeHost,
-    start, stop,
-    updateSettings, startGame,
+    start, stop, cleanupIfAbandoned,
+    updateSettings, startGame, 
     submitAnswer, submitVote, submitGalleryVote,
     setPause, resetGame, continueGame, finishGame, setAvatar,
     set onStateChange(fn) { onStateChange = fn; },

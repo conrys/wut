@@ -139,11 +139,51 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
 #pause-overlay { position: fixed; inset: 0; background: rgba(10,10,14,0.88); display: flex; align-items: center; justify-content: center; z-index: 500; text-align: center; padding: 24px; }
 #host-player-status { position: fixed; top: 12px; left: 0; width: 100%; z-index: 10; min-height: 24px; color: #ffb84d; font-size: 18px; text-align: center; pointer-events: none; }
 .pause-icon { font-size: 48px; margin: 0 0 8px; }
+
+/* СУПЕРСМІХЛИСТ — 100% голосів за одну відповідь: аватар вилітає на весь екран */
+#super-smihlystok-overlay {
+  position: fixed; inset: 0; z-index: 900;
+  display: none; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+  pointer-events: none;
+}
+#super-smihlystok-overlay.playing { display: flex; }
+.super-smihlystok-avatar {
+  width: 22vh; height: 22vh; min-width: 220px; min-height: 220px;
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 0 6px rgba(255,215,111,0.7), 0 0 70px rgba(255,215,111,0.6);
+  animation: super-smihlystok-pop 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.super-smihlystok-avatar img { width: 82%; height: 82%; object-fit: contain; }
+.super-smihlystok-label {
+  font-family: inherit; font-weight: 800; font-size: 28px; color: #ffd76f;
+  text-shadow: 0 0 18px rgba(255,215,111,0.7); white-space: nowrap;
+  animation: super-smihlystok-label-fade 0.8s ease forwards;
+}
+/* 0.3с: 50%→400% + оберт на 30° проти годинникової. 0.3с: тримається.
+   0.2с: оберт ще на 60° за годинниковою (сумарно на +30° від старту) і
+   одночасно зменшення до 20% зі зникненням. Разом 0.8с. */
+@keyframes super-smihlystok-pop {
+  0%    { transform: scale(0.5) rotate(0deg); opacity: 1; }
+  37.5% { transform: scale(4) rotate(-30deg); opacity: 1; }
+  75%   { transform: scale(4) rotate(-30deg); opacity: 1; }
+  100%  { transform: scale(0.2) rotate(30deg); opacity: 0; }
+}
+@keyframes super-smihlystok-label-fade {
+  0%, 75% { opacity: 1; }
+  100%    { opacity: 0; }
+}
 </style>
 </head>
 <body>
 
 <div id="scene-bg" aria-hidden="true"></div>
+
+<div id="super-smihlystok-overlay">
+  <div class="super-smihlystok-avatar" id="super-smihlystok-avatar">
+    <img id="super-smihlystok-img" src="" alt="">
+  </div>
+  <div class="super-smihlystok-label">СУПЕРСМІХЛИСТ!</div>
+</div>
 
 <div id="pause-overlay" class="hidden">
   <div>
@@ -224,6 +264,26 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
 (function () {
   function escapeHtml(s) { const d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML; }
   function charImg(p) { return `img/char${(p && p.character) || 1}.svg`; }
+
+  let lastSuperSmihlystokAt = null;
+  function maybeShowSuperSmihlystok(state) {
+    const at = state.superSmihlystokAt;
+    if (!at || at === lastSuperSmihlystokAt) return;
+    lastSuperSmihlystokAt = at;
+
+    const p = (state.players || {})[state.superSmihlystokUsername] || { character: 1, color: "#888" };
+    const overlay = document.getElementById("super-smihlystok-overlay");
+    const avatar = document.getElementById("super-smihlystok-avatar");
+    const img = document.getElementById("super-smihlystok-img");
+
+    img.src = charImg(p);
+    avatar.style.background = p.color || "#888";
+
+    overlay.classList.remove("playing");
+    void overlay.offsetWidth; // форс-рефлоу — щоб CSS-анімація перезапустилась, якщо подія трапиться знову
+    overlay.classList.add("playing");
+    setTimeout(() => overlay.classList.remove("playing"), 820);
+  }
   function screen(id) {
     document.querySelectorAll(".host-screen").forEach((el) => el.classList.add("hidden"));
     document.getElementById(id).classList.remove("hidden");
@@ -380,6 +440,7 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
     // Те саме, що й у quiplash.html — createdAt додає варіативність МІЖ
     // іграми, а не лише всередині однієї (round завжди скидається на 0).
     applySessionBackground((state.createdAt || 0) + (state.round || 0) * 97);
+    maybeShowSuperSmihlystok(state);
     if (state.phase !== "voting") voteIntroKey = null;
 
     document.getElementById("pause-overlay").classList.toggle("hidden", !state.paused);
