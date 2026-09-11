@@ -212,6 +212,7 @@
 <script src="js/memology-game.js"></script>
 <script src="js/help.js"></script>
 <script src="js/back-button.js"></script>
+<script src="js/refresh-button.js"></script>
 <script>
 (function () {
   const VIEWS = ["locked", "lobby", "active"];
@@ -359,11 +360,15 @@
 
   function renderVoting(state) {
     const grid = document.getElementById("voteGrid");
-    const entries = Object.entries(state.round.submissions || {});
-    // перемішуємо порядок, щоб позиція картки не видавала автора; самих
-    // імен авторів під час voting-фази в розмітку не кладемо взагалі
-    const shuffled = entries.map(([, cardId]) => cardId).sort(() => Math.random() - 0.5);
-    grid.innerHTML = shuffled.map((cardId) => {
+    const submissions = state.round.submissions || {};
+    // фіксований порядок з game.js (рахується один раз хостом при переході
+    // у voting) — резервний варіант на випадок, якщо його з якоїсь причини
+    // ще немає в стані (стара кімната/перехідний момент)
+    const order = (state.round.votingOrder && state.round.votingOrder.length)
+      ? state.round.votingOrder
+      : Object.keys(submissions);
+    const cardOrder = order.filter((u) => submissions[u] !== undefined).map((u) => submissions[u]);
+    grid.innerHTML = cardOrder.map((cardId) => {
       const isMine = cardId === mySubmittedCardId;
       return `<div class="vote-card">
         <div class="card-thumb ${myVotedFor === cardId ? "voted-mine" : ""} ${isMine ? "disabled" : ""}" data-card="${escapeHtml(cardId)}">

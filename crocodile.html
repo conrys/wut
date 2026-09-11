@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<title>Крокодил</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root { --bg: #14161a; --tile-bg: #22252b; --text-light: #f4f5f1; --text-muted: #8b909c; --accent: #38cfa0; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none;
+      -webkit-user-select: none; -webkit-touch-callout: none; }
+  html, body { margin: 0; padding: 0; min-height: 100dvh; background: var(--bg);
+      font-family: 'Inter', sans-serif; color: var(--text-light); overflow-x: hidden; touch-action: manipulation; }
+  .page { max-width: 420px; margin: 0 auto; padding: 60px 18px 30px; display: flex;
+      flex-direction: column; align-items: center; min-height: 100dvh; }
+  .hidden { display: none !important; }
+
+  h2 { font-family: 'Space Grotesk', sans-serif; font-size: 20px; margin: 0 0 14px; text-align: center; }
+  .status-line { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 14px; }
+
+  .host-panel { width: 100%; background: var(--tile-bg); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .host-panel label { display: block; font-size: 12px; color: var(--text-muted); margin: 10px 0 4px; }
+  .host-panel select { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15);
+      background: #14161a; color: var(--text-light); font-size: 14px; }
+
+  button.primary-btn { width: 100%; border: none; border-radius: 20px; padding: 12px; font-weight: 700;
+      font-size: 14px; cursor: pointer; background: var(--accent); color: #0e2318; margin-top: 10px; }
+  button.primary-btn:disabled { opacity: 0.35; cursor: default; }
+  button.secondary-btn { width: 100%; border: none; border-radius: 20px; padding: 10px; font-weight: 700;
+      font-size: 13px; cursor: pointer; background: #272729; color: var(--text-light);
+      border: 1px solid rgba(255,255,255,0.12); margin-top: 8px; }
+
+  .hint-text { font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 6px; min-height: 16px; }
+
+  /* --------- передача телефону --------- */
+  .reveal-circle {
+    width: 220px; height: 220px; border-radius: 50%; background: #1b1d22;
+    border: 2px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center;
+    margin: 30px auto; text-align: center; padding: 20px; cursor: pointer;
+  }
+  .reveal-circle .icon { font-size: 40px; margin-bottom: 8px; }
+  .reveal-circle .prompt { font-size: 13px; color: var(--text-muted); }
+
+  /* --------- активний раунд --------- */
+  .timer-big { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 46px; text-align: center; margin-bottom: 4px; }
+  .timer-big.urgent { color: #ff6b6b; }
+  .word-card {
+    width: 100%; background: var(--tile-bg); border-radius: 18px; padding: 34px 20px;
+    display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 14px 0;
+  }
+  .word-card .theme-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; }
+  .word-card .word-text { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 30px; text-align: center; }
+  .action-row { display: flex; gap: 10px; width: 100%; }
+  .action-row .btn-skip { flex: 1; border: none; border-radius: 20px; padding: 14px; font-weight: 700;
+      font-size: 14px; cursor: pointer; background: #272729; color: var(--text-light); border: 1px solid rgba(255,255,255,0.12); }
+  .action-row .btn-correct { flex: 1.4; border: none; border-radius: 20px; padding: 14px; font-weight: 700;
+      font-size: 15px; cursor: pointer; background: var(--accent); color: #0e2318; }
+  .round-score { text-align: center; color: var(--text-muted); font-size: 13px; margin-top: 10px; }
+  .round-score b { color: var(--text-light); font-family: 'Space Grotesk', sans-serif; }
+
+  /* --------- підсумок раунду --------- */
+  .summary-box { width: 100%; background: var(--tile-bg); border-radius: 14px; padding: 24px 18px; text-align: center; margin-bottom: 14px; }
+  .summary-box .big-num { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 40px; color: var(--accent); margin: 6px 0; }
+  .summary-box .total-line { font-size: 13px; color: var(--text-muted); }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div id="view-setup">
+    <h2>🐊 Крокодил</h2>
+    <div class="status-line">Один телефон — по черзі показує слово, інші вгадують</div>
+    <div class="host-panel">
+      <label>Тема</label>
+      <select id="themeSelect"></select>
+      <label>Складність</label>
+      <select id="difficultySelect"></select>
+      <label>Час на раунд</label>
+      <select id="durationSelect">
+        <option value="30">30 секунд</option>
+        <option value="45">45 секунд</option>
+        <option value="60" selected>60 секунд</option>
+        <option value="90">90 секунд</option>
+      </select>
+      <button class="primary-btn" id="startBtn">Почати гру</button>
+    </div>
+  </div>
+
+  <div id="view-ready" class="hidden">
+    <h2>🐊 Крокодил</h2>
+    <div class="status-line">Передай телефон наступному гравцю</div>
+    <div class="reveal-circle" id="readyCircle">
+      <div>
+        <div class="icon">🤚</div>
+        <div class="prompt">Готовий(-а)? Тисни, щоб почати раунд</div>
+      </div>
+    </div>
+    <div class="round-score" id="sessionScoreLine"></div>
+    <button class="secondary-btn" id="endGameFromReadyBtn">🏁 Завершити гру</button>
+  </div>
+
+  <div id="view-active" class="hidden">
+    <div class="timer-big" id="timerVal">60</div>
+    <div class="word-card">
+      <div class="theme-label" id="activeTheme"></div>
+      <div class="word-text" id="activeWord"></div>
+    </div>
+    <div class="action-row">
+      <button class="btn-skip" id="skipBtn">⏭ Пропустити</button>
+      <button class="btn-correct" id="correctBtn">✅ Вгадали!</button>
+    </div>
+    <div class="round-score">Цей раунд: <b id="roundScoreVal">0</b></div>
+  </div>
+
+  <div id="view-summary" class="hidden">
+    <h2>⏰ Час вийшов!</h2>
+    <div class="summary-box">
+      <div class="status-line" style="margin:0;">Вгадано цього раунду</div>
+      <div class="big-num" id="summaryRoundScore">0</div>
+      <div class="total-line">Разом за гру: <b id="summaryTotalScore">0</b></div>
+    </div>
+    <button class="primary-btn" id="nextTurnBtn">➡️ Передати далі</button>
+    <button class="secondary-btn" id="endGameFromSummaryBtn">🏁 Завершити гру</button>
+  </div>
+
+  <div id="view-final" class="hidden">
+    <h2>🎉 Гру завершено</h2>
+    <div class="summary-box">
+      <div class="status-line" style="margin:0;">Загальний рахунок</div>
+      <div class="big-num" id="finalScoreVal">0</div>
+    </div>
+    <div class="hint-text" id="finalHint"></div>
+    <button class="primary-btn" id="newGameBtn">🔄 Нова гра</button>
+  </div>
+
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/login.js"></script>
+<script src="js/crocodile-words.js"></script>
+<script src="js/score-connect.js"></script>
+<script src="js/records.js"></script>
+<script src="js/help.js"></script>
+<script src="js/back-button.js"></script>
+<script>
+(function () {
+  // Соло-гра (§2.1 rules.md): увесь стан — локальний JS, жодної залежності
+  // від мережі для старту/раунду/фінішу. Firestore потрібен лише щоб
+  // зберегти рекорд наприкінці — його відсутність нічого не ламає.
+  const VIEWS = ["setup", "ready", "active", "summary", "final"];
+  function showView(name) {
+    VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name));
+  }
+
+  let difficulty = "medium";
+  let roundSeconds = 60;
+  let sessionTotal = 0;
+  let roundScore = 0;
+  let currentWord = null;
+  let currentThemeName = null;
+  let usedWords = {}; // "тема:складність" -> [слова], щоб не повторювались за сесію
+  let timerHandle = null;
+  let timeLeft = 0;
+
+  function themeSetting() { return document.getElementById("themeSelect").value; }
+
+  function buildSetupDOM() {
+    const themeSelect = document.getElementById("themeSelect");
+    themeSelect.innerHTML =
+      `<option value="random">🎲 Випадкова</option>` +
+      CROCODILE_THEMES.map((t) => `<option value="${t.name}">${t.name}</option>`).join("");
+
+    const diffSelect = document.getElementById("difficultySelect");
+    diffSelect.innerHTML = `<option value="easy">Легка</option><option value="medium" selected>Середня</option><option value="hard">Складна</option>`;
+  }
+
+  function pickWord() {
+    const chosenTheme = themeSetting() === "random"
+      ? CROCODILE_THEMES[Math.floor(Math.random() * CROCODILE_THEMES.length)].name
+      : themeSetting();
+    const theme = CROCODILE_THEMES.find((t) => t.name === chosenTheme);
+    const pool = theme[difficulty];
+    const key = chosenTheme + ":" + difficulty;
+    if (!usedWords[key]) usedWords[key] = [];
+    let available = pool.filter((w) => !usedWords[key].includes(w));
+    if (!available.length) { usedWords[key] = []; available = pool; }
+    const word = available[Math.floor(Math.random() * available.length)];
+    usedWords[key].push(word);
+    currentWord = word;
+    currentThemeName = chosenTheme;
+  }
+
+  function renderActiveWord() {
+    document.getElementById("activeTheme").textContent = currentThemeName;
+    document.getElementById("activeWord").textContent = currentWord;
+    document.getElementById("roundScoreVal").textContent = String(roundScore);
+  }
+
+  function startTurn() {
+    roundScore = 0;
+    timeLeft = roundSeconds;
+    pickWord();
+    showView("active");
+    renderActiveWord();
+    updateTimerDisplay();
+    if (timerHandle) clearInterval(timerHandle);
+    timerHandle = setInterval(() => {
+      timeLeft -= 1;
+      updateTimerDisplay();
+      if (timeLeft <= 0) endTurn();
+    }, 1000);
+  }
+
+  function updateTimerDisplay() {
+    const el = document.getElementById("timerVal");
+    el.textContent = String(Math.max(0, timeLeft));
+    el.classList.toggle("urgent", timeLeft <= 10);
+  }
+
+  function endTurn() {
+    if (timerHandle) { clearInterval(timerHandle); timerHandle = null; }
+    sessionTotal += roundScore;
+    document.getElementById("summaryRoundScore").textContent = String(roundScore);
+    document.getElementById("summaryTotalScore").textContent = String(sessionTotal);
+    showView("summary");
+  }
+
+  document.getElementById("correctBtn").addEventListener("click", () => {
+    roundScore += 1;
+    pickWord();
+    renderActiveWord();
+  });
+  document.getElementById("skipBtn").addEventListener("click", () => {
+    pickWord();
+    renderActiveWord();
+  });
+
+  document.getElementById("startBtn").addEventListener("click", () => {
+    difficulty = document.getElementById("difficultySelect").value;
+    roundSeconds = Number(document.getElementById("durationSelect").value);
+    sessionTotal = 0;
+    usedWords = {};
+    goReady();
+  });
+
+  function goReady() {
+    document.getElementById("sessionScoreLine").innerHTML = sessionTotal
+      ? `Разом за гру: <b>${sessionTotal}</b>`
+      : "";
+    showView("ready");
+  }
+  document.getElementById("readyCircle").addEventListener("click", startTurn);
+  document.getElementById("nextTurnBtn").addEventListener("click", goReady);
+
+  function finishGame() {
+    if (timerHandle) { clearInterval(timerHandle); timerHandle = null; }
+    document.getElementById("finalScoreVal").textContent = String(sessionTotal);
+    const hintEl = document.getElementById("finalHint");
+    hintEl.textContent = (!window.AppAuth || !window.AppAuth.getSession())
+      ? "Увійди в профіль, щоб зберігати рекорди"
+      : "";
+    if (window.AppScore) window.AppScore.sendScore("crocodile", sessionTotal);
+    showView("final");
+  }
+  document.getElementById("endGameFromReadyBtn").addEventListener("click", finishGame);
+  document.getElementById("endGameFromSummaryBtn").addEventListener("click", finishGame);
+
+  document.getElementById("newGameBtn").addEventListener("click", () => {
+    sessionTotal = 0;
+    usedWords = {};
+    showView("setup");
+  });
+
+  buildSetupDOM();
+  showView("setup");
+})();
+</script>
+</body>
+</html>

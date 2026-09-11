@@ -1,21 +1,30 @@
 // ==========================================================================
-// Мультиплеєр-шар змійки поверх Firebase Realtime Database.
-// Підключати ПІСЛЯ firebase-config.js (де вже піднятий window.rtdb) і login.js.
+// Мультиплеєр-шар змійки — на спільному online-engine.js, модель "одна
+// спільна арена" (як Шпигун), а не динамічні кімнати на кожну пару гравців.
+// Перший, хто відкриває гру, створює арену й одразу стає першим гравцем
+// (а отже й першим хостом — computeHost/CAS обирають найдавнішого живого).
+// Усі наступні просто заходять у ТУ САМУ кімнату — жодного запрошення чи
+// підтвердження "приєднатись до X?" більше не потрібно.
 //
-// Спрощення для MVP (свідомо):
-// - Кімната не має "кінця раунду" — це спільна арена: помер гравець стає
-//   спостерігачем і може натиснути "Приєднатись знову", арена не закривається.
-// - Head-to-head та колізії з чужим тілом рахуються по позиціях ДО ходу цього
-//   тіку — рідкісні прикордонні випадки (одночасний з'їзд у ту саму клітинку)
-//   не є ідеальними, але для казуальної гри з друзями це не критично.
+// Публічний API (window.SnakeMP) підтримує старі назви (backToSolo,
+// respawn, sendDirection), але requestJoinMultiplayer/joinAsSpectatorOrPlayer
+// прибрані — вони належали до старої моделі динамічних кімнат.
+//
+// lockedHost:true — постійний tick-loop (не подієва гра, як Шпигун/Quiplash),
+// тому хост фіксується в кімнаті через CAS-транзакцію, і рушій сам керує
+// стартом/стопом локального tick-таймера через onBecomeHost/onLoseHost.
+//
+// Спрощення для MVP лишились ті самі, що й раніше (свідомо):
+// - Арена не має "кінця раунду": помер гравець стає спостерігачем і може
+//   натиснути "Приєднатись знову", арена не закривається.
+// - Колізії рахуються по позиціях ДО ходу цього тіку — рідкісні прикордонні
+//   випадки (одночасний з'їзд у ту саму клітинку) не ідеальні, але для
+//   казуальної гри з друзями це не критично.
 // ==========================================================================
 (function () {
   const GRID = 22;
   const MAX_PLAYERS = 8;
   const TICK_MS = 160;
-  const HEARTBEAT_MS = 2000;
-  const PRESENCE_TIMEOUT_MS = 5000;
-  const ROOM_ABANDON_MS = 15 * 60 * 1000; // кімната без жодної активності 15хв — видаляємо
   const COLORS = ["#38cfa0", "#e0b84c", "#ff6b6b", "#8fb8ff", "#c77dff", "#4dd0e1", "#ffb84d", "#a3e635"];
   const DIRS = {
     up: { dx: 0, dy: -1 },
@@ -25,260 +34,152 @@
   };
   const OPPOSITE = { up: "down", down: "up", left: "right", right: "left" };
 
-  // now() використовує зсув годинника відносно сервера Firebase, а не
-  // "сирий" Date.now() — інакше розсинхронізовані годинники різних
-  // пристроїв (типово для емуляторів) ламають усі перевірки "свіжості"
-  // presence/lastSeen між клієнтами.
-  let serverOffset = 0;
-  if (window.rtdb) {
-    window.rtdb.ref(".info/serverTimeOffset").on("value", (snap) => {
-      serverOffset = snap.val() || 0;
-    });
-  }
-  function now() { return Date.now() + serverOffset; }
+  const ROOM_SCHEMA = { hostUsername: null, food: null, players: {} };
+
   function rnd(n) { return Math.floor(Math.random() * n); }
 
-  let username = null;
-  let lobbyRef, myLobbyRef, roomRef = null, myPlayerRef = null;
-  let heartbeatTimer = null;
-  let tickTimer = null;
-  let watchTimer = null;
-  let isHost = false;
-  let currentRoomId = null;
-  let listeners = { onLobby: null, onRoom: null, onInvite: null };
-  let onStateChange = () => {}; // колбек для UI: (mode, data) => {}
-  let latestRoom = null; // кеш стану кімнати з listener'а — тік хоста рахує з нього, без зайвого once()
-
-  function colorFor(name, joinedAt, allJoinedSorted) {
-    const idx = allJoinedSorted.indexOf(name);
-    return COLORS[idx >= 0 ? idx % COLORS.length : 0];
-  }
-
-  function emptyCellNear() {
-    // проста рандомна вільна позиція — колізії при спавні ігноруємо (рідкість, самокорегується наступним тіком)
-    return { x: rnd(GRID), y: rnd(GRID) };
-  }
-
-  function initialBody() {
-    const head = emptyCellNear();
-    return [head];
-  }
-
-  // ------------------------- прибирання застарілих кімнат -------------------------
-  // Без сервера немає "cron" — тому кожен, хто відкриває гру, попутно (один раз)
-  // прибирає кімнати, де НІХТО не має свіжого lastSeen довше ROOM_ABANDON_MS.
-  // Безкоштовно й безпечно виконувати з кількох клієнтів одночасно (delete —
-  // ідемпотентний, повторний виклик на вже видалений вузол просто нічого не робить).
-  function cleanupStaleRooms() {
-    window.rtdb.ref("snake_rooms").once("value").then((snap) => {
-      const rooms = snap.val() || {};
-      Object.entries(rooms).forEach(([roomId, room]) => {
-        const players = room.players || {};
-        const lastSeens = Object.values(players).map((p) => p.lastSeen || 0);
-        const mostRecent = lastSeens.length ? Math.max(...lastSeens) : (room.createdAt || 0);
-        if (now() - mostRecent > ROOM_ABANDON_MS) {
-          window.rtdb.ref("snake_rooms/" + roomId).remove();
-        }
-      });
+  // Безпечний вибір вільної клітинки: спершу кілька спроб навмання (швидко
+  // й дешево в типовому випадку), і лише якщо всі невдалі — повний прохід
+  // по дошці в пошуку першої вільної клітинки. players — поточний
+  // room.players, extraOccupied — додаткові клітинки, яких теж уникати
+  // (напр. позиція іншого гравця, що спавниться в ту саму мить).
+  function pickFreeCell(players, extraOccupied) {
+    const occupied = new Set();
+    Object.values(players || {}).forEach((p) => {
+      if (!p.alive) return;
+      (p.body || []).forEach((c) => occupied.add(c.x + "," + c.y));
     });
+    (extraOccupied || []).forEach((c) => occupied.add(c.x + "," + c.y));
+
+    for (let i = 0; i < 40; i++) {
+      const cand = { x: rnd(GRID), y: rnd(GRID) };
+      if (!occupied.has(cand.x + "," + cand.y)) return cand;
+    }
+    for (let x = 0; x < GRID; x++) {
+      for (let y = 0; y < GRID; y++) {
+        if (!occupied.has(x + "," + y)) return { x, y };
+      }
+    }
+    return { x: 0, y: 0 }; // дошка повністю зайнята — практично неможливо при GRID=22/MAX_PLAYERS=8
   }
 
-  // ------------------------- presence (лобі) -------------------------
+  function initialBody(players, extraOccupied) {
+    return [pickFreeCell(players, extraOccupied)];
+  }
+
+  // Стабільний колір за іменем — закріплюється РАЗ при вході гравця і більше
+  // ніколи не перераховується (раніше колір рахувався за позицією в масиві
+  // гравців, тому міг змінюватись посеред гри, коли хтось виходив).
+  function colorForName(name) {
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+    return COLORS[hash % COLORS.length];
+  }
+
+  const Engine = window.OnlineEngine.create("snake", {
+    lockedHost: true,
+    // Мінімальний fallback — у наших власних шляхах нижче extra завжди
+    // передається явно з правильним body/color/direction; це спрацює лише
+    // як запобіжник на випадок непередбаченого виклику.
+    onEmptyPlayer: () => ({ body: [{ x: 0, y: 0 }], direction: "right", alive: true, score: 0 }),
+    onDisconnectPlayerPatch: { alive: false },
+  });
+
+  let username = null;
+  let tickTimer = null;
+  let onStateChange = () => {}; // колбек для UI: (mode, data) => {}
+
+  function freshRoomPayload() {
+    return { food: pickFreeCell(null, null) };
+  }
+
+  function joinExtraFor(room) {
+    return {
+      body: initialBody(room.players, room.food ? [room.food] : null),
+      direction: ["up", "down", "left", "right"][rnd(4)],
+      alive: true,
+      score: 0,
+      color: colorForName(username),
+    };
+  }
+
+  // ------------------------- presence / арена -------------------------
   function startPresence(user) {
     username = user;
-    lobbyRef = window.rtdb.ref("snake_lobby");
-    myLobbyRef = lobbyRef.child(username);
+    Engine.start(user, { useLobby: false });
 
-    myLobbyRef.onDisconnect().remove();
-    touchLobby("solo", null);
-    cleanupStaleRooms();
+    Engine.onStateChange = (type, data) => {
+      if (type === "room-update") onStateChange("room-update", { room: data.room });
+    };
+    Engine.onBecomeHost = (roomId) => {
+      if (tickTimer) clearInterval(tickTimer);
+      tickTimer = setInterval(() => tick(roomId), TICK_MS);
+    };
+    Engine.onLoseHost = () => {
+      if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
+    };
 
-    heartbeatTimer = setInterval(() => {
-      myLobbyRef.child("lastSeen").set(now());
-      if (currentRoomId && myPlayerRef) myPlayerRef.child("lastSeen").set(now());
-    }, HEARTBEAT_MS);
-
-    listeners.onLobby = lobbyRef.on("value", (snap) => {
-      const all = snap.val() || {};
-      const active = Object.entries(all).filter(
-        ([name, v]) => name !== username && v.lastSeen && now() - v.lastSeen < PRESENCE_TIMEOUT_MS
-      );
-      onStateChange("lobby-update", { active });
+    // Перший, хто відкриє гру, створює арену свіжою; усі наступні знаходять
+    // її вже готовою — в обох випадках дальше просто читаємо поточний стан
+    // і рахуємо БЕЗПЕЧНЕ місце спавну відносно нього.
+    Engine.getOrCreateRoom(Engine.SHARED_ROOM_ID, ROOM_SCHEMA, freshRoomPayload).then(({ room }) => {
+      Engine.joinRoom(Engine.SHARED_ROOM_ID, { extra: joinExtraFor(room) });
     });
-
-    // якщо мене хтось запросив у кімнату (інший гравець створив room і вписав мій roomId)
-    listeners.onInvite = myLobbyRef.child("roomId").on("value", (snap) => {
-      const roomId = snap.val();
-      if (roomId && roomId !== currentRoomId) {
-        joinExistingRoom(roomId);
-      } else if (!roomId && currentRoomId) {
-        leaveRoomLocally();
-      }
-    });
-  }
-
-  function touchLobby(status, roomId) {
-    myLobbyRef.set({ status, roomId: roomId || null, lastSeen: now() });
   }
 
   function stopPresence() {
-    if (heartbeatTimer) clearInterval(heartbeatTimer);
-    if (watchTimer) clearInterval(watchTimer);
-    if (tickTimer) clearInterval(tickTimer);
-    if (lobbyRef && listeners.onLobby) lobbyRef.off("value", listeners.onLobby);
-    if (myLobbyRef && listeners.onInvite) myLobbyRef.child("roomId").off("value", listeners.onInvite);
-    if (myLobbyRef) { myLobbyRef.onDisconnect().cancel(); myLobbyRef.remove(); }
-    if (roomRef && listeners.onRoom) roomRef.off("value", listeners.onRoom);
-    if (myPlayerRef) { myPlayerRef.onDisconnect().cancel(); }
-  }
-
-  // ------------------------- кімнати -------------------------
-  function createRoomWith(otherUsername) {
-    const roomId = `${username}_${now()}`;
-    const meBody = initialBody();
-    const otherBody = initialBody();
-    const roomData = {
-      status: "playing",
-      hostUsername: username,
-      createdAt: now(),
-      food: emptyCellNear(),
-      players: {
-        [username]: { body: meBody, direction: "right", alive: true, score: 0, joinedAt: now(), lastSeen: now() },
-        [otherUsername]: { body: otherBody, direction: "left", alive: true, score: 0, joinedAt: now() + 1, lastSeen: now() },
-      },
-    };
-    window.rtdb.ref("snake_rooms/" + roomId).set(roomData).then(() => {
-      window.rtdb.ref("snake_lobby/" + username).update({ status: "in-room", roomId });
-      window.rtdb.ref("snake_lobby/" + otherUsername).update({ status: "in-room", roomId });
-    });
-  }
-
-  function joinExistingRoom(roomId) {
-    if (currentRoomId === roomId) return;
-    leaveRoomLocally();
-    currentRoomId = roomId;
-    roomRef = window.rtdb.ref("snake_rooms/" + roomId);
-    myPlayerRef = roomRef.child("players/" + username);
-
-    // якщо мене там ще нема (приєднання 3го+ гравця) — додаю себе
-    myPlayerRef.get().then((snap) => {
-      if (!snap.exists()) {
-        myPlayerRef.set({
-          body: initialBody(),
-          direction: ["up", "down", "left", "right"][rnd(4)],
-          alive: true,
-          score: 0,
-          joinedAt: now(),
-          lastSeen: now(),
-        });
-      }
-      myPlayerRef.onDisconnect().update({ alive: false });
-    });
-
-    listeners.onRoom = roomRef.on("value", (snap) => {
-      const room = snap.val();
-      if (!room) { leaveRoomLocally(); return; }
-      latestRoom = room; // кеш для тіку хоста — без зайвого round-trip на кожен рух
-      onStateChange("room-update", { room, roomId });
-      maybeElectHost(room, roomId);
-    });
-
-    touchLobby("in-room", roomId);
-    startHostWatch();
-  }
-
-  function requestJoinMultiplayer(otherUsername) {
-    createRoomWith(otherUsername);
-  }
-
-  function joinAsSpectatorOrPlayer(roomId) {
-    joinExistingRoom(roomId);
-  }
-
-  function leaveRoomLocally() {
     if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
-    if (roomRef && listeners.onRoom) roomRef.off("value", listeners.onRoom);
-    if (myPlayerRef) myPlayerRef.onDisconnect().cancel();
-    isHost = false;
-    currentRoomId = null;
-    roomRef = null;
-    myPlayerRef = null;
+    Engine.stop();
   }
 
   function backToSolo() {
-    if (currentRoomId && myPlayerRef) myPlayerRef.remove();
-    leaveRoomLocally();
-    touchLobby("solo", null);
+    Engine.leaveRoom();
   }
 
   function respawn() {
-    if (!myPlayerRef) return;
-    myPlayerRef.update({ body: initialBody(), alive: true, score: 0, direction: "right", lastSeen: now() });
+    if (!Engine.roomRef) return;
+    Engine.roomRef.once("value").then((snap) => {
+      const room = snap.val() || {};
+      const body = initialBody(room.players, room.food ? [room.food] : null);
+      Engine.roomRef.child("players/" + username).update({
+        body, alive: true, score: 0, direction: "right", lastSeen: Engine.now(),
+      });
+    });
   }
 
   function sendDirection(dir) {
-    if (!myPlayerRef) return;
-    myPlayerRef.child("direction").set(dir);
+    if (!Engine.roomRef) return;
+    Engine.roomRef.child("players/" + username + "/direction").set(dir);
   }
 
-  // ------------------------- host election -------------------------
-  function startHostWatch() {
-    if (watchTimer) clearInterval(watchTimer);
-    watchTimer = setInterval(() => {
-      roomRef.once("value").then((snap) => {
-        const room = snap.val();
-        if (room) maybeElectHost(room, currentRoomId);
-      });
-    }, 2000);
-  }
-
-  function maybeElectHost(room, roomId) {
-    const players = room.players || {};
-    const hostEntry = players[room.hostUsername];
-    const hostStale = !hostEntry || (hostEntry.lastSeen && now() - hostEntry.lastSeen > PRESENCE_TIMEOUT_MS);
-    if (!hostStale) {
-      if (room.hostUsername === username && !isHost) startHostLoop(roomId);
-      if (room.hostUsername !== username && isHost) stopHostLoop();
-      return;
-    }
-    // хост "мертвий" — живі гравці, відсортовані по часу приєднання
-    const alive = Object.entries(players)
-      .filter(([, p]) => p.lastSeen && now() - p.lastSeen < PRESENCE_TIMEOUT_MS)
-      .sort((a, b) => (a[1].joinedAt || 0) - (b[1].joinedAt || 0));
-    if (alive.length && alive[0][0] === username) {
-      window.rtdb.ref(`snake_rooms/${roomId}/hostUsername`).transaction((current) => {
-        if (current === room.hostUsername) return username; // compare-and-swap
-        return; // хтось уже змінив — не чіпаємо
-      }).then(() => startHostLoop(roomId));
-    }
-  }
-
-  function startHostLoop(roomId) {
-    if (isHost) return;
-    isHost = true;
-    if (tickTimer) clearInterval(tickTimer);
-    tickTimer = setInterval(() => tick(roomId), TICK_MS);
-  }
-
-  function stopHostLoop() {
-    isHost = false;
-    if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
+  // Скинути спільну арену для всіх (напр. кнопка адміністрування в UI, якщо
+  // з'явиться) — аналог Spy.resetAll.
+  function resetGame() {
+    return Engine.forceResetRoom(Engine.SHARED_ROOM_ID, ROOM_SCHEMA, freshRoomPayload).then(({ room }) => {
+      Engine.joinRoom(Engine.SHARED_ROOM_ID, { extra: joinExtraFor(room) });
+    });
   }
 
   // ------------------------- ігровий тік (тільки хост) -------------------------
   function tick(roomId) {
-    const room = latestRoom;
+    const room = Engine.latestRoom;
     if (!room) return;
-    const ref = window.rtdb.ref("snake_rooms/" + roomId);
+    const ref = Engine.roomRef;
     const players = room.players || {};
     const activeNames = Object.keys(players).filter(
-      (n) => players[n].alive && players[n].lastSeen && now() - players[n].lastSeen < PRESENCE_TIMEOUT_MS
+      (n) => players[n].alive && Engine.isConnected(players[n])
     );
+    const updates = {};
 
-    // прибираємо тих, хто відвалився (не оновлював lastSeen) — звільняємо слот
+    // прибираємо тих, хто відвалився (не оновлював lastSeen) — звільняємо
+    // слот. Раніше це виставляло alive:false лише в ЛОКАЛЬНОМУ кеші (об'єкт
+    // players у пам'яті хоста), але ніколи не записувалось у updates — тому
+    // в базі й далі лежало alive:true, і "мертва" змійка малювалась
+    // назавжди у всіх клієнтів (заморожена в останній відомій позиції).
     Object.keys(players).forEach((n) => {
-      if (players[n].lastSeen && now() - players[n].lastSeen > PRESENCE_TIMEOUT_MS && players[n].alive) {
+      if (players[n].alive && players[n].lastSeen && !Engine.isConnected(players[n])) {
         players[n].alive = false;
+        updates[`players/${n}/alive`] = false;
       }
     });
 
@@ -314,9 +215,8 @@
       });
     });
 
-    const food = room.food || emptyCellNear();
+    const food = room.food || pickFreeCell(players);
     let newFood = food;
-    const updates = {};
     activeNames.forEach((n) => {
       const p = players[n];
       const h = newHeads[n];
@@ -336,7 +236,7 @@
       if (ate) {
         updates[`players/${n}/score`] = (p.score || 0) + 10;
         p.score = (p.score || 0) + 10;
-        newFood = emptyCellNear();
+        newFood = pickFreeCell(players); // рахуємо ПІСЛЯ оновлення p.body в кеші вище — нове тіло вже враховане
       }
     });
     updates["food"] = newFood;
@@ -350,11 +250,10 @@
     COLORS,
     startPresence,
     stopPresence,
-    requestJoinMultiplayer,
-    joinAsSpectatorOrPlayer,
     backToSolo,
     respawn,
     sendDirection,
+    resetGame,
     set onStateChange(fn) { onStateChange = fn; },
   };
 })();

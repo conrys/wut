@@ -105,14 +105,6 @@
   </div>
 </div>
 
-<div class="overlay" id="joinOverlay">
-  <div class="modal">
-    <h3 id="joinTitle">Хтось грає прямо зараз</h3>
-    <button class="btn-primary" id="joinMultiBtn">Приєднатись (мультиплеєр)</button>
-    <button class="btn-secondary" id="joinSoloBtn">Грати соло</button>
-  </div>
-</div>
-
 <div class="overlay" id="deadOverlay">
   <div class="modal">
     <h3 id="deadTitle">💀 Ти вибув</h3>
@@ -128,6 +120,7 @@
 <script src="js/login.js"></script>
 <script src="js/score-connect.js"></script>
 <script src="js/records.js"></script>
+<script src="js/online-engine.js"></script>
 <script src="js/snake-multiplayer.js"></script>
 <script src="js/back-button.js"></script>
 <script>
@@ -138,7 +131,6 @@
     const ctx = canvas.getContext("2d");
     const msgEl = document.getElementById("msg");
     const scoreboardEl = document.getElementById("scoreboard");
-    const joinOverlay = document.getElementById("joinOverlay");
     const deadOverlay = document.getElementById("deadOverlay");
     const settingsOverlay = document.getElementById("settingsOverlay");
 
@@ -179,7 +171,8 @@
 
     let mode = "solo-local"; // solo-local | room
     let session = null;
-    let promptedOnce = false;
+    let latestRoomForRender = null;
+    const TICK_MS_CLIENT = 160; // має збігатись з TICK_MS у snake-multiplayer.js
 
     // ---------------- локальна соло-гра ----------------
     let soloBody, soloDir, soloNextDir, soloFood, soloScore, soloAlive, soloTimer;
@@ -228,6 +221,49 @@
       scoreboardEl.innerHTML = `<span class="sb-pill">Рахунок: ${soloScore}</span>`;
     }
 
+    // ---------------- локальне передбачення ВЛАСНОГО руху ----------------
+    // Проблема: якщо я не хост, мій рух реально рахує чужий пристрій раз на
+    // TICK_MS — тобто кожен мій поворот "їде" туди-назад по мережі, перш ніж
+    // стане видимим. Малюємо власну змійку локально на 1 крок наперед,
+    // синхронно з реальним тіком, і звіряємось з авторитетними даними хоста
+    // щоразу, коли вони приходять (звичайно збігається, бо рух детермінований —
+    // розбіжність можлива лише в рідкісних колізіях з іншими гравцями,
+    // які локальний прогноз навмисно не намагається вгадати).
+    const STEP_DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+    let predBody = null, predDir = null, predLastDir = null, predTimer = null;
+    let latestFood = null;
+
+    function predictStep() {
+      if (!predBody || !predBody.length) return;
+      let dir = predDir || "right";
+      const cur = predLastDir || dir;
+      if (OPPOSITE[dir] === cur && predBody.length > 1) dir = cur;
+      const d = STEP_DIRS[dir];
+      const head = predBody[0];
+      const newHead = { x: (head.x + d[0] + GRID) % GRID, y: (head.y + d[1] + GRID) % GRID };
+      // самоперетин — просто зупиняємо прогноз на місці; авторитетний стан
+      // від хоста однаково скоро прийде і насправді вирішить, жива змійка чи ні
+      if (predBody.some((c) => c.x === newHead.x && c.y === newHead.y)) return;
+      const ate = latestFood && newHead.x === latestFood.x && newHead.y === latestFood.y;
+      predBody = [newHead, ...(ate ? predBody : predBody.slice(0, -1))];
+      predLastDir = dir;
+      if (latestRoomForRender) renderRoom(latestRoomForRender);
+    }
+
+    function resetPrediction(me, room) {
+      predBody = (me.body || []).map((c) => ({ ...c }));
+      predDir = me.direction || "right";
+      predLastDir = me.__lastDir || predDir;
+      latestFood = room.food || null;
+      if (predTimer) clearInterval(predTimer);
+      predTimer = setInterval(predictStep, TICK_MS_CLIENT);
+    }
+
+    function stopPrediction() {
+      if (predTimer) { clearInterval(predTimer); predTimer = null; }
+      predBody = null;
+    }
+
     // ---------------- рендер ----------------
     function clearCanvas() {
       ctx.fillStyle = "#22252b";
@@ -245,17 +281,18 @@
         (a, b) => (room.players[a].joinedAt || 0) - (room.players[b].joinedAt || 0)
       );
       scoreboardEl.innerHTML = names
-        .map((n, i) => {
+        .map((n) => {
           const p = room.players[n];
-          const color = window.SnakeMP.COLORS[i % window.SnakeMP.COLORS.length];
+          const color = p.color || "#8b909c";
           return `<span class="sb-pill${p.alive ? "" : " dead"}" style="border:1px solid ${color}">${escapeHtml(n)}: ${p.score || 0}</span>`;
         })
         .join("");
-      names.forEach((n, i) => {
+      names.forEach((n) => {
         const p = room.players[n];
         if (!p.alive) return;
-        const color = window.SnakeMP.COLORS[i % window.SnakeMP.COLORS.length];
-        (p.body || []).forEach((c, ci) => drawCell(c, ci === 0 ? color : color + "99"));
+        const color = p.color || "#8b909c";
+        const body = (n === session && predBody) ? predBody : (p.body || []);
+        body.forEach((c, ci) => drawCell(c, ci === 0 ? color : color + "99"));
       });
     }
 
@@ -271,6 +308,7 @@
     function setDirection(dir) {
       if (mode === "room") {
         window.SnakeMP.sendDirection(dir);
+        predDir = dir; // миттєва локальна реакція, не чекаючи відповіді хоста
       } else {
         if (soloBody.length > 1 && OPPOSITE[dir] === soloDir) return;
         soloNextDir = dir;
@@ -297,15 +335,6 @@
     });
 
     // ---------------- мультиплеєр-інтеграція ----------------
-    let pendingJoinTarget = null;
-
-    document.getElementById("joinMultiBtn").addEventListener("click", () => {
-      joinOverlay.classList.remove("open");
-      if (pendingJoinTarget) window.SnakeMP.requestJoinMultiplayer(pendingJoinTarget);
-    });
-    document.getElementById("joinSoloBtn").addEventListener("click", () => {
-      joinOverlay.classList.remove("open");
-    });
     document.getElementById("respawnBtn").addEventListener("click", () => {
       deadOverlay.classList.remove("open");
       if (mode === "room") window.SnakeMP.respawn();
@@ -318,32 +347,18 @@
     function startMultiplayer(username) {
       session = username;
       window.SnakeMP.onStateChange = (type, data) => {
-        if (type === "lobby-update") {
-          if (mode !== "room" && !promptedOnce) {
-            const others = (data.active || []).filter(([name]) => name !== session);
-            if (!others.length) return;
-
-            const inRoom = others.find(([, v]) => v.status === "in-room" && v.roomId);
-            if (inRoom) {
-              promptedOnce = true;
-              window.SnakeMP.joinAsSpectatorOrPlayer(inRoom[1].roomId);
-              return;
-            }
-
-            const solo = others.find(([, v]) => v.status === "solo");
-            if (solo) {
-              promptedOnce = true;
-              pendingJoinTarget = solo[0];
-              document.getElementById("joinTitle").textContent = `${solo[0]} зараз грає — приєднатись?`;
-              joinOverlay.classList.add("open");
-            }
-          }
-        } else if (type === "room-update") {
+        if (type === "room-update") {
           mode = "room";
           setMsg("Мультиплеєр: спільне поле");
           if (soloTimer) clearInterval(soloTimer);
-          renderRoom(data.room);
+          latestRoomForRender = data.room;
           const me = data.room.players && data.room.players[session];
+          if (me && me.alive) {
+            resetPrediction(me, data.room);
+          } else {
+            stopPrediction();
+          }
+          renderRoom(data.room);
           if (me && !me.alive) {
             document.getElementById("deadTitle").textContent = `💀 Рахунок: ${me.score || 0}`;
             if (!deadOverlay.classList.contains("open")) {
@@ -372,6 +387,7 @@
     }
 
     window.addEventListener("beforeunload", () => {
+      stopPrediction();
       if (window.SnakeMP) window.SnakeMP.stopPresence();
     });
   })();
