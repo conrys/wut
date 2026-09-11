@@ -36,6 +36,8 @@
 
   const PROMPT_COOLDOWN_DAYS = 30;
   const PROMPT_HISTORY_COLLECTION = "games41_quiplash_prompt_history";
+  const IMAGE_COOLDOWN_DAYS = 14; // менший пул (22 картинки) — коротший кулдаун
+  const IMAGE_HISTORY_COLLECTION = "games41_quiplash_image_history";
   const AVATAR_STORAGE_PREFIX = "games41_quiplash_avatar_";
 
   const ROOM_SCHEMA = {
@@ -106,14 +108,46 @@
     }
   }
 
-  function pickImagePrompt() {
+  async function pickImagePrompt() {
+    await QUIPLASH_IMAGE_PROMPTS_READY;
     if (!QUIPLASH_IMAGE_PROMPTS.length) return null;
-    return QUIPLASH_IMAGE_PROMPTS[Math.floor(Math.random() * QUIPLASH_IMAGE_PROMPTS.length)];
+    if (!window.firebaseReady || !db) {
+      return QUIPLASH_IMAGE_PROMPTS[Math.floor(Math.random() * QUIPLASH_IMAGE_PROMPTS.length)];
+    }
+    try {
+      const snap = await db.collection(IMAGE_HISTORY_COLLECTION).get();
+      const history = {};
+      snap.forEach((d) => { history[d.id] = d.data().lastUsedAt; });
+
+      const cooldownMs = IMAGE_COOLDOWN_DAYS * 24 * 60 * 60 * 1000;
+      const nowMs = Date.now();
+      // id за назвою файлу картинки (не за індексом у масиві) — лишається
+      // стабільним, навіть якщо image-prompts.json колись переупорядкується
+      const withMeta = QUIPLASH_IMAGE_PROMPTS.map((p) => {
+        const id = promptId(p.image);
+        const lastUsed = history[id] || 0;
+        return { ...p, id, lastUsed };
+      });
+      const fresh = shuffle(withMeta.filter((p) => nowMs - p.lastUsed >= cooldownMs));
+      const stale = withMeta.filter((p) => nowMs - p.lastUsed < cooldownMs).sort((a, b) => a.lastUsed - b.lastUsed);
+      const pick = (fresh.length ? fresh : stale)[0];
+
+      db.collection(IMAGE_HISTORY_COLLECTION).doc(pick.id).set({ lastUsedAt: Date.now() }).catch(() => {});
+      return pick;
+    } catch (e) {
+      console.warn("pickImagePrompt (Firestore) error, fallback to random:", e);
+      return QUIPLASH_IMAGE_PROMPTS[Math.floor(Math.random() * QUIPLASH_IMAGE_PROMPTS.length)];
+    }
   }
 
-  function pickFact(roundNumber) {
+  function pickFact(roundNumber, createdAt) {
     if (!QUIPLASH_FACTS.length) return null;
-    return QUIPLASH_FACTS[(roundNumber - 1) % QUIPLASH_FACTS.length];
+    // Раніше: (roundNumber-1) % length — детерміновано, тому щоразу
+    // однаково (roundNumber завжди 1,2,3 в межах гри). createdAt реально
+    // різний у кожній новій грі (оновлюється forceResetRoom) — той самий
+    // фікс, що й для сідла тла.
+    const seed = (createdAt || 0) + (roundNumber || 0) * 97;
+    return QUIPLASH_FACTS[Math.abs(seed) % QUIPLASH_FACTS.length];
   }
 
   // ------------------------- presence -------------------------
@@ -316,11 +350,10 @@
     const roundType = ROUND_PLAN[roundNumber - 1] || "classic";
     const conn = connectedEntries(state.players).map(([n]) => n);
     if (conn.length < 2) return;
-    const tvFact = pickFact(roundNumber);
+    const tvFact = pickFact(roundNumber, state.createdAt);
 
     if (roundType === "image") {
-      await QUIPLASH_IMAGE_PROMPTS_READY;
-      const p = pickImagePrompt();
+      const p = await pickImagePrompt();
       if (p) {
         await ref.update({
           phase: "answering",

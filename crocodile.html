@@ -42,9 +42,7 @@
   .reveal-circle .icon { font-size: 40px; margin-bottom: 8px; }
   .reveal-circle .prompt { font-size: 13px; color: var(--text-muted); }
 
-  /* --------- активний раунд --------- */
-  .timer-big { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 46px; text-align: center; margin-bottom: 4px; }
-  .timer-big.urgent { color: #ff6b6b; }
+  /* --------- активна гра --------- */
   .word-card {
     width: 100%; background: var(--tile-bg); border-radius: 18px; padding: 34px 20px;
     display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 14px 0;
@@ -59,7 +57,7 @@
   .round-score { text-align: center; color: var(--text-muted); font-size: 13px; margin-top: 10px; }
   .round-score b { color: var(--text-light); font-family: 'Space Grotesk', sans-serif; }
 
-  /* --------- підсумок раунду --------- */
+  /* --------- фінал --------- */
   .summary-box { width: 100%; background: var(--tile-bg); border-radius: 14px; padding: 24px 18px; text-align: center; margin-bottom: 14px; }
   .summary-box .big-num { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 40px; color: var(--accent); margin: 6px 0; }
   .summary-box .total-line { font-size: 13px; color: var(--text-muted); }
@@ -76,24 +74,17 @@
       <select id="themeSelect"></select>
       <label>Складність</label>
       <select id="difficultySelect"></select>
-      <label>Час на раунд</label>
-      <select id="durationSelect">
-        <option value="30">30 секунд</option>
-        <option value="45">45 секунд</option>
-        <option value="60" selected>60 секунд</option>
-        <option value="90">90 секунд</option>
-      </select>
       <button class="primary-btn" id="startBtn">Почати гру</button>
     </div>
   </div>
 
   <div id="view-ready" class="hidden">
     <h2>🐊 Крокодил</h2>
-    <div class="status-line">Передай телефон наступному гравцю</div>
+    <div class="status-line" id="readyStatusLine">Передай телефон першому гравцю</div>
     <div class="reveal-circle" id="readyCircle">
       <div>
         <div class="icon">🤚</div>
-        <div class="prompt">Готовий(-а)? Тисни, щоб почати раунд</div>
+        <div class="prompt">Готовий(-а)? Тисни, щоб побачити слово</div>
       </div>
     </div>
     <div class="round-score" id="sessionScoreLine"></div>
@@ -101,7 +92,6 @@
   </div>
 
   <div id="view-active" class="hidden">
-    <div class="timer-big" id="timerVal">60</div>
     <div class="word-card">
       <div class="theme-label" id="activeTheme"></div>
       <div class="word-text" id="activeWord"></div>
@@ -110,18 +100,8 @@
       <button class="btn-skip" id="skipBtn">⏭ Пропустити</button>
       <button class="btn-correct" id="correctBtn">✅ Вгадали!</button>
     </div>
-    <div class="round-score">Цей раунд: <b id="roundScoreVal">0</b></div>
-  </div>
-
-  <div id="view-summary" class="hidden">
-    <h2>⏰ Час вийшов!</h2>
-    <div class="summary-box">
-      <div class="status-line" style="margin:0;">Вгадано цього раунду</div>
-      <div class="big-num" id="summaryRoundScore">0</div>
-      <div class="total-line">Разом за гру: <b id="summaryTotalScore">0</b></div>
-    </div>
-    <button class="primary-btn" id="nextTurnBtn">➡️ Передати далі</button>
-    <button class="secondary-btn" id="endGameFromSummaryBtn">🏁 Завершити гру</button>
+    <div class="round-score">Разом вгадано: <b id="sessionTotalVal">0</b></div>
+    <button class="secondary-btn" id="endGameFromActiveBtn">🏁 Завершити гру</button>
   </div>
 
   <div id="view-final" class="hidden">
@@ -150,20 +130,20 @@
   // Соло-гра (§2.1 rules.md): увесь стан — локальний JS, жодної залежності
   // від мережі для старту/раунду/фінішу. Firestore потрібен лише щоб
   // зберегти рекорд наприкінці — його відсутність нічого не ламає.
-  const VIEWS = ["setup", "ready", "active", "summary", "final"];
+  //
+  // Ланцюжок без раундів/таймера: хтось показує слово → хтось вгадав →
+  // телефон переходить ЙОМУ → він одразу отримує наступне слово. "Завершити
+  // гру" доступне в будь-який момент, а не лише по завершенню фіксованого ходу.
+  const VIEWS = ["setup", "ready", "active", "final"];
   function showView(name) {
     VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name));
   }
 
   let difficulty = "medium";
-  let roundSeconds = 60;
   let sessionTotal = 0;
-  let roundScore = 0;
   let currentWord = null;
   let currentThemeName = null;
   let usedWords = {}; // "тема:складність" -> [слова], щоб не повторювались за сесію
-  let timerHandle = null;
-  let timeLeft = 0;
 
   function themeSetting() { return document.getElementById("themeSelect").value; }
 
@@ -196,67 +176,34 @@
   function renderActiveWord() {
     document.getElementById("activeTheme").textContent = currentThemeName;
     document.getElementById("activeWord").textContent = currentWord;
-    document.getElementById("roundScoreVal").textContent = String(roundScore);
+    document.getElementById("sessionTotalVal").textContent = String(sessionTotal);
   }
 
-  function startTurn() {
-    roundScore = 0;
-    timeLeft = roundSeconds;
+  function showWord() {
     pickWord();
     showView("active");
     renderActiveWord();
-    updateTimerDisplay();
-    if (timerHandle) clearInterval(timerHandle);
-    timerHandle = setInterval(() => {
-      timeLeft -= 1;
-      updateTimerDisplay();
-      if (timeLeft <= 0) endTurn();
-    }, 1000);
-  }
-
-  function updateTimerDisplay() {
-    const el = document.getElementById("timerVal");
-    el.textContent = String(Math.max(0, timeLeft));
-    el.classList.toggle("urgent", timeLeft <= 10);
-  }
-
-  function endTurn() {
-    if (timerHandle) { clearInterval(timerHandle); timerHandle = null; }
-    sessionTotal += roundScore;
-    document.getElementById("summaryRoundScore").textContent = String(roundScore);
-    document.getElementById("summaryTotalScore").textContent = String(sessionTotal);
-    showView("summary");
   }
 
   document.getElementById("correctBtn").addEventListener("click", () => {
-    roundScore += 1;
-    pickWord();
-    renderActiveWord();
+    sessionTotal += 1;
+    document.getElementById("readyStatusLine").textContent = "✅ Вгадано! Передай телефон гравцю, який вгадав";
+    document.getElementById("sessionScoreLine").innerHTML = `Разом вгадано: <b>${sessionTotal}</b>`;
+    showView("ready");
   });
-  document.getElementById("skipBtn").addEventListener("click", () => {
-    pickWord();
-    renderActiveWord();
-  });
+  document.getElementById("skipBtn").addEventListener("click", showWord); // той самий тримач, нове слово одразу
 
   document.getElementById("startBtn").addEventListener("click", () => {
     difficulty = document.getElementById("difficultySelect").value;
-    roundSeconds = Number(document.getElementById("durationSelect").value);
     sessionTotal = 0;
     usedWords = {};
-    goReady();
-  });
-
-  function goReady() {
-    document.getElementById("sessionScoreLine").innerHTML = sessionTotal
-      ? `Разом за гру: <b>${sessionTotal}</b>`
-      : "";
+    document.getElementById("readyStatusLine").textContent = "Передай телефон першому гравцю";
+    document.getElementById("sessionScoreLine").textContent = "";
     showView("ready");
-  }
-  document.getElementById("readyCircle").addEventListener("click", startTurn);
-  document.getElementById("nextTurnBtn").addEventListener("click", goReady);
+  });
+  document.getElementById("readyCircle").addEventListener("click", showWord);
 
   function finishGame() {
-    if (timerHandle) { clearInterval(timerHandle); timerHandle = null; }
     document.getElementById("finalScoreVal").textContent = String(sessionTotal);
     const hintEl = document.getElementById("finalHint");
     hintEl.textContent = (!window.AppAuth || !window.AppAuth.getSession())
@@ -266,7 +213,7 @@
     showView("final");
   }
   document.getElementById("endGameFromReadyBtn").addEventListener("click", finishGame);
-  document.getElementById("endGameFromSummaryBtn").addEventListener("click", finishGame);
+  document.getElementById("endGameFromActiveBtn").addEventListener("click", finishGame);
 
   document.getElementById("newGameBtn").addEventListener("click", () => {
     sessionTotal = 0;

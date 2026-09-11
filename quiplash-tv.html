@@ -377,7 +377,9 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
   function render(state) {
     latestState = state;
     document.body.dataset.scene = state.phase;
-    applySessionBackground(state.round);
+    // Те саме, що й у quiplash.html — createdAt додає варіативність МІЖ
+    // іграми, а не лише всередині однієї (round завжди скидається на 0).
+    applySessionBackground((state.createdAt || 0) + (state.round || 0) * 97);
     if (state.phase !== "voting") voteIntroKey = null;
 
     document.getElementById("pause-overlay").classList.toggle("hidden", !state.paused);

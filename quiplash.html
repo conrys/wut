@@ -629,7 +629,12 @@ button:disabled { opacity: 0.5; cursor: default; }
 
   function onState(state, ctx) {
     document.body.dataset.scene = state.phase;
-    applySessionBackground(state.round);
+    // Сідло тла раніше було просто state.round (0,1,2,3) — а це число щоразу
+    // скидається на 0 при новій грі (emptyState()), тому послідовність тла
+    // йшла по колу тих самих значень щоразу в тому ж порядку. createdAt
+    // реально оновлюється щоразу при "нова гра" (forceResetRoom), тому додає
+    // справжню варіативність МІЖ іграми, а не лише всередині однієї.
+    applySessionBackground((state.createdAt || 0) + (state.round || 0) * 97);
     if (!ctx.username) { screen("locked"); headerBar.classList.add("hidden"); return; }
 
     headerBar.classList.remove("hidden");
