@@ -44,7 +44,7 @@
   const SMALL_BLIND = 10;
   const BIG_BLIND = 20;
   const BOT_THINK_MS = 900;
-  const HAND_RESULT_PAUSE_MS = 4500;
+  const HAND_RESULT_PAUSE_MS = 8000;
   const HOST_TICK_MS = 700;
   const SUITS = ["S", "H", "D", "C"];
 
@@ -496,7 +496,7 @@
     const hand = state.hand;
     const seatState = hand.seatsInHand[seatKey];
     const toCall = hand.currentBet - seatState.betThisRound;
-    const seven = seatState.holeCards.concat(hand.community);
+    const seven = seatState.holeCards.concat(hand.community || []);
     const strength = seven.length >= 5 ? best5of7(seven).category : estimatePreflop(seatState.holeCards);
     const r = Math.random();
 

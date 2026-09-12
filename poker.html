@@ -13,8 +13,16 @@
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none;
       -webkit-user-select: none; -webkit-touch-callout: none; }
-  html, body { margin: 0; padding: 0; min-height: 100dvh; background: var(--bg);
-      font-family: 'Inter', sans-serif; color: var(--text-light); overflow-x: hidden; touch-action: manipulation; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100dvh;
+    background-color: var(--bg);
+    background-image:
+      radial-gradient(ellipse at 50% 38%, rgba(45, 120, 90, 0.35) 0%, rgba(20, 22, 26, 0) 62%),
+      radial-gradient(circle, rgba(255,255,255,0.035) 1px, transparent 1px);
+    background-size: 100% 100%, 22px 22px;
+    background-attachment: fixed;
+    font-family: 'Inter', sans-serif; color: var(--text-light); overflow-x: hidden; touch-action: manipulation;
+  }
   .page { max-width: 480px; margin: 0 auto; padding: 60px 12px 16px; min-height: 100dvh; display: flex; flex-direction: column; }
   .hidden { display: none !important; }
   h2 { font-family: 'Space Grotesk', sans-serif; font-size: 20px; margin: 0 0 14px; text-align: center; }
@@ -40,6 +48,13 @@
   .card .suit { font-size: 19px; line-height: 1; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.08)); }
   .card.big { width: 54px; height: 76px; }
   .card.big .rank { font-size: 13px; } .card.big .suit { font-size: 26px; } .card.big .mini-suit { font-size: 9px; }
+
+  @keyframes dealIn {
+    0% { transform: translateY(-46px) rotate(-10deg) scale(0.7); opacity: 0; }
+    65% { transform: translateY(5px) rotate(2deg) scale(1.04); opacity: 1; }
+    100% { transform: translateY(0) rotate(0deg) scale(1); opacity: 1; }
+  }
+  .card.deal-in { animation: dealIn 0.42s cubic-bezier(.21,.82,.32,1.2) both; }
 
   /* --------- стіл --------- */
   #view-table { flex: 1; display: flex; flex-direction: column; }
@@ -161,6 +176,8 @@
 
   let username = null;
   let lastState = null;
+  let lastCommunityKey = null;
+  let lastMyHoleKey = null;
 
   function seatKeysSorted(seats) { return Object.keys(seats || {}).sort((a, b) => Number(a) - Number(b)); }
   function seatLabel(state, seatKey) {
@@ -179,12 +196,22 @@
     const hand = state.hand;
 
     let pot = 0;
-    if (hand) Object.values(hand.seatsInHand).forEach((s) => { pot += s.totalBet; });
+    if (hand && hand.seatsInHand) Object.values(hand.seatsInHand).forEach((s) => { pot += s.totalBet || 0; });
     document.getElementById("potLabel").textContent = "Банк: " + pot;
 
     const communityRow = document.getElementById("communityRow");
-    communityRow.innerHTML = "";
-    (hand ? hand.community : []).forEach((c) => communityRow.appendChild(makeCardEl(c, { big: true })));
+    const communityCards = (hand && hand.community) || [];
+    const communityKey = JSON.stringify(communityCards);
+    if (communityKey !== lastCommunityKey) {
+      lastCommunityKey = communityKey;
+      communityRow.innerHTML = "";
+      communityCards.forEach((c, i) => {
+        const el = makeCardEl(c, { big: true });
+        el.classList.add("deal-in");
+        el.style.animationDelay = (i * 90) + "ms";
+        communityRow.appendChild(el);
+      });
+    }
 
     const resultBanner = document.getElementById("resultBanner");
     if (hand && hand.street === "hand_result" && hand.resultText) {
@@ -212,7 +239,7 @@
       betEl.textContent = hs && hs.betThisRound ? "ставка " + hs.betThisRound : "";
       chip.appendChild(nameEl); chip.appendChild(stackEl); chip.appendChild(betEl);
 
-      if (hs && (hand.revealAll || hand.street === "hand_result") && !hs.folded) {
+      if (hs && hs.holeCards && (hand.revealAll || hand.street === "hand_result") && !hs.folded) {
         const mini = document.createElement("div");
         mini.className = "mini-cards";
         hs.holeCards.forEach((c) => mini.appendChild(makeCardEl(c, {})));
@@ -235,12 +262,21 @@
     });
 
     const myHole = document.getElementById("myHoleCards");
-    myHole.innerHTML = "";
     const myHs = mySeat && hand ? hand.seatsInHand[mySeat] : null;
-    if (myHs && !myHs.folded) {
-      myHs.holeCards.forEach((c) => myHole.appendChild(makeCardEl(c, { big: true })));
-    } else if (myHs && myHs.folded) {
-      myHole.innerHTML = '<div class="waiting-line" style="padding:0;">Скинуто цю роздачу</div>';
+    const myHoleKey = myHs ? (myHs.folded ? "folded" : JSON.stringify(myHs.holeCards || [])) : "none";
+    if (myHoleKey !== lastMyHoleKey) {
+      lastMyHoleKey = myHoleKey;
+      myHole.innerHTML = "";
+      if (myHs && !myHs.folded && myHs.holeCards) {
+        myHs.holeCards.forEach((c, i) => {
+          const el = makeCardEl(c, { big: true });
+          el.classList.add("deal-in");
+          el.style.animationDelay = (i * 90) + "ms";
+          myHole.appendChild(el);
+        });
+      } else if (myHs && myHs.folded) {
+        myHole.innerHTML = '<div class="waiting-line" style="padding:0;">Скинуто цю роздачу</div>';
+      }
     }
     document.getElementById("myStack").textContent = mySeat ? (state.seats[mySeat].stack || 0) : 0;
 

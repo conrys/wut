@@ -1,0 +1,328 @@
+<!-- Гра: Зіпсований телефон  |  Файл: teli.html -->
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<title>Зіпсований телефон</title>
+<link rel="stylesheet" href="js/teli-style.css" />
+</head>
+<body>
+<div class="wrap">
+  <div class="title-block" id="titleBlock">
+    
+  </div>
+
+  <!-- НЕ ЗАЛОГІНЕНИЙ -->
+  <div class="hidden stage-center" id="view-locked">
+    <div class="empty-state"><div class="empty-icon">🔒</div><div class="status-line">Увійди в профіль, щоб грати з друзями</div></div>
+  </div>
+
+  <!-- ПРИЄДНАВСЯ ПОСЕРЕД ГРИ -->
+  <div class="hidden stage-center" id="view-waiting">
+    <div class="empty-state"><div class="empty-icon">⏳</div><div class="status-line">Гра триває — приєднаєшся на наступній</div></div>
+  </div>
+
+  <!-- ЛОБІ -->
+  <div class="hidden stage" id="view-lobby">
+    <div class="status-line" id="lobbyStatus"><span class="pulse-dot"></span> Очікуємо гравців...</div>
+    <div class="card">
+      <h3>Гравці</h3>
+      <div id="playersList"></div>
+    </div>
+    <div class="card hidden" id="hostPanel">
+      <button class="btn btn-primary btn-block" id="startBtn">Почати гру</button>
+      <div class="err-msg" id="startHint"></div>
+    </div>
+    <button class="btn btn-block hidden" id="resetBtn" style="opacity:0.6;">Скинути гру</button>
+  </div>
+
+  <!-- АКТИВНА ГРА -->
+  <div class="hidden stage" id="view-active">
+    <div class="waiting-count" id="roundLabel">Раунд 1 з 4</div>
+
+    <div class="hidden prompt-preview" id="promptPreview">
+      <div class="deck-hint" id="promptHint">Попередній крок:</div>
+      <div id="promptContent"></div>
+    </div>
+
+    <div class="hidden" id="textTaskStage" style="display:flex; flex-direction:column; gap:12px;">
+      <textarea class="text-entry-input" id="textEntryInput" maxlength="140" rows="3" placeholder="Напиши фразу або опис..."></textarea>
+      <button class="btn btn-primary btn-block" id="submitTextBtn">Надіслати</button>
+    </div>
+
+    <div class="hidden" id="drawTaskStage" style="display:flex; flex-direction:column; gap:12px;">
+      <div class="canvas-wrap">
+        <canvas id="drawCanvas"></canvas>
+      </div>
+      <div class="draw-toolbar">
+        <div class="color-swatches" id="colorSwatches">
+          <button class="swatch selected" style="background:#1a1a1a" data-color="#1a1a1a"></button>
+          <button class="swatch" style="background:#e0503c" data-color="#e0503c"></button>
+          <button class="swatch" style="background:#3c7de0" data-color="#3c7de0"></button>
+          <button class="swatch" style="background:#4caf6d" data-color="#4caf6d"></button>
+          <button class="swatch" style="background:#e0c23c" data-color="#e0c23c"></button>
+          <button class="swatch" style="background:#8d5a3c" data-color="#8d5a3c"></button>
+        </div>
+        <div class="draw-tools">
+          <button class="tool-btn selected" id="thinBtn" data-width="4">Тонко</button>
+          <button class="tool-btn" id="thickBtn" data-width="12">Товсто</button>
+          <button class="tool-btn" id="eraserBtn">🧽 Ластик</button>
+        </div>
+      </div>
+      <div class="draw-actions">
+        <button class="btn" id="undoBtn">↩️ Скасувати</button>
+        <button class="btn" id="clearCanvasBtn">Очистити</button>
+        <button class="btn btn-primary btn-block" id="submitDrawBtn">Надіслати малюнок</button>
+      </div>
+    </div>
+
+    <div class="hidden status-line" id="waitingLine"></div>
+
+    <div class="hidden host-active-panel" id="hostActivePanel">
+      <button class="btn" id="forceAdvanceBtn" style="opacity:0.7;">Пропустити очікування</button>
+      <button class="btn" id="resetBtn2" style="opacity:0.5;">Скинути гру</button>
+    </div>
+  </div>
+
+  <!-- РОЗКРИТТЯ -->
+  <div class="hidden stage" id="view-reveal">
+    <div class="status-line">Ось що вийшло!</div>
+    <div class="waiting-count" id="revealPageLabel">Розмова 1 з 4</div>
+    <div id="revealContent"></div>
+    <div class="draw-actions">
+      <button class="btn" id="revealPrevBtn">← Назад</button>
+      <button class="btn" id="revealNextBtn">Далі →</button>
+    </div>
+    <button class="btn btn-primary btn-block hidden" id="playAgainBtn">Зіграти ще раз</button>
+    <div class="status-line hidden" id="waitHostRevealLine">Чекаємо на ведучого...</div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/login.js"></script>
+<script src="js/online-engine.js"></script>
+<script src="js/teli-game.js"></script>
+<script src="js/draw-canvas.js"></script>
+<script src="js/help.js"></script>
+<script src="js/back-button.js"></script>
+<script>
+(function () {
+  const VIEWS = ["locked", "waiting", "lobby", "active", "reveal"];
+  function showView(name) {
+    VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name));
+    document.getElementById("titleBlock").classList.toggle("hidden", name === "active");
+  }
+  function escapeHtml(s) {
+    return (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  let username = null;
+  let lastRoom = null;
+  let lastCtx = null;
+  let renderedTaskKey = null; // рендер-ключ поточного кроку — не перебудовуємо textarea/canvas на кожен heartbeat
+  let revealPageIndex = 0;
+  let sawRevealPhase = false;
+
+  function renderLobby(room, ctx) {
+    const connNames = TeliGame.connectedNames(room.players);
+    const hostName = TeliGame.computeHost(room.players);
+    document.getElementById("lobbyStatus").innerHTML =
+      `<span class="pulse-dot"></span> Гравців онлайн: ${connNames.length} (потрібно мінімум ${TeliGame.MIN_PLAYERS})`;
+
+    const allNames = Object.keys(room.players || {});
+    document.getElementById("playersList").innerHTML = allNames.map((n) => {
+      const online = connNames.includes(n);
+      return `<div class="player-chip ${online ? "" : "offline"}"><span>${escapeHtml(n)}</span>${n === hostName ? '<span class="badge">ВЕДУЧИЙ</span>' : ""}</div>`;
+    }).join("") || '<div class="status-line">Ще нікого немає</div>';
+
+    document.getElementById("hostPanel").classList.toggle("hidden", !ctx.host);
+    document.getElementById("resetBtn").classList.toggle("hidden", !ctx.host);
+    if (ctx.host) {
+      const enough = connNames.length >= TeliGame.MIN_PLAYERS;
+      document.getElementById("startBtn").disabled = !enough;
+      document.getElementById("startHint").textContent = enough ? "" : `Потрібно ще ${TeliGame.MIN_PLAYERS - connNames.length} гравців(я)`;
+    }
+    renderedTaskKey = null; // наступного разу точно перебудуємо крок (нова гра)
+  }
+
+  function renderTaskUI(assignment) {
+    const promptPreview = document.getElementById("promptPreview");
+    const promptContent = document.getElementById("promptContent");
+    if (assignment.prompt) {
+      promptPreview.classList.remove("hidden");
+      document.getElementById("promptHint").textContent = assignment.prompt.type === "text"
+        ? "Тобі дали фразу — намалюй її:" : "Тобі дали малюнок — опиши його словами:";
+      promptContent.innerHTML = assignment.prompt.type === "text"
+        ? `<div class="prompt-text">«${escapeHtml(assignment.prompt.content)}»</div>`
+        : `<img src="${assignment.prompt.content}" alt="малюнок" />`;
+    } else {
+      promptPreview.classList.add("hidden");
+    }
+
+    const textStage = document.getElementById("textTaskStage");
+    const drawStage = document.getElementById("drawTaskStage");
+    if (assignment.type === "text") {
+      textStage.classList.remove("hidden");
+      drawStage.classList.add("hidden");
+      document.getElementById("textEntryInput").value = "";
+    } else {
+      textStage.classList.add("hidden");
+      drawStage.classList.remove("hidden");
+      setupCanvasIfNeeded();
+      teliDrawCanvas.clear();
+    }
+  }
+
+  function renderActive(room, ctx) {
+    document.getElementById("roundLabel").textContent = `Раунд ${room.currentRound + 1} з ${room.totalRounds}`;
+    document.getElementById("hostActivePanel").classList.toggle("hidden", !ctx.host);
+
+    const waitingLine = document.getElementById("waitingLine");
+    const inGame = room.playerOrder && room.playerOrder.includes(username);
+    if (!inGame) {
+      document.getElementById("textTaskStage").classList.add("hidden");
+      document.getElementById("drawTaskStage").classList.add("hidden");
+      document.getElementById("promptPreview").classList.add("hidden");
+      waitingLine.classList.remove("hidden");
+      waitingLine.textContent = "Ви приєднались під час гри — доєднаєтесь у наступній грі.";
+      renderedTaskKey = null;
+      return;
+    }
+
+    const assignment = room.assignments && room.assignments[username];
+    const alreadySubmitted = room.submitted && room.submitted[username];
+    if (TeliGame.unanswered(assignment)) return;
+
+    if (alreadySubmitted) {
+      document.getElementById("textTaskStage").classList.add("hidden");
+      document.getElementById("drawTaskStage").classList.add("hidden");
+      document.getElementById("promptPreview").classList.add("hidden");
+      waitingLine.classList.remove("hidden");
+      const submittedCount = Object.keys(room.submitted || {}).length;
+      waitingLine.textContent = `Подано! Чекаємо на інших: ${submittedCount} з ${room.playerOrder.length}`;
+      renderedTaskKey = null; // наступне коло — точно новий крок, перебудуємо
+      return;
+    }
+
+    waitingLine.classList.add("hidden");
+    const key = `${room.currentRound}:${assignment.bookIndex}:${assignment.type}`;
+    if (key === renderedTaskKey) return; // той самий крок — не займаємо textarea/canvas користувача
+    renderedTaskKey = key;
+    renderTaskUI(assignment);
+  }
+
+  function renderReveal(room, ctx) {
+    if (!sawRevealPhase) { sawRevealPhase = true; revealPageIndex = 0; }
+    const books = room.books || [];
+    const total = books.length;
+    if (!total) { document.getElementById("revealContent").innerHTML = ""; return; }
+    if (revealPageIndex >= total) revealPageIndex = total - 1;
+    if (revealPageIndex < 0) revealPageIndex = 0;
+
+    document.getElementById("revealPageLabel").textContent = `Розмова ${revealPageIndex + 1} з ${total}`;
+    const book = books[revealPageIndex] || [];
+    const steps = book.map((entry, i) => {
+      const content = entry.type === "text"
+        ? `<div class="step-text">«${escapeHtml(entry.content)}»</div>`
+        : `<img src="${entry.content}" alt="крок ${i + 1}" />`;
+      return `<div class="chain-step"><div class="step-author">${escapeHtml(entry.authorName)} ${entry.type === "text" ? "✍️" : "🎨"}</div>${content}</div>` +
+        (i < book.length - 1 ? '<div class="chain-arrow">↓</div>' : "");
+    }).join("");
+    document.getElementById("revealContent").innerHTML = `<div class="book-chain">${steps}</div>`;
+
+    document.getElementById("revealPrevBtn").disabled = revealPageIndex === 0;
+    document.getElementById("revealNextBtn").disabled = revealPageIndex === total - 1;
+    document.getElementById("playAgainBtn").classList.toggle("hidden", !ctx.host);
+    document.getElementById("waitHostRevealLine").classList.toggle("hidden", ctx.host);
+  }
+
+  function onState(room, ctx) {
+    lastRoom = room; lastCtx = ctx;
+    if (!ctx.username) { showView("locked"); return; }
+    const iAmIn = room.players && room.players[ctx.username];
+    if (!iAmIn && room.phase !== "lobby") { showView("waiting"); sawRevealPhase = false; return; }
+
+    showView(room.phase);
+    if (room.phase === "lobby") { renderLobby(room, ctx); sawRevealPhase = false; }
+    else if (room.phase === "active") { renderActive(room, ctx); sawRevealPhase = false; }
+    else if (room.phase === "reveal") renderReveal(room, ctx);
+  }
+
+  document.getElementById("startBtn").addEventListener("click", () => TeliGame.startGame(lastRoom));
+  document.getElementById("resetBtn").addEventListener("click", () => { if (confirm("Скинути гру?")) TeliGame.resetGame(); });
+  document.getElementById("resetBtn2").addEventListener("click", () => { if (confirm("Скинути гру?")) TeliGame.resetGame(); });
+  document.getElementById("forceAdvanceBtn").addEventListener("click", () => TeliGame.forceAdvance());
+  document.getElementById("playAgainBtn").addEventListener("click", () => TeliGame.resetGame());
+
+  document.getElementById("submitTextBtn").addEventListener("click", () => {
+    const text = document.getElementById("textEntryInput").value.trim();
+    if (!text) return;
+    TeliGame.submitEntry({ text });
+  });
+
+  document.getElementById("revealPrevBtn").addEventListener("click", () => {
+    revealPageIndex = Math.max(0, revealPageIndex - 1);
+    if (lastRoom) renderReveal(lastRoom, lastCtx);
+  });
+  document.getElementById("revealNextBtn").addEventListener("click", () => {
+    if (!lastRoom || !lastRoom.books) return;
+    revealPageIndex = Math.min(lastRoom.books.length - 1, revealPageIndex + 1);
+    renderReveal(lastRoom, lastCtx);
+  });
+
+  // ---------- canvas малювання (уніфікований модуль draw-canvas.js) ----------
+  let teliDrawCanvas = null;
+  function setupCanvasIfNeeded() {
+    if (teliDrawCanvas) return;
+    const canvasEl = document.getElementById("drawCanvas");
+    teliDrawCanvas = createDrawCanvas(canvasEl, {}); // приватне малювання — без live-трансляції іншим
+
+    const swatches = document.querySelectorAll("#colorSwatches .swatch");
+    swatches.forEach((sw) => {
+      sw.addEventListener("click", () => {
+        teliDrawCanvas.setColor(sw.dataset.color);
+        swatches.forEach((s) => s.classList.remove("selected"));
+        sw.classList.add("selected");
+        document.getElementById("eraserBtn").classList.remove("selected");
+      });
+    });
+    const thinBtn = document.getElementById("thinBtn");
+    const thickBtn = document.getElementById("thickBtn");
+    const eraserBtn = document.getElementById("eraserBtn");
+    thinBtn.addEventListener("click", () => {
+      teliDrawCanvas.setWidth(Number(thinBtn.dataset.width));
+      teliDrawCanvas.setEraser(false);
+      thinBtn.classList.add("selected"); thickBtn.classList.remove("selected"); eraserBtn.classList.remove("selected");
+    });
+    thickBtn.addEventListener("click", () => {
+      teliDrawCanvas.setWidth(Number(thickBtn.dataset.width));
+      teliDrawCanvas.setEraser(false);
+      thickBtn.classList.add("selected"); thinBtn.classList.remove("selected"); eraserBtn.classList.remove("selected");
+    });
+    eraserBtn.addEventListener("click", () => { teliDrawCanvas.setEraser(true); eraserBtn.classList.add("selected"); });
+
+    document.getElementById("undoBtn").addEventListener("click", () => teliDrawCanvas.undo());
+    document.getElementById("clearCanvasBtn").addEventListener("click", () => teliDrawCanvas.clear());
+    document.getElementById("submitDrawBtn").addEventListener("click", () => {
+      TeliGame.submitEntry({ drawing: teliDrawCanvas.exportImage() });
+    });
+  }
+
+  const session = window.AppAuth && window.AppAuth.getSession();
+  if (session && window.rtdbReady) {
+    username = session.username;
+    TeliGame.onStateChange = onState;
+    TeliGame.start(username);
+  } else {
+    showView("locked");
+  }
+
+  window.addEventListener("beforeunload", () => { if (window.TeliGame) TeliGame.stop(); });
+})();
+</script>
+</body>
+</html>

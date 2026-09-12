@@ -1,0 +1,319 @@
+/* Гра: Зіпсований телефон  |  Файл: public/style.css */
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --bg-void: #12141c;
+  --bg-panel: #1c1f2b;
+  --bg-tile: #262a3a;
+  --accent: #d9b45c;
+  --text-primary: #f2f1ec;
+  --text-muted: #8d90a3;
+  --border-soft: rgba(217, 180, 92, 0.16);
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-body: 'Inter', sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; padding: 0; min-height: 100dvh;
+  background: var(--bg-void);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
+
+h1, h2, h3, .display { font-family: var(--font-display); }
+
+button {
+  font-family: var(--font-body);
+  cursor: pointer; border: none; outline: none;
+}
+button:focus-visible { box-shadow: 0 0 0 3px var(--accent); }
+button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.wrap { max-width: 480px; margin: 0 auto; padding: 22px 18px calc(22px + env(safe-area-inset-bottom)); min-height: 100dvh; display: flex; flex-direction: column; }
+
+.logo { font-family: var(--font-display); font-weight: 700; font-size: 22px; text-align: center; margin-bottom: 4px; letter-spacing: 0.02em; }
+.logo span { color: var(--accent); }
+.subtitle { text-align: center; color: var(--text-muted); font-size: 13px; margin-bottom: 24px; }
+
+.field {
+  background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 14px;
+  padding: 15px 18px; font-size: 17px; color: var(--text-primary); font-family: var(--font-body); width: 100%;
+}
+.field:focus { outline: none; border-color: var(--accent); }
+
+.btn {
+  background: var(--bg-tile); color: var(--text-primary); border: 1px solid var(--border-soft);
+  padding: 14px 18px; border-radius: 12px; font-weight: 600; font-size: 15px;
+}
+.btn-primary { background: var(--accent); color: #211705; font-family: var(--font-display); font-weight: 700; }
+.btn-block { width: 100%; }
+.err-msg { color: #d97070; font-size: 13px; text-align: center; min-height: 18px; }
+
+.card {
+  background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 16px; padding: 18px;
+}
+.card h3 { margin: 0 0 10px 0; font-size: 13px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-muted); }
+
+.player-chip {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--bg-tile); border-radius: 10px; padding: 10px 14px; margin-bottom: 8px; font-size: 15px;
+}
+.player-chip .badge { font-size: 11px; background: var(--accent); color: #211705; padding: 2px 8px; border-radius: 999px; font-weight: 700; }
+.player-chip.offline { opacity: 0.4; }
+
+.select-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.select-row label { font-size: 14px; color: var(--text-muted); }
+.select-row select {
+  background: var(--bg-tile); color: var(--text-primary); border: 1px solid var(--border-soft);
+  border-radius: 10px; padding: 10px 12px; font-family: var(--font-body); font-size: 15px;
+}
+
+/* --- Картка ролі: НАВМИСНО однаковий фон і компонування для обох ролей --- */
+.role-stage {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; text-align: center;
+}
+.role-hint { color: var(--text-muted); font-size: 14px; max-width: 300px; }
+.hold-btn {
+  width: 220px; height: 220px; border-radius: 50%;
+  background: var(--bg-panel); border: 1px solid var(--border-soft);
+  display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 8px;
+  font-family: var(--font-display); font-size: 16px; color: var(--text-muted); user-select: none;
+}
+.hold-btn .icon { font-size: 34px; }
+.reveal-box {
+  width: 220px; height: 220px; border-radius: 50%;
+  background: var(--bg-panel); border: 1px solid var(--accent);
+  display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 6px;
+  padding: 20px; text-align: center; user-select: none;
+}
+.reveal-box .theme-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; }
+.reveal-box .word-text { font-family: var(--font-display); font-weight: 700; font-size: 24px; }
+
+.status-line { text-align: center; color: var(--text-muted); font-size: 15px; }
+.pulse-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); display: inline-block; animation: dotPulse 1.4s ease-in-out infinite; }
+@keyframes dotPulse { 0%,100%{opacity:.3;} 50%{opacity:1;} }
+
+.reveal-summary { text-align: center; }
+.reveal-summary .word-big { font-family: var(--font-display); font-size: 30px; font-weight: 700; margin: 10px 0; }
+.reveal-summary .spies-list { color: var(--text-muted); font-size: 15px; margin-bottom: 20px; }
+
+/* ---- показ слова (Крокодил / Аліас / Хто я?) ---- */
+.word-stage {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; text-align: center;
+}
+.word-card {
+  width: 100%; background: var(--bg-panel); border: 1px solid var(--accent); border-radius: 18px;
+  padding: 34px 22px; display: flex; flex-direction: column; gap: 8px; align-items: center;
+}
+.word-card .theme-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.12em; }
+.word-card .word-text { font-family: var(--font-display); font-weight: 700; font-size: 30px; }
+.action-row { display: flex; gap: 10px; width: 100%; }
+.action-row .btn { flex: 1; }
+.btn-guessed { background: var(--accent); color: #211705; font-family: var(--font-display); font-weight: 700; }
+.tally { display: flex; gap: 18px; justify-content: center; color: var(--text-muted); font-size: 14px; }
+.tally b { color: var(--text-primary); font-family: var(--font-display); font-size: 18px; }
+
+.timer-big {
+  font-family: var(--font-display); font-weight: 700; font-size: 54px; text-align: center;
+}
+.timer-big.urgent { color: #d97070; }
+.timer-big.paused { color: var(--text-muted); }
+
+.hidden { display: none !important; }
+
+/* ---- редагування імені ---- */
+.name-bar { text-align: center; margin-bottom: 14px; }
+.name-edit-btn {
+  background: none; border: none; color: var(--text-muted); font-size: 13px;
+  padding: 4px 8px; font-family: var(--font-body); text-decoration: underline; text-underline-offset: 3px;
+}
+.name-edit-form { display: flex; gap: 8px; justify-content: center; margin-top: 8px; }
+.name-edit-form input {
+  flex: 1; max-width: 200px; background: var(--bg-panel); border: 1px solid var(--border-soft);
+  border-radius: 10px; padding: 10px 14px; color: var(--text-primary); font-family: var(--font-body); font-size: 15px;
+}
+.name-edit-form input:focus { outline: none; border-color: var(--accent); }
+.name-edit-form button {
+  background: var(--accent); color: #211705; font-family: var(--font-display); font-weight: 700;
+  border-radius: 10px; padding: 0 16px; font-size: 14px;
+}
+
+/* ---- Хто я? на весь екран: слово має читатись здалеку ---- */
+.reveal-trigger {
+  width: min(90vw, 100%); max-width: min(90vw, 100%); padding: 60px 20px; border-radius: 20px;
+  background: var(--bg-panel); border: 1px dashed var(--border-soft);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  color: var(--text-muted); font-size: 15px; text-align: center;
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+  touch-action: none; -webkit-tap-highlight-color: transparent;
+}
+.reveal-trigger .icon { font-size: 40px; }
+
+.fullscreen-reveal {
+  position: fixed; inset: 0; z-index: 100;
+  background: var(--bg-void);
+  display: flex; align-items: center; justify-content: center;
+  padding: 6vh 5vw;
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+  touch-action: none; -webkit-tap-highlight-color: transparent;
+}
+.fullscreen-reveal .fit-text {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--text-primary);
+  text-align: center;
+  line-height: 1.05;
+  max-width: 100%;
+  white-space: normal;
+  word-break: break-word;
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+.fullscreen-reveal .theme-tag {
+  position: absolute; top: 5vh; left: 0; right: 0; text-align: center;
+  font-size: 14px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.14em;
+}
+
+/* ---- редагування імені ---- */
+.name-bar { text-align: center; margin-bottom: 14px; }
+.name-edit-btn {
+  background: none; border: none; color: var(--text-muted); font-size: 13px;
+  padding: 4px 8px; font-family: var(--font-body); text-decoration: underline; text-underline-offset: 3px;
+}
+.name-edit-form { display: flex; gap: 8px; justify-content: center; margin-top: 8px; }
+.name-edit-form input {
+  flex: 1; max-width: 200px; background: var(--bg-panel); border: 1px solid var(--border-soft);
+  border-radius: 10px; padding: 10px 14px; color: var(--text-primary); font-family: var(--font-body); font-size: 15px;
+}
+.name-edit-form input:focus { outline: none; border-color: var(--accent); }
+.name-edit-form button {
+  background: var(--accent); color: #211705; font-family: var(--font-display); font-weight: 700;
+  border-radius: 10px; padding: 0 16px; font-size: 14px;
+}
+
+/* ---- Мемологія: ситуація, рука карток, голосування ---- */
+.prompt-box {
+  background: var(--bg-panel); border: 1px solid var(--accent); border-radius: 16px;
+  padding: 20px; text-align: center; font-size: 18px; font-weight: 600; line-height: 1.35;
+}
+.deck-hint { text-align: center; color: var(--text-muted); font-size: 12px; }
+
+.hand-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
+}
+.card-thumb {
+  position: relative; border-radius: 12px; overflow: hidden; border: 2px solid var(--border-soft);
+  aspect-ratio: 1 / 1; background: var(--bg-tile);
+}
+.card-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.card-thumb.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.card-thumb.disabled { opacity: 0.4; pointer-events: none; }
+
+.swap-selected-preview {
+  display: flex; align-items: center; gap: 10px; margin-top: 10px;
+  background: var(--bg-tile); border: 1px solid var(--border-soft); border-radius: 12px; padding: 8px 12px;
+}
+.swap-selected-preview .card-thumb { width: 52px; height: 52px; flex: none; }
+.swap-selected-preview .swap-selected-label { font-size: 13px; color: var(--text-muted); flex: 1; }
+.swap-selected-preview .swap-change-btn {
+  background: none; border: none; color: var(--accent); font-size: 13px;
+  text-decoration: underline; text-underline-offset: 3px; padding: 4px;
+}
+
+.vote-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.vote-card { display: flex; flex-direction: column; gap: 6px; }
+.vote-card .card-thumb { cursor: pointer; }
+.vote-card .card-thumb.voted-mine { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.vote-card .author-tag {
+  text-align: center; font-size: 13px; color: var(--text-muted);
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.vote-card .vote-count {
+  font-family: var(--font-display); font-weight: 700; color: var(--accent); font-size: 14px;
+}
+.winner-crown { font-size: 16px; }
+
+.waiting-count { text-align: center; color: var(--text-muted); font-size: 14px; }
+
+/* ---- сайдбар: табло + керування колодою ---- */
+.sidebar-toggle-btn {
+  align-self: flex-end;
+  background: var(--bg-panel); color: var(--text-primary); border: 1px solid var(--border-soft);
+  border-radius: 999px; padding: 8px 14px; font-size: 13px; font-weight: 600;
+  display: flex; align-items: center; gap: 6px;
+}
+.sidebar-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 95;
+}
+.sidebar {
+  position: fixed; top: 0; right: 0; bottom: 0; width: min(320px, 86vw); z-index: 96;
+  background: var(--bg-void); border-left: 1px solid var(--border-soft);
+  padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+  display: flex; flex-direction: column; gap: 16px; overflow-y: auto;
+  transform: translateX(100%); transition: transform 0.28s ease;
+}
+.sidebar.open { transform: translateX(0); }
+.sidebar-header { display: flex; align-items: center; justify-content: space-between; }
+.sidebar-header h3 { margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-muted); }
+.sidebar-close-btn {
+  background: var(--bg-tile); color: var(--text-primary); border: 1px solid var(--border-soft);
+  border-radius: 50%; width: 30px; height: 30px; font-size: 14px; line-height: 1;
+}
+
+/* ---- Зіпсований телефон: canvas малювання ---- */
+.canvas-wrap {
+  position: relative; width: 100%; aspect-ratio: 4 / 3; border-radius: 16px; overflow: hidden;
+  border: 1px solid var(--border-soft); background: #ffffff; touch-action: none;
+}
+.canvas-wrap canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.draw-toolbar { display: flex; flex-direction: column; gap: 8px; }
+.color-swatches { display: flex; gap: 8px; }
+.swatch {
+  width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; padding: 0;
+}
+.swatch.selected { border-color: var(--text-primary); box-shadow: 0 0 0 2px var(--accent); }
+.tool-btn {
+  background: var(--bg-tile); border: 1px solid var(--border-soft); border-radius: 10px;
+  padding: 8px 12px; font-size: 13px; font-weight: 600; color: var(--text-primary);
+}
+.tool-btn.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.draw-tools { display: flex; gap: 8px; }
+.draw-tools .tool-btn { flex: 1; }
+.draw-tools .tool-btn.selected { background: var(--accent); color: #0e2419; }
+.draw-actions { display: flex; gap: 8px; }
+
+/* ---- завдання (текст/попередній крок) ---- */
+.prompt-preview {
+  background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 14px; padding: 16px; text-align: center;
+}
+.prompt-preview img { max-width: 100%; border-radius: 10px; }
+.prompt-preview .prompt-text { font-size: 18px; font-weight: 600; }
+.text-entry-input {
+  background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 14px;
+  padding: 16px; font-size: 17px; color: var(--text-primary); width: 100%; font-family: var(--font-body);
+}
+.text-entry-input:focus { outline: none; border-color: var(--accent); }
+
+/* ---- reveal: ланцюжки книжок ---- */
+.book-chain { display: flex; flex-direction: column; gap: 10px; margin-bottom: 22px; }
+.chain-step { background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 14px; padding: 12px; }
+.chain-step .step-author { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+.chain-step .step-text { font-size: 17px; font-weight: 600; }
+.chain-step img { max-width: 100%; border-radius: 10px; display: block; }
+.chain-arrow { text-align: center; color: var(--text-muted); font-size: 18px; }
+.book-title { font-family: var(--font-display); font-size: 16px; color: var(--accent); margin-bottom: 10px; }
+/* ---- допоміжна розкладка сторінок (замість inline style="flex:1;...") ---- */
+.stage { flex: 1; display: flex; flex-direction: column; gap: 16px; }
+.stage-center { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 16px; }
+
+/* ---- порожній стан (не залогінений / приєднався посеред гри) ---- */
+.empty-state { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.empty-state .empty-icon { font-size: 40px; }
+.empty-state .status-line { font-size: 16px; }
+.host-active-panel { display: flex; flex-direction: column; gap: 8px; margin-top: auto; }

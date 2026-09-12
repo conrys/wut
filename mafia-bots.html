@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Мафія — боти для тестування</title>
+<style>
+  body { margin: 0; padding: 20px; background: #0c0e13; color: #e9e6dd; font-family: system-ui, sans-serif; }
+  .box { max-width: 420px; margin: 0 auto; }
+  h2 { font-size: 18px; }
+  .warn { font-size: 12px; color: #caa23a; background: #171a22; border: 1px solid #2a2f3b;
+      border-radius: 8px; padding: 10px 12px; margin-bottom: 16px; line-height: 1.5; }
+  label { font-size: 12px; color: #8b90a0; display: block; margin: 10px 0 4px; }
+  input, select { width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 8px;
+      border: 1px solid #2a2f3b; background: #171a22; color: #e9e6dd; font-size: 15px; }
+  input { text-transform: uppercase; letter-spacing: 0.08em; }
+  button { width: 100%; border: none; border-radius: 8px; padding: 11px; font-weight: 700;
+      font-size: 14px; margin-top: 10px; cursor: pointer; }
+  #startBtn { background: #caa23a; color: #241d08; }
+  #stopBtn { background: #b3241f; color: #fff; }
+  #status { font-size: 13px; color: #8b90a0; margin-top: 10px; min-height: 16px; }
+  #log { margin-top: 16px; background: #171a22; border: 1px solid #2a2f3b; border-radius: 8px;
+      padding: 10px 12px; height: 260px; overflow-y: auto; font-family: ui-monospace, monospace;
+      font-size: 12px; line-height: 1.6; white-space: pre-wrap; }
+  .bot-list { font-size: 12px; color: #8b90a0; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="box">
+  <h2>🤖 Мафія — боти для тестування</h2>
+  <div class="warn">
+    Спочатку відкрий mafia.html, увійди і створи/зайди в кімнату САМ — так ти лишишся
+    хостом і зможеш спостерігати роботу tick() наживо. Тоді встав той самий код кімнати сюди.
+  </div>
+
+  <label>Код кімнати</label>
+  <input id="roomInput" maxlength="6" placeholder="НАПР. K3M9P" />
+
+  <label>Кількість ботів (людина + боти ≤ 10)</label>
+  <select id="botCount">
+    <option>2</option><option>3</option><option selected>5</option>
+    <option>6</option><option>7</option><option>8</option><option>9</option>
+  </select>
+
+  <button id="startBtn">Запустити ботів</button>
+  <button id="stopBtn" disabled>Зупинити і прибрати ботів</button>
+  <div id="status"></div>
+  <div class="bot-list" id="botList"></div>
+  <div id="log"></div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  // Ті самі константи/шляхи/поля, що й у mafia-game.js — щоб боти виглядали
+  // для нього звичайними гравцями. Навмисно НЕ підключаємо online-engine.js/
+  // mafia-game.js: той модуль — синглтон (один OnlineEngine.create() на
+  // вкладку), тож у ньому неможливо вести кілька "гравців" одночасно.
+  const ROOMS_PATH = "mafia_rooms";
+  const PRESENCE_TIMEOUT_MS = 5000;
+  const HEARTBEAT_MS = 2000;
+
+  function emptyPlayerFields() {
+    return { role: null, alive: true, ready: false, vote: null, nightAction: null, avatar: null };
+  }
+
+  let roomRef = null;
+  let roomListener = null;
+  let heartbeatTimer = null;
+  let botNames = [];
+  let lastPhase = null;
+
+  function log(msg) {
+    const el = document.getElementById("log");
+    const time = new Date().toLocaleTimeString("uk-UA", { hour12: false });
+    el.textContent += `[${time}] ${msg}\n`;
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function randomSuffix() {
+    return Math.random().toString(36).slice(2, 6);
+  }
+
+  function pickRandom(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  function isConnected(p) {
+    return !!(p && p.lastSeen && Date.now() - p.lastSeen < PRESENCE_TIMEOUT_MS);
+  }
+
+  function startBots(roomId, count) {
+    if (!window.rtdbReady) {
+      document.getElementById("status").textContent = "Немає з'єднання з Firebase (rtdb не готовий).";
+      return;
+    }
+    roomRef = window.rtdb.ref(`${ROOMS_PATH}/${roomId}`);
+    botNames = [];
+    const suffix = randomSuffix();
+
+    for (let i = 1; i <= count; i++) {
+      const name = `bot${i}_${suffix}`;
+      botNames.push(name);
+      roomRef.child("players").child(name).set({
+        joinedAt: Date.now() + i, // трохи пізніше за людину, щоб хостом лишався саме ти
+        lastSeen: Date.now(),
+        status: "active",
+        ...emptyPlayerFields(),
+      });
+      log(`+ ${name} приєднався`);
+    }
+
+    document.getElementById("botList").textContent = "Боти: " + botNames.join(", ");
+
+    heartbeatTimer = setInterval(() => {
+      const t = Date.now();
+      const patch = {};
+      botNames.forEach((n) => { patch[`players/${n}/lastSeen`] = t; });
+      roomRef.update(patch);
+    }, HEARTBEAT_MS);
+
+    roomListener = roomRef.on("value", (snap) => {
+      const room = snap.val();
+      if (!room) return;
+      if (room.phase !== lastPhase) { log(`— фаза: ${room.phase}`); lastPhase = room.phase; }
+      reactToRoom(room);
+    });
+
+    document.getElementById("startBtn").disabled = true;
+    document.getElementById("stopBtn").disabled = false;
+    document.getElementById("status").textContent = `Боти в кімнаті ${roomId} запущені.`;
+  }
+
+  function reactToRoom(room) {
+    const players = room.players || {};
+    const alive = Object.keys(players).filter((u) => players[u].alive);
+
+    botNames.forEach((name) => {
+      const me = players[name];
+      if (!me) return;
+
+      if (room.phase === "lobby" && !me.ready) {
+        setTimeout(() => {
+          roomRef.child("players").child(name).update({ ready: true });
+          log(`✅ ${name} готовий`);
+        }, 300 + Math.random() * 900);
+        return;
+      }
+
+      if (room.phase === "night" && me.alive && me.role && me.role !== "civilian" && !me.nightAction) {
+        const pool = alive.filter((u) => u !== name);
+        if (!pool.length) return;
+        const target = pickRandom(pool);
+        setTimeout(() => {
+          roomRef.child("players").child(name).update({ nightAction: target });
+          log(`🌙 ${name} (${me.role}) обрав ціллю ${target}`);
+        }, 400 + Math.random() * 1200);
+        return;
+      }
+
+      if (room.phase === "day_voting" && me.alive && !me.vote) {
+        const pool = alive.filter((u) => u !== name);
+        if (!pool.length) return;
+        const target = pickRandom(pool);
+        setTimeout(() => {
+          roomRef.child("players").child(name).update({ vote: target });
+          log(`🗳️ ${name} проголосував за ${target}`);
+        }, 400 + Math.random() * 1200);
+      }
+    });
+  }
+
+  function stopBots() {
+    if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+    if (roomRef && roomListener) { roomRef.off("value", roomListener); roomListener = null; }
+    if (roomRef) {
+      const patch = {};
+      botNames.forEach((n) => { patch[`players/${n}`] = null; }); // видаляємо ботів з кімнати
+      roomRef.update(patch);
+      log(`— боти прибрані з кімнати (${botNames.length})`);
+    }
+    botNames = [];
+    roomRef = null;
+    lastPhase = null;
+    document.getElementById("botList").textContent = "";
+    document.getElementById("startBtn").disabled = false;
+    document.getElementById("stopBtn").disabled = true;
+    document.getElementById("status").textContent = "Боти зупинені.";
+  }
+
+  document.getElementById("startBtn").addEventListener("click", () => {
+    const roomId = document.getElementById("roomInput").value.trim().toUpperCase();
+    const count = parseInt(document.getElementById("botCount").value, 10);
+    if (!roomId) { document.getElementById("status").textContent = "Введи код кімнати."; return; }
+    startBots(roomId, count);
+  });
+  document.getElementById("stopBtn").addEventListener("click", stopBots);
+
+  window.addEventListener("beforeunload", stopBots);
+})();
+</script>
+</body>
+</html>

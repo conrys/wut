@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<title>Мафія</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Special+Elite&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0c0e13;
+    --tile-bg: #171a22;
+    --tile-bg-2: #20242f;
+    --line: rgba(255,255,255,0.08);
+    --text-light: #e9e6dd;
+    --text-muted: #8b90a0;
+    --accent: #caa23a;      /* та сама змінна, яку читає auth-pill з login.js */
+    --blood: #b3241f;
+    --blood-dim: #4a1613;
+    --gold: #caa23a;
+    --gold-dim: #4a3a16;
+    --teal: #3c8f7c;
+    --teal-dim: #163d34;
+    --paper: #efe3c8;
+    --paper-dim: #d8cba8;
+    --paper-ink: #2a2118;
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-stamp: 'Special Elite', 'Courier New', monospace;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none;
+      -webkit-user-select: none; -webkit-touch-callout: none; }
+  html, body { margin: 0; padding: 0; min-height: 100dvh; background: var(--bg);
+      font-family: 'Inter', sans-serif; color: var(--text-light); overflow-x: hidden; touch-action: manipulation; }
+  .bg-scene { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+  .bg-scene svg { width: 100%; height: 100%; display: block; }
+  .page { max-width: 460px; margin: 0 auto; padding: 60px 18px 30px; display: flex;
+      flex-direction: column; align-items: center; min-height: 100dvh; position: relative; z-index: 1; }
+  .hidden { display: none !important; }
+
+  h2 { font-family: var(--font-display); font-size: 20px; margin: 0 0 4px; text-align: center; }
+  .status-line { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 14px; line-height: 1.5; }
+  .pulse-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+      margin-right: 6px; animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  /* ---------- фаза-таймер ---------- */
+  .phase-bar { width: 100%; display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px; font-size: 12.5px; color: var(--text-muted); }
+  .phase-bar .timer { font-family: var(--font-display); font-size: 16px; color: var(--gold); }
+  .phase-bar .timer.urgent { color: var(--blood); }
+
+  /* ---------- кнопки / інпути (той самий стиль, що й в інших іграх) ---------- */
+  button.primary-btn { width: 100%; border: none; border-radius: 20px; padding: 12px; font-weight: 700;
+      font-size: 14px; cursor: pointer; background: var(--accent); color: #241d08; margin-top: 10px; }
+  button.primary-btn:disabled { opacity: 0.35; cursor: default; }
+  button.secondary-btn { width: 100%; border: none; border-radius: 20px; padding: 10px; font-weight: 700;
+      font-size: 13px; cursor: pointer; background: var(--tile-bg-2); color: var(--text-light);
+      border: 1px solid var(--line); margin-top: 8px; }
+  button.danger-btn { background: var(--blood); color: #fff; }
+  input.text-input { width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 10px;
+      border: 1px solid var(--line); background: var(--tile-bg-2); color: var(--text-light);
+      font-size: 16px; letter-spacing: 0.08em; text-align: center; text-transform: uppercase; }
+  input.text-input:focus { outline: 1px solid var(--gold); }
+  .hint-text { font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 6px; min-height: 16px; }
+  .divider { display: flex; align-items: center; gap: 10px; width: 100%; margin: 18px 0;
+      color: var(--text-muted); font-size: 12px; }
+  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+  /* ---------- список гравців (лобі) ---------- */
+  .players-list { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-bottom: 10px; }
+  .player-chip { display: flex; justify-content: space-between; align-items: center;
+      background: var(--tile-bg); border-radius: 10px; padding: 10px 14px; font-size: 14px; }
+  .player-chip.offline { opacity: 0.4; }
+  .badge { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 10px; margin-left: 6px; }
+  .badge.host { background: var(--gold); color: #241d08; }
+  .badge.ready { background: var(--teal-dim); color: #d6f0ea; }
+  .badge.waiting { background: var(--tile-bg-2); color: var(--text-muted); }
+
+  /* ---------- картка ролі ---------- */
+  .role-card { background: linear-gradient(180deg, var(--tile-bg), var(--tile-bg-2));
+      border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px;
+      display: flex; gap: 14px; align-items: center; width: 100%; }
+  .role-card .role-icon { width: 46px; height: 46px; border-radius: 50%; display: flex;
+      align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+  .role-icon.mafia { background: var(--blood-dim); }
+  .role-icon.doctor { background: var(--teal-dim); }
+  .role-icon.commissar { background: var(--gold-dim); }
+  .role-icon.civilian { background: var(--tile-bg-2); }
+  .role-card .role-name { font-family: var(--font-display); font-size: 16px; margin-bottom: 3px; }
+  .role-card .role-desc { font-size: 12.5px; color: var(--text-muted); line-height: 1.4; }
+
+  .sleeping-screen { text-align: center; padding: 40px 20px; color: var(--text-muted); }
+  .sleeping-screen .moon { font-size: 40px; margin-bottom: 14px; opacity: 0.8; }
+
+  /* ---------- сітка цілей (ніч / голосування) ---------- */
+  .target-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+      gap: 10px; width: 100%; margin-bottom: 6px; }
+  .target-card { background: var(--paper); color: var(--paper-ink); border-radius: 8px;
+      padding: 12px 10px; text-align: center; cursor: pointer; border: 2px solid transparent;
+      transition: transform 0.15s ease, border-color 0.15s ease; }
+  .target-card:active { transform: scale(0.97); }
+  .target-card .avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--tile-bg-2);
+      color: var(--text-light); display: flex; align-items: center; justify-content: center;
+      font-weight: 700; margin: 0 auto 8px; font-size: 14px; }
+  .target-card .name { font-size: 13px; font-weight: 600; line-height: 1.3; }
+  .target-card.selected { border-color: var(--blood); box-shadow: 0 0 0 1px var(--blood); }
+  .target-card.selected.role-doctor { border-color: var(--teal); box-shadow: 0 0 0 1px var(--teal); }
+  .target-card.selected.role-commissar { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
+
+  /* ---------- результат ночі ---------- */
+  .result-card { background: var(--tile-bg); border: 1px solid var(--line); border-radius: 14px;
+      padding: 22px 18px; text-align: center; margin-bottom: 14px; width: 100%; }
+  .result-card .avatar-big { width: 60px; height: 60px; border-radius: 50%; background: var(--tile-bg-2);
+      display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;
+      font-size: 22px; font-weight: 700; border: 2px solid var(--blood); }
+  .result-card.safe .avatar-big { border-color: var(--teal); }
+  .result-card .result-title { font-family: var(--font-display); font-size: 16px; margin-bottom: 6px; }
+  .result-card .result-sub { font-size: 12.5px; color: var(--text-muted); }
+  .inspect-box { font-size: 12.5px; color: var(--text-muted); background: var(--tile-bg);
+      border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 14px; width: 100%; }
+  .inspect-box b { color: var(--text-light); }
+
+  /* ---------- обговорення / чат ---------- */
+  .chat-log { background: var(--tile-bg); border: 1px solid var(--line); border-radius: 12px;
+      padding: 12px 14px; height: 200px; overflow-y: auto; margin-bottom: 12px; font-size: 13px; width: 100%; }
+  .chat-line { margin-bottom: 8px; line-height: 1.4; }
+  .chat-line .who { font-weight: 700; color: var(--paper-dim); margin-right: 6px; }
+  .chat-line.system { color: var(--text-muted); font-style: italic; }
+  .chat-input-row { display: flex; gap: 8px; width: 100%; }
+  .chat-input-row input { flex: 1; background: var(--tile-bg-2); border: 1px solid var(--line);
+      border-radius: 20px; padding: 10px 14px; color: var(--text-light); font-size: 13.5px; text-transform: none; letter-spacing: normal; }
+  .chat-input-row button { flex-shrink: 0; border: none; border-radius: 20px; padding: 10px 16px;
+      background: var(--accent); color: #241d08; font-weight: 700; font-size: 13px; }
+
+  /* ---------- фінал ---------- */
+  .stamp-wrap { display: flex; align-items: center; justify-content: center; padding: 30px 10px 20px; width: 100%; }
+  .stamp { font-family: var(--font-stamp); font-size: 20px; letter-spacing: 0.05em; text-align: center;
+      padding: 14px 20px; border: 3px solid var(--blood); color: var(--blood); transform: rotate(-5deg);
+      border-radius: 4px; opacity: 0; animation: stampIn 0.4s ease 0.1s forwards; }
+  .stamp.win-civilians { border-color: var(--teal); color: var(--teal); }
+  @keyframes stampIn { from { opacity: 0; transform: rotate(-5deg) scale(1.5); } to { opacity: 1; transform: rotate(-5deg) scale(1); } }
+
+  .reveal-list { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; width: 100%; margin-bottom: 10px; }
+  .reveal-row { display: flex; align-items: center; gap: 10px; background: var(--tile-bg);
+      border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+  .reveal-row .avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--tile-bg-2);
+      display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+  .reveal-row.dead { opacity: 0.5; }
+  .reveal-row .name { font-size: 13.5px; font-weight: 500; flex: 1; }
+  .reveal-row .role-tag { font-size: 11px; padding: 2px 8px; border-radius: 3px; font-weight: 700; }
+  .role-tag.mafia { background: var(--blood-dim); color: #ffd9d6; }
+  .role-tag.doctor { background: var(--teal-dim); color: #d6f0ea; }
+  .role-tag.commissar { background: var(--gold-dim); color: #ffeec2; }
+  .role-tag.civilian { background: var(--tile-bg-2); color: var(--text-muted); }
+
+  /* ---------- смуга досьє (низ екрана під час гри) ---------- */
+  .dossier-strip { display: flex; gap: 8px; width: 100%; overflow-x: auto; padding: 4px 0 2px; margin-top: 6px; }
+  .dossier-chip { flex-shrink: 0; display: flex; align-items: center; gap: 6px; background: var(--tile-bg);
+      border: 1px solid var(--line); border-radius: 20px; padding: 5px 10px 5px 5px; }
+  .dossier-chip .avatar { width: 22px; height: 22px; border-radius: 50%; background: var(--tile-bg-2);
+      display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 700; }
+  .dossier-chip .name { font-size: 11px; }
+  .dossier-chip.dead { opacity: 0.4; text-decoration: line-through; }
+
+  .room-code-display { font-family: var(--font-display); font-size: 22px; letter-spacing: 0.12em;
+      background: var(--tile-bg); border: 1px dashed var(--line); border-radius: 10px;
+      padding: 10px 16px; margin-bottom: 14px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="bg-scene" aria-hidden="true">
+<svg viewBox="0 0 400 900" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0d1420"/>
+      <stop offset="55%" stop-color="#0c0e13"/>
+      <stop offset="100%" stop-color="#09090d"/>
+    </linearGradient>
+    <radialGradient id="moonHalo" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#caa23a" stop-opacity="0.32"/>
+      <stop offset="55%" stop-color="#caa23a" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#caa23a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="lampBeam" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#caa23a" stop-opacity="0.14"/>
+      <stop offset="100%" stop-color="#caa23a" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="400" height="900" fill="url(#sky)"/>
+
+  <!-- місяць у серпанку хмар -->
+  <circle cx="300" cy="150" r="160" fill="url(#moonHalo)"/>
+  <circle cx="300" cy="150" r="42" fill="#e9d9a8"/>
+  <circle cx="300" cy="150" r="42" fill="#caa23a" opacity="0.22"/>
+  <ellipse cx="268" cy="138" rx="72" ry="17" fill="#0c0e13" opacity="0.55"/>
+  <ellipse cx="332" cy="176" rx="56" ry="13" fill="#0c0e13" opacity="0.4"/>
+
+  <!-- дальній силует міста -->
+  <g fill="#0a0b0f">
+    <rect x="-10" y="560" width="50" height="340"/>
+    <rect x="70"  y="500" width="45" height="400"/>
+    <rect x="150" y="540" width="38" height="360"/>
+    <rect x="210" y="480" width="55" height="420"/>
+    <rect x="280" y="530" width="42" height="370"/>
+    <rect x="345" y="500" width="60" height="400"/>
+  </g>
+
+  <!-- ближній силует, трохи світліший (глибина) -->
+  <g fill="#12141b">
+    <rect x="0"   y="690" width="58" height="210"/>
+    <rect x="55"  y="640" width="42" height="260"/>
+    <rect x="95"  y="710" width="36" height="190"/>
+    <rect x="128" y="660" width="50" height="240"/>
+    <rect x="176" y="730" width="30" height="170"/>
+    <rect x="204" y="650" width="46" height="250"/>
+    <rect x="248" y="700" width="38" height="200"/>
+    <rect x="284" y="670" width="32" height="230"/>
+    <rect x="314" y="720" width="44" height="180"/>
+    <rect x="356" y="655" width="44" height="245"/>
+  </g>
+
+  <!-- поодинокі освітлені вікна -->
+  <g fill="#caa23a" opacity="0.5">
+    <rect x="18" y="720" width="6" height="8"/>
+    <rect x="18" y="750" width="6" height="8"/>
+    <rect x="140" y="700" width="6" height="8"/>
+    <rect x="218" y="690" width="6" height="8"/>
+    <rect x="218" y="730" width="6" height="8"/>
+    <rect x="295" y="710" width="6" height="8"/>
+    <rect x="368" y="690" width="6" height="8"/>
+    <rect x="368" y="730" width="6" height="8"/>
+  </g>
+
+  <!-- ліхтар зі снопом світла -->
+  <polygon points="30,758 -50,900 110,900" fill="url(#lampBeam)"/>
+  <rect x="28" y="758" width="4" height="142" fill="#0a0b0f"/>
+  <circle cx="30" cy="756" r="6" fill="#caa23a" opacity="0.85"/>
+</svg>
+</div>
+<div class="page">
+
+  <div id="view-locked" class="hidden">
+    <h2>🔪 Мафія</h2>
+    <div class="status-line">Увійди в профіль (кнопка зверху), щоб грати з друзями</div>
+  </div>
+
+  <div id="view-room-entry" class="hidden">
+    <h2>🔪 Мафія</h2>
+    <div class="status-line">Введи код кімнати друга або створи нову</div>
+    <input class="text-input" id="roomCodeInput" maxlength="5" placeholder="КОД КІМНАТИ" />
+    <button class="primary-btn" id="joinRoomBtn">Приєднатись</button>
+    <div class="divider">або</div>
+    <button class="secondary-btn" id="createRoomBtn">Створити нову кімнату</button>
+  </div>
+
+  <div id="view-waiting" class="hidden">
+    <h2>🔪 Мафія</h2>
+    <div class="status-line">Раунд триває — приєднаєшся автоматично, коли гра повернеться в лобі</div>
+  </div>
+
+  <div id="view-lobby" class="hidden">
+    <h2>🔪 Мафія</h2>
+    <div class="room-code-display" id="roomCodeDisplay"></div>
+    <div class="status-line" id="lobbyStatus"></div>
+    <div class="players-list" id="playersList"></div>
+    <button class="secondary-btn" id="toggleReadyBtn">Готовий</button>
+    <button class="primary-btn hidden" id="startGameBtn">Почати гру</button>
+    <div class="hint-text" id="startHint"></div>
+  </div>
+
+  <div id="view-night" class="hidden">
+    <div class="phase-bar">
+      <span><span class="pulse-dot"></span>Ніч <span id="nightNumberLabel"></span></span>
+      <span class="timer" id="nightTimer"></span>
+    </div>
+    <div id="nightContent"></div>
+    <button class="secondary-btn hidden" id="hostSkipNightBtn">Хост: завершити ніч достроково</button>
+  </div>
+
+  <div id="view-night_result" class="hidden">
+    <h2>Ранок</h2>
+    <div id="nightResultContent"></div>
+    <button class="primary-btn hidden" id="hostSkipNightResultBtn">Хост: до обговорення</button>
+  </div>
+
+  <div id="view-day_discussion" class="hidden">
+    <div class="phase-bar">
+      <span>Обговорення</span>
+      <span class="timer" id="discussionTimer"></span>
+    </div>
+    <div class="chat-log" id="chatLog"></div>
+    <div class="chat-input-row">
+      <input type="text" id="chatInput" placeholder="Написати місту…" maxlength="300" />
+      <button id="chatSendBtn">➤</button>
+    </div>
+    <button class="secondary-btn hidden" id="hostSkipDiscussionBtn">Хост: до голосування</button>
+  </div>
+
+  <div id="view-day_voting" class="hidden">
+    <div class="phase-bar">
+      <span>Голосування</span>
+      <span class="timer" id="votingTimer"></span>
+    </div>
+    <div id="votingContent"></div>
+    <button class="secondary-btn hidden" id="hostSkipVotingBtn">Хост: завершити голосування достроково</button>
+  </div>
+
+  <div id="view-game_over" class="hidden">
+    <div id="gameOverContent"></div>
+    <button class="primary-btn hidden" id="resetGameBtn">Нова гра</button>
+  </div>
+
+  <div class="dossier-strip" id="dossierStrip"></div>
+
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/login.js"></script>
+<script src="js/online-engine.js"></script>
+<script src="js/mafia-game.js"></script>
+<script src="js/help.js"></script>
+<script src="js/back-button.js"></script>
+<script src="js/refresh-button.js"></script>
+<script>
+(function () {
+  const VIEWS = ["locked", "room-entry", "waiting", "lobby", "night", "night_result", "day_discussion", "day_voting", "game_over"];
+  function showView(name) {
+    VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name));
+    document.getElementById("dossierStrip").classList.toggle("hidden", !["night", "night_result", "day_discussion", "day_voting", "game_over"].includes(name));
+  }
+
+  function escapeHtml(s) {
+    const d = document.createElement("div");
+    d.textContent = s || "";
+    return d.innerHTML;
+  }
+  function initials(name) { return (name || "?").slice(0, 1).toUpperCase(); }
+
+  const ROLE_META = {
+    mafia:     { name: "Мафія",   icon: "🔪", desc: "Щоночі разом з іншими мафіозі обирає жертву.", cls: "mafia" },
+    doctor:    { name: "Лікар",   icon: "💉", desc: "Щоночі рятує одного гравця від смерті.",        cls: "doctor" },
+    commissar: { name: "Комісар", icon: "🔎", desc: "Щоночі перевіряє, чи гравець належить до мафії.", cls: "commissar" },
+    civilian:  { name: "Мирний",  icon: "🙂", desc: "Нічної дії немає — лише голос удень.",          cls: "civilian" }
+  };
+
+  const ROOM_CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // без 0/O/1/I/L, щоб не плутати на слух
+  function randomRoomCode() {
+    let s = "";
+    for (let i = 0; i < 5; i++) s += ROOM_CODE_CHARS[Math.floor(Math.random() * ROOM_CODE_CHARS.length)];
+    return s;
+  }
+
+  let currentRoomId = null;
+  let countdownTimer = null;
+  let lastState = null, lastCtx = null;
+
+  function fmtSeconds(ms) {
+    const s = Math.max(0, Math.ceil(ms / 1000));
+    return s + "с";
+  }
+
+  function updateCountdowns() {
+    if (!lastState) return;
+    const remaining = (lastState.phaseDeadline || 0) - window.MafiaGame.now();
+    const label = fmtSeconds(remaining);
+    const urgent = remaining < 10000;
+    ["nightTimer", "discussionTimer", "votingTimer"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = lastState.phaseDeadline ? label : "";
+      el.classList.toggle("urgent", urgent);
+    });
+  }
+
+  // ------------------------- рендер лобі -------------------------
+  function renderLobby(state, ctx) {
+    document.getElementById("roomCodeDisplay").textContent = currentRoomId || "";
+    const players = state.players || {};
+    const conn = window.MafiaGame.connectedEntries(players);
+    document.getElementById("lobbyStatus").innerHTML =
+      `<span class="pulse-dot"></span> Онлайн: ${conn.length} з ${Object.keys(players).length} (потрібно від ${window.MafiaGame.MIN_PLAYERS} до ${window.MafiaGame.MAX_PLAYERS})`;
+
+    document.getElementById("playersList").innerHTML = Object.entries(players).map(([name, p]) => {
+      const online = conn.some(([n]) => n === name);
+      const isHostRow = state.hostUsername === name;
+      return `<div class="player-chip ${online ? "" : "offline"}">
+        <span>${escapeHtml(name)}</span>
+        <span>
+          ${isHostRow ? '<span class="badge host">ХОСТ</span>' : ""}
+          <span class="badge ${p.ready ? "ready" : "waiting"}">${p.ready ? "Готовий" : "Очікує"}</span>
+        </span>
+      </div>`;
+    }).join("") || '<div class="status-line">Ще нікого немає</div>';
+
+    const me = players[ctx.username];
+    const readyBtn = document.getElementById("toggleReadyBtn");
+    readyBtn.textContent = me && me.ready ? "Я не готовий" : "Я готовий";
+
+    const n = Object.keys(players).length;
+    const enough = n >= window.MafiaGame.MIN_PLAYERS && n <= window.MafiaGame.MAX_PLAYERS;
+    const startBtn = document.getElementById("startGameBtn");
+    startBtn.classList.toggle("hidden", !ctx.host);
+    startBtn.disabled = !enough;
+    document.getElementById("startHint").textContent = ctx.host && !enough
+      ? (n < window.MafiaGame.MIN_PLAYERS ? `Потрібно ще ${window.MafiaGame.MIN_PLAYERS - n} гравців(я)` : "Забагато гравців для однієї кімнати")
+      : "";
+  }
+
+  // ------------------------- рендер ночі -------------------------
+  function renderNight(state, ctx) {
+    document.getElementById("nightNumberLabel").textContent = state.nightNumber || 1;
+    const players = state.players || {};
+    const me = players[ctx.username];
+    const content = document.getElementById("nightContent");
+
+    if (!me || !me.alive) {
+      content.innerHTML = `<div class="sleeping-screen"><div class="moon">🌙</div>Ти вибув з гри. Спостерігай за розслідуванням мовчки.</div>`;
+      return;
+    }
+
+    const roleMeta = ROLE_META[me.role] || ROLE_META.civilian;
+    const roleCardHtml = `
+      <div class="role-card">
+        <div class="role-icon ${roleMeta.cls}">${roleMeta.icon}</div>
+        <div><div class="role-name">${roleMeta.name}</div><div class="role-desc">${roleMeta.desc}</div></div>
+      </div>`;
+
+    if (me.role === "civilian" || !me.role) {
+      content.innerHTML = roleCardHtml + `<div class="sleeping-screen"><div class="moon">🌙</div>У тебе немає нічної дії. Місто спить — зачекай на ранок.</div>`;
+      return;
+    }
+
+    const pool = Object.entries(players).filter(([u, p]) => p.alive && u !== ctx.username);
+    content.innerHTML = roleCardHtml + `
+      <div class="target-grid">
+        ${pool.map(([u]) => `
+          <div class="target-card ${me.nightAction === u ? "selected role-" + me.role : ""}" data-id="${escapeHtml(u)}">
+            <div class="avatar">${initials(u)}</div><div class="name">${escapeHtml(u)}</div>
+          </div>`).join("")}
+      </div>
+      <div class="hint-text">${me.nightAction ? "Вибір зроблено — чекаємо на інших." : "Обери ціль."}</div>`;
+
+    content.querySelectorAll(".target-card").forEach((el) => {
+      el.addEventListener("click", () => window.MafiaGame.submitNightAction(el.dataset.id));
+    });
+  }
+
+  function toggleHostSkipButtons(ctx) {
+    ["hostSkipNightBtn", "hostSkipNightResultBtn", "hostSkipDiscussionBtn", "hostSkipVotingBtn"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.classList.toggle("hidden", !ctx.host);
+    });
+  }
+
+  // ------------------------- рендер ранку -------------------------
+  function renderNightResult(state, ctx) {
+    const players = state.players || {};
+    const result = state.nightResult || {};
+    const dead = result.deadPlayer ? { username: result.deadPlayer } : null;
+    const me = players[ctx.username];
+
+    let inspectHtml = "";
+    if (me && me.role === "commissar" && result.inspected) {
+      inspectHtml = `<div class="inspect-box">Перевірка: <b>${escapeHtml(result.inspected.username)}</b> — ${result.inspected.isMafia ? "у складі мафії." : "не пов'язаний з мафією."}</div>`;
+    }
+
+    document.getElementById("nightResultContent").innerHTML = `
+      <div class="result-card ${dead ? "" : "safe"}">
+        <div class="avatar-big">${dead ? initials(dead.username) : "🌅"}</div>
+        <div class="result-title">${dead ? `Тієї ночі загинув(ла): ${escapeHtml(dead.username)}` : "Цієї ночі ніхто не загинув"}</div>
+        <div class="result-sub">${dead ? "Лікар не встиг врятувати цього гравця." : "Хтось цієї ночі був під захистом."}</div>
+      </div>
+      ${inspectHtml}`;
+  }
+
+  // ------------------------- рендер обговорення -------------------------
+  function renderDayDiscussion(state, ctx) {
+    const chat = state.chat || {};
+    const rows = Object.values(chat).sort((a, b) => (a.at || 0) - (b.at || 0));
+    const log = document.getElementById("chatLog");
+    log.innerHTML = rows.length
+      ? rows.map((c) => `<div class="chat-line"><span class="who">${escapeHtml(c.username)}:</span>${escapeHtml(c.text)}</div>`).join("")
+      : `<div class="chat-line system">Обговорення почалось — хто здається підозрілим?</div>`;
+    log.scrollTop = log.scrollHeight;
+  }
+
+  // ------------------------- рендер голосування -------------------------
+  function renderDayVoting(state, ctx) {
+    const players = state.players || {};
+    const me = players[ctx.username];
+    const content = document.getElementById("votingContent");
+
+    if (!me || !me.alive) {
+      content.innerHTML = `<div class="sleeping-screen">Ти вибув з гри — спостерігай за голосуванням.</div>`;
+      return;
+    }
+
+    const pool = Object.entries(players).filter(([u, p]) => p.alive && u !== ctx.username);
+    content.innerHTML = `
+      <div class="target-grid">
+        ${pool.map(([u]) => `
+          <div class="target-card ${me.vote === u ? "selected" : ""}" data-id="${escapeHtml(u)}">
+            <div class="avatar">${initials(u)}</div><div class="name">${escapeHtml(u)}</div>
+          </div>`).join("")}
+      </div>
+      <div class="hint-text">${me.vote ? "Голос враховано — чекаємо на інших." : "Обери, кого підозрюєш."}</div>`;
+
+    content.querySelectorAll(".target-card").forEach((el) => {
+      el.addEventListener("click", () => window.MafiaGame.submitVote(el.dataset.id));
+    });
+  }
+
+  // ------------------------- рендер фіналу -------------------------
+  function renderGameOver(state, ctx) {
+    const players = state.players || {};
+    const won = state.winner === "mafia" ? "МАФІЯ ПЕРЕМОГЛА" : "МИРНІ ПЕРЕМОГЛИ";
+    const stampCls = state.winner === "mafia" ? "" : "win-civilians";
+
+    document.getElementById("gameOverContent").innerHTML = `
+      <div class="stamp-wrap"><div class="stamp ${stampCls}">${won}</div></div>
+      <div class="reveal-list">
+        ${Object.entries(players).map(([name, p]) => `
+          <div class="reveal-row ${p.alive ? "" : "dead"}">
+            <span class="avatar">${initials(name)}</span>
+            <span class="name">${escapeHtml(name)}</span>
+            <span class="role-tag ${p.role}">${(ROLE_META[p.role] || {}).name || "?"}</span>
+          </div>`).join("")}
+      </div>`;
+    document.getElementById("resetGameBtn").classList.toggle("hidden", !ctx.host);
+  }
+
+  function renderDossierStrip(state) {
+    const players = state.players || {};
+    document.getElementById("dossierStrip").innerHTML = Object.entries(players).map(([name, p]) => `
+      <div class="dossier-chip ${p.alive ? "" : "dead"}">
+        <span class="avatar">${initials(name)}</span><span class="name">${escapeHtml(name)}</span>
+      </div>`).join("");
+  }
+
+  // ------------------------- головний диспетчер стану -------------------------
+  function onState(state, ctx) {
+    lastState = state; lastCtx = ctx;
+    if (!ctx.username) { showView("locked"); return; }
+
+    const players = state.players || {};
+    const iAmIn = !!players[ctx.username];
+    if (!iAmIn && state.phase !== "lobby") { showView("waiting"); return; }
+
+    showView(state.phase);
+    renderDossierStrip(state);
+    toggleHostSkipButtons(ctx);
+
+    switch (state.phase) {
+      case "lobby": renderLobby(state, ctx); break;
+      case "night": renderNight(state, ctx); break;
+      case "night_result": renderNightResult(state, ctx); break;
+      case "day_discussion": renderDayDiscussion(state, ctx); break;
+      case "day_voting": renderDayVoting(state, ctx); break;
+      case "game_over": renderGameOver(state, ctx); break;
+    }
+  }
+
+  // ------------------------- дії гравця -------------------------
+  document.getElementById("toggleReadyBtn").addEventListener("click", () => {
+    const me = lastState && lastState.players && lastState.players[lastCtx.username];
+    window.MafiaGame.setReady(!(me && me.ready));
+  });
+  document.getElementById("startGameBtn").addEventListener("click", () => window.MafiaGame.startGame());
+
+  ["hostSkipNightBtn", "hostSkipNightResultBtn", "hostSkipDiscussionBtn", "hostSkipVotingBtn"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("click", () => window.MafiaGame.forceAdvance());
+  });
+
+  document.getElementById("chatSendBtn").addEventListener("click", sendChat);
+  document.getElementById("chatInput").addEventListener("keydown", (e) => { if (e.key === "Enter") sendChat(); });
+  function sendChat() {
+    const input = document.getElementById("chatInput");
+    const text = input.value.trim();
+    if (!text) return;
+    window.MafiaGame.sendChatMessage(text);
+    input.value = "";
+  }
+  document.getElementById("resetGameBtn").addEventListener("click", () => {
+    if (confirm("Почати нову гру з тими самими гравцями?")) window.MafiaGame.resetGame();
+  });
+
+  // ------------------------- вхід у кімнату -------------------------
+  function beginGame(username, roomId) {
+    currentRoomId = roomId;
+    window.MafiaGame.onStateChange = onState;
+    window.MafiaGame.start(username, roomId);
+    countdownTimer = setInterval(updateCountdowns, 1000);
+  }
+
+  document.getElementById("createRoomBtn").addEventListener("click", () => {
+    const session = window.AppAuth.getSession();
+    const code = randomRoomCode();
+    history.replaceState(null, "", location.pathname + "?room=" + code);
+    beginGame(session.username, code);
+  });
+  document.getElementById("joinRoomBtn").addEventListener("click", () => {
+    const session = window.AppAuth.getSession();
+    const code = document.getElementById("roomCodeInput").value.trim().toUpperCase();
+    if (!code) return;
+    history.replaceState(null, "", location.pathname + "?room=" + code);
+    beginGame(session.username, code);
+  });
+  document.getElementById("roomCodeInput").addEventListener("input", (e) => {
+    e.target.value = e.target.value.toUpperCase();
+  });
+
+  // ------------------------- старт сторінки -------------------------
+  const session = window.AppAuth && window.AppAuth.getSession();
+  if (session && window.rtdbReady) {
+    const urlRoom = new URLSearchParams(location.search).get("room");
+    if (urlRoom) {
+      beginGame(session.username, urlRoom.toUpperCase());
+    } else {
+      showView("room-entry");
+    }
+  } else {
+    showView("locked");
+  }
+
+  window.addEventListener("beforeunload", () => {
+    if (countdownTimer) clearInterval(countdownTimer);
+    if (window.MafiaGame) window.MafiaGame.stop();
+  });
+})();
+</script>
+</body>
+</html>
