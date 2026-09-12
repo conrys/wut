@@ -351,6 +351,53 @@
 
   // ------------------------- публічні методи -------------------------
 
+  // Режим глядача — для хост-екрана на ТБ/проєкторі. Навмисно НЕ встановлює
+  // myUsername: усі решта функцій (myPlayerRef, me, maybeBecomePlayer) вже
+  // захищені перевіркою "if (!myUsername) return", тож глядач автоматично
+  // ніколи не потрапляє у players/ і, відповідно, фізично не може бути
+  // обраний хостом (lockedHost-транзакція обирає лише з room.players).
+  // Живий список активних кімнат гри — для екрана входу ("обери кімнату
+  // зі списку" замість введення коду навмання). Порядок "застарілості" тут
+  // навмисно повторює isRoomStale() з online-engine.js (та функція
+  // приватна й не експортується), щоб не показувати кімнати, які рушій сам
+  // ось-ось приберет через abandonMs.
+  function watchActiveRooms(callback) {
+    if (!window.rtdb) { callback([]); return () => {}; }
+    const ref = window.rtdb.ref(`${GAME_KEY}_rooms`);
+    const onValue = (snap) => {
+      const rooms = snap.val() || {};
+      const t = engine.now();
+      const list = Object.entries(rooms).map(([roomId, room]) => {
+        const players = playersOf(room);
+        const connected = Object.entries(players).filter(([, p]) => engine.isConnected(p));
+        const lastSeens = Object.values(players).map((p) => p.lastSeen || 0);
+        const mostRecentPlayer = lastSeens.length ? Math.max(...lastSeens) : 0;
+        const lastActivity = Math.max(room.lastActivityAt || 0, room.createdAt || 0, mostRecentPlayer);
+        const stale = !connected.length && (!lastActivity || t - lastActivity > 3 * 60 * 1000);
+        return {
+          roomId,
+          phase: room.phase || "lobby",
+          usernames: Object.keys(players),
+          playerCount: Object.keys(players).length,
+          connectedCount: connected.length,
+          stale,
+        };
+      }).filter((r) => !r.stale)
+        .sort((a, b) => b.connectedCount - a.connectedCount || b.playerCount - a.playerCount);
+      callback(list);
+    };
+    ref.on("value", onValue);
+    return () => ref.off("value", onValue);
+  }
+
+  function watch(roomId) {
+    const displayName = "tv_" + Math.random().toString(36).slice(2, 8);
+    engine.start(displayName, { useLobby: false });
+    return engine.getOrCreateRoom(roomId, ROOM_SCHEMA, buildFreshRoom).then((result) =>
+      engine.joinRoom(roomId, { asPlayer: false }).then(() => result)
+    );
+  }
+
   function start(username, roomId) {
     myUsername = username;
     engine.start(username, { useLobby: false }); // room-code флоу, без спільного лобі запрошень
@@ -477,6 +524,8 @@
     ROLES: ["mafia", "doctor", "commissar", "civilian"],
 
     start,
+    watch,
+    watchActiveRooms,
     stop,
     startGame,
     resetGame,

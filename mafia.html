@@ -166,6 +166,22 @@
   .room-code-display { font-family: var(--font-display); font-size: 22px; letter-spacing: 0.12em;
       background: var(--tile-bg); border: 1px dashed var(--line); border-radius: 10px;
       padding: 10px 16px; margin-bottom: 14px; text-align: center; }
+
+  /* ---------- список активних кімнат ---------- */
+  .rooms-list { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-bottom: 4px; }
+  .room-item { background: var(--tile-bg); border: 1px solid var(--line); border-radius: 12px;
+      padding: 12px 14px; cursor: pointer; transition: border-color 0.15s ease; }
+  .room-item:active { border-color: var(--gold); }
+  .room-item-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .room-item-title { font-family: var(--font-display); font-size: 15px; letter-spacing: 0.05em; }
+  .room-item-phase { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 10px;
+      background: var(--tile-bg-2); color: var(--text-muted); }
+  .room-item-phase.is-lobby { background: var(--teal-dim); color: #d6f0ea; }
+  .room-item-avatars { display: flex; gap: 6px; flex-wrap: wrap; }
+  .mini-avatar { width: 26px; height: 26px; border-radius: 50%; background: var(--tile-bg-2);
+      display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700;
+      color: var(--text-light); flex-shrink: 0; }
+  .mini-avatar.more { background: transparent; border: 1px dashed var(--line); color: var(--text-muted); }
 </style>
 </head>
 <body>
@@ -234,9 +250,10 @@
   </g>
 
   <!-- ліхтар зі снопом світла -->
-  <polygon points="30,758 -50,900 110,900" fill="url(#lampBeam)"/>
-  <rect x="28" y="758" width="4" height="142" fill="#0a0b0f"/>
-  <circle cx="30" cy="756" r="6" fill="#caa23a" opacity="0.85"/>
+    <polygon points="30,747 -90,900 160,900" fill="url(#lampBeam)"/>
+    <rect x="28" y="758" width="4" height="142" fill="#0a0b0f"/>
+    <circle cx="30" cy="756" r="6" fill="#caa23a" opacity="0.85"/>
+    <polygon points="30,747 20,758 40,758" fill="#4f4f4f"/>
 </svg>
 </div>
 <div class="page">
@@ -248,7 +265,9 @@
 
   <div id="view-room-entry" class="hidden">
     <h2>🔪 Мафія</h2>
-    <div class="status-line">Введи код кімнати друга або створи нову</div>
+    <div class="status-line">Обери активну кімнату або введи код друга</div>
+    <div class="rooms-list" id="activeRoomsList"></div>
+    <div class="divider">або вручну</div>
     <input class="text-input" id="roomCodeInput" maxlength="5" placeholder="КОД КІМНАТИ" />
     <button class="primary-btn" id="joinRoomBtn">Приєднатись</button>
     <div class="divider">або</div>
@@ -340,6 +359,11 @@
     return d.innerHTML;
   }
   function initials(name) { return (name || "?").slice(0, 1).toUpperCase(); }
+
+  const PHASE_LABELS = {
+    lobby: "Лобі", night: "Ніч", night_result: "Ранок",
+    day_discussion: "Обговорення", day_voting: "Голосування", game_over: "Фінал"
+  };
 
   const ROLE_META = {
     mafia:     { name: "Мафія",   icon: "🔪", desc: "Щоночі разом з іншими мафіозі обирає жертву.", cls: "mafia" },
@@ -591,7 +615,43 @@
   });
 
   // ------------------------- вхід у кімнату -------------------------
+  let unsubscribeRooms = null;
+
+  function stopWatchingRoomsList() {
+    if (unsubscribeRooms) { unsubscribeRooms(); unsubscribeRooms = null; }
+  }
+
+  function renderRoomsList(rooms) {
+    const el = document.getElementById("activeRoomsList");
+    if (!rooms.length) {
+      el.innerHTML = '<div class="hint-text">Активних кімнат поки нема — створи нову.</div>';
+      return;
+    }
+    el.innerHTML = rooms.map((r) => `
+      <div class="room-item" data-room="${r.roomId}">
+        <div class="room-item-head">
+          <span class="room-item-title">Кімната ${escapeHtml(r.roomId)}</span>
+          <span class="room-item-phase ${r.phase === "lobby" ? "is-lobby" : ""}">${PHASE_LABELS[r.phase] || r.phase}</span>
+        </div>
+        <div class="room-item-avatars">
+          ${r.usernames.slice(0, 8).map((u) => `<span class="mini-avatar">${initials(u)}</span>`).join("")}
+          ${r.usernames.length > 8 ? `<span class="mini-avatar more">+${r.usernames.length - 8}</span>` : ""}
+        </div>
+      </div>`).join("");
+
+    el.querySelectorAll(".room-item").forEach((item) => {
+      item.addEventListener("click", () => {
+        const session = window.AppAuth.getSession();
+        const roomId = item.dataset.room;
+        stopWatchingRoomsList();
+        history.replaceState(null, "", location.pathname + "?room=" + roomId);
+        beginGame(session.username, roomId);
+      });
+    });
+  }
+
   function beginGame(username, roomId) {
+    stopWatchingRoomsList();
     currentRoomId = roomId;
     window.MafiaGame.onStateChange = onState;
     window.MafiaGame.start(username, roomId);
@@ -623,6 +683,7 @@
       beginGame(session.username, urlRoom.toUpperCase());
     } else {
       showView("room-entry");
+      unsubscribeRooms = window.MafiaGame.watchActiveRooms(renderRoomsList);
     }
   } else {
     showView("locked");
@@ -630,6 +691,7 @@
 
   window.addEventListener("beforeunload", () => {
     if (countdownTimer) clearInterval(countdownTimer);
+    stopWatchingRoomsList();
     if (window.MafiaGame) window.MafiaGame.stop();
   });
 })();

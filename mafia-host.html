@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Мафія — великий екран</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Special+Elite&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0c0e13;
+    --tile-bg: #171a22;
+    --tile-bg-2: #20242f;
+    --line: rgba(255,255,255,0.08);
+    --text-light: #e9e6dd;
+    --text-muted: #8b90a0;
+    --accent: #caa23a;
+    --blood: #b3241f;
+    --blood-dim: #4a1613;
+    --gold: #caa23a;
+    --gold-dim: #4a3a16;
+    --teal: #3c8f7c;
+    --teal-dim: #163d34;
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-stamp: 'Special Elite', 'Courier New', monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; min-height: 100vh; background: var(--bg);
+      font-family: 'Inter', sans-serif; color: var(--text-light); overflow-x: hidden; }
+  .bg-scene { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+  .bg-scene svg { width: 100%; height: 100%; display: block; }
+  .page { max-width: 900px; margin: 0 auto; padding: 40px 30px; position: relative; z-index: 1;
+      min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
+  .hidden { display: none !important; }
+
+  h1 { font-family: var(--font-display); font-size: 32px; margin: 0 0 6px; text-align: center; }
+  .status-line { font-size: 16px; color: var(--text-muted); text-align: center; margin-bottom: 20px; }
+
+  /* ---------- вхід ---------- */
+  input.text-input { width: 320px; max-width: 90%; box-sizing: border-box; padding: 16px;
+      border-radius: 12px; border: 1px solid var(--line); background: var(--tile-bg-2);
+      color: var(--text-light); font-size: 24px; letter-spacing: 0.15em; text-align: center;
+      text-transform: uppercase; }
+  input.text-input:focus { outline: 2px solid var(--gold); }
+  button.primary-btn { border: none; border-radius: 12px; padding: 14px 26px; font-weight: 700;
+      font-size: 16px; cursor: pointer; background: var(--accent); color: #241d08; margin-top: 14px; }
+  button.secondary-btn { border: none; border-radius: 12px; padding: 12px 22px; font-weight: 700;
+      font-size: 14px; cursor: pointer; background: var(--tile-bg-2); color: var(--text-light);
+      border: 1px solid var(--line); margin-top: 10px; }
+  .divider { color: var(--text-muted); font-size: 13px; margin: 16px 0; }
+
+  /* ---------- код кімнати (лобі) ---------- */
+  .room-code-huge { font-family: var(--font-display); font-size: 72px; letter-spacing: 0.18em;
+      background: var(--tile-bg); border: 2px dashed var(--gold); border-radius: 20px;
+      padding: 20px 40px; margin: 10px 0 24px; text-align: center; }
+
+  /* ---------- список активних кімнат ---------- */
+  .rooms-list { display: flex; flex-direction: column; gap: 10px; width: 420px; max-width: 92vw; margin-bottom: 6px; }
+  .room-item { background: var(--tile-bg); border: 1px solid var(--line); border-radius: 14px;
+      padding: 14px 16px; cursor: pointer; transition: border-color 0.15s ease; }
+  .room-item:hover, .room-item:active { border-color: var(--gold); }
+  .room-item-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .room-item-title { font-family: var(--font-display); font-size: 18px; letter-spacing: 0.05em; }
+  .room-item-phase { font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 10px;
+      background: var(--tile-bg-2); color: var(--text-muted); }
+  .room-item-phase.is-lobby { background: var(--teal-dim); color: #d6f0ea; }
+  .room-item-avatars { display: flex; gap: 7px; flex-wrap: wrap; }
+  .mini-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--tile-bg-2);
+      display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700;
+      color: var(--text-light); flex-shrink: 0; }
+  .mini-avatar.more { background: transparent; border: 1px dashed var(--line); color: var(--text-muted); }
+
+  /* ---------- фаза-заголовок ---------- */
+  .phase-title { font-family: var(--font-display); font-size: 30px; text-align: center; margin-bottom: 4px; }
+  .phase-caption { font-size: 15px; color: var(--text-muted); text-align: center; margin-bottom: 24px; }
+  .big-timer { font-family: var(--font-display); font-size: 56px; color: var(--gold);
+      text-align: center; margin-bottom: 26px; }
+  .big-timer.urgent { color: var(--blood); }
+
+  /* ---------- сітка гравців ---------- */
+  .big-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 16px; width: 100%; margin-bottom: 20px; }
+  .big-card { background: var(--tile-bg); border: 1px solid var(--line); border-radius: 16px;
+      padding: 18px 10px; text-align: center; position: relative; }
+  .big-card .avatar { width: 60px; height: 60px; border-radius: 50%; background: var(--tile-bg-2);
+      display: flex; align-items: center; justify-content: center; margin: 0 auto 10px;
+      font-size: 24px; font-weight: 700; }
+  .big-card .name { font-size: 16px; font-weight: 600; }
+  .big-card.dead { opacity: 0.35; }
+  .big-card.dead .avatar::after { content: "✕"; position: absolute; inset: 0; display: flex;
+      align-items: center; justify-content: center; font-size: 34px; color: var(--blood); }
+  .big-card .tag { display: inline-block; margin-top: 6px; font-size: 11px; font-weight: 700;
+      padding: 3px 10px; border-radius: 10px; }
+  .tag.host { background: var(--gold); color: #241d08; }
+  .tag.ready { background: var(--teal-dim); color: #d6f0ea; }
+  .tag.waiting { background: var(--tile-bg-2); color: var(--text-muted); }
+  .tag.votes { background: var(--blood-dim); color: #ffd9d6; }
+
+  .sleeping-note { text-align: center; padding: 30px; color: var(--text-muted); font-size: 18px; }
+  .sleeping-note .moon { font-size: 54px; margin-bottom: 14px; opacity: 0.85; }
+
+  /* ---------- результат ночі ---------- */
+  .result-card { background: var(--tile-bg); border: 1px solid var(--line); border-radius: 20px;
+      padding: 34px 24px; text-align: center; margin-bottom: 20px; width: 100%; max-width: 480px; }
+  .result-card .avatar-big { width: 90px; height: 90px; border-radius: 50%; background: var(--tile-bg-2);
+      display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;
+      font-size: 34px; font-weight: 700; border: 3px solid var(--blood); }
+  .result-card.safe .avatar-big { border-color: var(--teal); }
+  .result-card .result-title { font-family: var(--font-display); font-size: 24px; margin-bottom: 8px; }
+  .result-card .result-sub { font-size: 14px; color: var(--text-muted); }
+
+  /* ---------- чат (обговорення) ---------- */
+  .chat-log { background: var(--tile-bg); border: 1px solid var(--line); border-radius: 16px;
+      padding: 16px 20px; width: 100%; max-width: 560px; height: 160px; overflow-y: auto;
+      margin-bottom: 20px; font-size: 15px; }
+  .chat-line { margin-bottom: 8px; }
+  .chat-line .who { font-weight: 700; color: var(--gold); margin-right: 8px; }
+  .chat-line.system { color: var(--text-muted); font-style: italic; }
+
+  /* ---------- фінал ---------- */
+  .stamp-wrap { display: flex; align-items: center; justify-content: center; padding: 20px 10px 30px; width: 100%; }
+  .stamp { font-family: var(--font-stamp); font-size: 40px; letter-spacing: 0.06em; text-align: center;
+      padding: 22px 34px; border: 4px solid var(--blood); color: var(--blood); transform: rotate(-5deg);
+      border-radius: 6px; opacity: 0; animation: stampIn 0.4s ease 0.1s forwards; }
+  .stamp.win-civilians { border-color: var(--teal); color: var(--teal); }
+  @keyframes stampIn { from { opacity: 0; transform: rotate(-5deg) scale(1.5); } to { opacity: 1; transform: rotate(-5deg) scale(1); } }
+
+  .reveal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 14px; width: 100%; margin-top: 10px; }
+  .reveal-card { background: var(--tile-bg); border: 1px solid var(--line); border-radius: 14px;
+      padding: 16px; text-align: center; }
+  .reveal-card.dead { opacity: 0.55; }
+  .reveal-card .avatar { width: 50px; height: 50px; border-radius: 50%; background: var(--tile-bg-2);
+      display: flex; align-items: center; justify-content: center; margin: 0 auto 8px;
+      font-size: 20px; font-weight: 700; }
+  .reveal-card .name { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  .reveal-card .role-tag { display: inline-block; font-size: 12px; padding: 3px 10px; border-radius: 10px; font-weight: 700; }
+  .role-tag.mafia { background: var(--blood-dim); color: #ffd9d6; }
+  .role-tag.doctor { background: var(--teal-dim); color: #d6f0ea; }
+  .role-tag.commissar { background: var(--gold-dim); color: #ffeec2; }
+  .role-tag.civilian { background: var(--tile-bg-2); color: var(--text-muted); }
+
+  .join-hint { font-size: 14px; color: var(--text-muted); text-align: center; margin-top: 6px; }
+</style>
+</head>
+<body>
+<div class="bg-scene" aria-hidden="true">
+<svg viewBox="0 0 400 900" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0d1420"/>
+      <stop offset="55%" stop-color="#0c0e13"/>
+      <stop offset="100%" stop-color="#09090d"/>
+    </linearGradient>
+    <radialGradient id="moonHalo" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#caa23a" stop-opacity="0.32"/>
+      <stop offset="55%" stop-color="#caa23a" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#caa23a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="lampBeam" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#caa23a" stop-opacity="0.14"/>
+      <stop offset="100%" stop-color="#caa23a" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="400" height="900" fill="url(#sky)"/>
+  <circle cx="300" cy="150" r="160" fill="url(#moonHalo)"/>
+  <circle cx="300" cy="150" r="42" fill="#e9d9a8"/>
+  <circle cx="300" cy="150" r="42" fill="#caa23a" opacity="0.22"/>
+  <ellipse cx="268" cy="138" rx="72" ry="17" fill="#0c0e13" opacity="0.55"/>
+  <ellipse cx="332" cy="176" rx="56" ry="13" fill="#0c0e13" opacity="0.4"/>
+  <g fill="#0a0b0f">
+    <rect x="-10" y="560" width="50" height="340"/>
+    <rect x="70"  y="500" width="45" height="400"/>
+    <rect x="150" y="540" width="38" height="360"/>
+    <rect x="210" y="480" width="55" height="420"/>
+    <rect x="280" y="530" width="42" height="370"/>
+    <rect x="345" y="500" width="60" height="400"/>
+  </g>
+  <g fill="#12141b">
+    <rect x="0"   y="690" width="58" height="210"/>
+    <rect x="55"  y="640" width="42" height="260"/>
+    <rect x="95"  y="710" width="36" height="190"/>
+    <rect x="128" y="660" width="50" height="240"/>
+    <rect x="176" y="730" width="30" height="170"/>
+    <rect x="204" y="650" width="46" height="250"/>
+    <rect x="248" y="700" width="38" height="200"/>
+    <rect x="284" y="670" width="32" height="230"/>
+    <rect x="314" y="720" width="44" height="180"/>
+    <rect x="356" y="655" width="44" height="245"/>
+  </g>
+  <g fill="#caa23a" opacity="0.5">
+    <rect x="18" y="720" width="6" height="8"/>
+    <rect x="18" y="750" width="6" height="8"/>
+    <rect x="140" y="700" width="6" height="8"/>
+    <rect x="218" y="690" width="6" height="8"/>
+    <rect x="218" y="730" width="6" height="8"/>
+    <rect x="295" y="710" width="6" height="8"/>
+    <rect x="368" y="690" width="6" height="8"/>
+    <rect x="368" y="730" width="6" height="8"/>
+  </g>
+  <polygon points="30,747 -90,900 160,900" fill="url(#lampBeam)"/>
+  <rect x="28" y="758" width="4" height="142" fill="#0a0b0f"/>
+  <circle cx="30" cy="756" r="6" fill="#caa23a" opacity="0.85"/>
+  <polygon points="30,747 20,758 40,758" fill="#4f4f4f"/>
+</svg>
+</div>
+
+<div class="page">
+
+  <div id="view-entry">
+    <h1>🔪 Мафія</h1>
+    <div class="status-line">Великий екран — обери активну кімнату або введи код</div>
+    <div class="rooms-list" id="activeRoomsList"></div>
+    <div class="divider">або вручну</div>
+    <input class="text-input" id="roomCodeInput" maxlength="5" placeholder="КОД" />
+    <button class="primary-btn" id="joinRoomBtn">Показати кімнату</button>
+    <div class="divider">або</div>
+    <button class="secondary-btn" id="createRoomBtn">Створити нову кімнату</button>
+  </div>
+
+  <div id="view-lobby" class="hidden">
+    <h1>🔪 Мафія</h1>
+    <div class="room-code-huge" id="roomCodeDisplay"></div>
+    <div class="status-line" id="lobbyStatus"></div>
+    <div class="join-hint">Відкрий mafia.html на телефоні й введи цей код, щоб приєднатись</div>
+    <div class="big-grid" id="lobbyGrid"></div>
+  </div>
+
+  <div id="view-night" class="hidden">
+    <div class="phase-title">🌙 Ніч <span id="nightNumberLabel"></span></div>
+    <div class="phase-caption">Мафія обирає жертву. Лікар лікує. Комісар розслідує. Місто спить.</div>
+    <div class="big-timer" id="nightTimer"></div>
+    <div class="big-grid" id="nightGrid"></div>
+  </div>
+
+  <div id="view-night_result" class="hidden">
+    <div class="phase-title">Ранок</div>
+    <div id="nightResultContent"></div>
+    <div class="big-grid" id="resultGrid"></div>
+  </div>
+
+  <div id="view-day_discussion" class="hidden">
+    <div class="phase-title">Обговорення</div>
+    <div class="phase-caption">Хто здається підозрілим?</div>
+    <div class="big-timer" id="discussionTimer"></div>
+    <div class="chat-log" id="chatLog"></div>
+    <div class="big-grid" id="discussionGrid"></div>
+  </div>
+
+  <div id="view-day_voting" class="hidden">
+    <div class="phase-title">Голосування</div>
+    <div class="phase-caption">Кого місто виганяє сьогодні?</div>
+    <div class="big-timer" id="votingTimer"></div>
+    <div class="big-grid" id="votingGrid"></div>
+  </div>
+
+  <div id="view-game_over" class="hidden">
+    <div id="gameOverContent"></div>
+  </div>
+
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/online-engine.js"></script>
+<script src="js/mafia-game.js"></script>
+<script>
+(function () {
+  const VIEWS = ["entry", "lobby", "night", "night_result", "day_discussion", "day_voting", "game_over"];
+  function showView(name) {
+    VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name));
+  }
+
+  function escapeHtml(s) {
+    const d = document.createElement("div");
+    d.textContent = s || "";
+    return d.innerHTML;
+  }
+  function initials(name) { return (name || "?").slice(0, 1).toUpperCase(); }
+
+  const PHASE_LABELS = {
+    lobby: "Лобі", night: "Ніч", night_result: "Ранок",
+    day_discussion: "Обговорення", day_voting: "Голосування", game_over: "Фінал"
+  };
+
+  const ROLE_META = {
+    mafia:     { name: "Мафія",   cls: "mafia" },
+    doctor:    { name: "Лікар",   cls: "doctor" },
+    commissar: { name: "Комісар", cls: "commissar" },
+    civilian:  { name: "Мирний",  cls: "civilian" }
+  };
+
+  const ROOM_CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  function randomRoomCode() {
+    let s = "";
+    for (let i = 0; i < 5; i++) s += ROOM_CODE_CHARS[Math.floor(Math.random() * ROOM_CODE_CHARS.length)];
+    return s;
+  }
+
+  let countdownTimer = null;
+  let lastState = null;
+
+  function fmtSeconds(ms) { return Math.max(0, Math.ceil(ms / 1000)) + "с"; }
+
+  function updateCountdowns() {
+    if (!lastState) return;
+    const remaining = (lastState.phaseDeadline || 0) - window.MafiaGame.now();
+    const label = lastState.phaseDeadline ? fmtSeconds(remaining) : "";
+    const urgent = remaining < 10000;
+    ["nightTimer", "discussionTimer", "votingTimer"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = label;
+      el.classList.toggle("urgent", urgent);
+    });
+  }
+
+  // Гравці НІКОЛИ не показують роль на цій сторінці, поки гра не завершилась —
+  // велкий екран бачать усі одночасно, включно з мафією.
+  function renderPlainGrid(containerId, players, extraTag) {
+    const el = document.getElementById(containerId);
+    el.innerHTML = Object.entries(players).map(([name, p]) => `
+      <div class="big-card ${p.alive ? "" : "dead"}">
+        <div class="avatar">${initials(name)}</div>
+        <div class="name">${escapeHtml(name)}</div>
+        ${extraTag ? extraTag(name, p) : ""}
+      </div>`).join("") || `<div class="sleeping-note">Ще нікого немає</div>`;
+  }
+
+  function renderLobby(state) {
+    const players = state.players || {};
+    document.getElementById("lobbyStatus").textContent =
+      `Гравців: ${Object.keys(players).length} з ${window.MafiaGame.MIN_PLAYERS}–${window.MafiaGame.MAX_PLAYERS} потрібних`;
+    renderPlainGrid("lobbyGrid", players, (name, p) => `
+      <div>
+        ${state.hostUsername === name ? '<span class="tag host">ХОСТ</span>' : ""}
+        <span class="tag ${p.ready ? "ready" : "waiting"}">${p.ready ? "Готовий" : "Очікує"}</span>
+      </div>`);
+  }
+
+  function renderNight(state) {
+    document.getElementById("nightNumberLabel").textContent = state.nightNumber || 1;
+    renderPlainGrid("nightGrid", state.players || {});
+  }
+
+  function renderNightResult(state) {
+    const result = state.nightResult || {};
+    const players = state.players || {};
+    const dead = result.deadPlayer;
+    // Навмисно НЕ показуємо result.inspected — це приватна інформація комісара.
+    document.getElementById("nightResultContent").innerHTML = `
+      <div class="result-card ${dead ? "" : "safe"}">
+        <div class="avatar-big">${dead ? initials(dead) : "🌅"}</div>
+        <div class="result-title">${dead ? `Тієї ночі загинув(ла): ${escapeHtml(dead)}` : "Цієї ночі ніхто не загинув"}</div>
+        <div class="result-sub">${dead ? "Лікар не встиг врятувати цього гравця." : "Хтось цієї ночі був під захистом."}</div>
+      </div>`;
+    renderPlainGrid("resultGrid", players);
+  }
+
+  function renderDayDiscussion(state) {
+    const chat = state.chat || {};
+    const rows = Object.values(chat).sort((a, b) => (a.at || 0) - (b.at || 0)).slice(-20);
+    const log = document.getElementById("chatLog");
+    log.innerHTML = rows.length
+      ? rows.map((c) => `<div class="chat-line"><span class="who">${escapeHtml(c.username)}:</span>${escapeHtml(c.text)}</div>`).join("")
+      : `<div class="chat-line system">Обговорення почалось — говоріть уголос або пишіть з телефона.</div>`;
+    log.scrollTop = log.scrollHeight;
+    renderPlainGrid("discussionGrid", state.players || {});
+  }
+
+  function renderDayVoting(state) {
+    const players = state.players || {};
+    const counts = {};
+    Object.values(players).forEach((p) => { if (p.alive && p.vote) counts[p.vote] = (counts[p.vote] || 0) + 1; });
+    // Показуємо лише СУМУ голосів на гравця — не хто саме голосував (це має
+    // лишатись відомим лише живим гравцям, які самі вирішують, розкривати свій
+    // голос уголос чи ні).
+    renderPlainGrid("votingGrid", players, (name, p) => {
+      const n = counts[name] || 0;
+      return n ? `<div><span class="tag votes">${n} ${n === 1 ? "голос" : "голоси"}</span></div>` : "";
+    });
+  }
+
+  function renderGameOver(state) {
+    const players = state.players || {};
+    const won = state.winner === "mafia" ? "МАФІЯ ПЕРЕМОГЛА" : "МИРНІ ПЕРЕМОГЛИ";
+    const stampCls = state.winner === "mafia" ? "" : "win-civilians";
+    document.getElementById("gameOverContent").innerHTML = `
+      <div class="stamp-wrap"><div class="stamp ${stampCls}">${won}</div></div>
+      <div class="reveal-grid">
+        ${Object.entries(players).map(([name, p]) => `
+          <div class="reveal-card ${p.alive ? "" : "dead"}">
+            <div class="avatar">${initials(name)}</div>
+            <div class="name">${escapeHtml(name)}</div>
+            <span class="role-tag ${p.role}">${(ROLE_META[p.role] || {}).name || "?"}</span>
+          </div>`).join("")}
+      </div>`;
+  }
+
+  function onState(state) {
+    lastState = state;
+    if (!state) return;
+    showView(state.phase || "lobby");
+    switch (state.phase) {
+      case "lobby": renderLobby(state); break;
+      case "night": renderNight(state); break;
+      case "night_result": renderNightResult(state); break;
+      case "day_discussion": renderDayDiscussion(state); break;
+      case "day_voting": renderDayVoting(state); break;
+      case "game_over": renderGameOver(state); break;
+    }
+  }
+
+  let unsubscribeRooms = null;
+
+  function stopWatchingRoomsList() {
+    if (unsubscribeRooms) { unsubscribeRooms(); unsubscribeRooms = null; }
+  }
+
+  function renderRoomsList(rooms) {
+    const el = document.getElementById("activeRoomsList");
+    if (!rooms.length) {
+      el.innerHTML = '<div class="status-line">Активних кімнат поки нема.</div>';
+      return;
+    }
+    el.innerHTML = rooms.map((r) => `
+      <div class="room-item" data-room="${r.roomId}">
+        <div class="room-item-head">
+          <span class="room-item-title">Кімната ${escapeHtml(r.roomId)}</span>
+          <span class="room-item-phase ${r.phase === "lobby" ? "is-lobby" : ""}">${PHASE_LABELS[r.phase] || r.phase}</span>
+        </div>
+        <div class="room-item-avatars">
+          ${r.usernames.slice(0, 10).map((u) => `<span class="mini-avatar">${initials(u)}</span>`).join("")}
+          ${r.usernames.length > 10 ? `<span class="mini-avatar more">+${r.usernames.length - 10}</span>` : ""}
+        </div>
+      </div>`).join("");
+
+    el.querySelectorAll(".room-item").forEach((item) => {
+      item.addEventListener("click", () => {
+        const roomId = item.dataset.room;
+        stopWatchingRoomsList();
+        history.replaceState(null, "", location.pathname + "?room=" + roomId);
+        beginWatch(roomId);
+      });
+    });
+  }
+
+  function beginWatch(roomId) {
+    stopWatchingRoomsList();
+    window.MafiaGame.onStateChange = (state) => onState(state);
+    window.MafiaGame.watch(roomId);
+    countdownTimer = setInterval(updateCountdowns, 1000);
+  }
+
+  document.getElementById("createRoomBtn").addEventListener("click", () => {
+    const code = randomRoomCode();
+    history.replaceState(null, "", location.pathname + "?room=" + code);
+    beginWatch(code);
+  });
+  document.getElementById("joinRoomBtn").addEventListener("click", () => {
+    const code = document.getElementById("roomCodeInput").value.trim().toUpperCase();
+    if (!code) return;
+    history.replaceState(null, "", location.pathname + "?room=" + code);
+    beginWatch(code);
+  });
+  document.getElementById("roomCodeInput").addEventListener("input", (e) => {
+    e.target.value = e.target.value.toUpperCase();
+  });
+
+  const urlRoom = new URLSearchParams(location.search).get("room");
+  if (urlRoom) {
+    beginWatch(urlRoom.toUpperCase());
+  } else {
+    unsubscribeRooms = window.MafiaGame.watchActiveRooms(renderRoomsList);
+  }
+
+  window.addEventListener("beforeunload", () => {
+    if (countdownTimer) clearInterval(countdownTimer);
+    stopWatchingRoomsList();
+    if (window.MafiaGame) window.MafiaGame.stop();
+  });
+})();
+</script>
+</body>
+</html>
