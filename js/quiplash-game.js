@@ -20,10 +20,15 @@
   const ROUND_PLAN = ["classic", "classic", "image"];
   const TOTAL_ROUNDS = ROUND_PLAN.length;
 
-  const DEFAULT_VOTE_SECONDS = 25;
+  const DEFAULT_VOTE_SECONDS = 60; // єдине дефолтне значення, без вибору хостом
   const MIN_VOTE_SECONDS = 10;
   const MAX_VOTE_SECONDS = 90;
   const GALLERY_VOTE_BONUS_SECONDS = 10;
+  // Час анімованої "VS"-заставки на TV перед відкриттям голосування. Раніше
+  // це число дублювалось окремо в quiplash-tv.html і quiplash.html — тепер
+  // єдине джерело правди тут, і воно реально закладається в phaseDeadline
+  // (нижче), а не просто ховає кнопки поверх незміненого таймера.
+  const VOTE_INTRO_MS = 1800;
   const ANSWERING_COUNTDOWN_MS = 4000;
   const REVEAL_TIME_MS = 6000;
   const ROUND_END_TIME_MS = 8000;
@@ -219,6 +224,7 @@
       gallery: null,
       tvFact: null,
       phaseDeadline: null,
+      voteRevealAt: null,
       paused: false,
       awaitingContinuation: false,
       superSmihlystokUsername: null,
@@ -452,6 +458,7 @@
         const elapsed = now() - (state.pausedAt || now());
         const updates = { paused: false, pausedAt: null, pausedByName: null };
         if (state.phaseDeadline) updates.phaseDeadline = state.phaseDeadline + elapsed;
+        if (state.voteRevealAt) updates.voteRevealAt = state.voteRevealAt + elapsed;
         ref.update(updates);
       }
     });
@@ -655,7 +662,8 @@
 
       if (state.phase === "answer_countdown") {
         if (t >= state.phaseDeadline) {
-          ref.update({ phase: "voting", phaseDeadline: t + (state.gallery ? galleryVoteMs(state) : classicVoteMs(state)) });
+          const voteMs = state.gallery ? galleryVoteMs(state) : classicVoteMs(state);
+          ref.update({ phase: "voting", voteRevealAt: t + VOTE_INTRO_MS, phaseDeadline: t + VOTE_INTRO_MS + voteMs });
         }
         return;
       }
@@ -691,7 +699,7 @@
           const nextIdx = state.currentMatchupIndex + 1;
           const list = Object.values(state.matchups);
           if (nextIdx < list.length) {
-            ref.update({ phase: "voting", currentMatchupIndex: nextIdx, phaseDeadline: t + classicVoteMs(state) });
+            ref.update({ phase: "voting", currentMatchupIndex: nextIdx, voteRevealAt: t + VOTE_INTRO_MS, phaseDeadline: t + VOTE_INTRO_MS + classicVoteMs(state) });
           } else {
             ref.update({ phase: "round_end", phaseDeadline: t + ROUND_END_TIME_MS });
           }
@@ -713,7 +721,7 @@
 
   window.QuiplashGame = {
     MIN_PLAYERS, MAX_PLAYERS, TOTAL_ROUNDS,
-    MIN_VOTE_SECONDS, MAX_VOTE_SECONDS, DEFAULT_VOTE_SECONDS,
+    MIN_VOTE_SECONDS, MAX_VOTE_SECONDS, DEFAULT_VOTE_SECONDS, VOTE_INTRO_MS,
     connectedEntries, computeHost,
     start, stop, cleanupIfAbandoned,
     updateSettings, startGame, 

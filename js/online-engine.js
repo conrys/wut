@@ -153,17 +153,21 @@
     // schema     — RoomSchema (значення за замовчуванням для верхніх полів)
     // buildFresh — () => ({ ...ігрові поля для НОВОЇ кімнати, players: {...} })
     // Повертає { room, roomId, recreated, repaired }.
+    // ВАЖЛИВО: ніде тут не викликаємо ref.remove() окремо перед ref.set() —
+    // set() і так атомарно замінює ВЕСЬ вузол цілком (ніякого попереднього
+    // remove() не потрібно). Якщо зробити remove()+set() як два окремі
+    // записи, між ними на мить існує null-знімок кімнати — і listener кожного
+    // ІНШОГО підключеного клієнта (roomRef.on("value")) отримує цей null,
+    // трактує його як "кімнати більше нема" і сам себе відписує через
+    // leaveRoomLocally(). У результаті всі, крім того, хто ініціював
+    // скидання (він одразу переприєднується сам), лишаються без активного
+    // listener'а — і бачать "заморожену" сторінку, поки не оновлять вручну.
     async function getOrCreateRoom(roomId, schema, buildFresh) {
       const ref = window.rtdb.ref(`${ROOMS_PATH}/${roomId}`);
       const snap = await ref.get();
       let room = snap.exists() ? snap.val() : null;
 
-      if (room && isRoomStale(room)) {
-        await ref.remove();
-        room = null;
-      }
-
-      if (!room) {
+      if (!room || isRoomStale(room)) {
         room = { ...schema, ...buildFresh(), createdAt: now(), lastActivityAt: now() };
         await ref.set(room);
         return { room, roomId, recreated: true, repaired: false };
@@ -181,9 +185,12 @@
 
     // Примусово прибрати конкретну кімнату незалежно від віку (напр. кнопка
     // "скинути гру" в UI хоста).
+    // Той самий принцип, що й вище: жодного remove() перед set() — інакше
+    // ВСІ інші підключені клієнти на мить бачать null і відписуються.
     function forceResetRoom(roomId, schema, buildFresh) {
-      return window.rtdb.ref(`${ROOMS_PATH}/${roomId}`).remove()
-        .then(() => getOrCreateRoom(roomId, schema, buildFresh));
+      const ref = window.rtdb.ref(`${ROOMS_PATH}/${roomId}`);
+      const room = { ...schema, ...buildFresh(), createdAt: now(), lastActivityAt: now() };
+      return ref.set(room).then(() => ({ room, roomId, recreated: true, repaired: false }));
     }
 
     // ------------------------- приєднання до кімнати -------------------------

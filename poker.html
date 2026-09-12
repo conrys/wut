@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<title>Покер</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #14161a; --tile-bg: #22252b; --text-light: #f4f5f1; --text-muted: #8b909c; --accent: #38cfa0;
+    --red: #d9455f; --black: #1a1c21;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none;
+      -webkit-user-select: none; -webkit-touch-callout: none; }
+  html, body { margin: 0; padding: 0; min-height: 100dvh; background: var(--bg);
+      font-family: 'Inter', sans-serif; color: var(--text-light); overflow-x: hidden; touch-action: manipulation; }
+  .page { max-width: 480px; margin: 0 auto; padding: 60px 12px 16px; min-height: 100dvh; display: flex; flex-direction: column; }
+  .hidden { display: none !important; }
+  h2 { font-family: 'Space Grotesk', sans-serif; font-size: 20px; margin: 0 0 14px; text-align: center; }
+  .status-line { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 14px; }
+
+  /* --------- картки (стиль з Косинки) --------- */
+  .card { width: 40px; height: 56px; border-radius: 6px;
+      background: linear-gradient(145deg, #ffffff 0%, #f1f2ec 100%);
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Space Grotesk', sans-serif;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.8);
+      position: relative; flex-shrink: 0; }
+  .card.red { color: var(--red); }
+  .card.black { color: var(--black); }
+  .card.honor { background: linear-gradient(145deg, #fffdfa 0%, #f4eee2 100%); border: 1px solid rgba(212, 175, 55, 0.4); }
+  .card.back { background: radial-gradient(circle, #2b594b 0%, #132a23 100%); border: 1px solid rgba(255, 255, 255, 0.2); }
+  .card.back::before { content: ""; position: absolute; inset: 3px; border: 1px dashed rgba(255, 255, 255, 0.3); border-radius: 3px;
+      background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.04) 0 4px, transparent 4px 8px); }
+  .card.back::after { content: "⚜️"; font-size: 12px; opacity: 0.7; filter: grayscale(0.3); }
+  .card .corner { position: absolute; top: 3px; left: 4px; display: flex; flex-direction: column; align-items: center; line-height: 0.85; }
+  .card .rank { font-size: 10px; font-weight: 700; }
+  .card .mini-suit { font-size: 7px; margin-top: 1px; opacity: 0.85; }
+  .card .suit { font-size: 19px; line-height: 1; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.08)); }
+  .card.big { width: 54px; height: 76px; }
+  .card.big .rank { font-size: 13px; } .card.big .suit { font-size: 26px; } .card.big .mini-suit { font-size: 9px; }
+
+  /* --------- стіл --------- */
+  #view-table { flex: 1; display: flex; flex-direction: column; }
+  .pot-row { text-align: center; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 14px;
+      color: var(--accent); margin-bottom: 8px; }
+  .community-row { display: flex; gap: 6px; justify-content: center; min-height: 56px; margin-bottom: 14px; }
+
+  .opponents-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 16px; }
+  .seat-chip {
+    background: var(--tile-bg); border-radius: 12px; padding: 8px 10px; text-align: center;
+    min-width: 84px; border: 1px solid rgba(255,255,255,0.06); position: relative;
+  }
+  .seat-chip.folded { opacity: 0.4; }
+  .seat-chip.acting { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(56,207,160,0.4); }
+  .seat-chip .name { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px; }
+  .seat-chip .stack { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 13px; margin: 2px 0; }
+  .seat-chip .bet { font-size: 11px; color: var(--accent); min-height: 14px; }
+  .seat-chip .mini-cards { display: flex; gap: 2px; justify-content: center; margin-top: 4px; transform: scale(0.55); transform-origin: top center; height: 30px; }
+  .dealer-badge { position: absolute; top: -6px; right: -6px; background: #e0b83f; color: #241c0c;
+      font-size: 9px; font-weight: 700; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; }
+
+  .result-banner { text-align: center; background: var(--tile-bg); border: 1px solid var(--accent); border-radius: 14px;
+      padding: 12px; margin: 0 0 14px; font-size: 13px; color: var(--text-light); }
+
+  .my-seat { margin-top: auto; text-align: center; }
+  .my-hole-cards { display: flex; gap: 6px; justify-content: center; margin-bottom: 8px; min-height: 76px; align-items: flex-end; }
+  .my-info { font-size: 13px; color: var(--text-muted); margin-bottom: 10px; }
+  .my-info b { color: var(--text-light); font-family: 'Space Grotesk', sans-serif; }
+
+  .action-bar { display: flex; flex-direction: column; gap: 8px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+  .action-buttons { display: flex; gap: 8px; }
+  .action-buttons button {
+    flex: 1; border: none; border-radius: 14px; padding: 13px 8px; font-weight: 700; font-size: 13px;
+    cursor: pointer; background: #272729; color: var(--text-light); border: 1px solid rgba(255,255,255,0.12);
+  }
+  .action-buttons button.fold { color: #ff8c8c; }
+  .action-buttons button.primary { background: var(--accent); color: #0e2318; }
+  .action-buttons button:disabled { opacity: 0.35; }
+  .raise-row { display: flex; align-items: center; gap: 8px; }
+  .raise-row input[type=range] { flex: 1; }
+  .raise-row .amount { font-family: 'Space Grotesk', sans-serif; font-weight: 700; min-width: 54px; text-align: right; }
+  .waiting-line { text-align: center; font-size: 12px; color: var(--text-muted); padding: 10px 0; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div id="view-locked" class="hidden">
+    <h2>♠️ Покер</h2>
+    <div class="status-line">Увійди в профіль (кнопка зверху), щоб сісти за стіл</div>
+  </div>
+
+  <div id="view-table" class="hidden">
+    <div class="pot-row" id="potLabel">Банк: 0</div>
+    <div class="community-row" id="communityRow"></div>
+
+    <div class="result-banner hidden" id="resultBanner"></div>
+
+    <div class="opponents-row" id="opponentsRow"></div>
+
+    <div class="my-seat">
+      <div class="my-hole-cards" id="myHoleCards"></div>
+      <div class="my-info">Твій стек: <b id="myStack">0</b></div>
+
+      <div class="action-bar hidden" id="actionBar">
+        <div class="raise-row">
+          <input type="range" id="raiseSlider" min="0" max="0" step="10" value="0" />
+          <span class="amount" id="raiseAmountLabel">0</span>
+        </div>
+        <div class="action-buttons">
+          <button class="fold" id="foldBtn">Скинути</button>
+          <button id="checkCallBtn">Чек</button>
+          <button id="betRaiseBtn">Ставка</button>
+          <button class="primary" id="allInBtn">Ва-банк</button>
+        </div>
+      </div>
+      <div class="waiting-line hidden" id="waitingLine"></div>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/login.js"></script>
+<script src="js/online-engine.js"></script>
+<script src="js/poker-game.js"></script>
+<script src="js/help.js"></script>
+<script src="js/back-button.js"></script>
+<script src="js/refresh-button.js"></script>
+<script>
+(function () {
+  const SUIT_SYMBOL = { S: "♠", H: "♥", D: "♦", C: "♣" };
+  const RED_SUITS = new Set(["H", "D"]);
+  const RANK_LABEL = { 14: "A", 13: "K", 12: "Q", 11: "J" };
+  function rankLabel(r) { return RANK_LABEL[r] || String(r); }
+  function colorOf(card) { return RED_SUITS.has(card.suit) ? "red" : "black"; }
+
+  function makeCardEl(card, opts) {
+    opts = opts || {};
+    const el = document.createElement("div");
+    const isHonor = !opts.faceDown && card && card.rank >= 11;
+    el.className = "card" + (opts.big ? " big" : "") + (opts.faceDown ? " back" : " " + colorOf(card)) + (isHonor ? " honor" : "");
+    if (!opts.faceDown && card) {
+      el.innerHTML = `
+        <div class="corner"><span class="rank">${rankLabel(card.rank)}</span><span class="mini-suit">${SUIT_SYMBOL[card.suit]}</span></div>
+        <div class="suit">${SUIT_SYMBOL[card.suit]}</div>`;
+    }
+    return el;
+  }
+
+  function escapeHtml(s) {
+    const d = document.createElement("div");
+    d.textContent = s || "";
+    return d.innerHTML;
+  }
+
+  let username = null;
+  let lastState = null;
+
+  function seatKeysSorted(seats) { return Object.keys(seats || {}).sort((a, b) => Number(a) - Number(b)); }
+  function seatLabel(state, seatKey) {
+    const s = state.seats[seatKey];
+    return s.occupantType === "bot" ? "Бот " + s.botId.slice(-1) : s.username;
+  }
+
+  function render(state, ctx) {
+    lastState = state;
+    if (!ctx.username) { show("locked"); return; }
+    if (!state.seats || !Object.keys(state.seats).length) { show("locked"); return; }
+    show("table");
+
+    const keys = seatKeysSorted(state.seats);
+    const mySeat = keys.find((k) => state.seats[k].occupantType === "human" && state.seats[k].username === username);
+    const hand = state.hand;
+
+    let pot = 0;
+    if (hand) Object.values(hand.seatsInHand).forEach((s) => { pot += s.totalBet; });
+    document.getElementById("potLabel").textContent = "Банк: " + pot;
+
+    const communityRow = document.getElementById("communityRow");
+    communityRow.innerHTML = "";
+    (hand ? hand.community : []).forEach((c) => communityRow.appendChild(makeCardEl(c, { big: true })));
+
+    const resultBanner = document.getElementById("resultBanner");
+    if (hand && hand.street === "hand_result" && hand.resultText) {
+      resultBanner.textContent = hand.resultText;
+      resultBanner.classList.remove("hidden");
+    } else {
+      resultBanner.classList.add("hidden");
+    }
+
+    const oppRow = document.getElementById("opponentsRow");
+    oppRow.innerHTML = "";
+    keys.filter((k) => k !== mySeat).forEach((k) => {
+      const seatInfo = state.seats[k];
+      const hs = hand && hand.seatsInHand[k];
+      const chip = document.createElement("div");
+      chip.className = "seat-chip" + (hs && hs.folded ? " folded" : "") + (hand && hand.toActSeat === k ? " acting" : "");
+      const nameEl = document.createElement("div");
+      nameEl.className = "name";
+      nameEl.textContent = seatLabel(state, k);
+      const stackEl = document.createElement("div");
+      stackEl.className = "stack";
+      stackEl.textContent = (seatInfo.stack || 0) + (hs && hs.allIn ? " (ва-банк)" : "");
+      const betEl = document.createElement("div");
+      betEl.className = "bet";
+      betEl.textContent = hs && hs.betThisRound ? "ставка " + hs.betThisRound : "";
+      chip.appendChild(nameEl); chip.appendChild(stackEl); chip.appendChild(betEl);
+
+      if (hs && (hand.revealAll || hand.street === "hand_result") && !hs.folded) {
+        const mini = document.createElement("div");
+        mini.className = "mini-cards";
+        hs.holeCards.forEach((c) => mini.appendChild(makeCardEl(c, {})));
+        chip.appendChild(mini);
+      } else if (hs && !hs.folded) {
+        const mini = document.createElement("div");
+        mini.className = "mini-cards";
+        mini.appendChild(makeCardEl(null, { faceDown: true }));
+        mini.appendChild(makeCardEl(null, { faceDown: true }));
+        chip.appendChild(mini);
+      }
+
+      if (state.dealerSeat === k) {
+        const badge = document.createElement("div");
+        badge.className = "dealer-badge";
+        badge.textContent = "D";
+        chip.appendChild(badge);
+      }
+      oppRow.appendChild(chip);
+    });
+
+    const myHole = document.getElementById("myHoleCards");
+    myHole.innerHTML = "";
+    const myHs = mySeat && hand ? hand.seatsInHand[mySeat] : null;
+    if (myHs && !myHs.folded) {
+      myHs.holeCards.forEach((c) => myHole.appendChild(makeCardEl(c, { big: true })));
+    } else if (myHs && myHs.folded) {
+      myHole.innerHTML = '<div class="waiting-line" style="padding:0;">Скинуто цю роздачу</div>';
+    }
+    document.getElementById("myStack").textContent = mySeat ? (state.seats[mySeat].stack || 0) : 0;
+
+    const actionBar = document.getElementById("actionBar");
+    const waitingLine = document.getElementById("waitingLine");
+    const myTurn = mySeat && hand && hand.toActSeat === mySeat && myHs && !myHs.folded && !myHs.allIn;
+    actionBar.classList.toggle("hidden", !myTurn);
+    waitingLine.classList.toggle("hidden", !!myTurn);
+    if (!myTurn) {
+      waitingLine.textContent = !mySeat ? "" : (hand && hand.street === "hand_result" ? "" : "Очікуємо хід...");
+    }
+    if (myTurn) updateActionBar(state, hand, mySeat, myHs);
+  }
+
+  function updateActionBar(state, hand, mySeat, myHs) {
+    const stack = state.seats[mySeat].stack || 0;
+    const toCall = hand.currentBet - myHs.betThisRound;
+    const checkCallBtn = document.getElementById("checkCallBtn");
+    checkCallBtn.textContent = toCall > 0 ? "Колл " + Math.min(toCall, stack) : "Чек";
+
+    const slider = document.getElementById("raiseSlider");
+    const minRaiseTo = hand.currentBet + hand.minRaise;
+    const maxRaiseTo = stack + myHs.betThisRound;
+    slider.min = Math.min(minRaiseTo, maxRaiseTo);
+    slider.max = maxRaiseTo;
+    slider.step = 10;
+    if (Number(slider.value) < Number(slider.min) || !slider.dataset.touched) slider.value = slider.min;
+    document.getElementById("raiseAmountLabel").textContent = slider.value;
+
+    const betRaiseBtn = document.getElementById("betRaiseBtn");
+    betRaiseBtn.textContent = hand.currentBet > 0 ? "Рейз до " + slider.value : "Ставка " + slider.value;
+    betRaiseBtn.disabled = maxRaiseTo <= hand.currentBet;
+  }
+
+  document.getElementById("raiseSlider").addEventListener("input", (e) => {
+    e.target.dataset.touched = "1";
+    document.getElementById("raiseAmountLabel").textContent = e.target.value;
+    const hand = lastState.hand;
+    document.getElementById("betRaiseBtn").textContent = (hand.currentBet > 0 ? "Рейз до " : "Ставка ") + e.target.value;
+  });
+
+  document.getElementById("foldBtn").addEventListener("click", () => window.PokerGame.playerAction(lastState, "fold"));
+  document.getElementById("checkCallBtn").addEventListener("click", () => {
+    const hand = lastState.hand;
+    const mySeat = seatKeysSorted(lastState.seats).find((k) => lastState.seats[k].occupantType === "human" && lastState.seats[k].username === username);
+    const toCall = hand.currentBet - hand.seatsInHand[mySeat].betThisRound;
+    window.PokerGame.playerAction(lastState, toCall > 0 ? "call" : "check");
+  });
+  document.getElementById("betRaiseBtn").addEventListener("click", () => {
+    const amount = Number(document.getElementById("raiseSlider").value);
+    const hand = lastState.hand;
+    window.PokerGame.playerAction(lastState, hand.currentBet > 0 ? "raise" : "bet", amount);
+  });
+  document.getElementById("allInBtn").addEventListener("click", () => {
+    const mySeat = seatKeysSorted(lastState.seats).find((k) => lastState.seats[k].occupantType === "human" && lastState.seats[k].username === username);
+    const stack = lastState.seats[mySeat].stack || 0;
+    const hand = lastState.hand;
+    const allInTo = stack + hand.seatsInHand[mySeat].betThisRound;
+    window.PokerGame.playerAction(lastState, hand.currentBet > 0 ? "raise" : "bet", allInTo);
+  });
+
+  const VIEWS = ["locked", "table"];
+  function show(name) { VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name)); }
+
+  document.addEventListener("selectstart", (e) => e.preventDefault());
+
+  const session = window.AppAuth && window.AppAuth.getSession();
+  if (session && window.rtdbReady) {
+    username = session.username;
+    window.PokerGame.onStateChange = render;
+    window.PokerGame.start(session.username);
+  } else {
+    show("locked");
+  }
+
+  window.addEventListener("beforeunload", () => { if (window.PokerGame) window.PokerGame.stop(); });
+})();
+</script>
+</body>
+</html>

@@ -291,9 +291,7 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
 
   let lastLobbyRingKey = null;
   let appliedSessionSeed = null;
-  const VOTE_INTRO_MS = 1800;
   let voteIntroKey = null;
-  let voteIntroUntil = 0;
   let latestState = null;
 
   function playersArray(state) {
@@ -516,15 +514,15 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
         if (isVoting) {
           const introKey = `gallery-${state.round}`;
           if (introKey !== voteIntroKey) {
-            voteIntroKey = introKey; voteIntroUntil = Date.now() + VOTE_INTRO_MS;
+            voteIntroKey = introKey;
             renderVoteIntro(state, null, candidates, authors);
           }
-          const showIntro = Date.now() < voteIntroUntil;
+          const showIntro = !!state.voteRevealAt && Date.now() < state.voteRevealAt;
           document.getElementById("host-vote-intro").classList.toggle("hidden", !showIntro);
           document.getElementById("host-vote-main").classList.toggle("hidden", showIntro);
 
           document.getElementById("host-vote-progress").textContent = `Раунд ${state.round}/${QuiplashGame.TOTAL_ROUNDS} · Голосування за найкращий підпис`;
-          setTimerFill(document.getElementById("host-vote-timer"), effectiveDeadline(state), ((state.settings.voteSeconds || 25) + 10) * 1000);
+          setTimerFill(document.getElementById("host-vote-timer"), effectiveDeadline(state), ((state.settings.voteSeconds || 60) + 10) * 1000);
           document.getElementById("host-prompt").textContent = g.text;
           const promptImg = document.getElementById("host-prompt-image");
           promptImg.src = g.image; promptImg.classList.remove("hidden");
@@ -567,17 +565,17 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
       if (isVoting) {
         const introKey = m.id;
         if (introKey !== voteIntroKey) {
-          voteIntroKey = introKey; voteIntroUntil = Date.now() + VOTE_INTRO_MS;
+          voteIntroKey = introKey;
           renderVoteIntro(state, { pa, pb });
         }
-        const showIntro = Date.now() < voteIntroUntil;
+        const showIntro = !!state.voteRevealAt && Date.now() < state.voteRevealAt;
         document.getElementById("host-vote-intro").classList.toggle("hidden", !showIntro);
         document.getElementById("host-vote-main").classList.toggle("hidden", showIntro);
 
         document.getElementById("host-pair-choices").classList.remove("hidden");
         document.getElementById("host-gallery-choices").classList.add("hidden");
         document.getElementById("host-vote-progress").textContent = `Раунд ${state.round}/${QuiplashGame.TOTAL_ROUNDS} · Пара ${state.currentMatchupIndex + 1}/${list.length}`;
-        setTimerFill(document.getElementById("host-vote-timer"), effectiveDeadline(state), (state.settings.voteSeconds || 25) * 1000);
+        setTimerFill(document.getElementById("host-vote-timer"), effectiveDeadline(state), (state.settings.voteSeconds || 60) * 1000);
         document.getElementById("host-prompt").textContent = m.promptText;
         document.getElementById("host-prompt-image").classList.add("hidden");
         document.getElementById("host-answer-a-text").textContent = m.answerA;
@@ -691,8 +689,8 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
     if (latestState.phase !== "voting") return;
     const timer = document.getElementById("host-vote-timer");
     const total = latestState.gallery
-      ? ((latestState.settings.voteSeconds || 25) + 10) * 1000
-      : (latestState.settings.voteSeconds || 25) * 1000;
+      ? ((latestState.settings.voteSeconds || 60) + 10) * 1000
+      : (latestState.settings.voteSeconds || 60) * 1000;
     setTimerFill(timer, effectiveDeadline(latestState), total);
   }, 200);
   waitForRtdb();

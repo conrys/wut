@@ -43,8 +43,6 @@ h1, h2 { margin: 0 0 8px; }
 button { padding: 10px 18px; font-size: 16px; border: none; border-radius: 6px; background: #3498db; color: #fff; cursor: pointer; }
 button:disabled { opacity: 0.5; cursor: default; }
 
-#lobby-settings { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 20px 0 4px; font-size: 14px; color: #c8c8d0; flex-wrap: wrap; }
-#vote-seconds-select { padding: 8px 10px; border-radius: 6px; border: 1px solid #444; background: #2b2b33; color: #fff; font-size: 14px; }
 #avatar-picker { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 12px 0 4px; font-size: 14px; color: #c8c8d0; }
 #avatar-select { padding: 8px 10px; border-radius: 6px; border: 1px solid #444; background: #2b2b33; color: #fff; font-size: 14px; }
 #start-btn, #restart-btn { background: #2ecc71; color: #10331e; font-weight: 600; margin-top: 12px; }
@@ -159,17 +157,6 @@ button:disabled { opacity: 0.5; cursor: default; }
     <div id="lobby-logo"><span>Сміх</span><span class="logo-accent">ліст</span></div>
   </div>
   <p class="hint" id="lobby-hint"></p>
-  <div id="lobby-settings" class="hidden">
-    <label for="vote-seconds-select">Час на голосування</label>
-    <select id="vote-seconds-select">
-      <option value="15">15 секунд</option>
-      <option value="20">20 секунд</option>
-      <option value="25">25 секунд</option>
-      <option value="30">30 секунд</option>
-      <option value="40">40 секунд</option>
-      <option value="60">60 секунд</option>
-    </select>
-  </div>
   <div id="avatar-picker">
     <label for="avatar-select">Аватар</label>
     <select id="avatar-select"></select>
@@ -267,10 +254,8 @@ button:disabled { opacity: 0.5; cursor: default; }
   const pauseByText = document.getElementById("pause-by-text");
   const lobbyRing = document.getElementById("lobby-ring");
   const lobbyHint = document.getElementById("lobby-hint");
-  const lobbySettings = document.getElementById("lobby-settings");
   const avatarPicker = document.getElementById("avatar-picker");
   const avatarSelect = document.getElementById("avatar-select");
-  const voteSecondsSelect = document.getElementById("vote-seconds-select");
   const startBtn = document.getElementById("start-btn");
   const answerTitle = document.getElementById("answer-title");
   const answerExplainer = document.getElementById("answer-explainer");
@@ -534,6 +519,25 @@ button:disabled { opacity: 0.5; cursor: default; }
     answerCountdown.textContent = "Всі відповіли. Готуємось до голосування…";
   }
 
+  // На TV перед голосуванням показується анімована "VS"-заставка
+  // (quiplash-tv.html) — блокуємо кнопки голосування на телефоні до того ж
+  // моменту. voteRevealAt пише хост (quiplash-game.js) явно, разом з
+  // phaseDeadline, що вже враховує цю затримку — тому голосуючі отримують
+  // повні заявлені секунди, а не (секунди мінус тривалість заставки).
+  let voteIntroTimer = null;
+
+  function isVoteIntroLocked(state) {
+    return !!state.voteRevealAt && Date.now() < state.voteRevealAt;
+  }
+
+  function scheduleVoteIntroUnlock(state) {
+    clearTimeout(voteIntroTimer);
+    const wait = Math.max(0, (state.voteRevealAt || 0) - Date.now());
+    voteIntroTimer = setTimeout(() => {
+      if (lastState && lastState.phase === "voting") renderVoting(lastState);
+    }, wait + 30);
+  }
+
   function renderVoting(state) {
     galleryChoices.classList.add("hidden");
     votingChoices.classList.add("hidden");
@@ -561,7 +565,13 @@ button:disabled { opacity: 0.5; cursor: default; }
         });
         return;
       }
-      setTimerFill(effectiveDeadline(state), ((state.settings.voteSeconds || 25) + 10) * 1000);
+      setTimerFill(effectiveDeadline(state), ((state.settings.voteSeconds || 60) + 10) * 1000);
+      if (isVoteIntroLocked(state)) {
+        scheduleVoteIntroUnlock(state);
+        votingWaiting.classList.remove("hidden");
+        votingWaitingText.textContent = "Дивись на екран 👀";
+        return;
+      }
       const haveAnswered = g.answers && g.answers[session] !== undefined;
       const myVote = g.votes && g.votes[session];
       if (haveAnswered && !myVote) {
@@ -608,7 +618,13 @@ button:disabled { opacity: 0.5; cursor: default; }
       return;
     }
 
-    setTimerFill(effectiveDeadline(state), (state.settings.voteSeconds || 25) * 1000);
+    setTimerFill(effectiveDeadline(state), (state.settings.voteSeconds || 60) * 1000);
+    if (isVoteIntroLocked(state)) {
+      scheduleVoteIntroUnlock(state);
+      votingWaiting.classList.remove("hidden");
+      votingWaitingText.textContent = "Дивись на екран 👀";
+      return;
+    }
     const twoPlayerTest = Object.keys(state.players || {}).length === 2;
     if ((!isParticipant || twoPlayerTest) && !myVote) {
       votingChoices.classList.remove("hidden");
@@ -660,7 +676,6 @@ button:disabled { opacity: 0.5; cursor: default; }
       renderLobbyRing(players.map(([n, p]) => ({ name: n, ...p })));
       renderAvatarPicker(state, ctx.username);
       const conn = QuiplashGame.connectedEntries(state.players);
-      lobbySettings.classList.toggle("hidden", !ctx.host);
       startBtn.classList.toggle("hidden", !ctx.host);
       if (conn.length < QuiplashGame.MIN_PLAYERS) {
         lobbyHint.textContent = `Потрібно ще щонайменше ${QuiplashGame.MIN_PLAYERS - conn.length} гравців(-я).`;
@@ -669,7 +684,6 @@ button:disabled { opacity: 0.5; cursor: default; }
         lobbyHint.textContent = `Готово! Гравців: ${conn.length}/${QuiplashGame.MAX_PLAYERS}.`;
         startBtn.disabled = false;
       }
-      if (document.activeElement !== voteSecondsSelect) voteSecondsSelect.value = String(state.settings.voteSeconds || 25);
       return;
     }
 
@@ -710,7 +724,6 @@ button:disabled { opacity: 0.5; cursor: default; }
   pauseBtn.addEventListener("click", () => QuiplashGame.setPause(!(lastState && lastState.paused)));
   document.getElementById("resume-btn").addEventListener("click", () => QuiplashGame.setPause(false));
   startBtn.addEventListener("click", () => QuiplashGame.startGame(lastState));
-  voteSecondsSelect.addEventListener("change", (e) => QuiplashGame.updateSettings(Number(e.target.value)));
   avatarSelect.addEventListener("change", (e) => QuiplashGame.setAvatar(Number(e.target.value)));
   restartBtn.addEventListener("click", () => QuiplashGame.resetGame());
   continueBtn.addEventListener("click", () => QuiplashGame.continueGame());
