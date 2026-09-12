@@ -593,10 +593,17 @@
 
   function stop() { Engine.stop(); }
 
+  function resetTable(state) {
+    if (!isHost(state)) return;
+    return Engine.forceResetRoom(Engine.SHARED_ROOM_ID, ROOM_SCHEMA, () => ({})).then(() => {
+      Engine.joinRoom(Engine.SHARED_ROOM_ID, { asPlayer: true }).then(() => claimSeat(username));
+    });
+  }
+
   window.PokerGame = {
     STARTING_STACK, SMALL_BLIND, BIG_BLIND,
     evaluate5, compareHandValue, best5of7, computeSidePots,
-    start, stop, playerAction,
+    start, stop, playerAction, resetTable,
     set onStateChange(fn) { onStateChange = fn; },
   };
 })();

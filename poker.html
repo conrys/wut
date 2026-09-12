@@ -8,8 +8,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #14161a; --tile-bg: #22252b; --text-light: #f4f5f1; --text-muted: #8b909c; --accent: #38cfa0;
-    --red: #d9455f; --black: #1a1c21;
+    --bg: #0d1712; --tile-bg: #16241c; --text-light: #eef5ef; --text-muted: #7fa08d;
+    --accent: #3ecf7a; --accent-dark: #1f8f52; --red: #e35263; --black: #16241c;
+    --felt-1: #1e4a34; --felt-2: #0a1e14; --rail: #16281d; --rail-light: #22392a;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none;
       -webkit-user-select: none; -webkit-touch-callout: none; }
@@ -17,37 +18,39 @@
     margin: 0; padding: 0; min-height: 100dvh;
     background-color: var(--bg);
     background-image:
-      radial-gradient(ellipse at 50% 38%, rgba(45, 120, 90, 0.35) 0%, rgba(20, 22, 26, 0) 62%),
-      radial-gradient(circle, rgba(255,255,255,0.035) 1px, transparent 1px);
+      radial-gradient(ellipse at 50% 30%, rgba(62, 207, 122, 0.18) 0%, rgba(13, 23, 18, 0) 62%),
+      radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px);
     background-size: 100% 100%, 22px 22px;
     background-attachment: fixed;
     font-family: 'Inter', sans-serif; color: var(--text-light); overflow-x: hidden; touch-action: manipulation;
   }
-  .page { max-width: 480px; margin: 0 auto; padding: 60px 12px 16px; min-height: 100dvh; display: flex; flex-direction: column; }
+  .page { max-width: 480px; margin: 0 auto; padding: 56px 10px 14px; min-height: 100dvh; display: flex; flex-direction: column; }
   .hidden { display: none !important; }
   h2 { font-family: 'Space Grotesk', sans-serif; font-size: 20px; margin: 0 0 14px; text-align: center; }
   .status-line { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 14px; }
 
-  /* --------- картки (стиль з Косинки) --------- */
-  .card { width: 40px; height: 56px; border-radius: 6px;
+  /* --------- картки --------- */
+  .card { width: 34px; height: 47px; border-radius: 6px;
       background: linear-gradient(145deg, #ffffff 0%, #f1f2ec 100%);
       display: flex; align-items: center; justify-content: center;
       font-family: 'Space Grotesk', sans-serif;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.8);
+      box-shadow: 0 2px 5px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(255,255,255,0.8);
       position: relative; flex-shrink: 0; }
   .card.red { color: var(--red); }
   .card.black { color: var(--black); }
   .card.honor { background: linear-gradient(145deg, #fffdfa 0%, #f4eee2 100%); border: 1px solid rgba(212, 175, 55, 0.4); }
-  .card.back { background: radial-gradient(circle, #2b594b 0%, #132a23 100%); border: 1px solid rgba(255, 255, 255, 0.2); }
-  .card.back::before { content: ""; position: absolute; inset: 3px; border: 1px dashed rgba(255, 255, 255, 0.3); border-radius: 3px;
+  .card.back { background: radial-gradient(circle, #2f6b4c 0%, #0f2a1c 100%); border: 1px solid rgba(255, 255, 255, 0.18); }
+  .card.back::before { content: ""; position: absolute; inset: 3px; border: 1px dashed rgba(255, 255, 255, 0.28); border-radius: 3px;
       background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.04) 0 4px, transparent 4px 8px); }
-  .card.back::after { content: "⚜️"; font-size: 12px; opacity: 0.7; filter: grayscale(0.3); }
+  .card.back::after { content: "♣"; font-size: 12px; color: rgba(255,255,255,0.5); }
   .card .corner { position: absolute; top: 3px; left: 4px; display: flex; flex-direction: column; align-items: center; line-height: 0.85; }
-  .card .rank { font-size: 10px; font-weight: 700; }
-  .card .mini-suit { font-size: 7px; margin-top: 1px; opacity: 0.85; }
-  .card .suit { font-size: 19px; line-height: 1; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.08)); }
-  .card.big { width: 54px; height: 76px; }
-  .card.big .rank { font-size: 13px; } .card.big .suit { font-size: 26px; } .card.big .mini-suit { font-size: 9px; }
+  .card .rank { font-size: 9px; font-weight: 700; }
+  .card .mini-suit { font-size: 6px; margin-top: 1px; opacity: 0.85; }
+  .card .suit { font-size: 16px; line-height: 1; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.08)); }
+  .card.big { width: 46px; height: 64px; }
+  .card.big .rank { font-size: 12px; } .card.big .suit { font-size: 22px; } .card.big .mini-suit { font-size: 8px; }
+  .card.tiny { width: 22px; height: 30px; border-radius: 4px; }
+  .card.tiny .corner { top: 2px; left: 2px; } .card.tiny .rank { font-size: 7px; } .card.tiny .mini-suit { font-size: 5px; } .card.tiny .suit { font-size: 11px; }
 
   @keyframes dealIn {
     0% { transform: translateY(-46px) rotate(-10deg) scale(0.7); opacity: 0; }
@@ -56,47 +59,106 @@
   }
   .card.deal-in { animation: dealIn 0.42s cubic-bezier(.21,.82,.32,1.2) both; }
 
-  /* --------- стіл --------- */
+  /* --------- рамка столу --------- */
   #view-table { flex: 1; display: flex; flex-direction: column; }
-  .pot-row { text-align: center; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 14px;
-      color: var(--accent); margin-bottom: 8px; }
-  .community-row { display: flex; gap: 6px; justify-content: center; min-height: 56px; margin-bottom: 14px; }
-
-  .opponents-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 16px; }
-  .seat-chip {
-    background: var(--tile-bg); border-radius: 12px; padding: 8px 10px; text-align: center;
-    min-width: 84px; border: 1px solid rgba(255,255,255,0.06); position: relative;
+  .table-topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; padding: 0 4px; }
+  .table-brand { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 13px; letter-spacing: 0.06em; color: var(--text-light); opacity: 0.85; }
+  .pot-row { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 13px; color: var(--text-muted); }
+  .pot-row b { color: var(--accent); }
+  .reset-table-btn {
+    display: block; margin: 0 auto 8px; border: none; border-radius: 12px; padding: 5px 12px;
+    font-size: 11px; font-weight: 700; background: var(--rail-light); color: var(--text-muted);
+    border: 1px solid rgba(255,255,255,0.08); cursor: pointer;
   }
-  .seat-chip.folded { opacity: 0.4; }
-  .seat-chip.acting { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(56,207,160,0.4); }
-  .seat-chip .name { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px; }
-  .seat-chip .stack { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 13px; margin: 2px 0; }
-  .seat-chip .bet { font-size: 11px; color: var(--accent); min-height: 14px; }
-  .seat-chip .mini-cards { display: flex; gap: 2px; justify-content: center; margin-top: 4px; transform: scale(0.55); transform-origin: top center; height: 30px; }
-  .dealer-badge { position: absolute; top: -6px; right: -6px; background: #e0b83f; color: #241c0c;
-      font-size: 9px; font-weight: 700; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; }
+
+  /* --------- овальний стіл --------- */
+  .table-oval {
+    position: relative;
+    margin: 4px 0 10px;
+    height: 300px;
+    border-radius: 150px;
+    background:
+      radial-gradient(ellipse at 50% 42%, var(--felt-1) 0%, var(--felt-2) 78%);
+    border: 10px solid var(--rail);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.05) inset, 0 10px 24px rgba(0,0,0,0.45), inset 0 0 40px rgba(0,0,0,0.35);
+  }
+  .table-oval::before {
+    content: ""; position: absolute; inset: 10px; border-radius: 130px;
+    border: 1px dashed rgba(255,255,255,0.08); pointer-events: none;
+  }
+  .table-wordmark { position: absolute; left: 50%; top: 78%; transform: translate(-50%, -50%);
+    font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 20px; letter-spacing: 0.12em;
+    color: rgba(255,255,255,0.05); pointer-events: none; }
+
+  .community-row { position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%);
+    display: flex; gap: 5px; justify-content: center; min-height: 47px; }
+
+  .dealer-chip-center { position: absolute; left: 50%; top: 78%; transform: translate(-50%, -50%);
+    width: 20px; height: 20px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff, var(--accent) 60%, var(--accent-dark));
+    color: #0c2116; font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+
+  /* --------- місце гравця на столі --------- */
+  .seat-pos { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; width: 64px; }
+  .seat-pos .avatar-wrap { position: relative; }
+  .seat-avatar {
+    width: 40px; height: 40px; border-radius: 50%; background: var(--tile-bg);
+    border: 2px solid rgba(255,255,255,0.12); display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-family: 'Space Grotesk', sans-serif; font-weight: 700; color: var(--text-light);
+    position: relative; z-index: 2;
+  }
+  .seat-pos.acting .seat-avatar { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(62,207,122,0.35); }
+  .seat-pos.folded { opacity: 0.4; }
+  .seat-status { position: absolute; top: -3px; right: -3px; width: 15px; height: 15px; border-radius: 50%;
+    background: var(--accent); color: #0c2116; font-size: 9px; display: flex; align-items: center; justify-content: center;
+    border: 2px solid var(--felt-2); z-index: 3; }
+  .seat-idx { position: absolute; top: -3px; left: -3px; width: 15px; height: 15px; border-radius: 50%;
+    background: var(--rail-light); color: var(--text-muted); font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+    border: 2px solid var(--felt-2); z-index: 3; }
+  .seat-tag { background: var(--tile-bg); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;
+    padding: 2px 7px; font-size: 10px; font-weight: 700; font-family: 'Space Grotesk', sans-serif;
+    color: var(--text-light); white-space: nowrap; margin-top: 3px; max-width: 78px; overflow: hidden; text-overflow: ellipsis; }
+  .seat-name { font-size: 9px; color: var(--text-muted); font-weight: 400; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 70px; margin-top: 1px; }
+  .seat-chip-token { width: 14px; height: 14px; border-radius: 50%; margin-top: 3px;
+    background: radial-gradient(circle at 35% 30%, #fff, var(--accent) 55%, var(--accent-dark));
+    border: 2px solid rgba(255,255,255,0.5); box-shadow: 0 1px 3px rgba(0,0,0,0.5); }
+  .seat-bet-label { font-size: 9px; color: var(--accent); font-weight: 700; margin-top: 1px; min-height: 11px; }
+  .seat-mini-cards { display: flex; gap: 2px; margin-top: 3px; }
 
   .result-banner { text-align: center; background: var(--tile-bg); border: 1px solid var(--accent); border-radius: 14px;
-      padding: 12px; margin: 0 0 14px; font-size: 13px; color: var(--text-light); }
+      padding: 10px; margin: 0 0 10px; font-size: 13px; color: var(--text-light); }
 
+  /* --------- моє місце --------- */
   .my-seat { margin-top: auto; text-align: center; }
-  .my-hole-cards { display: flex; gap: 6px; justify-content: center; margin-bottom: 8px; min-height: 76px; align-items: flex-end; }
-  .my-info { font-size: 13px; color: var(--text-muted); margin-bottom: 10px; }
+  .my-seat-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 6px; }
+  .my-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--tile-bg); border: 2px solid var(--accent);
+    display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; font-family: 'Space Grotesk', sans-serif; }
+  .my-hole-cards { display: flex; gap: 6px; justify-content: center; min-height: 64px; align-items: flex-end; }
+  .my-info { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
   .my-info b { color: var(--text-light); font-family: 'Space Grotesk', sans-serif; }
 
-  .action-bar { display: flex; flex-direction: column; gap: 8px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+  /* --------- панель дій --------- */
+  .action-bar { display: flex; flex-direction: column; gap: 6px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+  .quick-row { display: flex; gap: 6px; justify-content: space-between; }
+  .quick-row button { flex: 1; border: none; border-radius: 10px; padding: 6px 4px; font-size: 10px; font-weight: 700;
+    background: var(--rail-light); color: var(--text-muted); border: 1px solid rgba(255,255,255,0.08); cursor: pointer; }
+  .quick-row button:active { background: rgba(62,207,122,0.15); color: var(--accent); }
+  .raise-row { display: flex; align-items: center; gap: 8px; background: var(--tile-bg); border-radius: 14px; padding: 6px 8px;
+    border: 1px solid rgba(255,255,255,0.06); }
+  .stepper-btn { width: 30px; height: 30px; border-radius: 50%; border: none; flex-shrink: 0; font-size: 16px; font-weight: 700; cursor: pointer; }
+  .stepper-btn.minus { background: rgba(227,82,99,0.18); color: var(--red); }
+  .stepper-btn.plus { background: rgba(62,207,122,0.18); color: var(--accent); }
+  .raise-row input[type=range] { flex: 1; accent-color: var(--accent); }
+  .raise-row .amount { font-family: 'Space Grotesk', sans-serif; font-weight: 700; min-width: 56px; text-align: center; }
   .action-buttons { display: flex; gap: 8px; }
   .action-buttons button {
-    flex: 1; border: none; border-radius: 14px; padding: 13px 8px; font-weight: 700; font-size: 13px;
-    cursor: pointer; background: #272729; color: var(--text-light); border: 1px solid rgba(255,255,255,0.12);
+    flex: 1; border: none; border-radius: 22px; padding: 13px 8px; font-weight: 700; font-size: 13px;
+    cursor: pointer; background: var(--rail-light); color: var(--text-light); border: 1px solid rgba(255,255,255,0.1);
   }
-  .action-buttons button.fold { color: #ff8c8c; }
-  .action-buttons button.primary { background: var(--accent); color: #0e2318; }
+  .action-buttons button.fold { background: linear-gradient(180deg, #ea6270, #d0404f); color: #fff; border: none; }
+  .action-buttons button.primary { background: linear-gradient(180deg, #57e08c, var(--accent-dark)); color: #0c2116; border: none; }
   .action-buttons button:disabled { opacity: 0.35; }
-  .raise-row { display: flex; align-items: center; gap: 8px; }
-  .raise-row input[type=range] { flex: 1; }
-  .raise-row .amount { font-family: 'Space Grotesk', sans-serif; font-weight: 700; min-width: 54px; text-align: right; }
-  .waiting-line { text-align: center; font-size: 12px; color: var(--text-muted); padding: 10px 0; }
+  .waiting-line { text-align: center; font-size: 12px; color: var(--text-muted); padding: 8px 0; }
 </style>
 </head>
 <body>
@@ -108,27 +170,42 @@
   </div>
 
   <div id="view-table" class="hidden">
-    <div class="pot-row" id="potLabel">Банк: 0</div>
-    <div class="community-row" id="communityRow"></div>
+    <div class="table-topbar">
+      <div class="table-brand">♣ ПОКЕР</div>
+      <div class="pot-row" id="potLabel">Банк: <b>0</b></div>
+    </div>
+    <button class="reset-table-btn hidden" id="resetTableBtn">⟲ Скинути стіл</button>
+
+    <div class="table-oval" id="tableOval">
+      <div class="table-wordmark">POKER</div>
+      <div class="community-row" id="communityRow"></div>
+      <div class="dealer-chip-center hidden" id="dealerChipCenter">D</div>
+      <div id="seatsLayer"></div>
+    </div>
 
     <div class="result-banner hidden" id="resultBanner"></div>
-
-    <div class="opponents-row" id="opponentsRow"></div>
 
     <div class="my-seat">
       <div class="my-hole-cards" id="myHoleCards"></div>
       <div class="my-info">Твій стек: <b id="myStack">0</b></div>
 
       <div class="action-bar hidden" id="actionBar">
+        <div class="quick-row">
+          <button data-q="min">Min</button>
+          <button data-q="half">1/2</button>
+          <button data-q="pot">Pot</button>
+          <button data-q="max">Max</button>
+        </div>
         <div class="raise-row">
+          <button class="stepper-btn minus" id="raiseMinusBtn">−</button>
           <input type="range" id="raiseSlider" min="0" max="0" step="10" value="0" />
           <span class="amount" id="raiseAmountLabel">0</span>
+          <button class="stepper-btn plus" id="raisePlusBtn">+</button>
         </div>
         <div class="action-buttons">
           <button class="fold" id="foldBtn">Скинути</button>
           <button id="checkCallBtn">Чек</button>
-          <button id="betRaiseBtn">Ставка</button>
-          <button class="primary" id="allInBtn">Ва-банк</button>
+          <button class="primary" id="betRaiseBtn">Ставка</button>
         </div>
       </div>
       <div class="waiting-line hidden" id="waitingLine"></div>
@@ -159,7 +236,12 @@
     opts = opts || {};
     const el = document.createElement("div");
     const isHonor = !opts.faceDown && card && card.rank >= 11;
-    el.className = "card" + (opts.big ? " big" : "") + (opts.faceDown ? " back" : " " + colorOf(card)) + (isHonor ? " honor" : "");
+    let cls = "card";
+    if (opts.big) cls += " big";
+    if (opts.tiny) cls += " tiny";
+    cls += opts.faceDown ? " back" : " " + colorOf(card);
+    if (isHonor) cls += " honor";
+    el.className = cls;
     if (!opts.faceDown && card) {
       el.innerHTML = `
         <div class="corner"><span class="rank">${rankLabel(card.rank)}</span><span class="mini-suit">${SUIT_SYMBOL[card.suit]}</span></div>
@@ -174,6 +256,12 @@
     return d.innerHTML;
   }
 
+  function initialsOf(state, seatKey) {
+    const s = state.seats[seatKey];
+    if (s.occupantType === "bot") return "🤖";
+    return (s.username || "?").slice(0, 1).toUpperCase();
+  }
+
   let username = null;
   let lastState = null;
   let lastCommunityKey = null;
@@ -185,11 +273,24 @@
     return s.occupantType === "bot" ? "Бот " + s.botId.slice(-1) : s.username;
   }
 
+  // Розподіл місць по верхній дузі овалу (місце внизу залишається для гравця).
+  function seatPosition(index, total) {
+    const startDeg = 160, sweepDeg = 220;
+    const t = (index + 1) / (total + 1);
+    const theta = (startDeg + t * sweepDeg) * (Math.PI / 180);
+    const rx = 47, ry = 40, cx = 50, cy = 44;
+    const left = cx + rx * Math.cos(theta);
+    const top = cy + ry * Math.sin(theta);
+    return { left, top };
+  }
+
   function render(state, ctx) {
     lastState = state;
     if (!ctx.username) { show("locked"); return; }
     if (!state.seats || !Object.keys(state.seats).length) { show("locked"); return; }
     show("table");
+
+    document.getElementById("resetTableBtn").classList.toggle("hidden", !ctx.isHost);
 
     const keys = seatKeysSorted(state.seats);
     const mySeat = keys.find((k) => state.seats[k].occupantType === "human" && state.seats[k].username === username);
@@ -197,7 +298,7 @@
 
     let pot = 0;
     if (hand && hand.seatsInHand) Object.values(hand.seatsInHand).forEach((s) => { pot += s.totalBet || 0; });
-    document.getElementById("potLabel").textContent = "Банк: " + pot;
+    document.getElementById("potLabel").innerHTML = "Банк: <b>" + pot + "</b>";
 
     const communityRow = document.getElementById("communityRow");
     const communityCards = (hand && hand.community) || [];
@@ -221,44 +322,75 @@
       resultBanner.classList.add("hidden");
     }
 
-    const oppRow = document.getElementById("opponentsRow");
-    oppRow.innerHTML = "";
-    keys.filter((k) => k !== mySeat).forEach((k) => {
+    document.getElementById("dealerChipCenter").classList.toggle("hidden", !state.dealerSeat);
+
+    const seatsLayer = document.getElementById("seatsLayer");
+    seatsLayer.innerHTML = "";
+    const oppKeys = keys.filter((k) => k !== mySeat);
+    oppKeys.forEach((k, i) => {
       const seatInfo = state.seats[k];
       const hs = hand && hand.seatsInHand[k];
-      const chip = document.createElement("div");
-      chip.className = "seat-chip" + (hs && hs.folded ? " folded" : "") + (hand && hand.toActSeat === k ? " acting" : "");
+      const pos = seatPosition(i, oppKeys.length);
+
+      const wrap = document.createElement("div");
+      wrap.className = "seat-pos" + (hs && hs.folded ? " folded" : "") + (hand && hand.toActSeat === k ? " acting" : "");
+      wrap.style.left = pos.left + "%";
+      wrap.style.top = pos.top + "%";
+
+      const avatarWrap = document.createElement("div");
+      avatarWrap.className = "avatar-wrap";
+      const avatar = document.createElement("div");
+      avatar.className = "seat-avatar";
+      avatar.textContent = initialsOf(state, k);
+      avatarWrap.appendChild(avatar);
+
+      const idxBadge = document.createElement("div");
+      idxBadge.className = "seat-idx";
+      idxBadge.textContent = k;
+      avatarWrap.appendChild(idxBadge);
+
+      if (!hs || (!hs.folded && !hs.allIn)) {
+        const statusBadge = document.createElement("div");
+        statusBadge.className = "seat-status";
+        statusBadge.textContent = "✓";
+        avatarWrap.appendChild(statusBadge);
+      }
+      wrap.appendChild(avatarWrap);
+
       const nameEl = document.createElement("div");
-      nameEl.className = "name";
+      nameEl.className = "seat-name";
       nameEl.textContent = seatLabel(state, k);
-      const stackEl = document.createElement("div");
-      stackEl.className = "stack";
-      stackEl.textContent = (seatInfo.stack || 0) + (hs && hs.allIn ? " (ва-банк)" : "");
-      const betEl = document.createElement("div");
-      betEl.className = "bet";
-      betEl.textContent = hs && hs.betThisRound ? "ставка " + hs.betThisRound : "";
-      chip.appendChild(nameEl); chip.appendChild(stackEl); chip.appendChild(betEl);
+      wrap.appendChild(nameEl);
+
+      const tagEl = document.createElement("div");
+      tagEl.className = "seat-tag";
+      tagEl.textContent = "$" + (seatInfo.stack || 0) + (hs && hs.allIn ? " ва" : "");
+      wrap.appendChild(tagEl);
+
+      if (hs && hs.betThisRound) {
+        const chipToken = document.createElement("div");
+        chipToken.className = "seat-chip-token";
+        wrap.appendChild(chipToken);
+        const betLabel = document.createElement("div");
+        betLabel.className = "seat-bet-label";
+        betLabel.textContent = hs.betThisRound;
+        wrap.appendChild(betLabel);
+      }
 
       if (hs && hs.holeCards && (hand.revealAll || hand.street === "hand_result") && !hs.folded) {
         const mini = document.createElement("div");
-        mini.className = "mini-cards";
-        hs.holeCards.forEach((c) => mini.appendChild(makeCardEl(c, {})));
-        chip.appendChild(mini);
+        mini.className = "seat-mini-cards";
+        hs.holeCards.forEach((c) => mini.appendChild(makeCardEl(c, { tiny: true })));
+        wrap.appendChild(mini);
       } else if (hs && !hs.folded) {
         const mini = document.createElement("div");
-        mini.className = "mini-cards";
-        mini.appendChild(makeCardEl(null, { faceDown: true }));
-        mini.appendChild(makeCardEl(null, { faceDown: true }));
-        chip.appendChild(mini);
+        mini.className = "seat-mini-cards";
+        mini.appendChild(makeCardEl(null, { faceDown: true, tiny: true }));
+        mini.appendChild(makeCardEl(null, { faceDown: true, tiny: true }));
+        wrap.appendChild(mini);
       }
 
-      if (state.dealerSeat === k) {
-        const badge = document.createElement("div");
-        badge.className = "dealer-badge";
-        badge.textContent = "D";
-        chip.appendChild(badge);
-      }
-      oppRow.appendChild(chip);
+      seatsLayer.appendChild(wrap);
     });
 
     const myHole = document.getElementById("myHoleCards");
@@ -288,10 +420,10 @@
     if (!myTurn) {
       waitingLine.textContent = !mySeat ? "" : (hand && hand.street === "hand_result" ? "" : "Очікуємо хід...");
     }
-    if (myTurn) updateActionBar(state, hand, mySeat, myHs);
+    if (myTurn) updateActionBar(state, hand, mySeat, myHs, pot);
   }
 
-  function updateActionBar(state, hand, mySeat, myHs) {
+  function updateActionBar(state, hand, mySeat, myHs, pot) {
     const stack = state.seats[mySeat].stack || 0;
     const toCall = hand.currentBet - myHs.betThisRound;
     const checkCallBtn = document.getElementById("checkCallBtn");
@@ -304,6 +436,7 @@
     slider.max = maxRaiseTo;
     slider.step = 10;
     if (Number(slider.value) < Number(slider.min) || !slider.dataset.touched) slider.value = slider.min;
+    slider.dataset.pot = pot || 0;
     document.getElementById("raiseAmountLabel").textContent = slider.value;
 
     const betRaiseBtn = document.getElementById("betRaiseBtn");
@@ -311,14 +444,36 @@
     betRaiseBtn.disabled = maxRaiseTo <= hand.currentBet;
   }
 
-  document.getElementById("raiseSlider").addEventListener("input", (e) => {
-    e.target.dataset.touched = "1";
-    document.getElementById("raiseAmountLabel").textContent = e.target.value;
+  function setSliderValue(v) {
+    const slider = document.getElementById("raiseSlider");
+    const clamped = Math.max(Number(slider.min), Math.min(Number(slider.max), Math.round(v / 10) * 10));
+    slider.value = clamped;
+    slider.dataset.touched = "1";
+    document.getElementById("raiseAmountLabel").textContent = slider.value;
     const hand = lastState.hand;
-    document.getElementById("betRaiseBtn").textContent = (hand.currentBet > 0 ? "Рейз до " : "Ставка ") + e.target.value;
+    document.getElementById("betRaiseBtn").textContent = (hand.currentBet > 0 ? "Рейз до " : "Ставка ") + slider.value;
+  }
+
+  document.getElementById("raiseSlider").addEventListener("input", (e) => setSliderValue(Number(e.target.value)));
+  document.getElementById("raiseMinusBtn").addEventListener("click", () => setSliderValue(Number(document.getElementById("raiseSlider").value) - 10));
+  document.getElementById("raisePlusBtn").addEventListener("click", () => setSliderValue(Number(document.getElementById("raiseSlider").value) + 10));
+
+  document.querySelectorAll(".quick-row button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const slider = document.getElementById("raiseSlider");
+      const pot = Number(slider.dataset.pot || 0);
+      const q = btn.dataset.q;
+      if (q === "min") setSliderValue(Number(slider.min));
+      else if (q === "max") setSliderValue(Number(slider.max));
+      else if (q === "half") setSliderValue(Number(slider.max) / 2);
+      else if (q === "pot") setSliderValue(pot);
+    });
   });
 
   document.getElementById("foldBtn").addEventListener("click", () => window.PokerGame.playerAction(lastState, "fold"));
+  document.getElementById("resetTableBtn").addEventListener("click", () => {
+    if (confirm("Скинути стіл для всіх? Поточна роздача й стеки будуть втрачені.")) window.PokerGame.resetTable(lastState);
+  });
   document.getElementById("checkCallBtn").addEventListener("click", () => {
     const hand = lastState.hand;
     const mySeat = seatKeysSorted(lastState.seats).find((k) => lastState.seats[k].occupantType === "human" && lastState.seats[k].username === username);
@@ -329,13 +484,6 @@
     const amount = Number(document.getElementById("raiseSlider").value);
     const hand = lastState.hand;
     window.PokerGame.playerAction(lastState, hand.currentBet > 0 ? "raise" : "bet", amount);
-  });
-  document.getElementById("allInBtn").addEventListener("click", () => {
-    const mySeat = seatKeysSorted(lastState.seats).find((k) => lastState.seats[k].occupantType === "human" && lastState.seats[k].username === username);
-    const stack = lastState.seats[mySeat].stack || 0;
-    const hand = lastState.hand;
-    const allInTo = stack + hand.seatsInHand[mySeat].betThisRound;
-    window.PokerGame.playerAction(lastState, hand.currentBet > 0 ? "raise" : "bet", allInTo);
   });
 
   const VIEWS = ["locked", "table"];
