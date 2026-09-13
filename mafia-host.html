@@ -19,6 +19,8 @@
     --blood-dim: #4a1613;
     --gold: #caa23a;
     --gold-dim: #4a3a16;
+    --commissar: #5b82ab;
+    --commissar-dim: #223349;
     --teal: #3c8f7c;
     --teal-dim: #163d34;
     --font-display: 'Space Grotesk', sans-serif;
@@ -29,7 +31,7 @@
       font-family: 'Inter', sans-serif; color: var(--text-light); overflow-x: hidden; }
   .bg-scene { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
   .bg-scene svg { width: 100%; height: 100%; display: block; }
-  .page { max-width: 900px; margin: 0 auto; padding: 40px 30px; position: relative; z-index: 1;
+  .page { max-width: 1700px; margin: 0 auto; padding: 44px 64px; position: relative; z-index: 1;
       min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
   .hidden { display: none !important; }
 
@@ -55,7 +57,8 @@
       padding: 20px 40px; margin: 10px 0 24px; text-align: center; }
 
   /* ---------- список активних кімнат ---------- */
-  .rooms-list { display: flex; flex-direction: column; gap: 10px; width: 420px; max-width: 92vw; margin-bottom: 6px; }
+  .rooms-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+      gap: 14px; width: 100%; max-width: 1100px; margin-bottom: 6px; }
   .room-item { background: var(--tile-bg); border: 1px solid var(--line); border-radius: 14px;
       padding: 14px 16px; cursor: pointer; transition: border-color 0.15s ease; }
   .room-item:hover, .room-item:active { border-color: var(--gold); }
@@ -70,16 +73,27 @@
       color: var(--text-light); flex-shrink: 0; }
   .mini-avatar.more { background: transparent; border: 1px dashed var(--line); color: var(--text-muted); }
 
-  /* ---------- фаза-заголовок ---------- */
-  .phase-title { font-family: var(--font-display); font-size: 30px; text-align: center; margin-bottom: 4px; }
-  .phase-caption { font-size: 15px; color: var(--text-muted); text-align: center; margin-bottom: 24px; }
+  /* ---------- НЕЗМІННИЙ заголовок гри — той самий блок для всіх ігрових
+     фаз, щоб перехід між фазами не змінював висоту хедера (раніше
+     night_result не мав .phase-caption/.big-timer, і екран "стрибав") ---------- */
+  .game-header { width: 100%; max-width: 640px; display: flex; flex-direction: column; align-items: center; }
+  .phase-title { font-family: var(--font-display); font-size: 30px; text-align: center; margin-bottom: 4px; min-height: 38px; }
+  .phase-caption { font-size: 15px; color: var(--text-muted); text-align: center; margin-bottom: 10px; min-height: 20px; }
   .big-timer { font-family: var(--font-display); font-size: 56px; color: var(--gold);
-      text-align: center; margin-bottom: 26px; }
+      text-align: center; margin-bottom: 26px; min-height: 68px; }
   .big-timer.urgent { color: var(--blood); }
+  .big-timer:empty::before { content: "—"; opacity: 0.35; }
+
+  .content-zone { width: 100%; min-height: 260px; }
+
+  /* ---------- обговорення: чат зафіксованого розміру поруч із сіткою (widescreen) ---------- */
+  .discussion-layout { display: flex; gap: 36px; width: 100%; align-items: flex-start; flex-wrap: wrap; }
+  .discussion-layout .chat-col { flex: 0 0 460px; }
+  .discussion-layout .grid-col { flex: 1 1 420px; }
 
   /* ---------- сітка гравців ---------- */
   .big-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-      gap: 16px; width: 100%; margin-bottom: 20px; }
+      gap: 16px; width: 100%; margin-bottom: 20px; min-height: 130px; }
   .big-card { background: var(--tile-bg); border: 1px solid var(--line); border-radius: 16px;
       padding: 18px 10px; text-align: center; position: relative; }
   .big-card .avatar { width: 60px; height: 60px; border-radius: 50%; background: var(--tile-bg-2);
@@ -111,8 +125,8 @@
 
   /* ---------- чат (обговорення) ---------- */
   .chat-log { background: var(--tile-bg); border: 1px solid var(--line); border-radius: 16px;
-      padding: 16px 20px; width: 100%; max-width: 560px; height: 160px; overflow-y: auto;
-      margin-bottom: 20px; font-size: 15px; }
+      padding: 16px 20px; width: 460px; max-width: 100%; height: 320px; overflow-y: auto;
+      margin-bottom: 20px; font-size: 15px; box-sizing: border-box; }
   .chat-line { margin-bottom: 8px; }
   .chat-line .who { font-weight: 700; color: var(--gold); margin-right: 8px; }
   .chat-line.system { color: var(--text-muted); font-style: italic; }
@@ -137,10 +151,14 @@
   .reveal-card .role-tag { display: inline-block; font-size: 12px; padding: 3px 10px; border-radius: 10px; font-weight: 700; }
   .role-tag.mafia { background: var(--blood-dim); color: #ffd9d6; }
   .role-tag.doctor { background: var(--teal-dim); color: #d6f0ea; }
-  .role-tag.commissar { background: var(--gold-dim); color: #ffeec2; }
+  .role-tag.commissar { background: var(--commissar-dim); color: #dbe9f5; }
   .role-tag.civilian { background: var(--tile-bg-2); color: var(--text-muted); }
 
   .join-hint { font-size: 14px; color: var(--text-muted); text-align: center; margin-top: 6px; }
+
+  .mute-btn { position: fixed; top: 16px; right: 16px; z-index: 5; width: 44px; height: 44px;
+      border-radius: 50%; border: 1px solid var(--line); background: var(--tile-bg);
+      color: var(--text-light); font-size: 18px; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -206,6 +224,7 @@
 </div>
 
 <div class="page">
+<button class="mute-btn" id="muteBtn">🔊</button>
 
   <div id="view-entry">
     <h1>🔪 Мафія</h1>
@@ -222,40 +241,47 @@
     <h1>🔪 Мафія</h1>
     <div class="room-code-huge" id="roomCodeDisplay"></div>
     <div class="status-line" id="lobbyStatus"></div>
-    <div class="join-hint">Відкрий mafia.html на телефоні й введи цей код, щоб приєднатись</div>
+    <div class="join-hint">Код для приєднання на mafia.html — вгорі</div>
     <div class="big-grid" id="lobbyGrid"></div>
   </div>
 
-  <div id="view-night" class="hidden">
-    <div class="phase-title">🌙 Ніч <span id="nightNumberLabel"></span></div>
-    <div class="phase-caption">Мафія обирає жертву. Лікар лікує. Комісар розслідує. Місто спить.</div>
-    <div class="big-timer" id="nightTimer"></div>
-    <div class="big-grid" id="nightGrid"></div>
-  </div>
+  <div id="gameShell" class="hidden">
+    <div class="game-header">
+      <div class="phase-title" id="phaseTitleEl"></div>
+      <div class="phase-caption" id="phaseCaptionEl"></div>
+      <div class="big-timer" id="bigTimerEl"></div>
+    </div>
 
-  <div id="view-night_result" class="hidden">
-    <div class="phase-title">Ранок</div>
-    <div id="nightResultContent"></div>
-    <div class="big-grid" id="resultGrid"></div>
-  </div>
+    <div class="content-zone">
+      <div id="view-night" class="hidden">
+        <div class="big-grid" id="nightGrid"></div>
+      </div>
 
-  <div id="view-day_discussion" class="hidden">
-    <div class="phase-title">Обговорення</div>
-    <div class="phase-caption">Хто здається підозрілим?</div>
-    <div class="big-timer" id="discussionTimer"></div>
-    <div class="chat-log" id="chatLog"></div>
-    <div class="big-grid" id="discussionGrid"></div>
-  </div>
+      <div id="view-night_result" class="hidden">
+        <div id="nightResultContent"></div>
+        <div class="big-grid" id="resultGrid"></div>
+      </div>
 
-  <div id="view-day_voting" class="hidden">
-    <div class="phase-title">Голосування</div>
-    <div class="phase-caption">Кого місто виганяє сьогодні?</div>
-    <div class="big-timer" id="votingTimer"></div>
-    <div class="big-grid" id="votingGrid"></div>
-  </div>
+      <div id="view-day_discussion" class="hidden">
+        <div class="discussion-layout">
+          <div class="chat-col"><div class="chat-log" id="chatLog"></div></div>
+          <div class="grid-col"><div class="big-grid" id="discussionGrid"></div></div>
+        </div>
+      </div>
 
-  <div id="view-game_over" class="hidden">
-    <div id="gameOverContent"></div>
+      <div id="view-day_voting" class="hidden">
+        <div class="big-grid" id="votingGrid"></div>
+      </div>
+
+      <div id="view-voting_result" class="hidden">
+        <div id="votingResultContent"></div>
+        <div class="big-grid" id="votingResultGrid"></div>
+      </div>
+
+      <div id="view-game_over" class="hidden">
+        <div id="gameOverContent"></div>
+      </div>
+    </div>
   </div>
 
 </div>
@@ -268,9 +294,32 @@
 <script src="js/mafia-game.js"></script>
 <script>
 (function () {
-  const VIEWS = ["entry", "lobby", "night", "night_result", "day_discussion", "day_voting", "game_over"];
+  const VIEWS = ["entry", "lobby", "night", "night_result", "day_discussion", "day_voting", "voting_result", "game_over"];
+  const SHELL_VIEWS = ["night", "night_result", "day_discussion", "day_voting", "voting_result", "game_over"];
+
+  const PHASE_HEADER = {
+    night:          { title: "🌙 Ніч", caption: "Місто спить." },
+    night_result:   { title: "Ранок", caption: "" },
+    day_discussion: { title: "Обговорення", caption: "Хто здається підозрілим?" },
+    day_voting:     { title: "Голосування", caption: "Кого виганяємо?" },
+    voting_result:  { title: "Вирок", caption: "" },
+    game_over:      { title: "", caption: "" },
+  };
+
   function showView(name) {
-    VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name));
+    document.getElementById("view-entry").classList.toggle("hidden", name !== "entry");
+    document.getElementById("view-lobby").classList.toggle("hidden", name !== "lobby");
+    const inShell = SHELL_VIEWS.includes(name);
+    document.getElementById("gameShell").classList.toggle("hidden", !inShell);
+    SHELL_VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name));
+
+    if (inShell) {
+      const meta = PHASE_HEADER[name] || { title: "", caption: "" };
+      document.getElementById("phaseTitleEl").textContent = name === "night"
+        ? `${meta.title} ${lastState ? (lastState.nightNumber || 1) : 1}`
+        : meta.title;
+      document.getElementById("phaseCaptionEl").textContent = meta.caption;
+    }
   }
 
   function escapeHtml(s) {
@@ -282,15 +331,10 @@
 
   const PHASE_LABELS = {
     lobby: "Лобі", night: "Ніч", night_result: "Ранок",
-    day_discussion: "Обговорення", day_voting: "Голосування", game_over: "Фінал"
+    day_discussion: "Обговорення", day_voting: "Голосування", voting_result: "Вирок", game_over: "Фінал"
   };
 
-  const ROLE_META = {
-    mafia:     { name: "Мафія",   cls: "mafia" },
-    doctor:    { name: "Лікар",   cls: "doctor" },
-    commissar: { name: "Комісар", cls: "commissar" },
-    civilian:  { name: "Мирний",  cls: "civilian" }
-  };
+  const ROLE_META = window.MafiaGame.ROLE_META;
 
   const ROOM_CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
   function randomRoomCode() {
@@ -302,19 +346,85 @@
   let countdownTimer = null;
   let lastState = null;
 
+  // ============================================================
+  // ЗВУК — слоти під озвучку, які підвантажуються ОДИН РАЗ на старті
+  // спостереження за кімнатою (щоб перший програш не був обрізаний
+  // початком доріжки через відсутній буфер). Файлів поки нема — просто
+  // поклади mp3 у папку sounds/ з ТОЧНО такими іменами, і вони запрацюють
+  // без жодної додаткової правки коду. Відсутній файл = тихо ігнорується
+  // (без помилок у консолі).
+  // ============================================================
+  const SOUND_FILES = {
+    lobby:               "sounds/lobby.mp3",
+    night:                "sounds/night.mp3",
+    night_result_dead:    "sounds/night_result_dead.mp3",
+    night_result_safe:    "sounds/night_result_safe.mp3",
+    day_discussion:       "sounds/day.mp3",
+    day_voting:           "sounds/voting.mp3",
+    voting_result:        "sounds/verdict.mp3",
+    game_over_mafia:      "sounds/mafia_win.mp3",
+    game_over_civilians:  "sounds/civilians_win.mp3",
+  };
+
+  const sounds = {}; // { key: HTMLAudioElement }
+  let soundsReady = false;
+  let soundsMuted = false;
+  let lastPhaseForSound = null;
+
+  function preloadSounds() {
+    if (soundsReady) return;
+    soundsReady = true;
+    Object.entries(SOUND_FILES).forEach(([key, path]) => {
+      const audio = new Audio(path);
+      audio.preload = "auto";
+      audio.addEventListener("error", () => { /* файлу ще нема - тихо ігноруємо */ }, { once: true });
+      try { audio.load(); } catch (e) {}
+      sounds[key] = audio;
+    });
+  }
+
+  function playSound(key) {
+    if (soundsMuted) return;
+    const audio = sounds[key];
+    if (!audio) return;
+    try {
+      audio.currentTime = 0;
+      audio.play().catch(() => { /* автоплей заблокований чи файл відсутній - ігноруємо */ });
+    } catch (e) {}
+  }
+
+  // Реагує на КОЖНУ зміну фази (не на кожен рендер стану) - викликається
+  // з onState() лише коли state.phase справді відрізняється від попереднього.
+  function playSoundForPhaseChange(state) {
+    const phase = state.phase;
+    if (phase === "lobby") { playSound("lobby"); return; }
+    if (phase === "night") { playSound("night"); return; }
+    if (phase === "night_result") {
+      playSound(state.nightResult && state.nightResult.deadPlayer ? "night_result_dead" : "night_result_safe");
+      return;
+    }
+    if (phase === "day_discussion") { playSound("day_discussion"); return; }
+    if (phase === "day_voting") { playSound("day_voting"); return; }
+    if (phase === "voting_result") { playSound("voting_result"); return; }
+    if (phase === "game_over") { playSound(state.winner === "mafia" ? "game_over_mafia" : "game_over_civilians"); return; }
+  }
+
+  function toggleMute() {
+    soundsMuted = !soundsMuted;
+    const btn = document.getElementById("muteBtn");
+    if (btn) btn.textContent = soundsMuted ? "🔇" : "🔊";
+  }
+
   function fmtSeconds(ms) { return Math.max(0, Math.ceil(ms / 1000)) + "с"; }
 
   function updateCountdowns() {
     if (!lastState) return;
-    const remaining = (lastState.phaseDeadline || 0) - window.MafiaGame.now();
-    const label = lastState.phaseDeadline ? fmtSeconds(remaining) : "";
-    const urgent = remaining < 10000;
-    ["nightTimer", "discussionTimer", "votingTimer"].forEach((id) => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.textContent = label;
-      el.classList.toggle("urgent", urgent);
-    });
+    const el = document.getElementById("bigTimerEl");
+    if (!el) return;
+    if (!lastState.phaseDeadline) { el.textContent = ""; el.classList.remove("urgent"); return; }
+    const remaining = lastState.phaseDeadline - window.MafiaGame.now();
+    el.textContent = fmtSeconds(remaining);
+    el.classList.toggle("urgent", remaining < 10000);
   }
 
   // Гравці НІКОЛИ не показують роль на цій сторінці, поки гра не завершилась —
@@ -341,7 +451,6 @@
   }
 
   function renderNight(state) {
-    document.getElementById("nightNumberLabel").textContent = state.nightNumber || 1;
     renderPlainGrid("nightGrid", state.players || {});
   }
 
@@ -353,10 +462,20 @@
     document.getElementById("nightResultContent").innerHTML = `
       <div class="result-card ${dead ? "" : "safe"}">
         <div class="avatar-big">${dead ? initials(dead) : "🌅"}</div>
-        <div class="result-title">${dead ? `Тієї ночі загинув(ла): ${escapeHtml(dead)}` : "Цієї ночі ніхто не загинув"}</div>
-        <div class="result-sub">${dead ? "Лікар не встиг врятувати цього гравця." : "Хтось цієї ночі був під захистом."}</div>
+        <div class="result-title">${dead ? `Загинув(ла): ${escapeHtml(dead)}` : "Ніхто не загинув"}</div>
       </div>`;
     renderPlainGrid("resultGrid", players);
+  }
+
+  function renderVotingResult(state) {
+    const eliminated = state.lastEliminated;
+    const players = state.players || {};
+    document.getElementById("votingResultContent").innerHTML = `
+      <div class="result-card ${eliminated ? "" : "safe"}">
+        <div class="avatar-big">${eliminated ? initials(eliminated) : "⚖️"}</div>
+        <div class="result-title">${eliminated ? `Вигнано: ${escapeHtml(eliminated)}` : "Нічия — ніхто не вигнаний"}</div>
+      </div>`;
+    renderPlainGrid("votingResultGrid", players);
   }
 
   function renderDayDiscussion(state) {
@@ -402,6 +521,10 @@
   function onState(state) {
     lastState = state;
     if (!state) return;
+    if (state.phase && state.phase !== lastPhaseForSound) {
+      playSoundForPhaseChange(state);
+      lastPhaseForSound = state.phase;
+    }
     showView(state.phase || "lobby");
     switch (state.phase) {
       case "lobby": renderLobby(state); break;
@@ -409,6 +532,7 @@
       case "night_result": renderNightResult(state); break;
       case "day_discussion": renderDayDiscussion(state); break;
       case "day_voting": renderDayVoting(state); break;
+      case "voting_result": renderVotingResult(state); break;
       case "game_over": renderGameOver(state); break;
     }
   }
@@ -449,10 +573,13 @@
 
   function beginWatch(roomId) {
     stopWatchingRoomsList();
+    preloadSounds();
     window.MafiaGame.onStateChange = (state) => onState(state);
     window.MafiaGame.watch(roomId);
     countdownTimer = setInterval(updateCountdowns, 1000);
   }
+
+  document.getElementById("muteBtn").addEventListener("click", toggleMute);
 
   document.getElementById("createRoomBtn").addEventListener("click", () => {
     const code = randomRoomCode();

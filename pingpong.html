@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<title>Пінг-понг</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root { --bg: #0e1013; --tile-bg: #1c2024; --text-light: #f4f5f1; --text-muted: #8b909c; --accent: #38cfa0; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none;
+      -webkit-user-select: none; -webkit-touch-callout: none; }
+  html, body { margin: 0; padding: 0; min-height: 100dvh; background: var(--bg);
+      font-family: 'Inter', sans-serif; color: var(--text-light); overflow-x: hidden; touch-action: manipulation; }
+  .page { max-width: 480px; margin: 0 auto; padding: 60px 12px 16px; min-height: 100dvh; display: flex; flex-direction: column; align-items: center; }
+  .hidden { display: none !important; }
+  h2 { font-family: 'Space Grotesk', sans-serif; font-size: 20px; margin: 0 0 14px; text-align: center; }
+  .status-line { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 14px; }
+
+  .top-bar { display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 320px; margin-bottom: 8px; }
+  .room-pill { font-size: 11px; color: var(--text-muted); background: var(--tile-bg); border-radius: 999px; padding: 5px 10px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); }
+  .room-pill b { color: var(--accent); font-family: 'Space Grotesk', sans-serif; }
+  .reset-btn { font-size: 11px; font-weight: 700; background: var(--tile-bg); color: var(--text-muted);
+      border: 1px solid rgba(255,255,255,0.1); border-radius: 999px; padding: 5px 10px; cursor: pointer; }
+
+  .field-wrap { position: relative; width: 100%; max-width: 320px; touch-action: none; }
+  #field { display: block; width: 100%; height: auto; border-radius: 14px; background: #0a1a14;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5); touch-action: none; }
+
+  .score-row { display: flex; justify-content: space-between; width: 100%; max-width: 320px; margin: 8px 0 4px; }
+  .score-box { text-align: center; flex: 1; }
+  .score-box .who { font-size: 11px; color: var(--text-muted); }
+  .score-box .num { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 24px; }
+
+  .overlay {
+    position: absolute; inset: 0; border-radius: 14px; background: rgba(10, 26, 20, 0.92);
+    display: none; align-items: center; justify-content: center; flex-direction: column; gap: 10px; text-align: center; padding: 16px;
+  }
+  .overlay.show { display: flex; }
+  .overlay .title { font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 700; }
+  .overlay button { border: none; border-radius: 14px; padding: 10px 20px; font-weight: 700; font-size: 13px;
+      background: var(--accent); color: #0e2318; cursor: pointer; margin-top: 6px; }
+
+  .hint { font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 10px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div id="view-locked" class="hidden">
+    <h2>🏓 Пінг-понг</h2>
+    <div class="status-line">Увійди в профіль (кнопка зверху), щоб зіграти</div>
+  </div>
+
+  <div id="view-game" class="hidden" style="width:100%; display:flex; flex-direction:column; align-items:center;">
+    <div class="top-bar">
+      <button class="room-pill" id="roomPill">Кімната: <b id="roomIdLabel">—</b></button>
+      <button class="reset-btn hidden" id="resetBtn">⟲ Реванш</button>
+    </div>
+
+    <div class="score-row">
+      <div class="score-box"><div class="who" id="oppLabel">Суперник</div><div class="num" id="oppScore">0</div></div>
+      <div class="score-box"><div class="who">Ти</div><div class="num" id="myScore">0</div></div>
+    </div>
+
+    <div class="field-wrap">
+      <canvas id="field" width="300" height="500"></canvas>
+      <div class="overlay" id="overlay">
+        <div class="title" id="overlayTitle"></div>
+        <button id="overlayBtn" class="hidden">⟲ Реванш</button>
+      </div>
+    </div>
+
+    <div class="hint">Тягни пальцем по полю вліво-вправо, щоб рухати ракетку</div>
+  </div>
+
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/login.js"></script>
+<script src="js/online-engine.js"></script>
+<script src="js/pingpong-game.js"></script>
+<script src="js/help.js"></script>
+<script src="js/back-button.js"></script>
+<script src="js/refresh-button.js"></script>
+<script>
+(function () {
+  const FIELD_W = window.PingPongGame.FIELD_W, FIELD_H = window.PingPongGame.FIELD_H;
+  const PADDLE_W = window.PingPongGame.PADDLE_W, PADDLE_H = window.PingPongGame.PADDLE_H, BALL_R = window.PingPongGame.BALL_R;
+
+  const canvas = document.getElementById("field");
+  const ctx = canvas.getContext("2d");
+  let CW = canvas.width, CH = canvas.height;
+  const scale = CW / FIELD_W;
+
+  let username = null;
+  let lastState = null;
+  let mySeat = null;
+  let flip = false; // якщо моє місце "0" — малюємо перевернуто, щоб моя ракетка завжди була внизу екрана
+  let displayBall = { x: FIELD_W / 2, y: FIELD_H / 2, vx: 0, vy: 0, receivedAt: Date.now() };
+
+  function fieldY(fy) { return flip ? (FIELD_H - fy) : fy; }
+
+  function draw() {
+    ctx.clearRect(0, 0, CW, CH);
+    // сітка/центральна лінія
+    ctx.strokeStyle = "rgba(255,255,255,0.08)";
+    ctx.setLineDash([6, 8]);
+    ctx.beginPath(); ctx.moveTo(0, CH / 2); ctx.lineTo(CW, CH / 2); ctx.stroke();
+    ctx.setLineDash([]);
+
+    if (!lastState || !lastState.paddles) { return; }
+    const paddles = lastState.paddles;
+
+    // ракетки
+    ["0", "1"].forEach((seatKey) => {
+      const isMine = seatKey === mySeat;
+      const x = (isMine ? localPaddleXCache : paddles[seatKey]) * scale;
+      const yTop = seatKey === "0" ? 0 : FIELD_H - PADDLE_H;
+      const y = fieldY(yTop + PADDLE_H / 2) * scale - (PADDLE_H * scale) / 2;
+      ctx.fillStyle = isMine ? "#38cfa0" : "#e0522f";
+      roundRect(ctx, x - (PADDLE_W * scale) / 2, y, PADDLE_W * scale, PADDLE_H * scale, 5 * scale);
+      ctx.fill();
+    });
+
+    // м'яч (з екстраполяцією між мережевими пакетами)
+    const dt = (Date.now() - displayBall.receivedAt) / 1000;
+    let bx = displayBall.x + displayBall.vx * dt;
+    let by = displayBall.y + displayBall.vy * dt;
+    bx = Math.max(BALL_R, Math.min(FIELD_W - BALL_R, bx));
+    by = Math.max(BALL_R, Math.min(FIELD_H - BALL_R, by));
+    ctx.fillStyle = "#f4f5f1";
+    ctx.beginPath();
+    ctx.arc(bx * scale, fieldY(by) * scale, BALL_R * scale, 0, Math.PI * 2);
+    ctx.fill();
+
+    requestAnimationFrame(draw);
+  }
+
+  function roundRect(c, x, y, w, h, r) {
+    c.beginPath();
+    c.moveTo(x + r, y);
+    c.arcTo(x + w, y, x + w, y + h, r);
+    c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r);
+    c.arcTo(x, y, x + w, y, r);
+    c.closePath();
+  }
+
+  let localPaddleXCache = FIELD_W / 2;
+
+  function render(state, ctxInfo) {
+    lastState = state;
+    if (!ctxInfo.username) { show("locked"); return; }
+    if (!state.seats || !Object.keys(state.seats).length) { show("locked"); return; }
+    show("game");
+
+    document.getElementById("roomIdLabel").textContent = ctxInfo.roomId || "—";
+    mySeat = window.PingPongGame.mySeatOf(state);
+    flip = mySeat === "0";
+
+    displayBall = Object.assign({}, state.ball, { receivedAt: Date.now() });
+
+    const oppSeat = mySeat === "0" ? "1" : (mySeat === "1" ? "0" : null);
+    const oppInfo = oppSeat ? state.seats[oppSeat] : null;
+    document.getElementById("oppLabel").textContent = oppInfo
+      ? (oppInfo.occupantType === "bot" ? "Бот" : oppInfo.username) : "Суперник";
+    document.getElementById("myScore").textContent = mySeat ? (state.seats[mySeat].score || 0) : 0;
+    document.getElementById("oppScore").textContent = oppInfo ? (oppInfo.score || 0) : 0;
+
+    document.getElementById("resetBtn").classList.toggle("hidden", !ctxInfo.isHost);
+
+    const overlay = document.getElementById("overlay");
+    const overlayTitle = document.getElementById("overlayTitle");
+    const overlayBtn = document.getElementById("overlayBtn");
+    if (state.matchState === "game_over") {
+      const won = state.winner === mySeat;
+      overlayTitle.textContent = won ? "🎉 Перемога!" : "Поразка";
+      overlay.classList.add("show");
+      overlayBtn.classList.toggle("hidden", !ctxInfo.isHost);
+    } else {
+      overlay.classList.remove("show");
+    }
+  }
+
+  // ---- дотик: X по всій ширині поля рухає мою ракетку ----
+  const fieldWrap = document.querySelector(".field-wrap");
+  function touchToFieldX(clientX) {
+    const rect = canvas.getBoundingClientRect();
+    const localX = clientX - rect.left;
+    return Math.max(0, Math.min(FIELD_W, (localX / rect.width) * FIELD_W));
+  }
+  fieldWrap.addEventListener("touchstart", (e) => {
+    const x = touchToFieldX(e.touches[0].clientX);
+    localPaddleXCache = x;
+    window.PingPongGame.setMyPaddleX(x);
+  }, { passive: true });
+  fieldWrap.addEventListener("touchmove", (e) => {
+    const x = touchToFieldX(e.touches[0].clientX);
+    localPaddleXCache = x;
+    window.PingPongGame.setMyPaddleX(x);
+  }, { passive: true });
+
+  document.getElementById("roomPill").addEventListener("click", () => {
+    const url = location.origin + location.pathname + "?room=" + encodeURIComponent(window.PingPongGame.roomId || "");
+    if (navigator.share) {
+      navigator.share({ title: "Пінг-понг", text: "Приєднуйся до гри!", url }).catch(() => {});
+    } else if (navigator.clipboard) {
+      navigator.clipboard.writeText(url).then(() => alert("Посилання скопійовано: " + url));
+    } else {
+      prompt("Скопіюй посилання:", url);
+    }
+  });
+  document.getElementById("resetBtn").addEventListener("click", () => window.PingPongGame.resetMatch(lastState));
+  document.getElementById("overlayBtn").addEventListener("click", () => window.PingPongGame.resetMatch(lastState));
+
+  const VIEWS = ["locked", "game"];
+  function show(name) { VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name)); }
+
+  document.addEventListener("selectstart", (e) => e.preventDefault());
+
+  const session = window.AppAuth && window.AppAuth.getSession();
+  if (session && window.rtdbReady) {
+    username = session.username;
+    window.PingPongGame.onStateChange = render;
+    const params = new URLSearchParams(location.search);
+    const roomParam = params.get("room");
+    const joinPromise = roomParam
+      ? window.PingPongGame.start(username, roomParam)
+      : window.PingPongGame.quickJoin(username);
+    joinPromise.then(() => requestAnimationFrame(draw));
+  } else {
+    show("locked");
+  }
+
+  window.addEventListener("beforeunload", () => { if (window.PingPongGame) window.PingPongGame.stop(); });
+})();
+</script>
+</body>
+</html>

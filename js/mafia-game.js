@@ -8,6 +8,8 @@
 // ---------------------------------------------------------------------
 //   phase            — одна з PHASES нижче
 //   hostUsername     — керується рушієм (lockedHost: true)
+//   mafiaCount       — скільки мафіозі роздати при старті; null = авто за кількістю гравців
+//   timers           — { phaseName: мс }, перевизначає DEFAULT_TIMERS; {} = усе за замовчуванням
 //   players           — { username: {
 //                            role,        'mafia' | 'doctor' | 'commissar' | 'civilian' | null
 //                            alive,       boolean
@@ -26,12 +28,14 @@
 // ---------------------------------------------------------------------
 // ФАЗИ (room.phase)
 // ---------------------------------------------------------------------
-//   lobby → night → night_result → day_discussion → day_voting → (night | game_over)
+//   lobby → night → night_result → day_discussion → day_voting → voting_result → (night | game_over)
 //
-// Переходи night → night_result → day_discussion → day_voting та
-// day_voting → night/game_over виконує ВИКЛЮЧНО хост усередині tick().
-// lobby → night виконується явним викликом MafiaGame.startGame() хостом
-// (старт гри — дія людини, а не автоматичний тік).
+// Кожна фаза з дедлайном сама вирішує, чи оголошувати переможця, ПІСЛЯ
+// власного "reveal" — тобто гравці завжди спершу бачать, хто загинув/кого
+// вигнали, і лише тоді (за наступний тік) гра може перейти в game_over.
+// Переходи виконує ВИКЛЮЧНО хост усередині tick(). lobby → night
+// виконується явним викликом MafiaGame.startGame() хостом (старт гри —
+// дія людини, а не автоматичний тік).
 // ==========================================================================
 (function () {
   "use strict";
@@ -44,19 +48,34 @@
   const MIN_PLAYERS = 4;
   const MAX_PLAYERS = 10;
 
-  const PHASES = ["lobby", "night", "night_result", "day_discussion", "day_voting", "game_over"];
+  const PHASES = ["lobby", "night", "night_result", "day_discussion", "day_voting", "voting_result", "game_over"];
 
-  // Тривалості фаз (мс) — легко підкрутити під темп гри.
-  const PHASE_DURATIONS_MS = {
+  // Тривалості фаз за замовчуванням (мс) — хост може перевизначити частину
+  // з них через setTimers() ще в лобі; ефективна тривалість завжди йде
+  // через effectiveDuration(room, phase).
+  const DEFAULT_TIMERS = {
     night: 30000,
     night_result: 8000,
     day_discussion: 90000,
     day_voting: 45000,
+    voting_result: 6000,
+  };
+
+  // Єдине джерело правди для назв/іконок/кольорового класу ролей — і
+  // mafia.html, і mafia-host.html читають ЦЕ, а не тримають власні копії,
+  // щоб кольори/підписи ніколи не розійшлися між двома сторінками.
+  const ROLE_META = {
+    mafia:     { name: "Мафія",   icon: "🔪", desc: "Обирає жертву щоночі." },
+    doctor:    { name: "Лікар",   icon: "💉", desc: "Рятує одного гравця щоночі." },
+    commissar: { name: "Комісар", icon: "🔎", desc: "Перевіряє одного гравця щоночі." },
+    civilian:  { name: "Мирний",  icon: "🙂", desc: "Діє лише вдень." },
   };
 
   const ROOM_SCHEMA = {
     phase: "lobby",
     hostUsername: null,
+    mafiaCount: null,      // null = авто за кількістю гравців
+    timers: {},            // перевизначення DEFAULT_TIMERS, часткове
     players: {},          // маркер — керується рушієм (presence/joinedAt/lastSeen)
     nightNumber: 0,
     phaseDeadline: null,
@@ -88,6 +107,8 @@
       lastEliminated: null,
       winner: null,
       chat: {},
+      mafiaCount: null,
+      timers: {},
     };
   }
 
@@ -120,28 +141,28 @@
     return Object.entries(playersOf(room)).filter(([, p]) => p && p.alive);
   }
 
-  // Застосовує "плаский" патч (ключі виду "players/ім'я/поле") до КОПІЇ
-  // players — потрібно лише щоб перевірити умову перемоги ДО фактичного
-  // запису в Firebase (щоб одразу перейти у game_over, а не ще на один тік
-  // затриматись у night_result/day_voting).
-  function applyPatchToPlayers(players, patch) {
-    const next = {};
-    Object.keys(players).forEach((u) => { next[u] = { ...players[u] }; });
-    Object.keys(patch).forEach((key) => {
-      const m = key.match(/^players\/([^/]+)\/(.+)$/);
-      if (m && next[m[1]]) next[m[1]][m[2]] = patch[key];
-    });
-    return next;
-  }
-
   // ------------------------- ігрова логіка (чисті функції) -------------------------
   // Навмисно не звертаються ні до engine, ні до DOM — легко тестувати й
   // переносити. Працюють над "players" у форматі Firebase: { username: {...} }.
 
-  function assignRolesPatch(players) {
+  function autoMafiaCount(n) { return n <= 5 ? 1 : n <= 7 ? 2 : 3; }
+
+  // Мафія завжди мусить лишатись меншістю (інакше гра закінчилась би одразу
+  // після старту) — це і є верхня межа: mafiaCount < живих-не-мафії.
+  function clampMafiaCount(n, requested) {
+    const max = Math.max(1, Math.ceil(n / 2) - 1);
+    const val = Number.isFinite(requested) && requested > 0 ? Math.round(requested) : autoMafiaCount(n);
+    return Math.min(max, Math.max(1, val));
+  }
+
+  function effectiveDuration(room, phaseName) {
+    const custom = room && room.timers && room.timers[phaseName];
+    return typeof custom === "number" && custom > 0 ? custom : DEFAULT_TIMERS[phaseName];
+  }
+
+  function assignRolesPatch(players, mafiaCount) {
     const usernames = Object.keys(players);
     const n = usernames.length;
-    const mafiaCount = n <= 5 ? 1 : n <= 7 ? 2 : 3;
     const hasDoctor = n >= 4;
     const hasCommissar = n >= 5;
 
@@ -187,7 +208,16 @@
       if (c > maxV) { maxV = c; mafiaTarget = target; mafiaTie = false; }
       else if (c === maxV) mafiaTie = true;
     });
-    if (mafiaTie) mafiaTarget = null;
+    if (mafiaTie) {
+      // Раніше нічия = ніхто не гине, через що при 2+ мафіозі з різними
+      // цілями вбивство фактично НІКОЛИ не спрацьовувало (мафія рідко
+      // випадково обирає ту саму ціль наосліп). Тепер нічия розв'язується
+      // випадковим вибором серед тих цілей, що набрали однаковий максимум —
+      // вбивство завжди відбувається. У mafia.html мафія додатково бачить
+      // вибір напарників у реальному часі, щоб узгоджуватись і уникати нічиєї.
+      const tied = Object.keys(mafiaVotes).filter((t) => mafiaVotes[t] === maxV);
+      mafiaTarget = tied[Math.floor(Math.random() * tied.length)];
+    }
 
     const doctorEntry = alive.find(([, p]) => p.role === "doctor");
     const doctorTarget = doctorEntry ? doctorEntry[1].nightAction : null;
@@ -264,16 +294,32 @@
         break;
       case "night_result":
         if (t >= (room.phaseDeadline || 0)) {
-          engine.setPhase("day_discussion", { phaseDeadline: engine.now() + PHASE_DURATIONS_MS.day_discussion });
+          const winner = checkWinCondition(playersOf(room));
+          if (winner) {
+            engine.setPhase("game_over", { winner, phaseDeadline: null });
+          } else {
+            engine.setPhase("day_discussion", { phaseDeadline: engine.now() + effectiveDuration(room, "day_discussion") });
+          }
         }
         break;
       case "day_discussion":
         if (t >= (room.phaseDeadline || 0)) {
-          engine.setPhase("day_voting", { phaseDeadline: engine.now() + PHASE_DURATIONS_MS.day_voting });
+          engine.setPhase("day_voting", { phaseDeadline: engine.now() + effectiveDuration(room, "day_voting") });
         }
         break;
       case "day_voting":
         if (t >= (room.phaseDeadline || 0) || allVotesIn(room)) resolveVotingPhase(room);
+        break;
+      case "voting_result":
+        if (t >= (room.phaseDeadline || 0)) {
+          const winner = checkWinCondition(playersOf(room));
+          if (winner) {
+            engine.setPhase("game_over", { winner, phaseDeadline: null });
+          } else {
+            const nextNight = (room.nightNumber || 0) + 1;
+            engine.setPhase("night", { nightNumber: nextNight, phaseDeadline: engine.now() + effectiveDuration(room, "night") });
+          }
+        }
         break;
       // "lobby" і "game_over" тік не чіпає — переходи з них ініціює дія
       // гравця (startGame() / resetGame()), а не таймер.
@@ -284,31 +330,12 @@
 
   function resolveNightPhase(room) {
     const patch = resolveNightPatch(playersOf(room));
-    const projected = applyPatchToPlayers(playersOf(room), patch);
-    const winner = checkWinCondition(projected);
-
-    if (winner) {
-      engine.setPhase("game_over", { ...patch, winner, phaseDeadline: null });
-    } else {
-      engine.setPhase("night_result", { ...patch, phaseDeadline: engine.now() + PHASE_DURATIONS_MS.night_result });
-    }
+    engine.setPhase("night_result", { ...patch, phaseDeadline: engine.now() + effectiveDuration(room, "night_result") });
   }
 
   function resolveVotingPhase(room) {
     const patch = resolveVotingPatch(playersOf(room));
-    const projected = applyPatchToPlayers(playersOf(room), patch);
-    const winner = checkWinCondition(projected);
-
-    if (winner) {
-      engine.setPhase("game_over", { ...patch, winner, phaseDeadline: null });
-    } else {
-      const nextNight = (room.nightNumber || 0) + 1;
-      engine.setPhase("night", {
-        ...patch,
-        nightNumber: nextNight,
-        phaseDeadline: engine.now() + PHASE_DURATIONS_MS.night,
-      });
-    }
+    engine.setPhase("voting_result", { ...patch, phaseDeadline: engine.now() + effectiveDuration(room, "voting_result") });
   }
 
   function startHostTick() {
@@ -433,15 +460,38 @@
     const n = Object.keys(players).length;
     if (n < MIN_PLAYERS || n > MAX_PLAYERS) return Promise.resolve();
 
-    const rolePatch = assignRolesPatch(players);
+    const mafiaCount = clampMafiaCount(n, latestRoom.mafiaCount);
+    const rolePatch = assignRolesPatch(players, mafiaCount);
     return engine.setPhase("night", {
       ...rolePatch,
       nightNumber: 1,
       nightResult: null,
       lastEliminated: null,
       winner: null,
-      phaseDeadline: engine.now() + PHASE_DURATIONS_MS.night,
+      phaseDeadline: engine.now() + effectiveDuration(latestRoom, "night"),
     });
+  }
+
+  // Хост обирає кількість мафіозі ще в лобі (null скидає на авто-формулу).
+  // Клампиться під поточну кількість гравців, щоб мафія завжди лишалась
+  // меншістю — інакше гра могла б закінчитись одразу після старту.
+  function setMafiaCount(count) {
+    if (!engine.isHost || !latestRoom || latestRoom.phase !== "lobby" || !engine.roomRef) return Promise.resolve();
+    const n = Object.keys(playersOf(latestRoom)).length;
+    const clamped = count == null ? null : clampMafiaCount(n, count);
+    return engine.roomRef.update({ mafiaCount: clamped });
+  }
+
+  // Хост перевизначає тривалість окремих фаз ще в лобі. partial — часткові
+  // { night, day_discussion, day_voting, night_result, voting_result } у мс;
+  // непозначені або некоректні значення лишають DEFAULT_TIMERS без змін.
+  function setTimers(partial) {
+    if (!engine.isHost || !latestRoom || latestRoom.phase !== "lobby" || !engine.roomRef || !partial) return Promise.resolve();
+    const patch = {};
+    Object.keys(DEFAULT_TIMERS).forEach((k) => {
+      if (typeof partial[k] === "number" && partial[k] > 0) patch[`timers/${k}`] = Math.round(partial[k]);
+    });
+    return Object.keys(patch).length ? engine.roomRef.update(patch) : Promise.resolve();
   }
 
   // Повертає кімнату в лобі, зберігаючи гравців, але скидаючи їхні ролі/стан.
@@ -530,6 +580,8 @@
     startGame,
     resetGame,
     forceAdvance,
+    setMafiaCount,
+    setTimers,
     submitNightAction,
     submitVote,
     setAvatar,
@@ -538,6 +590,8 @@
     connectedEntries,
     computeHost: engine.computeHost,
     isConnected: engine.isConnected,
+    ROLE_META,
+    DEFAULT_TIMERS,
 
     get room() { return latestRoom; },
     get me() { return latestRoom && myUsername ? playersOf(latestRoom)[myUsername] || null : null; },

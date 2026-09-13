@@ -66,7 +66,7 @@
 
     let username = null;
     let lobbyRef = null, myLobbyRef = null;
-    let roomRef = null, myPlayerRef = null;
+    let roomRef = null, myPlayerRef = null, isActivePlayer = false;
     let currentRoomId = null;
     let heartbeatTimer = null, hostWatchTimer = null;
     let isHost = false;
@@ -110,7 +110,7 @@
       heartbeatTimer = setInterval(() => {
         const t = now();
         if (myLobbyRef) myLobbyRef.child("lastSeen").set(t);
-        if (currentRoomId && myPlayerRef && roomRef) {
+        if (currentRoomId && myPlayerRef && roomRef && isActivePlayer) {
           myPlayerRef.update({ lastSeen: t, status: "active" });
           roomRef.child("lastActivityAt").set(t);
         }
@@ -245,6 +245,7 @@
     function becomePlayer(extra) {
       const playerRef = myPlayerRef;
       if (!playerRef) return Promise.resolve();
+      isActivePlayer = true;
       return playerRef.get().then((snap) => {
         if (playerRef !== myPlayerRef) return;
         if (!snap.exists()) {
@@ -266,7 +267,7 @@
       if (roomRef && listeners.room) roomRef.off("value", listeners.room);
       if (myPlayerRef && !preservePresence) myPlayerRef.onDisconnect().cancel();
       if (isHost) { isHost = false; onLoseHost(); }
-      currentRoomId = null; roomRef = null; myPlayerRef = null; latestRoom = null;
+      currentRoomId = null; roomRef = null; myPlayerRef = null; isActivePlayer = false; latestRoom = null;
     }
 
     function leaveRoom() {

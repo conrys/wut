@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Quiz — Табло</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-void: #0a0e2e; --bg-panel: #131a4d; --bg-panel-2: #1c2566; --bg-tile: #202a70;
+    --gold: #ffc847; --gold-soft: #ffe7a8; --correct: #35d399; --wrong: #ff5c7c;
+    --text-primary: #f4f1ff; --text-muted: #8b90c4; --border-soft: rgba(255, 200, 71, 0.18);
+    --font-display: 'Space Grotesk', sans-serif; --font-body: 'Inter', sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; min-height: 100vh; overflow: hidden; height: 100vh; background: var(--bg-void);
+    background-image: radial-gradient(circle at 15% 10%, rgba(123,97,255,0.16), transparent 45%), radial-gradient(circle at 85% 90%, rgba(255,200,71,0.10), transparent 40%);
+    color: var(--text-primary); font-family: var(--font-body); }
+  .hidden { display: none !important; }
+
+  .stage { height: 100vh; display: flex; flex-direction: column; padding: 28px 40px; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; }
+  .logo { font-family: var(--font-display); font-weight: 700; font-size: 28px; letter-spacing: 0.05em; }
+  .logo span { color: var(--gold); }
+  .round-tag { font-family: var(--font-display); color: var(--text-muted); font-size: 15px; }
+
+  .main-area { flex: 1; display: grid; grid-template-columns: 1fr 300px; gap: 28px; min-height: 0; }
+  .board-panel { background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 20px; padding: 26px;
+    display: flex; flex-direction: column; min-height: 0; position: relative; overflow: hidden; }
+  .side-panel { display: flex; flex-direction: column; gap: 16px; min-height: 0; }
+  .side-panel h3 { margin: 0 0 4px 0; font-size: 14px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.14em; }
+  .scoreboard { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; padding-right: 4px; }
+  .score-row { display: flex; align-items: center; justify-content: space-between; background: var(--bg-panel);
+    border: 1px solid var(--border-soft); border-radius: 12px; padding: 10px 16px; }
+  .score-row.is-active { border-color: var(--gold); background: linear-gradient(90deg, rgba(255,200,71,0.14), var(--bg-panel)); }
+  .score-row .name { font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .score-row .points { font-family: var(--font-display); font-weight: 700; font-size: 18px; color: var(--gold); }
+  .score-row .points.negative { color: var(--wrong); }
+  .badge-turn { font-size: 11px; background: var(--gold); color: #201400; padding: 2px 8px; border-radius: 999px; font-weight: 700; }
+  .dot-offline { width: 8px; height: 8px; border-radius: 50%; background: var(--wrong); display: inline-block; }
+
+  .center-msg { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 14px; }
+  .waiting-title { font-size: 40px; font-family: var(--font-display); }
+  .join-hint { color: var(--text-muted); font-size: 18px; }
+  .waiting-players { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 12px; }
+  .waiting-chip { background: var(--bg-tile); border: 1px solid var(--border-soft); padding: 10px 18px; border-radius: 999px; font-weight: 600; }
+  .countdown-num { font-family: var(--font-display); font-size: 90px; color: var(--gold); font-weight: 700; }
+  .eyebrow { font-family: var(--font-display); font-size: 13px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--gold); opacity: 0.85; }
+
+  .board-grid { flex: 1; display: grid; grid-template-rows: auto 1fr; gap: 14px; min-height: 0; }
+  .cat-header-row { display: grid; gap: 12px; }
+  .cat-header { font-family: var(--font-display); text-align: center; padding: 14px 6px; background: var(--bg-panel-2);
+    border-radius: 12px; font-size: 17px; font-weight: 700; }
+  .value-grid { display: grid; gap: 12px; grid-auto-rows: 1fr; }
+  .value-tile { background: var(--bg-tile); border-radius: 12px; display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display); font-size: 26px; font-weight: 700; color: var(--gold); border: 1px solid var(--border-soft); }
+  .value-tile.played { color: var(--text-muted); opacity: 0.28; background: transparent; }
+  .active-player-strip { margin-top: 14px; text-align: center; font-size: 18px; color: var(--text-muted); }
+  .active-player-strip b { color: var(--gold-soft); }
+
+  .question-view { flex: 1; display: flex; flex-direction: column; }
+  .q-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  .q-meta { font-family: var(--font-display); font-size: 18px; color: var(--gold); }
+  .q-active-player { font-size: 16px; color: var(--text-muted); }
+  .q-active-player b { color: var(--text-primary); }
+  .timer-ring-wrap { position: relative; width: 90px; height: 90px; }
+  .timer-ring-wrap svg { transform: rotate(-90deg); }
+  .timer-ring-bg { fill: none; stroke: var(--bg-panel-2); stroke-width: 8; }
+  .timer-ring-fg { fill: none; stroke: var(--gold); stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 0.9s linear, stroke 0.3s; }
+  .timer-num { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display); font-weight: 700; font-size: 26px; }
+  .q-text { font-size: 34px; font-weight: 600; line-height: 1.35; margin: 6px 0 26px 0; flex-shrink: 0; }
+  .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; flex: 1; }
+  .option-tile { background: var(--bg-tile); border: 1px solid var(--border-soft); border-radius: 14px; display: flex;
+    align-items: center; padding: 0 24px; font-size: 22px; font-weight: 600; gap: 14px; }
+  .option-letter { font-family: var(--font-display); color: var(--gold); font-weight: 700; font-size: 20px; }
+  .option-tile.is-correct { border-color: var(--correct); background: rgba(53,211,153,0.14); }
+  .option-tile.is-selected-wrong { border-color: var(--wrong); background: rgba(255,92,124,0.14); }
+
+  .result-view { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 14px; }
+  .result-badge { font-family: var(--font-display); font-size: 52px; font-weight: 700; }
+  .result-badge.correct { color: var(--correct); }
+  .result-badge.wrong { color: var(--wrong); }
+  .result-points { font-family: var(--font-display); font-size: 30px; color: var(--gold); }
+  .result-answer { color: var(--text-muted); font-size: 18px; max-width: 640px; }
+
+  .end-view { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; }
+  .end-title { font-size: 46px; font-family: var(--font-display); }
+  .podium { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 560px; }
+  .podium-row { display: flex; align-items: center; justify-content: space-between; background: var(--bg-tile);
+    border-radius: 14px; padding: 16px 24px; border: 1px solid var(--border-soft); }
+  .podium-row.win { border-color: var(--gold); background: linear-gradient(90deg, rgba(255,200,71,0.18), var(--bg-tile)); }
+  .podium-rank { font-family: var(--font-display); font-weight: 700; font-size: 20px; width: 40px; color: var(--text-muted); }
+  .podium-row.win .podium-rank { color: var(--gold); }
+  .podium-name { flex: 1; font-weight: 600; font-size: 20px; }
+  .podium-score { font-family: var(--font-display); font-weight: 700; color: var(--gold); font-size: 20px; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="topbar">
+    <div class="logo">QU<span>I</span>Z</div>
+    <div class="round-tag" id="roundTag">Гра триває</div>
+  </div>
+
+  <div class="main-area">
+    <div class="board-panel" id="boardPanel">
+
+      <div class="center-msg" id="view-waiting">
+        <div class="eyebrow">Реєстрація гравців</div>
+        <div class="waiting-title">Приєднуйтесь на телефоні</div>
+        <div class="join-hint" id="joinHint">Відкрийте quiz.html у застосунку</div>
+        <div class="waiting-players" id="waitingPlayers"></div>
+      </div>
+
+      <div class="center-msg hidden" id="view-countdown">
+        <div class="eyebrow">Гра починається</div>
+        <div class="countdown-num" id="countdownNum">10</div>
+        <div class="join-hint">Ще встигаєте приєднатись!</div>
+      </div>
+
+      <div class="board-grid hidden" id="view-board">
+        <div class="cat-header-row" id="catHeaderRow"></div>
+        <div class="value-grid" id="valueGrid"></div>
+      </div>
+      <div class="active-player-strip hidden" id="activeStrip"></div>
+
+      <div class="question-view hidden" id="view-question">
+        <div class="q-top">
+          <div class="q-meta" id="qMeta">Категорія · 300</div>
+          <div class="timer-ring-wrap">
+            <svg width="90" height="90" viewBox="0 0 90 90">
+              <circle class="timer-ring-bg" cx="45" cy="45" r="38"></circle>
+              <circle class="timer-ring-fg" id="timerRing" cx="45" cy="45" r="38"></circle>
+            </svg>
+            <div class="timer-num" id="timerNum">30</div>
+          </div>
+        </div>
+        <div class="q-active-player">Відповідає: <b id="qActivePlayer">—</b></div>
+        <div class="q-text" id="qText">Текст питання</div>
+        <div class="options-grid" id="optionsGrid"></div>
+      </div>
+
+      <div class="result-view hidden" id="view-result">
+        <div class="result-badge" id="resultBadge">✅ ПРАВИЛЬНО!</div>
+        <div class="result-points" id="resultPoints">+300 балів</div>
+        <div class="result-answer" id="resultAnswer"></div>
+      </div>
+
+      <div class="end-view hidden" id="view-end">
+        <div class="eyebrow">Гру завершено</div>
+        <div class="end-title">🎉 Переможець!</div>
+        <div class="podium" id="podium"></div>
+      </div>
+
+    </div>
+
+    <div class="side-panel">
+      <h3>Рахунок</h3>
+      <div class="scoreboard" id="scoreboard"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/quiz-topics.js"></script>
+<script src="js/online-engine.js"></script>
+<script src="js/quiz-game.js"></script>
+<script>
+(function () {
+  const VIEWS = ["waiting", "countdown", "board", "question", "result", "end"];
+  function showView(name) {
+    VIEWS.forEach((v) => { const el = document.getElementById("view-" + v); if (el) el.classList.toggle("hidden", v !== name); });
+    document.getElementById("activeStrip").classList.toggle("hidden", name !== "board");
+  }
+  function escapeHtml(s) {
+    const d = document.createElement("div");
+    d.textContent = s || "";
+    return d.innerHTML;
+  }
+
+  function renderScoreboard(state) {
+    const sorted = Object.entries(state.players || {}).sort((a, b) => (b[1].score || 0) - (a[1].score || 0));
+    document.getElementById("scoreboard").innerHTML = sorted
+      .map(([name, p]) => {
+        const online = window.QuizGame.connectedEntries(state.players).some(([n]) => n === name);
+        const pts = p.score || 0;
+        return `<div class="score-row ${name === state.currentPlayerUsername ? "is-active" : ""}">
+          <div class="name">${!online ? '<span class="dot-offline"></span>' : ""}${escapeHtml(name)}${name === state.currentPlayerUsername ? '<span class="badge-turn">ХІД</span>' : ""}</div>
+          <div class="points ${pts < 0 ? "negative" : ""}">${pts}</div>
+        </div>`;
+      })
+      .join("");
+  }
+
+  function renderWaiting(state) {
+    const conn = window.QuizGame.connectedEntries(state.players);
+    document.getElementById("joinHint").textContent = `Потрібно щонайменше ${window.QuizGame.MIN_PLAYERS} гравці. Зараз: ${conn.length}`;
+    document.getElementById("waitingPlayers").innerHTML = conn.map(([name]) => `<div class="waiting-chip">${escapeHtml(name)}</div>`).join("");
+  }
+
+  function renderBoard(state) {
+    const catRow = document.getElementById("catHeaderRow");
+    const valueGrid = document.getElementById("valueGrid");
+    const n = state.board.length;
+    catRow.style.gridTemplateColumns = `repeat(${n}, 1fr)`;
+    valueGrid.style.gridTemplateColumns = `repeat(${n}, 1fr)`;
+    catRow.innerHTML = state.board.map((t) => `<div class="cat-header">${escapeHtml(t.name)}</div>`).join("");
+
+    const maxQ = Math.max(...state.board.map((t) => t.questions.length));
+    let html = "";
+    for (let row = 0; row < maxQ; row++) {
+      for (let c = 0; c < n; c++) {
+        const cell = state.board[c].questions[row];
+        if (!cell) { html += `<div></div>`; continue; }
+        const value = window.QuizGame.QUIZ_TOPICS[c].questions[row].value;
+        html += `<div class="value-tile ${cell.played ? "played" : ""}">${cell.played ? "" : value}</div>`;
+      }
+    }
+    valueGrid.innerHTML = html;
+    valueGrid.style.gridTemplateRows = `repeat(${maxQ}, 1fr)`;
+
+    document.getElementById("activeStrip").innerHTML = `<b>${escapeHtml(state.currentPlayerUsername || "")}</b> вибирає питання…`;
+  }
+
+  let lastQuestionKey = null;
+  function renderQuestion(state) {
+    const { categoryIndex, questionIndex } = state.currentQuestion;
+    const q = window.QuizGame.QUIZ_TOPICS[categoryIndex].questions[questionIndex];
+    document.getElementById("qMeta").textContent = `${state.board[categoryIndex].name} · ${q.value}`;
+    document.getElementById("qActivePlayer").textContent = state.currentPlayerUsername || "—";
+    document.getElementById("qText").textContent = q.text;
+
+    const key = `${categoryIndex}-${questionIndex}`;
+    const isNew = key !== lastQuestionKey;
+    lastQuestionKey = key;
+
+    const grid = document.getElementById("optionsGrid");
+    if (isNew || !grid.children.length) {
+      grid.innerHTML = q.options
+        .map((opt, i) => `<div class="option-tile"><span class="option-letter">${String.fromCharCode(65 + i)}</span>${escapeHtml(opt)}</div>`)
+        .join("");
+    }
+
+    const total = q.timeLimit * 1000;
+    const value = Math.max(0, Math.ceil((state.phaseDeadline - Date.now()) / 1000));
+    document.getElementById("timerNum").textContent = value;
+    const ring = document.getElementById("timerRing");
+    const circumference = 2 * Math.PI * 38;
+    ring.style.strokeDasharray = circumference;
+    ring.style.strokeDashoffset = circumference * (1 - Math.max(0, state.phaseDeadline - Date.now()) / total);
+    ring.style.stroke = value <= 5 ? "var(--wrong)" : "var(--gold)";
+  }
+
+  function renderResult(state) {
+    const ev = state.lastEvaluation;
+    if (!ev) return;
+    const { categoryIndex, questionIndex } = state.currentQuestion || {};
+    const q = categoryIndex !== undefined ? window.QuizGame.QUIZ_TOPICS[categoryIndex].questions[questionIndex] : null;
+
+    const badge = document.getElementById("resultBadge");
+    badge.textContent = ev.correct ? "✅ ПРАВИЛЬНО!" : "❌ НЕПРАВИЛЬНО";
+    badge.className = "result-badge " + (ev.correct ? "correct" : "wrong");
+    document.getElementById("resultPoints").textContent = `${ev.pointsAwarded >= 0 ? "+" : ""}${ev.pointsAwarded} балів — ${ev.playerName}`;
+    document.getElementById("resultAnswer").textContent = q ? `Правильна відповідь: ${q.options[q.correctIndices[0]]}. ${q.answerText || ""}` : "";
+
+    const grid = document.getElementById("optionsGrid");
+    if (grid && grid.children.length && q) {
+      [...grid.children].forEach((el, i) => {
+        el.classList.remove("is-correct", "is-selected-wrong");
+        if (q.correctIndices.includes(i)) el.classList.add("is-correct");
+        else if (i === ev.selectedIndex) el.classList.add("is-selected-wrong");
+      });
+    }
+  }
+
+  function renderEnd(state) {
+    const sorted = Object.entries(state.players || {}).sort((a, b) => (b[1].score || 0) - (a[1].score || 0));
+    document.getElementById("podium").innerHTML = sorted
+      .map(([name, p], i) => `<div class="podium-row ${i === 0 ? "win" : ""}">
+        <div class="podium-rank">${i + 1}${i === 0 ? " 👑" : ""}</div>
+        <div class="podium-name">${escapeHtml(name)}</div>
+        <div class="podium-score">${p.score || 0}</div>
+      </div>`)
+      .join("");
+  }
+
+  let latestState = null;
+  function render(state) {
+    latestState = state;
+    renderScoreboard(state);
+
+    switch (state.phase) {
+      case "lobby":
+        showView("waiting");
+        renderWaiting(state);
+        break;
+      case "countdown":
+        showView("countdown");
+        document.getElementById("countdownNum").textContent = Math.max(0, Math.ceil((state.phaseDeadline - Date.now()) / 1000));
+        break;
+      case "categorySelect":
+        showView("board");
+        renderBoard(state);
+        break;
+      case "questionActive":
+      case "evaluating":
+        showView("question");
+        renderQuestion(state);
+        if (state.phase === "evaluating") renderResult(state);
+        break;
+      case "resultDisplay":
+        showView("result");
+        renderResult(state);
+        break;
+      case "game_over":
+        showView("end");
+        renderEnd(state);
+        break;
+    }
+  }
+
+  setInterval(() => {
+    if (!latestState) return;
+    if (latestState.phase === "countdown" && !document.getElementById("view-countdown").classList.contains("hidden")) {
+      document.getElementById("countdownNum").textContent = Math.max(0, Math.ceil((latestState.phaseDeadline - Date.now()) / 1000));
+    }
+    if (latestState.phase === "questionActive" && !document.getElementById("view-question").classList.contains("hidden")) {
+      renderQuestion(latestState);
+    }
+  }, 250);
+
+  // TV — чистий спостерігач: підключаємось напряму до RTDB-шляху кімнати,
+  // оминаючи presence/host-машинерію рушія (QuizGame.start() зробив би TV
+  // ГРАВЦЕМ, з рахунком і місцем у черзі ходу — цього не треба). Той самий
+  // підхід, що й у quiplash-tv.html.
+  window.rtdb.ref("quiz_rooms/shared").on("value", (snap) => {
+    const state = snap.val();
+    if (state) render(state);
+  });
+})();
+</script>
+</body>
+</html>

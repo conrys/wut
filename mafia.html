@@ -19,6 +19,8 @@
     --blood-dim: #4a1613;
     --gold: #caa23a;
     --gold-dim: #4a3a16;
+    --commissar: #5b82ab;
+    --commissar-dim: #223349;
     --teal: #3c8f7c;
     --teal-dim: #163d34;
     --paper: #efe3c8;
@@ -85,7 +87,7 @@
       align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
   .role-icon.mafia { background: var(--blood-dim); }
   .role-icon.doctor { background: var(--teal-dim); }
-  .role-icon.commissar { background: var(--gold-dim); }
+  .role-icon.commissar { background: var(--commissar-dim); }
   .role-icon.civilian { background: var(--tile-bg-2); }
   .role-card .role-name { font-family: var(--font-display); font-size: 16px; margin-bottom: 3px; }
   .role-card .role-desc { font-size: 12.5px; color: var(--text-muted); line-height: 1.4; }
@@ -106,7 +108,7 @@
   .target-card .name { font-size: 13px; font-weight: 600; line-height: 1.3; }
   .target-card.selected { border-color: var(--blood); box-shadow: 0 0 0 1px var(--blood); }
   .target-card.selected.role-doctor { border-color: var(--teal); box-shadow: 0 0 0 1px var(--teal); }
-  .target-card.selected.role-commissar { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
+  .target-card.selected.role-commissar { border-color: var(--commissar); box-shadow: 0 0 0 1px var(--commissar); }
 
   /* ---------- результат ночі ---------- */
   .result-card { background: var(--tile-bg); border: 1px solid var(--line); border-radius: 14px;
@@ -151,7 +153,7 @@
   .reveal-row .role-tag { font-size: 11px; padding: 2px 8px; border-radius: 3px; font-weight: 700; }
   .role-tag.mafia { background: var(--blood-dim); color: #ffd9d6; }
   .role-tag.doctor { background: var(--teal-dim); color: #d6f0ea; }
-  .role-tag.commissar { background: var(--gold-dim); color: #ffeec2; }
+  .role-tag.commissar { background: var(--commissar-dim); color: #dbe9f5; }
   .role-tag.civilian { background: var(--tile-bg-2); color: var(--text-muted); }
 
   /* ---------- смуга досьє (низ екрана під час гри) ---------- */
@@ -182,6 +184,24 @@
       display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700;
       color: var(--text-light); flex-shrink: 0; }
   .mini-avatar.more { background: transparent; border: 1px dashed var(--line); color: var(--text-muted); }
+
+  /* ---------- налаштування лобі (хост) ---------- */
+  .settings-box { background: var(--tile-bg); border: 1px solid var(--line); border-radius: 12px;
+      padding: 12px 14px; width: 100%; margin-bottom: 12px; }
+  .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; }
+  .settings-row + .settings-row { border-top: 1px solid var(--line); }
+  .settings-label { font-size: 13px; }
+  .stepper { display: flex; align-items: center; gap: 10px; }
+  .stepper button { width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--line);
+      background: var(--tile-bg-2); color: var(--text-light); font-size: 15px; font-weight: 700; cursor: pointer; }
+  .stepper .val { font-family: var(--font-display); font-size: 15px; min-width: 18px; text-align: center; }
+  .timer-select { background: var(--tile-bg-2); border: 1px solid var(--line); border-radius: 8px;
+      color: var(--text-light); font-size: 13px; padding: 5px 8px; }
+
+  /* ---------- напарники по мафії (ніч) ---------- */
+  .teammates-box { font-size: 12.5px; color: var(--text-muted); background: var(--tile-bg);
+      border: 1px solid var(--blood-dim); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; width: 100%; }
+  .teammates-box b { color: var(--text-light); }
 </style>
 </head>
 <body>
@@ -276,7 +296,7 @@
 
   <div id="view-waiting" class="hidden">
     <h2>🔪 Мафія</h2>
-    <div class="status-line">Раунд триває — приєднаєшся автоматично, коли гра повернеться в лобі</div>
+    <div class="status-line">Гра вже триває — зайдеш, щойно відкриється лобі</div>
   </div>
 
   <div id="view-lobby" class="hidden">
@@ -284,6 +304,37 @@
     <div class="room-code-display" id="roomCodeDisplay"></div>
     <div class="status-line" id="lobbyStatus"></div>
     <div class="players-list" id="playersList"></div>
+    <div class="settings-box hidden" id="hostSettingsBox">
+      <div class="settings-row">
+        <span class="settings-label">Мафія</span>
+        <div class="stepper">
+          <button id="mafiaCountMinus">−</button>
+          <span class="val" id="mafiaCountVal">авто</span>
+          <button id="mafiaCountPlus">+</button>
+        </div>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">Ніч</span>
+        <select class="timer-select" id="timerNight">
+          <option value="20000">20с</option><option value="30000">30с</option>
+          <option value="45000">45с</option><option value="60000">60с</option>
+        </select>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">Обговорення</span>
+        <select class="timer-select" id="timerDiscussion">
+          <option value="60000">1хв</option><option value="90000">1.5хв</option>
+          <option value="120000">2хв</option><option value="180000">3хв</option>
+        </select>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">Голосування</span>
+        <select class="timer-select" id="timerVoting">
+          <option value="30000">30с</option><option value="45000">45с</option>
+          <option value="60000">60с</option>
+        </select>
+      </div>
+    </div>
     <button class="secondary-btn" id="toggleReadyBtn">Готовий</button>
     <button class="primary-btn hidden" id="startGameBtn">Почати гру</button>
     <div class="hint-text" id="startHint"></div>
@@ -326,6 +377,12 @@
     <button class="secondary-btn hidden" id="hostSkipVotingBtn">Хост: завершити голосування достроково</button>
   </div>
 
+  <div id="view-voting_result" class="hidden">
+    <h2>Вирок</h2>
+    <div id="votingResultContent"></div>
+    <button class="secondary-btn hidden" id="hostSkipVotingResultBtn">Хост: далі</button>
+  </div>
+
   <div id="view-game_over" class="hidden">
     <div id="gameOverContent"></div>
     <button class="primary-btn hidden" id="resetGameBtn">Нова гра</button>
@@ -347,10 +404,10 @@
 <script src="js/refresh-button.js"></script>
 <script>
 (function () {
-  const VIEWS = ["locked", "room-entry", "waiting", "lobby", "night", "night_result", "day_discussion", "day_voting", "game_over"];
+  const VIEWS = ["locked", "room-entry", "waiting", "lobby", "night", "night_result", "day_discussion", "day_voting", "voting_result", "game_over"];
   function showView(name) {
     VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name));
-    document.getElementById("dossierStrip").classList.toggle("hidden", !["night", "night_result", "day_discussion", "day_voting", "game_over"].includes(name));
+    document.getElementById("dossierStrip").classList.toggle("hidden", !["night", "night_result", "day_discussion", "day_voting", "voting_result", "game_over"].includes(name));
   }
 
   function escapeHtml(s) {
@@ -362,15 +419,13 @@
 
   const PHASE_LABELS = {
     lobby: "Лобі", night: "Ніч", night_result: "Ранок",
-    day_discussion: "Обговорення", day_voting: "Голосування", game_over: "Фінал"
+    day_discussion: "Обговорення", day_voting: "Голосування", voting_result: "Вирок", game_over: "Фінал"
   };
 
-  const ROLE_META = {
-    mafia:     { name: "Мафія",   icon: "🔪", desc: "Щоночі разом з іншими мафіозі обирає жертву.", cls: "mafia" },
-    doctor:    { name: "Лікар",   icon: "💉", desc: "Щоночі рятує одного гравця від смерті.",        cls: "doctor" },
-    commissar: { name: "Комісар", icon: "🔎", desc: "Щоночі перевіряє, чи гравець належить до мафії.", cls: "commissar" },
-    civilian:  { name: "Мирний",  icon: "🙂", desc: "Нічної дії немає — лише голос удень.",          cls: "civilian" }
-  };
+  // Єдине джерело правди для ролей — і mafia.html, і mafia-host.html
+  // читають window.MafiaGame.ROLE_META, а не тримають власні копії.
+  const ROLE_META = window.MafiaGame.ROLE_META;
+  const ROLE_CLASS = { mafia: "mafia", doctor: "doctor", commissar: "commissar", civilian: "civilian" };
 
   const ROOM_CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // без 0/O/1/I/L, щоб не плутати на слух
   function randomRoomCode() {
@@ -382,6 +437,10 @@
   let currentRoomId = null;
   let countdownTimer = null;
   let lastState = null, lastCtx = null;
+  let pendingMafiaCount = null;
+
+  function autoMafiaCount(n) { return n <= 5 ? 1 : n <= 7 ? 2 : 3; }
+  function maxMafiaCount(n) { return Math.max(1, Math.ceil(n / 2) - 1); }
 
   function fmtSeconds(ms) {
     const s = Math.max(0, Math.ceil(ms / 1000));
@@ -433,6 +492,18 @@
     document.getElementById("startHint").textContent = ctx.host && !enough
       ? (n < window.MafiaGame.MIN_PLAYERS ? `Потрібно ще ${window.MafiaGame.MIN_PLAYERS - n} гравців(я)` : "Забагато гравців для однієї кімнати")
       : "";
+
+    const settingsBox = document.getElementById("hostSettingsBox");
+    settingsBox.classList.toggle("hidden", !ctx.host);
+    if (ctx.host) {
+      pendingMafiaCount = state.mafiaCount == null ? null : state.mafiaCount;
+      document.getElementById("mafiaCountVal").textContent = pendingMafiaCount == null ? "авто" : String(pendingMafiaCount);
+      const timers = state.timers || {};
+      const T = window.MafiaGame.DEFAULT_TIMERS;
+      document.getElementById("timerNight").value = timers.night || T.night;
+      document.getElementById("timerDiscussion").value = timers.day_discussion || T.day_discussion;
+      document.getElementById("timerVoting").value = timers.day_voting || T.day_voting;
+    }
   }
 
   // ------------------------- рендер ночі -------------------------
@@ -450,7 +521,7 @@
     const roleMeta = ROLE_META[me.role] || ROLE_META.civilian;
     const roleCardHtml = `
       <div class="role-card">
-        <div class="role-icon ${roleMeta.cls}">${roleMeta.icon}</div>
+        <div class="role-icon ${me.role || "civilian"}">${roleMeta.icon}</div>
         <div><div class="role-name">${roleMeta.name}</div><div class="role-desc">${roleMeta.desc}</div></div>
       </div>`;
 
@@ -460,14 +531,24 @@
     }
 
     const pool = Object.entries(players).filter(([u, p]) => p.alive && u !== ctx.username);
-    content.innerHTML = roleCardHtml + `
+
+    let teammatesHtml = "";
+    if (me.role === "mafia") {
+      const teammates = Object.entries(players).filter(([u, p]) => p.role === "mafia" && p.alive && u !== ctx.username);
+      if (teammates.length) {
+        const picks = teammates.map(([u, p]) => `${escapeHtml(u)}: ${p.nightAction ? escapeHtml(p.nightAction) : "ще обирає"}`).join(" · ");
+        teammatesHtml = `<div class="teammates-box">Напарники: ${picks}</div>`;
+      }
+    }
+
+    content.innerHTML = roleCardHtml + teammatesHtml + `
       <div class="target-grid">
         ${pool.map(([u]) => `
           <div class="target-card ${me.nightAction === u ? "selected role-" + me.role : ""}" data-id="${escapeHtml(u)}">
             <div class="avatar">${initials(u)}</div><div class="name">${escapeHtml(u)}</div>
           </div>`).join("")}
       </div>
-      <div class="hint-text">${me.nightAction ? "Вибір зроблено — чекаємо на інших." : "Обери ціль."}</div>`;
+      <div class="hint-text">${me.nightAction ? "Вибір зроблено." : "Обери ціль."}</div>`;
 
     content.querySelectorAll(".target-card").forEach((el) => {
       el.addEventListener("click", () => window.MafiaGame.submitNightAction(el.dataset.id));
@@ -475,7 +556,7 @@
   }
 
   function toggleHostSkipButtons(ctx) {
-    ["hostSkipNightBtn", "hostSkipNightResultBtn", "hostSkipDiscussionBtn", "hostSkipVotingBtn"].forEach((id) => {
+    ["hostSkipNightBtn", "hostSkipNightResultBtn", "hostSkipDiscussionBtn", "hostSkipVotingBtn", "hostSkipVotingResultBtn"].forEach((id) => {
       const el = document.getElementById(id);
       if (el) el.classList.toggle("hidden", !ctx.host);
     });
@@ -496,10 +577,19 @@
     document.getElementById("nightResultContent").innerHTML = `
       <div class="result-card ${dead ? "" : "safe"}">
         <div class="avatar-big">${dead ? initials(dead.username) : "🌅"}</div>
-        <div class="result-title">${dead ? `Тієї ночі загинув(ла): ${escapeHtml(dead.username)}` : "Цієї ночі ніхто не загинув"}</div>
-        <div class="result-sub">${dead ? "Лікар не встиг врятувати цього гравця." : "Хтось цієї ночі був під захистом."}</div>
+        <div class="result-title">${dead ? `Загинув(ла): ${escapeHtml(dead.username)}` : "Ніхто не загинув"}</div>
       </div>
       ${inspectHtml}`;
+  }
+
+  // ------------------------- рендер вироку голосування -------------------------
+  function renderVotingResult(state) {
+    const eliminated = state.lastEliminated;
+    document.getElementById("votingResultContent").innerHTML = `
+      <div class="result-card ${eliminated ? "" : "safe"}">
+        <div class="avatar-big">${eliminated ? initials(eliminated) : "⚖️"}</div>
+        <div class="result-title">${eliminated ? `Вигнано: ${escapeHtml(eliminated)}` : "Нічия — нікого не вигнано"}</div>
+      </div>`;
   }
 
   // ------------------------- рендер обговорення -------------------------
@@ -585,6 +675,7 @@
       case "night_result": renderNightResult(state, ctx); break;
       case "day_discussion": renderDayDiscussion(state, ctx); break;
       case "day_voting": renderDayVoting(state, ctx); break;
+      case "voting_result": renderVotingResult(state); break;
       case "game_over": renderGameOver(state, ctx); break;
     }
   }
@@ -596,7 +687,29 @@
   });
   document.getElementById("startGameBtn").addEventListener("click", () => window.MafiaGame.startGame());
 
-  ["hostSkipNightBtn", "hostSkipNightResultBtn", "hostSkipDiscussionBtn", "hostSkipVotingBtn"].forEach((id) => {
+  document.getElementById("mafiaCountMinus").addEventListener("click", () => {
+    const n = lastState ? Object.keys(lastState.players || {}).length : 4;
+    const current = pendingMafiaCount == null ? autoMafiaCount(n) : pendingMafiaCount;
+    const next = current - 1 < 1 ? null : current - 1;
+    window.MafiaGame.setMafiaCount(next);
+  });
+  document.getElementById("mafiaCountPlus").addEventListener("click", () => {
+    const n = lastState ? Object.keys(lastState.players || {}).length : 4;
+    const current = pendingMafiaCount == null ? autoMafiaCount(n) : pendingMafiaCount;
+    const next = Math.min(maxMafiaCount(n), current + 1);
+    window.MafiaGame.setMafiaCount(next);
+  });
+  ["timerNight", "timerDiscussion", "timerVoting"].forEach((id) => {
+    document.getElementById(id).addEventListener("change", () => {
+      window.MafiaGame.setTimers({
+        night: Number(document.getElementById("timerNight").value),
+        day_discussion: Number(document.getElementById("timerDiscussion").value),
+        day_voting: Number(document.getElementById("timerVoting").value),
+      });
+    });
+  });
+
+  ["hostSkipNightBtn", "hostSkipNightResultBtn", "hostSkipDiscussionBtn", "hostSkipVotingBtn", "hostSkipVotingResultBtn"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.addEventListener("click", () => window.MafiaGame.forceAdvance());
   });
