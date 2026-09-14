@@ -164,28 +164,39 @@
       transform: scale(0.98);
     }
 
-    /* Область PNG-логотипу (Квадрат 1:1) з динамічним тлом */
+    /* Область PNG-логотипу (Квадрат 1:1) */
     .tile-media {
       position: relative;
       width: 100%;
       aspect-ratio: 1 / 1;
-      background-color: var(--logo-bg);
-      background-size: cover;
       background-position: center;
       background-repeat: no-repeat;
+      background-size: cover;
       transition: background-color 0.3s ease;
     }
 
+    /* ==========================================
+       СТИЛІ ФОНУ ТА ГРАДІЄНТІВ
+       ========================================== */
+
     .tile[data-type*="solo"] .tile-media {
       background-color: #1e2640;
+      background-image: var(--icon);
     }
 
     .tile[data-type*="multi"] .tile-media {
       background-color: #2d1f47;
+      background-image: var(--icon);
     }
 
     .tile[data-type*="host"] .tile-media {
       background-color: #421c28;
+      background-image: var(--icon);
+    }
+
+    /* Плаский градієнт для комбінації Соло + Мульті */
+    .tile[data-type*="solo"][data-type*="multi"] .tile-media {
+      background-image: var(--icon), linear-gradient(135deg, #1e2640 0%, #2d1f47 100%);
     }
 
     /* Емодзі-плейсхолдер */
@@ -307,10 +318,10 @@
 
   <div class="grid" id="games-grid">
 
-    <!-- ІГРИ (Усі кастомні зображення переведено на .png) -->
+    <!-- ІГРИ -->
 
     <a class="tile" href="tetris.html" data-type="solo">
-      <div class="tile-media" style="background-image: url('img/tetris_logo.png');"></div>
+      <div class="tile-media" style="--icon: url('img/tetris_logo.png');"></div>
       <div class="tags"><span class="tag tag-solo">соло</span><span class="tag tag-v">✅</span></div>
       <div class="tile-banner">
         <div class="name">Тетріс</div>
@@ -318,7 +329,7 @@
     </a>
 
     <a class="tile" href="2048.html" data-type="solo">
-      <div class="tile-media" style="background-image: url('img/2048_logo.png');"></div>
+      <div class="tile-media" style="--icon: url('img/2048_logo.png');"></div>
       <div class="tags"><span class="tag tag-solo">соло</span><span class="tag tag-v">✅</span></div>
       <div class="tile-banner">
         <div class="name">2048</div>
@@ -326,17 +337,15 @@
     </a>
 
     <a class="tile" href="wordle.html" data-type="solo">
-      <div class="tile-media" style="background-image: url('img/wordle_logo.png');"></div>
+      <div class="tile-media" style="--icon: url('img/wordle_logo.png');"></div>
       <div class="tags"><span class="tag tag-solo">соло</span><span class="tag tag-v">✅</span></div>
       <div class="tile-banner">
         <div class="name">Wordle</div>
       </div>
     </a>
 
-
-
     <a class="tile" href="sudoku.html" data-type="solo">
-      <div class="tile-media" style="background-image: url('img/sudoku_logo.png');"></div>
+      <div class="tile-media" style="--icon: url('img/sudoku_logo.png');"></div>
       <div class="tags"><span class="tag tag-solo">соло</span><span class="tag tag-v">✅</span></div>
       <div class="tile-banner">
         <div class="name">Судоку</div>
@@ -344,7 +353,7 @@
     </a>
 
     <a class="tile" href="miner.html" data-type="solo">
-      <div class="tile-media" style="background-image: url('img/miner_logo.png');"></div>
+      <div class="tile-media" style="--icon: url('img/miner_logo.png');"></div>
       <div class="tags"><span class="tag tag-solo">соло</span><span class="tag tag-v">✅</span></div>
       <div class="tile-banner">
         <div class="name">Сапер</div>
@@ -352,7 +361,7 @@
     </a>
 
     <a class="tile" href="doodle.html" data-type="solo">
-      <div class="tile-media" style="background-image: url('img/doodle_logo.png');"></div>
+      <div class="tile-media" style="--icon: url('img/doodle_logo.png');"></div>
       <div class="tags"><span class="tag tag-solo">соло</span><span class="tag tag-v">✅</span></div>
       <div class="tile-banner">
         <div class="name">Doodle Jump</div>
@@ -360,26 +369,24 @@
     </a>
 
     <a class="tile" href="soliter.html" data-type="solo">
-      <div class="tile-media" style="background-image: url('img/soliter_logo.png');"></div>
+      <div class="tile-media" style="--icon: url('img/soliter_logo.png');"></div>
       <div class="tags"><span class="tag tag-solo">соло</span><span class="tag tag-v">v0.95</span></div>
       <div class="tile-banner">
         <div class="name">Косинка</div>
       </div>
     </a>
 
-    <a class="tile" href="poker.html" data-type="solo">
-      <div class="tile-media" style="background-image: url('img/poker_logo.png');"></div>
-      <div class="tags"><span class="tag tag-solo">соло</span><span class="tag tag-multi">2-10 </span><span class="tag tag-v">✅</span><span class="tag tag-it">🌐</span></div>
+    <a class="tile" href="poker.html" data-type="solo multi">
+      <div class="tile-media" style="--icon: url('img/poker_logo.png');"></div>
+      <div class="tags"><span class="tag tag-multi">1-10 </span><span class="tag tag-v">✅</span><span class="tag tag-it">🌐</span></div>
       <div class="tile-banner">
         <div class="name">Покер</div>
       </div>
     </a>
 
-    
-     
     <a class="tile" href="snake.html" data-type="solo multi">
-      <div class="tile-media" style="background-image: url('img/snake_logo.png');"></div>
-      <div class="tags"><span class="tag tag-solo">соло</span> <span class="tag tag-multi">2-10</span><span class="tag tag-v">✅</span></div>
+      <div class="tile-media" style="--icon: url('img/snake_logo.png');"></div>
+      <div class="tags"><span class="tag tag-solo">соло</span> <span class="tag tag-multi">1-10</span><span class="tag tag-v">✅</span></div>
       <div class="tile-banner">
         <div class="name">Змійка</div>
         <div class="desc">До 8 гравців</div>
@@ -387,7 +394,7 @@
     </a>
 
     <a class="tile" href="spy.html" data-type="multi">
-      <div class="tile-media" style="background-image: url('img/spy_logo.png');"></div>
+      <div class="tile-media" style="--icon: url('img/spy_logo.png');"></div>
       <div class="tags"><span class="tag tag-multi">2-10 </span><span class="tag tag-v">✅</span><span class="tag tag-it">🌐</span></div>
       <div class="tile-banner">
         <div class="name">Шпигун</div>
@@ -395,7 +402,7 @@
     </a>
 
     <a class="tile" href="whoami.html" data-type="multi">
-      <div class="tile-media" style="background-image: url('img/whoami_logo.png');"></div>
+      <div class="tile-media" style="--icon: url('img/whoami_logo.png');"></div>
       <div class="tags"><span class="tag tag-multi">2-10 </span><span class="tag tag-v">✅</span></div>
       <div class="tile-banner">
         <div class="name">Хто я?</div>
@@ -403,7 +410,7 @@
     </a>
 
     <a class="tile" href="memology.html" data-type="multi">
-      <div class="tile-media" style="background-image: url('img/meme_logo.png');"></div>
+      <div class="tile-media" style="--icon: url('img/meme_logo.png');"></div>
       <div class="tags"><span class="tag tag-multi">2-10</span><span class="tag tag-v">✅</span><span class="tag tag-it">🌐</span></div>
       <div class="tile-banner">
         <div class="name">Мемологія</div>
@@ -411,7 +418,7 @@
     </a>
 
     <a class="tile" href="crocodile.html" data-type="multi">
-      <div class="tile-media" style="background-image: url('img/crocodile_logo.png');"></div>
+      <div class="tile-media" style="--icon: url('img/crocodile_logo.png');"></div>
       <div class="tags"><span class="tag tag-multi">2-10 </span><span class="tag tag-v">✅</span></div>
       <div class="tile-banner">
         <div class="name">Крокодил</div>
@@ -419,7 +426,7 @@
     </a>
 
     <a class="tile" href="quiplash.html" data-type="multi">
-      <div class="tile-media" style="background-image: url('img/quiplash_logo.png');"></div>
+      <div class="tile-media" style="--icon: url('img/quiplash_logo.png');"></div>
       <div class="tags"><span class="tag tag-multi">2-10</span><span class="tag tag-v">v0.95</span> <span class="tag tag-it">🌐</span> </div>
       <div class="tile-banner">
         <div class="name">Сміхлист</div>
@@ -427,7 +434,7 @@
     </a>
 
     <a class="tile" href="mafia.html" data-type="multi">
-      <div class="tile-media" style="background-image: url('img/mafia_logo.png');"></div>
+      <div class="tile-media" style="--icon: url('img/mafia_logo.png');"></div>
       <div class="tags"><span class="tag tag-multi">2-10</span><span class="tag tag-v">v0.95</span> <span class="tag tag-it">🌐</span> </div>
       <div class="tile-banner">
         <div class="name">Мафія</div>
@@ -435,7 +442,7 @@
     </a>
     
     <a class="tile" href="teli.html" data-type="multi">
-      <div class="tile-media" style="background-image: url('img/teli_logo.png');"></div>
+      <div class="tile-media" style="--icon: url('img/teli_logo.png');"></div>
       <div class="tags"><span class="tag tag-multi">2-10</span><span class="tag tag-v">✅</span><span class="tag tag-it">🌐</span></div>
       <div class="tile-banner">
         <div class="name">Зіпсований телефон</div>
@@ -443,7 +450,7 @@
     </a>
     
     <a class="tile" href="quiz.html" data-type="multi">
-      <div class="tile-media" style="background-image: url('img/quiz_logo.png');"></div>
+      <div class="tile-media" style="--icon: url('img/quiz_logo.png');"></div>
       <div class="tags"><span class="tag tag-multi">2-10</span><span class="tag tag-v">✅</span><span class="tag tag-it">🌐</span></div>
       <div class="tile-banner">
         <div class="name">Quiz</div>
@@ -451,7 +458,7 @@
     </a>
 
     <a class="tile" href="draw.html" data-type="multi">
-      <div class="tile-media" style="background-image: url('img/draw_logo.png');"></div>
+      <div class="tile-media" style="--icon: url('img/draw_logo.png');"></div>
       <div class="tags"><span class="tag tag-multi">2-10</span><span class="tag tag-v">v0.1</span><span class="tag tag-it">🌐</span></div>
       <div class="tile-banner">
         <div class="name">Малювалка</div>
@@ -459,7 +466,7 @@
     </a>
 
     <a class="tile" href="quiplash-tv.html" data-type="host">
-      <div class="tile-media" style="background-image: url('img/quiplashtv_logo.png');"></div>
+      <div class="tile-media" style="--icon: url('img/quiplashtv_logo.png');"></div>
       <div class="tags"><span class="tag tag-multi">2-10</span> <span class="tag tag-host">Хост</span><span class="tag tag-v">v0.95</span><span class="tag tag-it">🌐</span></div>
       <div class="tile-banner">
         <div class="name">Сміхлист ТВ</div>
@@ -467,7 +474,7 @@
     </a>
         
     <a class="tile" href="quiz-tv.html" data-type="host">
-      <div class="tile-media" style="background-image: url('img/quiztv_logo.png');"></div>
+      <div class="tile-media" style="--icon: url('img/quiztv_logo.png');"></div>
       <div class="tags"><span class="tag tag-multi">2-10</span> <span class="tag tag-host">Хост</span><span class="tag tag-v">v0.95</span><span class="tag tag-it">🌐</span></div>
       <div class="tile-banner">
         <div class="name">Quiz ТВ</div>
@@ -475,7 +482,7 @@
     </a>
     
     <a class="tile" href="mafia-host.html" data-type="host">
-      <div class="tile-media" style="background-image: url('img/mafiatv_logo.png');"></div>
+      <div class="tile-media" style="--icon: url('img/mafiatv_logo.png');"></div>
       <div class="tags"><span class="tag tag-multi">2-10</span> <span class="tag tag-host">Хост</span><span class="tag tag-v">v0.95</span><span class="tag tag-it">🌐</span></div>
       <div class="tile-banner">
         <div class="name">Мафія ТВ</div>
@@ -497,7 +504,6 @@
 <script src="js/online-engine.js"></script>
 
 <script>
-  // Глобальна функція зміни теми (можна викликати з консолі або прив'язати до кнопок)
   window.setTheme = function(themeName) {
     if (themeName === 'default') {
       document.documentElement.removeAttribute('data-theme');
