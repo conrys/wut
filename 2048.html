@@ -235,16 +235,30 @@
     tilesLayer.className = 'tiles-layer';
     boardEl.insertBefore(tilesLayer, overlay);
 
-    let cellSize = 0, gapSize = 0, originX = 0, originY = 0;
+    let cellPositions = [];
+    let cellSize = 0;
+
     function measureGrid() {
       const cells = boardEl.querySelectorAll('.cell-bg');
+      if (!cells.length) return;
       const boardRect = boardEl.getBoundingClientRect();
-      const c0 = cells[0].getBoundingClientRect();
-      const c1 = cells[1].getBoundingClientRect();
-      cellSize = c0.width;
-      gapSize = c1.left - c0.right;
-      originX = c0.left - boardRect.left;
-      originY = c0.top - boardRect.top;
+
+      cellPositions = [];
+      for (let r = 0; r < 4; r++) {
+        cellPositions[r] = [];
+        for (let c = 0; c < 4; c++) {
+          const cellRect = cells[r * 4 + c].getBoundingClientRect();
+          cellPositions[r][c] = {
+            x: cellRect.left - boardRect.left,
+            y: cellRect.top - boardRect.top,
+            w: cellRect.width,
+            h: cellRect.height
+          };
+        }
+      }
+      if (cellPositions[0] && cellPositions[0][0]) {
+        cellSize = cellPositions[0][0].w;
+      }
     }
 
     let grid, tiles, nextId, score, best, phase, previousState;
@@ -272,18 +286,18 @@
     }
 
     function tilePixelPos(r, c) {
-      return {
-        x: originX + c * (cellSize + gapSize),
-        y: originY + r * (cellSize + gapSize),
-      };
+      if (cellPositions[r] && cellPositions[r][c]) {
+        return cellPositions[r][c];
+      }
+      return { x: 0, y: 0, w: 0, h: 0 };
     }
 
     function createTileEl(tile) {
       const el = document.createElement('div');
       el.className = 'tile';
-      el.style.width = cellSize + 'px';
-      el.style.height = cellSize + 'px';
       const pos = tilePixelPos(tile.r, tile.c);
+      el.style.width = pos.w + 'px';
+      el.style.height = pos.h + 'px';
       el.style.transform = `translate(${pos.x}px, ${pos.y}px)`;
       const inner = document.createElement('div');
       inner.className = 'tile-inner spawn';
@@ -305,6 +319,8 @@
 
     function positionTile(tile) {
       const pos = tilePixelPos(tile.r, tile.c);
+      tile.el.style.width = pos.w + 'px';
+      tile.el.style.height = pos.h + 'px';
       tile.el.style.transform = `translate(${pos.x}px, ${pos.y}px)`;
     }
 
@@ -476,13 +492,13 @@
       else if (e.code === 'ArrowDown') { move('down'); e.preventDefault(); }
     });
 
-    // ---- Свайпи по всій сторінці (окрім кнопок) ----
+    // ---- Свайпи по всій сторінці (окрім кнопок керування) ----
     let touchStartX = 0, touchStartY = 0, touchActive = false;
 
     document.addEventListener('touchstart', (e) => {
       if (e.touches.length !== 1) return;
-      // Якщо дотик відбувається на кнопці або елементах керування — свайп не активується
-      if (e.target.closest('button, input, select, textarea, a')) return;
+      // Ігноруємо свайп, якщо натискання відбулося на кнопках або інтерактивних елементах
+      if (e.target.closest('button, input, select, textarea, a, [role="button"]')) return;
 
       touchActive = true;
       touchStartX = e.touches[0].clientX;
@@ -511,13 +527,17 @@
       measureGrid();
       for (const id in tiles) {
         const tile = tiles[id];
-        tile.el.style.width = cellSize + 'px';
-        tile.el.style.height = cellSize + 'px';
-        tile.innerEl.style.fontSize = fontSizeFor(tile.value) + 'px';
         positionTile(tile);
+        if (tile.innerEl) {
+          tile.innerEl.style.fontSize = fontSizeFor(tile.value) + 'px';
+        }
       }
     }
+
     window.addEventListener('resize', rerenderAllPositions);
+    if (window.ResizeObserver) {
+      new ResizeObserver(rerenderAllPositions).observe(boardEl);
+    }
 
     measureGrid();
     resetState();

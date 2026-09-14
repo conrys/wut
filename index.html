@@ -6,46 +6,66 @@
   <title>Ігротека</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
-  <!-- треба додати "обране" -->
   <style>
     :root {
-      --bg: #14161a;
+      /* За замовчуванням (Синя тема) */
+      --bg: #0f111c;
+      --logo-bg: #1a1e29;
+      --glow-color: rgba(66, 67, 255, 0.22);
+
       --tile-bg: #22252b;
       --tile-bg-hover: #2b2f36;
       --text-light: #f4f5f1;
       --text-muted: #8b909c;
       --accent: #38cfa0;
     }
+
+    /* Додаткові теми для швидкого перемикання */
+    [data-theme="purple"] {
+      --bg: #120e1e;
+      --logo-bg: #5f3dc4;
+      --glow-color: rgba(95, 61, 196, 0.25);
+    }
+
+    [data-theme="cyber"] {
+      --bg: #141419;
+      --logo-bg: #e63946;
+      --glow-color: rgba(230, 57, 70, 0.25);
+    }
+
+    [data-theme="emerald"] {
+      --bg: #0b1915;
+      --logo-bg: #0ca678;
+      --glow-color: rgba(12, 166, 120, 0.25);
+    }
+
     * {
       box-sizing: border-box; -webkit-tap-highlight-color: transparent;
       user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none;
       -webkit-touch-callout: none;
     }
+
     html, body {
       margin: 0; padding: 0; min-height: 100dvh; 
       background-color: var(--bg);
-      /* Стильне тло: неоновий акцент зверху +тонка ігрова сітка */
       background-image: 
-        radial-gradient(circle at 50% 0%, rgba(56, 207, 160, 0.08) 0%, transparent 60%),
-        linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-      background-size: 100% 100%, 32px 32px, 32px 32px;
+        radial-gradient(circle at 50% -10%, var(--glow-color) 0%, transparent 55%),
+        radial-gradient(circle at 90% 20%, rgba(255, 159, 28, 0.06) 0%, transparent 45%),
+        radial-gradient(rgba(255, 255, 255, 0.08) 1.2px, transparent 1.2px);
+      background-size: 100% 100%, 100% 100%, 24px 24px;
       background-attachment: fixed;
       font-family: 'Inter', sans-serif; color: var(--text-light);
       overflow-x: hidden; overflow-y: auto; touch-action: manipulation;
+      transition: background-color 0.3s ease;
     }
+
     .page {
       max-width: 520px;
       margin: 0 auto;
-      /* Захисний відступ під системний статус-бар Android */
       padding-top: calc(max(24px, env(safe-area-inset-top)) + 10px);
       padding-left: 16px;
       padding-right: 16px;
       padding-bottom: 40px;
-    }
-    
-    .tile-logo-char{
-      font-size: 1.6rem;
     }
 
     .brand-title {
@@ -60,91 +80,14 @@
       margin-bottom: 14px;
     }
 
-    /* memology logo block */
-    .tile-logo-memes {
-      width: 100%;
-      height: 100%;
-      min-height: 180px;
-      background: linear-gradient(135deg, #1b2e26 0%, #141f1b 50%, #111518 100%);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-      overflow: hidden;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-    }
-
-    /* Спеціальний клас для плитки Мемології, щоб правильно позиціонувати шари */
-    .tile.tile-meme {
-      display: block; /* Скасовуємо загальний flex для плиток, щоб абсолютне позиціонування працювало коректно */
-    }
-
-    /* Фонова картинка на всю площу плитки */
-    .tile.tile-meme .tile-media {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 1;
-      background-size: cover;
-      background-position: center;
-      background-repeat: no-repeat;
-    }
-
-    /* Літери поверх картинки, вирівняні по центру */
-    .tile.tile-meme .tile-logo-text {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 2; /* Поверх картинки */
-      padding-bottom: 30px; /* Зміщуємо трохи вгору, щоб не перекривати нижній банер */
-    }
-
-    /* Декоративний фон всередині логотипу (імітація карток/мемів) */
-    .tile-logo-memes::before {
-      content: "🤡 🃏 💀 💬 🧠 🤡 🃏 💀";
-      position: absolute;
-      font-size: 28px;
-      opacity: 0.12;
-      letter-spacing: 12px;
-      transform: rotate(-12deg) scale(1.4);
-      white-space: nowrap;
-      pointer-events: none;
-    }
-
-
-    .tile-logo-text {
-      font-family: 'Space Grotesk', sans-serif;
-      font-size: 26px;
-      font-weight: 700;
-      text-align: center;
-      z-index: 1;
-      filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
-    }
-
-    /* Підпис-бейджик під назвою в лого */
-    .tile-logo-sub {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.15em;
-      color: var(--text-muted);
-      margin-top: 6px;
-      z-index: 1;
-    }
-
     .brand-logo {
       width: 32px;
       height: 32px;
       border-radius: 8px;
       object-fit: cover;
       flex-shrink: 0;
+      background-color: var(--logo-bg);
+      transition: background-color 0.3s ease;
     }
 
     /* Верхня панель (Фільтри + Логін) */
@@ -183,7 +126,6 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.25);
     }
 
-    /* Перевизначення стилів кнопки з login.js для вбудовування в top-bar */
     .auth-pill {
       position: static !important;
       top: auto !important;
@@ -203,40 +145,85 @@
       grid-template-columns: repeat(2, 1fr);
       gap: 12px;
     }
+
     .tile {
       position: relative;
       background-color: var(--tile-bg);
       border-radius: 16px;
       display: flex;
       flex-direction: column;
-      align-items: center; /* Центрування вмісту по горизонталі */
-      justify-content: center; /* Центрування вмісту по вертикалі */
-      aspect-ratio: 1 / 1;
       text-decoration: none;
       color: inherit;
       touch-action: manipulation;
       border: 1px solid rgba(255,255,255,0.04);
       overflow: hidden;
-      transition: transform 0.15s ease, opacity 0.2s ease;
+      transition: transform 0.15s ease, opacity 0.2s ease, background-color 0.15s ease;
     }
     .tile:active {
       background-color: var(--tile-bg-hover);
       transform: scale(0.98);
     }
 
-    /* Емодзі-плейсхолдер для незавершених ігор */
+    /* Область PNG-логотипу (Квадрат 1:1) з динамічним тлом */
+    .tile-media {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      background-color: var(--logo-bg);
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      transition: background-color 0.3s ease;
+    }
+
+    .tile[data-type*="solo"] .tile-media {
+      background-color: #1e2640;
+    }
+
+    .tile[data-type*="multi"] .tile-media {
+      background-color: #2d1f47;
+    }
+
+    .tile[data-type*="host"] .tile-media {
+      background-color: #421c28;
+    }
+
+    /* Емодзі-плейсхолдер */
     .tile .placeholder-icon {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       font-size: 38px;
       line-height: 1;
       z-index: 1;
-      margin-bottom: 0; /* Прибираємо зайвий відступ знизу */
       opacity: 0.75;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .tile:has(.tile-media) .placeholder-icon {
+      display: none;
+    }
+
+    /* Блок з назвою гри під логотипом */
+    .tile-banner {
+      position: relative;
+      background: #181b21;
+      padding: 10px 12px;
+      width: 100%;
+      border-top: 1px solid rgba(255, 255, 255, 0.04);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
     }
 
     .tile .name {
       font-family: 'Space Grotesk', sans-serif;
       font-weight: 700;
-      font-size: 16px;
+      font-size: 15px;
+      line-height: 1.2;
     }
     .tile .desc {
       font-size: 11px;
@@ -244,26 +231,7 @@
       line-height: 1.3;
       margin-top: 2px;
     }
-    .tile-banner {
-      position: absolute; /* Закріплюємо банер унизу картки */
-      bottom: 0;
-      left: 0;
-      background: #121418;
-      padding: 10px 12px;
-      z-index: 3;
-      width: 100%;
-    }
 
-    .tile-media {
-      position: relative; /* Змінюємо з absolute, щоб воно займало верхній простір */
-      flex: 1;            /* Займає весь вільний простір до банера */
-      width: 100%;
-      background-size: cover;
-      background-position: center;
-      background-repeat: no-repeat;
-    }
-
-    /* Стан недоступної гри */
     .tile.disabled {
       opacity: 0.45;
       pointer-events: none;
@@ -276,8 +244,8 @@
     /* Теги */
     .tags {
       position: absolute;
-      top: 10px;
-      left: 10px;
+      top: 8px;
+      left: 8px;
       z-index: 2;
       display: flex;
       gap: 4px;
@@ -298,32 +266,14 @@
     .tag-multi { color: #ffb84d; border: 1px solid rgba(255,184,77,0.3); }
     .tag-host { color: #a695de; border: 1px solid rgba(168,149,222,0.3); }
     .tag-v { color: #38cfa0; border: 1px solid rgba(56,207,160,0.3); }
-    .tag-it { color: blue; border: 1px solid rgba(0,0,255,0.3); }
+    .tag-it { color: #648cff; border: 1px solid rgba(100,140,255,0.3); }
 
     @keyframes preciseLetterPop {
-      0% { 
-        opacity: 0; 
-        transform: scale(0.3); 
-      }
-      /* Збільшується до 300% за 0.2с (від загальної тривалості 2.0с це 10%) */
-      10% { 
-        opacity: 1; 
-        transform: scale(3); 
-      }
-      /* Стискається до 100% за наступні 0.1с (до 15%) */
-      15% { 
-        transform: scale(1); 
-      }
-      /* Тримається 1.5с (до 90%) */
-      90% { 
-        opacity: 1; 
-        transform: scale(1); 
-      }
-      /* Зникає (фейд) за останні 0.2с (до 100%) */
-      100% { 
-        opacity: 0; 
-        transform: scale(1); 
-      }
+      0% { opacity: 0; transform: scale(0.3); }
+      10% { opacity: 1; transform: scale(3); }
+      15% { transform: scale(1); }
+      90% { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(1); }
     }
 
     .rand-letter {
@@ -334,7 +284,7 @@
     .hidden {
       display: none !important;
     }
-</style>
+  </style>
 </head>
 <body>
 <div class="page">
@@ -345,23 +295,22 @@
     <span>41 Games</span>
   </div>
 
-
   <!-- Верхній блок з перемикачем та кнопкою профілю -->
   <div class="top-bar" id="top-bar">
     <div class="filter-bar">
       <button class="filter-btn active" data-filter="all">Всі</button>
       <button class="filter-btn" data-filter="solo">Соло</button>
-      <button class="filter-btn" data-filter="multi">3+</button>
+      <button class="filter-btn" data-filter="multi">2-10</button>
       <button class="filter-btn" data-filter="host">Хост</button>
     </div>
   </div>
 
   <div class="grid" id="games-grid">
 
-    <!-- ГОТОВІ ІГРИ -->
+    <!-- ІГРИ (Усі кастомні зображення переведено на .png) -->
 
     <a class="tile" href="tetris.html" data-type="solo">
-      <div class="tile-media" style="background-image: url('img/tetris_logo.jpg');"></div>
+      <div class="tile-media" style="background-image: url('img/tetris_logo.png');"></div>
       <div class="tags"><span class="tag tag-solo">соло</span><span class="tag tag-v">✅</span></div>
       <div class="tile-banner">
         <div class="name">Тетріс</div>
@@ -369,7 +318,7 @@
     </a>
 
     <a class="tile" href="2048.html" data-type="solo">
-      <div class="tile-media" style="background-image: url('img/2048_logo.jpg');"></div>
+      <div class="tile-media" style="background-image: url('img/2048_logo.png');"></div>
       <div class="tags"><span class="tag tag-solo">соло</span><span class="tag tag-v">✅</span></div>
       <div class="tile-banner">
         <div class="name">2048</div>
@@ -377,24 +326,17 @@
     </a>
 
     <a class="tile" href="wordle.html" data-type="solo">
-      <div class="tile-media" style="background-image: url('img/wordle_logo.jpg');"></div>
+      <div class="tile-media" style="background-image: url('img/wordle_logo.png');"></div>
       <div class="tags"><span class="tag tag-solo">соло</span><span class="tag tag-v">✅</span></div>
       <div class="tile-banner">
         <div class="name">Wordle</div>
       </div>
     </a>
 
-    <a class="tile" href="snake.html" data-type="solo multi">
-      <div class="tile-media" style="background-image: url('img/snake_logo.jpg');"></div>
-      <div class="tags"><span class="tag tag-solo">соло</span> <span class="tag tag-multi">3+</span><span class="tag tag-v">✅</span></div>
-      <div class="tile-banner">
-        <div class="name">Змійка</div>
-        <div class="desc">До 8 гравців</div>
-      </div>
-    </a>
+
 
     <a class="tile" href="sudoku.html" data-type="solo">
-      <div class="tile-media" style="background-image: url('img/sudoku_logo.jpg');"></div>
+      <div class="tile-media" style="background-image: url('img/sudoku_logo.png');"></div>
       <div class="tags"><span class="tag tag-solo">соло</span><span class="tag tag-v">✅</span></div>
       <div class="tile-banner">
         <div class="name">Судоку</div>
@@ -402,15 +344,23 @@
     </a>
 
     <a class="tile" href="miner.html" data-type="solo">
-      <div class="tile-media" style="background-image: url('img/miner_logo.jpg');"></div>
+      <div class="tile-media" style="background-image: url('img/miner_logo.png');"></div>
       <div class="tags"><span class="tag tag-solo">соло</span><span class="tag tag-v">✅</span></div>
       <div class="tile-banner">
-        <div class="name">Мінер</div>
+        <div class="name">Сапер</div>
+      </div>
+    </a>
+
+    <a class="tile" href="doodle.html" data-type="solo">
+      <div class="tile-media" style="background-image: url('img/doodle_logo.png');"></div>
+      <div class="tags"><span class="tag tag-solo">соло</span><span class="tag tag-v">✅</span></div>
+      <div class="tile-banner">
+        <div class="name">Doodle Jump</div>
       </div>
     </a>
 
     <a class="tile" href="soliter.html" data-type="solo">
-      <div class="tile-media" style="background-image: url('img/soliter_logo.jpg');"></div>
+      <div class="tile-media" style="background-image: url('img/soliter_logo.png');"></div>
       <div class="tags"><span class="tag tag-solo">соло</span><span class="tag tag-v">v0.95</span></div>
       <div class="tile-banner">
         <div class="name">Косинка</div>
@@ -418,114 +368,115 @@
     </a>
 
     <a class="tile" href="poker.html" data-type="solo">
-      <div class="tile-media" style="background-image: url('img/poker_logo.jpg');"></div>
-      <div class="tags"><span class="tag tag-solo">соло</span><span class="tag tag-multi">3+ </span><span class="tag tag-v">✅</span><span class="tag tag-it">🌐</span></div>
+      <div class="tile-media" style="background-image: url('img/poker_logo.png');"></div>
+      <div class="tags"><span class="tag tag-solo">соло</span><span class="tag tag-multi">2-10 </span><span class="tag tag-v">✅</span><span class="tag tag-it">🌐</span></div>
       <div class="tile-banner">
         <div class="name">Покер</div>
       </div>
     </a>
 
-    <a class="tile" href="doodle.html" data-type="solo">
-      <div class="tile-media" style="background-image: url('img/doodle_logo.jpg');"></div>
-      <div class="tags"><span class="tag tag-solo">соло</span><span class="tag tag-v">✅</span></div>
+    
+     
+    <a class="tile" href="snake.html" data-type="solo multi">
+      <div class="tile-media" style="background-image: url('img/snake_logo.png');"></div>
+      <div class="tags"><span class="tag tag-solo">соло</span> <span class="tag tag-multi">2-10</span><span class="tag tag-v">✅</span></div>
       <div class="tile-banner">
-        <div class="name">Doodle Jump</div>
+        <div class="name">Змійка</div>
+        <div class="desc">До 8 гравців</div>
       </div>
     </a>
 
     <a class="tile" href="spy.html" data-type="multi">
-      <div class="tile-media" style="background-image: url('img/spy_logo.jpg');"></div>
-      <div class="tags"><span class="tag tag-multi">3+ </span><span class="tag tag-v">✅</span><span class="tag tag-it">🌐</span></div>
+      <div class="tile-media" style="background-image: url('img/spy_logo.png');"></div>
+      <div class="tags"><span class="tag tag-multi">2-10 </span><span class="tag tag-v">✅</span><span class="tag tag-it">🌐</span></div>
       <div class="tile-banner">
         <div class="name">Шпигун</div>
       </div>
     </a>
 
     <a class="tile" href="whoami.html" data-type="multi">
-      <div class="tile-media" style="background-image: url('img/whoami_logo.jpg');"></div>
-      <div class="tags"><span class="tag tag-multi">3+ </span><span class="tag tag-v">✅</span></div>
+      <div class="tile-media" style="background-image: url('img/whoami_logo.png');"></div>
+      <div class="tags"><span class="tag tag-multi">2-10 </span><span class="tag tag-v">✅</span></div>
       <div class="tile-banner">
         <div class="name">Хто я?</div>
       </div>
     </a>
-    
 
-    <a class="tile tile-meme" data-type="multi" href="memology.html">
-      <div class="tile-media" style="background-image: url('img/meme_logo.jpg');"></div>
-      <div class="tags"><span class="tag tag-multi">3+</span><span class="tag tag-v">✅</span><span class="tag tag-it">🌐</span></div>
+    <a class="tile" href="memology.html" data-type="multi">
+      <div class="tile-media" style="background-image: url('img/meme_logo.png');"></div>
+      <div class="tags"><span class="tag tag-multi">2-10</span><span class="tag tag-v">✅</span><span class="tag tag-it">🌐</span></div>
       <div class="tile-banner">
         <div class="name">Мемологія</div>
       </div>
     </a>
 
     <a class="tile" href="crocodile.html" data-type="multi">
-      <div class="tile-media" style="background-image: url('img/crocodile_logo.jpg');"></div>
-      <div class="tags"><span class="tag tag-multi">3+ </span><span class="tag tag-v">✅</span></div>
+      <div class="tile-media" style="background-image: url('img/crocodile_logo.png');"></div>
+      <div class="tags"><span class="tag tag-multi">2-10 </span><span class="tag tag-v">✅</span></div>
       <div class="tile-banner">
         <div class="name">Крокодил</div>
       </div>
     </a>
 
     <a class="tile" href="quiplash.html" data-type="multi">
-      <div class="tile-media" style="background-image: url('img/quiplash_logo.jpg');"></div>
-      <div class="tags"><span class="tag tag-multi">3+</span><span class="tag tag-v">v0.95</span> <span class="tag tag-it">🌐</span> </div>
+      <div class="tile-media" style="background-image: url('img/quiplash_logo.png');"></div>
+      <div class="tags"><span class="tag tag-multi">2-10</span><span class="tag tag-v">v0.95</span> <span class="tag tag-it">🌐</span> </div>
       <div class="tile-banner">
         <div class="name">Сміхлист</div>
       </div>
     </a>
 
     <a class="tile" href="mafia.html" data-type="multi">
-      <div class="tile-media" style="background-image: url('img/mafia_logo.jpg');"></div>
-      <div class="tags"><span class="tag tag-multi">3+</span><span class="tag tag-v">v0.95</span> <span class="tag tag-it">🌐</span> </div>
+      <div class="tile-media" style="background-image: url('img/mafia_logo.png');"></div>
+      <div class="tags"><span class="tag tag-multi">2-10</span><span class="tag tag-v">v0.95</span> <span class="tag tag-it">🌐</span> </div>
       <div class="tile-banner">
         <div class="name">Мафія</div>
       </div>
     </a>
     
     <a class="tile" href="teli.html" data-type="multi">
-      <div class="tile-media" style="background-image: url('img/teli_logo.jpg');"></div>
-      <div class="tags"><span class="tag tag-multi">3+</span><span class="tag tag-v">✅</span><span class="tag tag-it">🌐</span></div>
+      <div class="tile-media" style="background-image: url('img/teli_logo.png');"></div>
+      <div class="tags"><span class="tag tag-multi">2-10</span><span class="tag tag-v">✅</span><span class="tag tag-it">🌐</span></div>
       <div class="tile-banner">
         <div class="name">Зіпсований телефон</div>
       </div>
     </a>
     
     <a class="tile" href="quiz.html" data-type="multi">
-      <div class="tile-media" style="background-image: url('img/quiz_logo.jpg');"></div>
-      <div class="tags"><span class="tag tag-multi">3+</span><span class="tag tag-v">✅</span><span class="tag tag-it">🌐</span></div>
+      <div class="tile-media" style="background-image: url('img/quiz_logo.png');"></div>
+      <div class="tags"><span class="tag tag-multi">2-10</span><span class="tag tag-v">✅</span><span class="tag tag-it">🌐</span></div>
       <div class="tile-banner">
         <div class="name">Quiz</div>
       </div>
     </a>
 
     <a class="tile" href="draw.html" data-type="multi">
-      <div class="tile-media" style="background-image: url('img/draw_logo.jpg');"></div>
-      <div class="tags"><span class="tag tag-multi">3+</span><span class="tag tag-v">v0.1</span><span class="tag tag-it">🌐</span></div>
-      <div class="placeholder-icon">🎨</div>
+      <div class="tile-media" style="background-image: url('img/draw_logo.png');"></div>
+      <div class="tags"><span class="tag tag-multi">2-10</span><span class="tag tag-v">v0.1</span><span class="tag tag-it">🌐</span></div>
       <div class="tile-banner">
         <div class="name">Малювалка</div>
       </div>
     </a>
 
     <a class="tile" href="quiplash-tv.html" data-type="host">
-      <div class="tile-media" style="background-image: url('img/quiplashtv_logo.jpg');"></div>
-      <div class="tags"><span class="tag tag-multi">3+</span> <span class="tag tag-host">Хост</span><span class="tag tag-v">v0.95</span><span class="tag tag-it">🌐</span></div>
+      <div class="tile-media" style="background-image: url('img/quiplashtv_logo.png');"></div>
+      <div class="tags"><span class="tag tag-multi">2-10</span> <span class="tag tag-host">Хост</span><span class="tag tag-v">v0.95</span><span class="tag tag-it">🌐</span></div>
       <div class="tile-banner">
         <div class="name">Сміхлист ТВ</div>
       </div>
     </a>
         
     <a class="tile" href="quiz-tv.html" data-type="host">
-      <div class="tile-media" style="background-image: url('img/quiztv_logo.jpg');"></div>
-      <div class="tags"><span class="tag tag-multi">3+</span> <span class="tag tag-host">Хост</span><span class="tag tag-v">v0.95</span><span class="tag tag-it">🌐</span></div>
+      <div class="tile-media" style="background-image: url('img/quiztv_logo.png');"></div>
+      <div class="tags"><span class="tag tag-multi">2-10</span> <span class="tag tag-host">Хост</span><span class="tag tag-v">v0.95</span><span class="tag tag-it">🌐</span></div>
       <div class="tile-banner">
         <div class="name">Quiz ТВ</div>
       </div>
     </a>
     
     <a class="tile" href="mafia-host.html" data-type="host">
-      <div class="tile-media" style="background-image: url('img/mafiatv_logo.jpg');"></div>
-      <div class="tags"><span class="tag tag-multi">3+</span> <span class="tag tag-host">Хост</span><span class="tag tag-v">v0.95</span><span class="tag tag-it">🌐</span></div>
+      <div class="tile-media" style="background-image: url('img/mafiatv_logo.png');"></div>
+      <div class="tags"><span class="tag tag-multi">2-10</span> <span class="tag tag-host">Хост</span><span class="tag tag-v">v0.95</span><span class="tag tag-it">🌐</span></div>
       <div class="tile-banner">
         <div class="name">Мафія ТВ</div>
       </div>
@@ -542,12 +493,20 @@
 <script src="js/records.js"></script>
 <script src="js/back-button.js"></script>
 <script src="js/spy-words.js"></script>
-<script src="js/spy-game.js"></script>   <!-- обов'язково ПІСЛЯ spy-words.js -->
-<script src="js/online-engine.js"></script>   <!-- обов'язково ДО spy-game.js -->
+<script src="js/spy-game.js"></script>
+<script src="js/online-engine.js"></script>
 
 <script>
+  // Глобальна функція зміни теми (можна викликати з консолі або прив'язати до кнопок)
+  window.setTheme = function(themeName) {
+    if (themeName === 'default') {
+      document.documentElement.removeAttribute('data-theme');
+    } else {
+      document.documentElement.setAttribute('data-theme', themeName);
+    }
+  };
+
   document.addEventListener('DOMContentLoaded', () => {
-    // Переміщуємо створену у login.js кнопку авторизації в top-bar
     const topBar = document.getElementById('top-bar');
     const movePill = () => {
       const pill = document.querySelector('.auth-pill');
@@ -557,51 +516,58 @@
     };
     movePill();
 
-    // Спостерігач на випадок, якщо login.js підвантажиться трохи пізніше
     const observer = new MutationObserver(movePill);
     observer.observe(document.body, { childList: true });
 
-    // Перемикач фільтрів
+    // Логіка фільтрації
     const filterButtons = document.querySelectorAll('.filter-btn');
     const tiles = document.querySelectorAll('.tile');
+
+    const applyFilter = (filter) => {
+      tiles.forEach(tile => {
+        const types = tile.dataset.type.split(' ');
+        const isHost = types.includes('host');
+
+        if (filter === 'host') {
+          tile.classList.toggle('hidden', !isHost);
+        } else if (filter === 'all') {
+          tile.classList.toggle('hidden', isHost);
+        } else {
+          tile.classList.toggle('hidden', !types.includes(filter) || isHost);
+        }
+      });
+    };
 
     filterButtons.forEach(btn => {
       btn.addEventListener('click', () => {
         filterButtons.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-
-        const filter = btn.dataset.filter;
-
-        tiles.forEach(tile => {
-          const types = tile.dataset.type.split(' ');
-          if (filter === 'all' || types.includes(filter)) {
-            tile.classList.remove('hidden');
-          } else {
-            tile.classList.add('hidden');
-          }
-        });
+        applyFilter(btn.dataset.filter);
       });
     });
 
-    setInterval(() => {
-    const slot = document.querySelector('.rand-slot');
-    if (!slot) return;
-
-    // Шанс 25%
-    if (Math.random() < 0.25 && slot.childElementCount === 0) {
-      const span = document.createElement('span');
-      span.className = 'rand-letter';
-      span.style.color = '#ffcc00'; // Твій колір для літери А
-      span.textContent = 'A';
-
-      slot.appendChild(span);
-
-      // Видаляємо елемент після завершення повної анімації (2 секунди)
-      setTimeout(() => {
-        span.remove();
-      }, 2000);
+    const activeBtn = document.querySelector('.filter-btn.active');
+    if (activeBtn) {
+      applyFilter(activeBtn.dataset.filter);
     }
-  }, 5000); // Перевірка раз на 5 секунд
+
+    setInterval(() => {
+      const slot = document.querySelector('.rand-slot');
+      if (!slot) return;
+
+      if (Math.random() < 0.25 && slot.childElementCount === 0) {
+        const span = document.createElement('span');
+        span.className = 'rand-letter';
+        span.style.color = '#ffcc00';
+        span.textContent = 'A';
+
+        slot.appendChild(span);
+
+        setTimeout(() => {
+          span.remove();
+        }, 2000);
+      }
+    }, 5000);
   });
 </script>
 </body>
