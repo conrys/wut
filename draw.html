@@ -1,0 +1,536 @@
+<!-- Гра: Крокодил / Галерея  |  Файл: draw.html -->
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<title>Крокодил / Галерея</title>
+<link rel="stylesheet" href="js/teli-style.css" />
+<style>
+  .mode-selector { display: flex; gap: 8px; margin-bottom: 12px; }
+  .mode-btn { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: #1a1a2e; color: #fff; cursor: pointer; }
+  .mode-btn.active { background: #00e676; color: #000; font-weight: bold; }
+  .drawer-prompt { font-size: 1.4rem; font-weight: bold; color: #00e676; text-align: center; margin-bottom: 10px; }
+  .guess-chip { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: rgba(255,255,255,0.05); margin-bottom: 6px; border-radius: 6px; }
+  .timer-badge { font-size: 1.2rem; font-weight: bold; color: #ffca28; text-align: center; margin-bottom: 8px; }
+  .gallery-preview img { max-width: 100%; border-radius: 8px; border: 2px solid rgba(255,255,255,0.2); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="title-block" id="titleBlock">
+    <h2>КРОКОДИЛ & ГАЛЕРЕЯ</h2>
+  </div>
+
+  <!-- НЕ ЗАЛОГІНЕНИЙ -->
+  <div class="hidden stage-center" id="view-locked">
+    <div class="empty-state"><div class="empty-icon">🔒</div><div class="status-line">Увійди в профіль, щоб грати</div></div>
+  </div>
+
+  <!-- ЛОБІ -->
+  <div class="hidden stage" id="view-lobby">
+    <div class="status-line" id="lobbyStatus"><span class="pulse-dot"></span> Очікуємо гравців...</div>
+    
+    <div class="card">
+      <h3>Режим гри</h3>
+      <div class="mode-selector">
+        <button class="mode-btn active" id="modeCrocBtn">🐊 Крокодил</button>
+        <button class="mode-btn" id="modeGalBtn">🎨 Галерея</button>
+      </div>
+
+      <div id="gallerySettingsBlock" class="hidden">
+        <label style="font-size: 0.9rem; color: #aaa;">Час на малювання:</label>
+        <select class="text-entry-input" id="galleryTimeSelect" style="margin-top: 4px; margin-bottom: 12px;">
+          <option value="45">45 секунд</option>
+          <option value="60">60 секунд</option>
+          <option value="90" selected>90 секунд</option>
+          <option value="120">120 секунд</option>
+          <option value="180">180 секунд</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Гравці в кімнаті</h3>
+      <div id="playersList"></div>
+    </div>
+
+    <div class="card hidden" id="hostPanel">
+      <button class="btn btn-primary btn-block" id="startBtn">Почати гру</button>
+      <div class="err-msg" id="startHint"></div>
+    </div>
+    <button class="btn btn-block hidden" id="resetBtn" style="opacity:0.6; margin-top: 10px;">Скинути гру</button>
+  </div>
+
+  <!-- АКТИВНА ГРА -->
+  <div class="hidden stage" id="view-active">
+    
+    <!-- === РЕЖИМ: КРОКОДИЛ === -->
+    <div id="crocStage" class="hidden">
+      <div class="waiting-count" id="crocRoundLabel">Раунд 1</div>
+      <div class="drawer-prompt" id="crocPrompt">...</div>
+
+      <div class="canvas-wrap">
+        <canvas id="crocCanvas"></canvas>
+      </div>
+
+      <!-- Панель інструментів (лише для того, хто малює) -->
+      <div id="crocTools" class="hidden" style="margin-top: 10px;">
+        <div class="draw-toolbar">
+          <div class="color-swatches" id="crocSwatches">
+            <button class="swatch selected" style="background:#1a1a1a" data-color="#1a1a1a"></button>
+            <button class="swatch" style="background:#e0503c" data-color="#e0503c"></button>
+            <button class="swatch" style="background:#3c7de0" data-color="#3c7de0"></button>
+            <button class="swatch" style="background:#4caf6d" data-color="#4caf6d"></button>
+            <button class="swatch" style="background:#e0c23c" data-color="#e0c23c"></button>
+            <button class="swatch" style="background:#ffffff" data-color="#ffffff"></button>
+          </div>
+          <div class="draw-tools">
+            <button class="tool-btn selected" id="crocThinBtn" data-width="4">Тонко</button>
+            <button class="tool-btn" id="crocThickBtn" data-width="12">Товсто</button>
+            <button class="tool-btn" id="crocEraserBtn">🧽 Ластик</button>
+          </div>
+        </div>
+        <div class="draw-actions">
+          <button class="btn" id="crocUndoBtn">↩️ Скасувати</button>
+          <button class="btn" id="crocClearBtn">Очистити</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 12px;">
+        <h3>Гравці та рахунок</h3>
+        <div id="crocPlayersList"></div>
+      </div>
+
+      <div class="draw-actions hidden" id="hostCrocActions" style="margin-top: 10px;">
+        <button class="btn" id="skipPromptBtn">Пропустити слово</button>
+        <button class="btn" id="nextDrawerBtn">Змінити художника</button>
+      </div>
+    </div>
+
+    <!-- === РЕЖИМ: ГАЛЕРЕЯ === -->
+    <div id="galleryStage" class="hidden">
+      
+      <!-- Под-фаза 1: Малювання -->
+      <div id="galDrawingStage" class="hidden">
+        <div class="timer-badge" id="galTimer">90s</div>
+        <div class="drawer-prompt" id="galPrompt">Завдання: ...</div>
+
+        <div class="canvas-wrap">
+          <canvas id="galCanvas"></canvas>
+        </div>
+
+        <div class="draw-toolbar" style="margin-top: 10px;">
+          <div class="color-swatches" id="galSwatches">
+            <button class="swatch selected" style="background:#1a1a1a" data-color="#1a1a1a"></button>
+            <button class="swatch" style="background:#e0503c" data-color="#e0503c"></button>
+            <button class="swatch" style="background:#3c7de0" data-color="#3c7de0"></button>
+            <button class="swatch" style="background:#4caf6d" data-color="#4caf6d"></button>
+            <button class="swatch" style="background:#e0c23c" data-color="#e0c23c"></button>
+          </div>
+          <div class="draw-tools">
+            <button class="tool-btn selected" id="galThinBtn" data-width="4">Тонко</button>
+            <button class="tool-btn" id="galThickBtn" data-width="12">Товсто</button>
+            <button class="tool-btn" id="galEraserBtn">🧽</button>
+          </div>
+        </div>
+        <div class="draw-actions">
+          <button class="btn" id="galUndoBtn">↩️</button>
+          <button class="btn" id="galClearBtn">Очистити</button>
+          <button class="btn btn-primary btn-block" id="galSubmitBtn">Готово</button>
+        </div>
+      </div>
+
+      <!-- Очікування після здачі малюнка -->
+      <div id="galWaitStage" class="hidden">
+        <div class="empty-state">
+          <div class="empty-icon">🎨</div>
+          <div class="status-line" id="galWaitStatus">Малюнок відправлено! Чекаємо на інших...</div>
+        </div>
+      </div>
+
+      <!-- Под-фаза 2: Показ (Reveal) -->
+      <div id="galRevealStage" class="hidden">
+        <div class="waiting-count" id="galRevealIndex">Картина 1 з X</div>
+        <div class="gallery-preview" style="text-align: center; margin: 12px 0;">
+          <img id="galRevealImg" src="" alt="Малюнок" />
+        </div>
+        <div class="drawer-prompt hidden" id="galRevealAnswer" style="color: #4caf6d;">Тема: ...</div>
+        
+        <div class="draw-actions hidden" id="hostGalRevealTools">
+          <button class="btn btn-primary btn-block" id="galRevealBtn">Показати що це було</button>
+          <button class="btn btn-block hidden" id="galNextBtn">Наступний малюнок →</button>
+        </div>
+      </div>
+
+      <!-- Под-фаза 3: Кінець раунду -->
+      <div id="galRoundEndStage" class="hidden">
+        <div class="status-line">Раунд завершено!</div>
+        <button class="btn btn-primary btn-block hidden" id="galNewRoundBtn">Наступний раунд</button>
+      </div>
+
+    </div>
+
+    <button class="btn btn-block" id="resetBtnActive" style="opacity:0.5; margin-top: 20px;">Скинути гру</button>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/login.js"></script>
+<script src="js/online-engine.js"></script>
+<script src="js/draw-prompts.js"></script>
+<script src="js/draw-canvas.js"></script>
+<script src="js/draw-game.js"></script>
+<script src="js/help.js"></script>
+<script src="js/back-button.js"></script>
+<script>
+(function () {
+  const VIEWS = ["locked", "lobby", "active"];
+  function showView(name) {
+    VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name));
+    document.getElementById("titleBlock").classList.toggle("hidden", name === "active");
+  }
+  function escapeHtml(s) {
+    return (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  let username = null;
+  let lastRoom = null;
+  let lastCtx = null;
+  
+  let crocCanvasObj = null;
+  let galCanvasObj = null;
+
+  let strokeBatchBuffer = [];
+  let strokeBatchTimer = null;
+  let crocBatchesRef = null;
+
+  // ---------------- UI Handlers & Setup ----------------
+  function initCanvases() {
+    if (!crocCanvasObj) {
+      const crocEl = document.getElementById("crocCanvas");
+      crocCanvasObj = createDrawCanvas(crocEl, {
+        onStroke: (seg) => {
+          if (lastCtx && lastCtx.isDrawer) {
+            strokeBatchBuffer.push(seg);
+          }
+        }
+      });
+      bindCanvasControls(crocCanvasObj, "croc");
+    }
+    if (!galCanvasObj) {
+      const galEl = document.getElementById("galCanvas");
+      galCanvasObj = createDrawCanvas(galEl, {});
+      bindCanvasControls(galCanvasObj, "gal");
+    }
+  }
+
+  function bindCanvasControls(canvasObj, prefix) {
+    const swatches = document.querySelectorAll(`#${prefix}Swatches .swatch`);
+    swatches.forEach((sw) => {
+      sw.addEventListener("click", () => {
+        canvasObj.setColor(sw.dataset.color);
+        swatches.forEach((s) => s.classList.remove("selected"));
+        sw.classList.add("selected");
+        const eraser = document.getElementById(`${prefix}EraserBtn`);
+        if (eraser) eraser.classList.remove("selected");
+      });
+    });
+
+    const thinBtn = document.getElementById(`${prefix}ThinBtn`);
+    const thickBtn = document.getElementById(`${prefix}ThickBtn`);
+    const eraserBtn = document.getElementById(`${prefix}EraserBtn`);
+    
+    if (thinBtn) thinBtn.addEventListener("click", () => {
+      canvasObj.setWidth(Number(thinBtn.dataset.width));
+      canvasObj.setEraser(false);
+      thinBtn.classList.add("selected"); thickBtn.classList.remove("selected"); if(eraserBtn) eraserBtn.classList.remove("selected");
+    });
+    if (thickBtn) thickBtn.addEventListener("click", () => {
+      canvasObj.setWidth(Number(thickBtn.dataset.width));
+      canvasObj.setEraser(false);
+      thickBtn.classList.add("selected"); thinBtn.classList.remove("selected"); if(eraserBtn) eraserBtn.classList.remove("selected");
+    });
+    if (eraserBtn) eraserBtn.addEventListener("click", () => {
+      canvasObj.setEraser(true);
+      eraserBtn.classList.add("selected");
+    });
+
+    const undoBtn = document.getElementById(`${prefix}UndoBtn`);
+    if (undoBtn) undoBtn.addEventListener("click", () => {
+      const removedId = canvasObj.undo();
+      if (prefix === "croc" && lastCtx && lastCtx.isDrawer && removedId) {
+        DrawGame.sendUndo(removedId);
+      }
+    });
+
+    const clearBtn = document.getElementById(`${prefix}ClearBtn`);
+    if (clearBtn) clearBtn.addEventListener("click", () => {
+      canvasObj.clear();
+      if (prefix === "croc" && lastCtx && lastCtx.isDrawer) {
+        DrawGame.sendClear();
+      }
+    });
+  }
+
+  // ---------------- Render Functions ----------------
+  function renderLobby(room, ctx) {
+    const connNames = DrawGame.connectedNames(room.players);
+    const hostName = DrawGame.computeHost(room.players);
+
+    document.getElementById("lobbyStatus").innerHTML =
+      `<span class="pulse-dot"></span> Онлайн: ${connNames.length} (мін. ${DrawGame.MIN_PLAYERS})`;
+
+    const allNames = Object.keys(room.players || {});
+    document.getElementById("playersList").innerHTML = allNames.map((n) => {
+      const online = connNames.includes(n);
+      return `<div class="player-chip ${online ? "" : "offline"}"><span>${escapeHtml(n)}</span>${n === hostName ? '<span class="badge">ВЕДУЧИЙ</span>' : ""}</div>`;
+    }).join("") || '<div class="status-line">Порожньо</div>';
+
+    // Хост налаштування
+    const isHost = ctx.host;
+    document.getElementById("hostPanel").classList.toggle("hidden", !isHost);
+    document.getElementById("resetBtn").classList.toggle("hidden", !isHost);
+
+    document.getElementById("modeCrocBtn").disabled = !isHost;
+    document.getElementById("modeGalBtn").disabled = !isHost;
+    document.getElementById("galleryTimeSelect").disabled = !isHost;
+
+    document.getElementById("modeCrocBtn").classList.toggle("active", room.mode === "crocodile");
+    document.getElementById("modeGalBtn").classList.toggle("active", room.mode === "gallery");
+    document.getElementById("gallerySettingsBlock").classList.toggle("hidden", room.mode !== "gallery");
+
+    if (room.gallerySettings && room.gallerySettings.drawSeconds) {
+      document.getElementById("galleryTimeSelect").value = room.gallerySettings.drawSeconds;
+    }
+
+    if (isHost) {
+      const enough = connNames.length >= DrawGame.MIN_PLAYERS;
+      document.getElementById("startBtn").disabled = !enough;
+      document.getElementById("startHint").textContent = enough ? "" : `Потрібно ще ${DrawGame.MIN_PLAYERS - connNames.length} гравців`;
+    }
+  }
+
+    function renderCrocodile(room, ctx) {
+        document.getElementById("crocStage").classList.remove("hidden");
+        document.getElementById("galleryStage").classList.add("hidden");
+        document.getElementById("crocRoundLabel").textContent = `Раунд ${room.round}`;
+
+        const isDrawer = ctx.isDrawer;
+        const croc = room.crocodile || {};
+        const crocCanvasEl = document.getElementById("crocCanvas");
+
+        if (isDrawer) {
+            document.getElementById("crocPrompt").textContent = `Твоє слово: «${croc.promptText || ""}»`;
+            document.getElementById("crocTools").classList.remove("hidden");
+            
+            // Вмикаємо можливість малювати для художника
+            if (crocCanvasEl) crocCanvasEl.style.pointerEvents = "auto";
+            
+            startStrokeFlusher();
+        } else {
+            document.getElementById("crocPrompt").textContent = `Малює: ${croc.drawerUsername || "..."}`;
+            document.getElementById("crocTools").classList.add("hidden");
+            
+            // 🚫 БЛОКУЄМО інтерактивність canvas для глядача (дотики/миша не працюватимуть)
+            if (crocCanvasEl) crocCanvasEl.style.pointerEvents = "none";
+            
+            stopStrokeFlusher();
+            subscribeLiveStrokes();
+        }
+
+        // Список гравців (кнопка "Вгадав!" тільки для художника)
+        const connNames = DrawGame.connectedNames(room.players);
+        document.getElementById("crocPlayersList").innerHTML = connNames.map((n) => {
+            const p = room.players[n] || {};
+            const canMark = isDrawer && n !== croc.drawerUsername;
+            
+            return `<div class="guess-chip">
+            <span>${escapeHtml(n)} <b>(${p.score || 0} б)</b> ${n === croc.drawerUsername ? '✏️' : ''}</span>
+            ${canMark ? `<button class="btn" style="padding:4px 8px; font-size:0.8rem;" onclick="window.markGuess('${escapeHtml(n)}')">Вгадав!</button>` : ''}
+            </div>`;
+        }).join("");
+
+        document.getElementById("hostCrocActions").classList.toggle("hidden", !ctx.host);
+    }
+
+  function renderGallery(room, ctx) {
+    document.getElementById("crocStage").classList.add("hidden");
+    document.getElementById("galleryStage").classList.remove("hidden");
+    stopStrokeFlusher();
+
+    const gal = room.gallery || {};
+    const sub = gal.sub;
+
+    document.getElementById("galDrawingStage").classList.toggle("hidden", sub !== "drawing");
+    document.getElementById("galWaitStage").classList.toggle("hidden", sub !== "drawing" || !gal.submissions || !gal.submissions[username]);
+    if (sub === "drawing" && gal.submissions && gal.submissions[username]) {
+      document.getElementById("galDrawingStage").classList.add("hidden");
+    }
+
+    document.getElementById("galRevealStage").classList.toggle("hidden", sub !== "reveal");
+    document.getElementById("galRoundEndStage").classList.toggle("hidden", sub !== "roundEnd");
+
+    if (sub === "drawing") {
+      const prompt = (gal.prompts && gal.prompts[username]) || "...";
+      document.getElementById("galPrompt").textContent = `Завдання: «${prompt}»`;
+      const secondsLeft = Math.max(0, Math.ceil((gal.drawEndsAt - Date.now()) / 1000));
+      document.getElementById("galTimer").textContent = `${secondsLeft}s`;
+    } else if (sub === "reveal") {
+      const order = gal.revealOrder || [];
+      const idx = gal.revealIndex || 0;
+      const targetUser = order[idx];
+      const imgData = gal.submissions ? gal.submissions[targetUser] : "";
+
+      document.getElementById("galRevealIndex").textContent = `Картина ${idx + 1} з ${order.length}`;
+      document.getElementById("galRevealImg").src = imgData || "";
+
+      const answerEl = document.getElementById("galRevealAnswer");
+      if (gal.revealed) {
+        answerEl.classList.remove("hidden");
+        const prompt = (gal.prompts && gal.prompts[targetUser]) || "...";
+        answerEl.textContent = `${targetUser} малював: «${prompt}»`;
+      } else {
+        answerEl.classList.add("hidden");
+      }
+
+      document.getElementById("hostGalRevealTools").classList.toggle("hidden", !ctx.host);
+      document.getElementById("galRevealBtn").classList.toggle("hidden", gal.revealed);
+      document.getElementById("galNextBtn").classList.toggle("hidden", !gal.revealed);
+    } else if (sub === "roundEnd") {
+      document.getElementById("galNewRoundBtn").classList.toggle("hidden", !ctx.host);
+    }
+  }
+
+  // ---------------- Live Stroke Syncing ----------------
+  function startStrokeFlusher() {
+    if (strokeBatchTimer) return;
+    strokeBatchTimer = setInterval(() => {
+      if (strokeBatchBuffer.length > 0) {
+        DrawGame.pushStrokeBatch(strokeBatchBuffer);
+        strokeBatchBuffer = [];
+      }
+    }, 100);
+  }
+
+  function stopStrokeFlusher() {
+    if (strokeBatchTimer) { clearInterval(strokeBatchTimer); strokeBatchTimer = null; }
+    strokeBatchBuffer = [];
+  }
+
+  function subscribeLiveStrokes() {
+    if (crocBatchesRef) return;
+    crocCanvasObj.clear();
+    
+    // Пряма підписка на RTDB вузол штрихів
+    const roomRef = window.rtdb.ref("draw_rooms/shared/crocodile");
+    crocBatchesRef = roomRef.child("strokeBatches");
+    
+    crocBatchesRef.on("child_added", (snap) => {
+      const batch = snap.val();
+      if (Array.isArray(batch)) {
+        batch.forEach((seg) => crocCanvasObj.addStroke(seg));
+      }
+    });
+
+    roomRef.child("clearSignal").on("value", (snap) => {
+      if (snap.val()) crocCanvasObj.clear();
+    });
+
+    roomRef.child("undoSignal").on("value", (snap) => {
+      const sig = snap.val();
+      if (sig && sig.strokeId) crocCanvasObj.removeStroke(sig.strokeId);
+    });
+  }
+
+  function unsubscribeLiveStrokes() {
+    if (crocBatchesRef) {
+      crocBatchesRef.off();
+      const roomRef = window.rtdb.ref("draw_rooms/shared/crocodile");
+      roomRef.child("clearSignal").off();
+      roomRef.child("undoSignal").off();
+      crocBatchesRef = null;
+    }
+  }
+
+  // ---------------- State Callback ----------------
+  function onState(room, ctx) {
+    lastRoom = room; lastCtx = ctx;
+    if (!ctx.username) { showView("locked"); return; }
+
+    showView(room.phase);
+    initCanvases();
+
+    if (room.phase === "lobby") {
+      unsubscribeLiveStrokes();
+      renderLobby(room, ctx);
+    } else if (room.phase === "active") {
+      if (room.mode === "crocodile") renderCrocodile(room, ctx);
+      else renderGallery(room, ctx);
+    }
+  }
+
+  // ---------------- Event Listeners ----------------
+  document.getElementById("modeCrocBtn").addEventListener("click", () => DrawGame.setMode("crocodile"));
+  document.getElementById("modeGalBtn").addEventListener("click", () => DrawGame.setMode("gallery"));
+  document.getElementById("galleryTimeSelect").addEventListener("change", (e) => DrawGame.setGalleryTimer(Number(e.target.value)));
+
+  document.getElementById("startBtn").addEventListener("click", () => DrawGame.startGame(lastRoom));
+  document.getElementById("resetBtn").addEventListener("click", () => { if (confirm("Скинути гру?")) DrawGame.resetGame(); });
+  document.getElementById("resetBtnActive").addEventListener("click", () => { if (confirm("Скинути гру?")) DrawGame.resetGame(); });
+
+  document.getElementById("skipPromptBtn").addEventListener("click", () => {
+    if (crocCanvasObj) crocCanvasObj.clear();
+    DrawGame.sendClear();
+    DrawGame.hostSkipPrompt();
+  });
+    document.getElementById("nextDrawerBtn").addEventListener("click", () => {
+        if (crocCanvasObj) crocCanvasObj.clear();
+        DrawGame.sendClear();
+        DrawGame.hostForceNextDrawer();
+    });
+
+    document.getElementById("galSubmitBtn").addEventListener("click", () => {
+        const img = galCanvasObj.exportImage();
+        DrawGame.submitDrawing(img);
+    });
+
+  document.getElementById("galRevealBtn").addEventListener("click", () => DrawGame.hostRevealAnswer());
+  document.getElementById("galNextBtn").addEventListener("click", () => DrawGame.hostNextDrawing());
+  document.getElementById("galNewRoundBtn").addEventListener("click", () => DrawGame.hostNewGalleryRound());
+
+    window.markGuess = function(guesserName) {
+    // 1. Очищаємо полотно локально і відправляємо сигнал очищення всім гравцям в мережі
+        if (crocCanvasObj) {
+            crocCanvasObj.clear();
+        }
+        if (lastCtx && lastCtx.isDrawer) {
+            DrawGame.sendClear();
+        }
+
+        // 2. Нараховуємо бали та переходимо до наступного слова / художника
+        DrawGame.markCorrectGuess(guesserName);
+    };
+
+  // ---------------- Init ----------------
+  const session = window.AppAuth && window.AppAuth.getSession();
+  if (session && window.rtdbReady) {
+    username = session.username;
+    DrawGame.onStateChange = onState;
+    DrawGame.start(username);
+  } else {
+    showView("locked");
+  }
+
+  window.addEventListener("beforeunload", () => {
+    stopStrokeFlusher();
+    unsubscribeLiveStrokes();
+    if (window.DrawGame) DrawGame.stop();
+  });
+})();
+</script>
+</body>
+</html>

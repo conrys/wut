@@ -201,7 +201,11 @@
 
     const mafiaVotes = {};
     alive.filter(([, p]) => p.role === "mafia" && p.nightAction).forEach(([, p]) => {
-      mafiaVotes[p.nightAction] = (mafiaVotes[p.nightAction] || 0) + 1;
+      // Рахуємо голос лише якщо ціль ще жива — застарілий чи прямий (боти,
+      // ручний запис) вибір мертвого гравця не повинен впливати на тираж.
+      if (players[p.nightAction] && players[p.nightAction].alive) {
+        mafiaVotes[p.nightAction] = (mafiaVotes[p.nightAction] || 0) + 1;
+      }
     });
     let mafiaTarget = null, maxV = 0, mafiaTie = false;
     Object.entries(mafiaVotes).forEach(([target, c]) => {
@@ -250,7 +254,11 @@
   function resolveVotingPatch(players) {
     const alive = aliveEntries({ players });
     const counts = {};
-    alive.forEach(([, p]) => { if (p.vote) counts[p.vote] = (counts[p.vote] || 0) + 1; });
+    alive.forEach(([, p]) => {
+      // Рахуємо голос лише якщо ціль ще жива - з тих самих причин, що й у
+      // resolveNightPatch: застарілий/прямий запис не повинен впливати на вирок.
+      if (p.vote && players[p.vote] && players[p.vote].alive) counts[p.vote] = (counts[p.vote] || 0) + 1;
+    });
 
     let leader = null, maxV = 0, tie = false;
     Object.entries(counts).forEach(([u, c]) => {

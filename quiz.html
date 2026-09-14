@@ -199,10 +199,12 @@
     if (key !== lastQKey) { answeredThisQuestion = false; lastQKey = key; }
 
     document.getElementById("answerMeta").textContent = `${state.board[categoryIndex].name} · ${q.value}`;
-    const remaining = Math.max(0, Math.ceil((state.phaseDeadline - Date.now()) / 1000));
-    const timerEl = document.getElementById("answerTimer");
-    timerEl.textContent = remaining;
-    timerEl.classList.toggle("urgent", remaining <= 5);
+    if (state.phase === "questionActive") {
+      const remaining = Math.max(0, Math.ceil((state.phaseDeadline - Date.now()) / 1000));
+      const timerEl = document.getElementById("answerTimer");
+      timerEl.textContent = remaining;
+      timerEl.classList.toggle("urgent", remaining <= 5);
+    }
     document.getElementById("answerQ").textContent = q.text;
 
     const locked = answeredThisQuestion || !!state.pendingAnswer || state.phase === "evaluating";
