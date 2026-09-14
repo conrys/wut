@@ -55,7 +55,7 @@
       background-size: 100% 100%, 100% 100%, 24px 24px;
       background-attachment: fixed;
       font-family: 'Inter', sans-serif; color: var(--text-light);
-      overflow-x: hidden; overflow-y: auto; touch-action: manipulation;
+      overflow-x: clip;
       transition: background-color 0.3s ease;
     }
 
@@ -90,13 +90,52 @@
       transition: background-color 0.3s ease;
     }
 
-    /* Верхня панель (Фільтри + Логін) */
     .top-bar {
+      position: sticky;
+      top: 24px;
+      z-index: 100;
+      margin-bottom: 16px;
+
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 10px;
-      margin-bottom: 16px;
+    }
+
+ 
+    /* Блюр-фон позаду top-bar на всю ширину екрана */
+    .top-bar::before {
+      content: '';
+      position: absolute;
+      top: -24px;               /* Від верху екрана */
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100vw;             /* На всю ширину екрана */
+      bottom: -28px;            /* Додаткова висота знизу під плавний градієнт */
+
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+
+      /* Плавне розчинення блюру: від 100% зверху до 0% знизу */
+      -webkit-mask-image: linear-gradient(to bottom, black 0%, black 45%, transparent 100%);
+      mask-image: linear-gradient(to bottom, black 0%, black 45%, transparent 100%);
+
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+      z-index: -1;
+    }
+
+    /* Клас, який вмикає блюр при прилипанні */
+    .top-bar.is-sticky::before {
+      opacity: 1;
+    }
+
+    /* Гарантуємо клікабельність елементів усередині */
+    .filter-bar, 
+    .auth-pill {
+      position: relative;
+      z-index: 1;
     }
 
     .filter-bar {
@@ -459,7 +498,7 @@
 
     <a class="tile" href="draw.html" data-type="multi">
       <div class="tile-media" style="--icon: url('img/draw_logo.png');"></div>
-      <div class="tags"><span class="tag tag-multi">2-10</span><span class="tag tag-v">v0.1</span><span class="tag tag-it">🌐</span></div>
+      <div class="tags"><span class="tag tag-multi">2-10</span><span class="tag tag-it">🌐</span></div>
       <div class="tile-banner">
         <div class="name">Малювалка</div>
       </div>
@@ -475,7 +514,7 @@
         
     <a class="tile" href="quiz-tv.html" data-type="host">
       <div class="tile-media" style="--icon: url('img/quiztv_logo.png');"></div>
-      <div class="tags"><span class="tag tag-multi">2-10</span> <span class="tag tag-host">Хост</span><span class="tag tag-v">v0.95</span><span class="tag tag-it">🌐</span></div>
+      <div class="tags"><span class="tag tag-multi">2-10</span> <span class="tag tag-host">Хост</span></span><span class="tag tag-it">🌐</span></div>
       <div class="tile-banner">
         <div class="name">Quiz ТВ</div>
       </div>
@@ -513,68 +552,83 @@
   };
 
   document.addEventListener('DOMContentLoaded', () => {
-    const topBar = document.getElementById('top-bar');
-    const movePill = () => {
-      const pill = document.querySelector('.auth-pill');
-      if (pill && topBar && !topBar.contains(pill)) {
-        topBar.appendChild(pill);
-      }
-    };
-    movePill();
+  const topBar = document.getElementById('top-bar');
 
-    const observer = new MutationObserver(movePill);
-    observer.observe(document.body, { childList: true });
+  // Логіка відстеження прилипання top-bar
+  if (topBar) {
+    const sentinel = document.createElement('div');
+    topBar.parentNode.insertBefore(sentinel, topBar);
 
-    // Логіка фільтрації
-    const filterButtons = document.querySelectorAll('.filter-btn');
-    const tiles = document.querySelectorAll('.tile');
-
-    const applyFilter = (filter) => {
-      tiles.forEach(tile => {
-        const types = tile.dataset.type.split(' ');
-        const isHost = types.includes('host');
-
-        if (filter === 'host') {
-          tile.classList.toggle('hidden', !isHost);
-        } else if (filter === 'all') {
-          tile.classList.toggle('hidden', isHost);
-        } else {
-          tile.classList.toggle('hidden', !types.includes(filter) || isHost);
-        }
-      });
-    };
-
-    filterButtons.forEach(btn => {
-      btn.addEventListener('click', () => {
-        filterButtons.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        applyFilter(btn.dataset.filter);
-      });
+    const stickyObserver = new IntersectionObserver(([entry]) => {
+      topBar.classList.toggle('is-sticky', !entry.isIntersecting);
+    }, { 
+      rootMargin: '-24px 0px 0px 0px'
     });
 
-    const activeBtn = document.querySelector('.filter-btn.active');
-    if (activeBtn) {
-      applyFilter(activeBtn.dataset.filter);
+    stickyObserver.observe(sentinel);
+  }
+
+  const movePill = () => {
+    const pill = document.querySelector('.auth-pill');
+    if (pill && topBar && !topBar.contains(pill)) {
+      topBar.appendChild(pill);
     }
+  };
+  movePill();
 
-    setInterval(() => {
-      const slot = document.querySelector('.rand-slot');
-      if (!slot) return;
+  const observer = new MutationObserver(movePill);
+  observer.observe(document.body, { childList: true });
 
-      if (Math.random() < 0.25 && slot.childElementCount === 0) {
-        const span = document.createElement('span');
-        span.className = 'rand-letter';
-        span.style.color = '#ffcc00';
-        span.textContent = 'A';
+  // Логіка фільтрації
+  const filterButtons = document.querySelectorAll('.filter-btn');
+  const tiles = document.querySelectorAll('.tile');
 
-        slot.appendChild(span);
+  const applyFilter = (filter) => {
+    tiles.forEach(tile => {
+      const types = tile.dataset.type.split(' ');
+      const isHost = types.includes('host');
 
-        setTimeout(() => {
-          span.remove();
-        }, 2000);
+      if (filter === 'host') {
+        tile.classList.toggle('hidden', !isHost);
+      } else if (filter === 'all') {
+        tile.classList.toggle('hidden', isHost);
+      } else {
+        tile.classList.toggle('hidden', !types.includes(filter) || isHost);
       }
-    }, 5000);
+    });
+  };
+
+  filterButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      filterButtons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      applyFilter(btn.dataset.filter);
+    });
   });
+
+  const activeBtn = document.querySelector('.filter-btn.active');
+  if (activeBtn) {
+    applyFilter(activeBtn.dataset.filter);
+  }
+
+  setInterval(() => {
+    const slot = document.querySelector('.rand-slot');
+    if (!slot) return;
+
+    if (Math.random() < 0.25 && slot.childElementCount === 0) {
+      const span = document.createElement('span');
+      span.className = 'rand-letter';
+      span.style.color = '#ffcc00';
+      span.textContent = 'A';
+
+      slot.appendChild(span);
+
+      setTimeout(() => {
+        span.remove();
+      }, 2000);
+    }
+  }, 5000);
+});
 </script>
 </body>
 </html>
