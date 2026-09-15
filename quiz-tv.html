@@ -340,10 +340,19 @@
   // оминаючи presence/host-машинерію рушія (QuizGame.start() зробив би TV
   // ГРАВЦЕМ, з рахунком і місцем у черзі ходу — цього не треба). Той самий
   // підхід, що й у quiplash-tv.html.
-  window.rtdb.ref("quiz_rooms/shared").on("value", (snap) => {
-    const state = snap.val();
-    if (state) render(state);
-  });
+  //
+  // Номерні кімнати: TV бере код з ?room=CODE в URL (лінк, який показує
+  // хост на своєму телефоні), або питає його один раз при відкритті
+  // (зручно набрати з пульта/клавіатури один раз, URL далі лишається
+  // збереженим у ?room= для повторних відкриттів цієї ж вкладки).
+  const roomId = (new URLSearchParams(location.search).get("room") || prompt("Код кімнати Quiz:") || "").trim().toUpperCase();
+  if (roomId) {
+    history.replaceState(null, "", location.pathname + "?room=" + roomId);
+    window.rtdb.ref(`quiz_rooms/${roomId}`).on("value", (snap) => {
+      const state = snap.val();
+      if (state) render(state);
+    });
+  }
 })();
 </script>
 </body>

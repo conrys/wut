@@ -18,7 +18,9 @@
 // Quiplash: технічно підкований гравець і так має весь банк локально).
 // ==========================================================================
 (function () {
+  const GAME_KEY = "quiz";
   const MIN_PLAYERS = 2;
+  const ABANDON_MS = 15 * 60 * 1000;
   const COUNTDOWN_SECONDS = 10;
   const RESULT_DISPLAY_SECONDS = 3;
   const REVEAL_DELAY_MS = 1200; // коротка "інтрига" перед показом результату
@@ -40,8 +42,9 @@
     return QUIZ_TOPICS.map((t) => ({ name: t.name, questions: t.questions.map(() => ({ played: false })) }));
   }
 
-  const Engine = window.OnlineEngine.create("quiz", {
+  const Engine = window.OnlineEngine.create(GAME_KEY, {
     lockedHost: true,
+    abandonMs: ABANDON_MS,
     onEmptyPlayer: () => ({ score: 0 }),
     onDisconnectPlayerPatch: { lastSeen: 0 },
   });
@@ -74,8 +77,37 @@
     return conn[(idx + 1 + conn.length) % conn.length][0]; // idx===-1 (пішов) → conn[0]
   }
 
+  // ------------------------- список активних кімнат -------------------------
+  function watchActiveRooms(callback) {
+    if (!window.rtdb) { callback([]); return () => {}; }
+    const ref2 = window.rtdb.ref(`${GAME_KEY}_rooms`);
+    const onValue = (snap) => {
+      const rooms = snap.val() || {};
+      const t = now();
+      const list = Object.entries(rooms).map(([roomId, room]) => {
+        const players = room.players || {};
+        const connected = connectedEntries(players);
+        const lastSeens = Object.values(players).map((p) => p.lastSeen || 0);
+        const mostRecentPlayer = lastSeens.length ? Math.max(...lastSeens) : 0;
+        const lastActivity = Math.max(room.lastActivityAt || 0, room.createdAt || 0, mostRecentPlayer);
+        const stale = !connected.length && (!lastActivity || t - lastActivity > ABANDON_MS);
+        return {
+          roomId,
+          phase: room.phase || "lobby",
+          playerCount: Object.keys(players).length,
+          connectedCount: connected.length,
+          stale,
+        };
+      }).filter((r) => !r.stale)
+        .sort((a, b) => b.connectedCount - a.connectedCount || b.playerCount - a.playerCount);
+      callback(list);
+    };
+    ref2.on("value", onValue);
+    return () => ref2.off("value", onValue);
+  }
+
   // ------------------------- приєднання / presence -------------------------
-  function start(user) {
+  function start(user, roomId) {
     username = user;
     Engine.start(user, { useLobby: false });
 
@@ -109,10 +141,10 @@
       if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
     };
 
-    Engine.getOrCreateRoom(Engine.SHARED_ROOM_ID, ROOM_SCHEMA, () => ({ board: buildFreshBoard() })).then(({ room }) => {
+    return Engine.getOrCreateRoom(roomId, ROOM_SCHEMA, () => ({ board: buildFreshBoard() })).then(({ room }) => {
       const alreadyIn = !!(room.players && room.players[username]);
       const canJoinAsPlayer = alreadyIn || room.phase === "lobby" || room.phase === "countdown";
-      Engine.joinRoom(Engine.SHARED_ROOM_ID, { asPlayer: canJoinAsPlayer, extra: { score: 0 } });
+      return Engine.joinRoom(roomId, { asPlayer: canJoinAsPlayer, extra: { score: 0 } });
     });
   }
 
@@ -166,8 +198,10 @@
     advanceAfterResult(room);
   }
   function resetGame() {
-    return Engine.forceResetRoom(Engine.SHARED_ROOM_ID, ROOM_SCHEMA, () => ({ board: buildFreshBoard() })).then(() => {
-      Engine.joinRoom(Engine.SHARED_ROOM_ID, { extra: { score: 0 } });
+    const roomId = Engine.currentRoomId;
+    if (!roomId) return Promise.resolve();
+    return Engine.forceResetRoom(roomId, ROOM_SCHEMA, () => ({ board: buildFreshBoard() })).then(() => {
+      return Engine.joinRoom(roomId, { extra: { score: 0 } });
     });
   }
 
@@ -269,6 +303,7 @@
     QUIZ_TOPICS,
     connectedEntries,
     computeHost,
+    watchActiveRooms,
     start,
     stop,
     selectQuestion,
@@ -277,6 +312,7 @@
     skipQuestion,
     forceNextTurn,
     resetGame,
+    get roomId() { return Engine.currentRoomId; },
     set onStateChange(fn) { onStateChange = fn; },
   };
 })();

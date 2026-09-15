@@ -24,7 +24,7 @@
     background-attachment: fixed;
     font-family: 'Inter', sans-serif; color: var(--text-light); overflow-x: hidden; touch-action: manipulation;
   }
-  .page { max-width: 480px; margin: 0 auto; padding: 56px 10px 14px; min-height: 100dvh; display: flex; flex-direction: column; }
+  .page { max-width: 480px; margin: 0 auto; padding: 0 10px 14px; min-height: 100dvh; display: flex; flex-direction: column; }
   .hidden { display: none !important; }
   h2 { font-family: 'Space Grotesk', sans-serif; font-size: 20px; margin: 0 0 14px; text-align: center; }
   .status-line { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 14px; }
@@ -159,6 +159,29 @@
   .action-buttons button.primary { background: linear-gradient(180deg, #57e08c, var(--accent-dark)); color: #0c2116; border: none; }
   .action-buttons button:disabled { opacity: 0.35; }
   .waiting-line { text-align: center; font-size: 12px; color: var(--text-muted); padding: 8px 0; }
+
+  /* --------- вхід у кімнату --------- */
+  input.text-input { width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.15); background: var(--tile-bg); color: var(--text-light);
+      font-size: 16px; letter-spacing: 0.08em; text-align: center; text-transform: uppercase; }
+  input.text-input:focus { outline: 1px solid var(--accent); }
+  .divider { display: flex; align-items: center; gap: 10px; width: 100%; margin: 18px 0;
+      color: var(--text-muted); font-size: 12px; }
+  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: rgba(255,255,255,0.1); }
+  .room-code-label { font-family: 'Space Grotesk', sans-serif; font-size: 12px; color: var(--text-muted); }
+  .rooms-list { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-bottom: 4px; }
+  .room-item { background: var(--tile-bg); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px;
+      padding: 12px 14px; cursor: pointer; }
+  .room-item:active { border-color: var(--accent); }
+  .room-item-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .room-item-title { font-family: 'Space Grotesk', sans-serif; font-size: 15px; letter-spacing: 0.05em; }
+  .room-item-phase { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 10px;
+      background: var(--rail-light); color: var(--text-muted); }
+  .room-item-count { font-size: 12px; color: var(--text-muted); }
+  .primary-btn, .secondary-btn { display: block; width: 100%; border: none; border-radius: 14px; padding: 13px;
+      font-weight: 700; font-size: 14px; cursor: pointer; margin-bottom: 4px; }
+  .primary-btn { background: linear-gradient(180deg, #57e08c, var(--accent-dark)); color: #0c2116; }
+  .secondary-btn { background: var(--rail-light); color: var(--text-light); border: 1px solid rgba(255,255,255,0.1); }
 </style>
 </head>
 <body>
@@ -169,9 +192,20 @@
     <div class="status-line">Увійди в профіль (кнопка зверху), щоб сісти за стіл</div>
   </div>
 
+  <div id="view-room-entry" class="hidden">
+    <h2>♠️ Покер</h2>
+    <div class="status-line">Обери активний стіл або введи код друга</div>
+    <div class="rooms-list" id="activeRoomsList"></div>
+    <div class="divider">або вручну</div>
+    <input class="text-input" id="roomCodeInput" maxlength="5" placeholder="КОД КІМНАТИ" />
+    <button class="primary-btn" id="joinRoomBtn">Приєднатись</button>
+    <div class="divider">або</div>
+    <button class="secondary-btn" id="createRoomBtn">Створити новий стіл</button>
+  </div>
+
   <div id="view-table" class="hidden">
     <div class="table-topbar">
-      <div class="table-brand">♣ ПОКЕР</div>
+      <div class="table-brand">♣ ПОКЕР <span class="room-code-label" id="roomCodeLabel"></span></div>
       <div class="pot-row" id="potLabel">Банк: <b>0</b></div>
     </div>
     <button class="reset-table-btn hidden" id="resetTableBtn">⟲ Скинути стіл</button>
@@ -218,9 +252,12 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
 <script src="js/firebase-config.js"></script>
+<link rel="stylesheet" href="js/game-header.css">
+<script src="js/game-header.js"></script>
 <script src="js/login.js"></script>
 <script src="js/online-engine.js"></script>
 <script src="js/poker-game.js"></script>
+<script src="js/room-code-ui.js"></script>
 <script src="js/help.js"></script>
 <script src="js/back-button.js"></script>
 <script src="js/refresh-button.js"></script>
@@ -289,6 +326,7 @@
     if (!ctx.username) { show("locked"); return; }
     if (!state.seats || !Object.keys(state.seats).length) { show("locked"); return; }
     show("table");
+    document.getElementById("roomCodeLabel").textContent = window.PokerGame.roomId ? `· ${window.PokerGame.roomId}` : "";
 
     document.getElementById("resetTableBtn").classList.toggle("hidden", !ctx.isHost);
 
@@ -486,16 +524,34 @@
     window.PokerGame.playerAction(lastState, hand.currentBet > 0 ? "raise" : "bet", amount);
   });
 
-  const VIEWS = ["locked", "table"];
+  const VIEWS = ["locked", "room-entry", "table"];
   function show(name) { VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name)); }
 
   document.addEventListener("selectstart", (e) => e.preventDefault());
 
+  function beginGame(username_, roomId) {
+    username = username_;
+    window.PokerGame.onStateChange = render;
+    window.PokerGame.start(username_, roomId);
+  }
+
   const session = window.AppAuth && window.AppAuth.getSession();
   if (session && window.rtdbReady) {
-    username = session.username;
-    window.PokerGame.onStateChange = render;
-    window.PokerGame.start(session.username);
+    RoomCodeUI.mount({
+      containerId: "activeRoomsList",
+      codeInputId: "roomCodeInput",
+      joinBtnId: "joinRoomBtn",
+      createBtnId: "createRoomBtn",
+      watchActiveRooms: window.PokerGame.watchActiveRooms,
+      renderRoomItem: (r) => `
+        <div class="room-item-head">
+          <span class="room-item-title">Стіл ${RoomCodeUI.escapeHtml(r.roomId)}</span>
+          <span class="room-item-phase">${r.phase === "lobby" ? "Очікує" : "Гра триває"}</span>
+        </div>
+        <div class="room-item-count">Гравців: ${r.connectedCount} / ${r.playerCount}</div>`,
+      onEnter: (roomId) => beginGame(session.username, roomId),
+    });
+    show("room-entry");
   } else {
     show("locked");
   }

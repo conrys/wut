@@ -1,0 +1,67 @@
+/* ==========================================================================
+   Базові стилі глобального ігрового хедера (#gameHeader / .game-header).
+   Раніше жили всередині login.js — звідти прибрані, бо авторизація не має
+   володіти layout-ом усієї гри. login.js лише додає свою кнопку у слот.
+
+   .game-header — ОДИН конкретний глобальний компонент (навігаційний хедер
+   з back/records/auth). Не використовувати цей клас для інших заголовків
+   (напр. вертикальний заголовок фази гри в mafia-host.html — там свій
+   .phase-header).
+
+   Підключати ПЕРЕД сторінковими стилями, якщо сторінці потрібен модифікатор
+   (game-header--fixed, game-header--soliter).
+   ========================================================================== */
+.game-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 480px;
+  gap: 10px;
+  margin: 8px auto;
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  box-sizing: border-box;
+}
+
+.game-header .slot-left,
+.game-header .slot-center,
+.game-header .slot-right {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+.game-header .slot-left { justify-content: flex-start; }
+.game-header .slot-center { justify-content: center; }
+.game-header .slot-right { justify-content: flex-end; }
+
+/* ---------------------------- Модифікатори ---------------------------- */
+
+/* quiplash.html: фіксований хедер поверх контенту, свій темний фон замість
+   напівпрозорої "картки" (1:1 з тим, що раніше було в #gameHeader). */
+.game-header--fixed {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 20;
+  max-width: none;
+  margin: 0;
+  padding: max(8px, env(safe-area-inset-top)) 16px 8px;
+  background: rgba(30, 30, 36, 0.96);
+  border: none;
+  border-bottom: 1px solid #3a3a44;
+  border-radius: 0;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* soliter.html: трохи більший верхній відступ під safe-area (вирізи екрану). */
+.game-header--soliter {
+  margin-top: max(12px, env(safe-area-inset-top));
+}
+
+.game-header button,
+.game-header [role="button"] {
+  min-height: 36px;
+}

@@ -14,8 +14,10 @@
 // online-engine.js, draw-canvas.js.
 // ==========================================================================
 (function () {
+  const GAME_KEY = "draw";
   const PHASES = ["lobby", "active"];
   const MIN_PLAYERS = 2;
+  const ABANDON_MS = 15 * 60 * 1000;
   const TICK_MS = 500;
   const ALLOWED_GALLERY_SECONDS = [45, 60, 90, 120, 180];
   const DEFAULT_GALLERY_SECONDS = 90;
@@ -33,9 +35,10 @@
     players: {},
   };
 
-  const engine = window.OnlineEngine.create("draw", {
+  const engine = window.OnlineEngine.create(GAME_KEY, {
     phases: PHASES,
     lockedHost: true,
+    abandonMs: ABANDON_MS,
     onEmptyPlayer: () => ({ score: 0 }),
   });
 
@@ -57,16 +60,45 @@
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
+  // ------------------------- список активних кімнат -------------------------
+  function watchActiveRooms(callback) {
+    if (!window.rtdb) { callback([]); return () => {}; }
+    const ref = window.rtdb.ref(`${GAME_KEY}_rooms`);
+    const onValue = (snap) => {
+      const rooms = snap.val() || {};
+      const t = engine.now();
+      const list = Object.entries(rooms).map(([roomId, room]) => {
+        const players = room.players || {};
+        const connected = connectedNames(players);
+        const lastSeens = Object.values(players).map((p) => p.lastSeen || 0);
+        const mostRecentPlayer = lastSeens.length ? Math.max(...lastSeens) : 0;
+        const lastActivity = Math.max(room.lastActivityAt || 0, room.createdAt || 0, mostRecentPlayer);
+        const stale = !connected.length && (!lastActivity || t - lastActivity > ABANDON_MS);
+        return {
+          roomId,
+          phase: room.phase || "lobby",
+          playerCount: Object.keys(players).length,
+          connectedCount: connected.length,
+          stale,
+        };
+      }).filter((r) => !r.stale)
+        .sort((a, b) => b.connectedCount - a.connectedCount || b.playerCount - a.playerCount);
+      callback(list);
+    };
+    ref.on("value", onValue);
+    return () => ref.off("value", onValue);
+  }
+
   // ------------------------- старт -------------------------
-  async function start(user) {
+  async function start(user, roomId) {
     username = user;
     engine.onStateChange = handleEngineEvent;
     engine.onBecomeHost = () => { if (!tickTimer) tickTimer = setInterval(tick, TICK_MS); };
     engine.onLoseHost = () => { if (tickTimer) { clearInterval(tickTimer); tickTimer = null; } };
 
     engine.start(username, { useLobby: false });
-    await engine.getOrCreateRoom(engine.SHARED_ROOM_ID, SCHEMA, buildFreshRoom);
-    await engine.joinRoom(engine.SHARED_ROOM_ID, { asPlayer: false });
+    await engine.getOrCreateRoom(roomId, SCHEMA, buildFreshRoom);
+    await engine.joinRoom(roomId, { asPlayer: false });
   }
 
   function stop() {
@@ -109,7 +141,9 @@
 
   function resetGame() {
     usedPromptsCache = {};
-    engine.forceResetRoom(engine.SHARED_ROOM_ID, SCHEMA, buildFreshRoom);
+    const roomId = engine.currentRoomId;
+    if (!roomId) return;
+    engine.forceResetRoom(roomId, SCHEMA, buildFreshRoom);
   }
 
   // ------------------------- crocodile -------------------------
@@ -283,10 +317,12 @@
     connectedNames,
     computeHost: (players) => engine.computeHost(players),
     unanswered,
+    watchActiveRooms,
     start, stop,
     setMode, setGalleryTimer, startGame, resetGame,
     pushStrokeBatch, sendUndo, sendClear, markCorrectGuess, hostSkipPrompt, hostForceNextDrawer,
     submitDrawing, hostRevealAnswer, hostNextDrawing, hostNewGalleryRound,
+    get roomId() { return engine.currentRoomId; },
     set onStateChange(fn) { onStateChange = fn; },
   };
 })();

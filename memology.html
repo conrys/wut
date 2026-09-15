@@ -23,7 +23,7 @@
       overflow-x: hidden; 
       touch-action: manipulation; 
     }
-  .page { max-width: 480px; margin: 0 auto; padding: 60px 16px 30px; display: flex;
+  .page { max-width: 480px; margin: 0 auto; padding: 0 16px 30px; display: flex;
       flex-direction: column; min-height: 100dvh; }
   .hidden { display: none !important; }
 
@@ -109,6 +109,27 @@
   .target-picker { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
   .target-picker button { border: none; border-radius: 12px; padding: 10px; font-weight: 700;
       background: var(--accent); color: #0e2318; }
+
+  /* --------- вхід у кімнату --------- */
+  input.text-input { width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.15); background: #1b1d22; color: var(--text-light);
+      font-size: 16px; letter-spacing: 0.08em; text-align: center; text-transform: uppercase; }
+  input.text-input:focus { outline: 1px solid var(--accent); }
+  .divider { display: flex; align-items: center; gap: 10px; width: 100%; margin: 18px 0;
+      color: var(--text-muted); font-size: 12px; }
+  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: rgba(255,255,255,0.1); }
+  .room-code-display { font-family: 'Space Grotesk', sans-serif; font-size: 22px; letter-spacing: 0.12em;
+      background: var(--tile-bg); border: 1px dashed rgba(255,255,255,0.15); border-radius: 10px;
+      padding: 10px 16px; margin-bottom: 14px; text-align: center; }
+  .rooms-list { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-bottom: 4px; }
+  .room-item { background: var(--tile-bg); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px;
+      padding: 12px 14px; cursor: pointer; }
+  .room-item:active { border-color: var(--accent); }
+  .room-item-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .room-item-title { font-family: 'Space Grotesk', sans-serif; font-size: 15px; letter-spacing: 0.05em; }
+  .room-item-phase { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 10px;
+      background: #1b1d22; color: var(--text-muted); }
+  .room-item-count { font-size: 12px; color: var(--text-muted); }
 </style>
 </head>
 <body>
@@ -119,8 +140,20 @@
     <div class="status-line">Увійди в профіль (кнопка зверху), щоб грати з друзями</div>
   </div>
 
+  <div id="view-room-entry" class="hidden">
+    <h2>🃏 Мемологія</h2>
+    <div class="status-line">Обери активну кімнату або введи код друга</div>
+    <div class="rooms-list" id="activeRoomsList"></div>
+    <div class="divider">або вручну</div>
+    <input class="text-input" id="roomCodeInput" maxlength="5" placeholder="КОД КІМНАТИ" />
+    <button class="primary-btn" id="joinRoomBtn">Приєднатись</button>
+    <div class="divider">або</div>
+    <button class="secondary-btn" id="createRoomBtn">Створити нову кімнату</button>
+  </div>
+
   <div id="view-lobby" class="hidden">
     <h2>🃏 Мемологія</h2>
+    <div class="room-code-display" id="roomCodeDisplay"></div>
     <div class="status-line" id="lobbyStatus"></div>
     <div class="card"><h3>Гравці</h3><div class="players-list" id="playersList"></div></div>
     <div class="err-msg hidden" id="deckWarning"></div>
@@ -205,17 +238,20 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
 <script src="js/firebase-config.js"></script>
+<link rel="stylesheet" href="js/game-header.css">
+<script src="js/game-header.js"></script>
 <script src="js/login.js"></script>
 <script src="js/memology-prompts.js"></script>
 <script src="js/memology-cards.js"></script>
 <script src="js/online-engine.js"></script>
 <script src="js/memology-game.js"></script>
+<script src="js/room-code-ui.js"></script>
 <script src="js/help.js"></script>
 <script src="js/back-button.js"></script>
 <script src="js/refresh-button.js"></script>
 <script>
 (function () {
-  const VIEWS = ["locked", "lobby", "active"];
+  const VIEWS = ["locked", "room-entry", "lobby", "active"];
   function showView(name) {
     VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name));
   }
@@ -247,6 +283,7 @@
     const conn = window.MemologyGame.connectedEntries(state.players);
     const hostName = window.MemologyGame.computeHost(state.players);
 
+    document.getElementById("roomCodeDisplay").textContent = ctx.roomId || window.MemologyGame.roomId || "";
     document.getElementById("lobbyStatus").innerHTML =
       `<span class="pulse-dot"></span> Гравців онлайн: ${conn.length} (потрібно мінімум ${window.MemologyGame.MIN_PLAYERS})`;
 
@@ -573,9 +610,8 @@
 
   document.addEventListener("selectstart", (e) => e.preventDefault());
 
-  const session = window.AppAuth && window.AppAuth.getSession();
-  if (session && window.rtdbReady) {
-    username = session.username;
+  function beginGame(username_, roomId) {
+    username = username_;
     window.MemologyGame.onStateChange = (state, ctx) => {
       onState(state, ctx);
       if (state.phase === "active") checkIncomingSwap(state);
@@ -587,7 +623,26 @@
         }
       }
     };
-    window.MemologyGame.start(session.username);
+    window.MemologyGame.start(username_, roomId);
+  }
+
+  const session = window.AppAuth && window.AppAuth.getSession();
+  if (session && window.rtdbReady) {
+    RoomCodeUI.mount({
+      containerId: "activeRoomsList",
+      codeInputId: "roomCodeInput",
+      joinBtnId: "joinRoomBtn",
+      createBtnId: "createRoomBtn",
+      watchActiveRooms: window.MemologyGame.watchActiveRooms,
+      renderRoomItem: (r) => `
+        <div class="room-item-head">
+          <span class="room-item-title">Кімната ${RoomCodeUI.escapeHtml(r.roomId)}</span>
+          <span class="room-item-phase">${r.phase === "lobby" ? "Лобі" : "Гра триває"}</span>
+        </div>
+        <div class="room-item-count">Онлайн: ${r.connectedCount} / ${r.playerCount}</div>`,
+      onEnter: (roomId) => beginGame(session.username, roomId),
+    });
+    showView("room-entry");
   } else {
     showView("locked");
   }

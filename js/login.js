@@ -82,26 +82,6 @@
   function buildUI() {
     const style = document.createElement("style");
     style.textContent = `
-      .game-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        width: 100%;
-        padding-top: calc(max(12px, env(safe-area-inset-top)));
-        padding-bottom: 12px;
-        box-sizing: border-box;
-      }
-      .game-header .slot-left,
-      .game-header .slot-center,
-      .game-header .slot-right {
-        display: flex;
-        align-items: center;
-        flex: 1;
-      }
-      .game-header .slot-left { justify-content: flex-start; }
-      .game-header .slot-center { justify-content: center; }
-      .game-header .slot-right { justify-content: flex-end; }
-
       .auth-pill {
         position: static !important;
         width: 36px;
@@ -166,23 +146,6 @@
     `;
     document.head.appendChild(style);
 
-    function getHeaderSlot(slotName) {
-      let header = document.getElementById("gameHeader");
-      if (!header) {
-        header = document.createElement("div");
-        header.id = "gameHeader";
-        header.className = "game-header";
-        header.innerHTML = `
-          <div class="slot-left"></div>
-          <div class="slot-center"></div>
-          <div class="slot-right"></div>
-        `;
-        const page = document.querySelector(".page") || document.body;
-        page.insertBefore(header, page.firstChild);
-      }
-      return header.querySelector(`.slot-${slotName}`);
-    }
-
     pillEl = document.createElement("div");
     pillEl.className = "auth-pill";
 
@@ -190,7 +153,7 @@
     if (topBar) {
       topBar.appendChild(pillEl);
     } else {
-      getHeaderSlot("right").appendChild(pillEl);
+      GameHeader.slot("right").appendChild(pillEl);
     }
 
     pillEl.addEventListener("click", () => {

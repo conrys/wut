@@ -16,9 +16,14 @@
 <body>
 <h1>🤖 Quiz — тест двома ботами</h1>
 <div class="hint">
-  Відкрий <b>quiz-tv.html</b> (чи <b>quiz.html</b> як спостерігач) в окремій вкладці/на TV, щоб дивитись на результат.
+  Відкрий <b>quiz-tv.html</b> (чи <b>quiz.html</b> як спостерігач) в окремій вкладці/на TV,
+  з тим самим кодом кімнати (<code>?room=КОД</code>), щоб дивитись на результат.
   Ця сторінка нічого сама не показує — вона лише грає за двох ботів і сама рухає фази гри
   (бо боти не заходять через звичайний логін, тому нікому вести хост-тік, окрім цієї консолі).
+</div>
+<div class="hint">
+  Код кімнати: <input id="roomCodeInput" value="TEST1" maxlength="5"
+    style="text-transform:uppercase; font-family:monospace; letter-spacing:0.1em; background:#131a4d; color:#f4f1ff; border:1px solid #3a3a44; border-radius:6px; padding:4px 8px;" />
 </div>
 <button id="startBtn">▶ Почати тест</button>
 <button id="stopBtn" class="stop">⏹ Зупинити</button>
@@ -82,7 +87,8 @@
     firstTurnDone = {};
     acting.clear();
 
-    ref = window.rtdb.ref("quiz_rooms/shared");
+    const roomId = (document.getElementById("roomCodeInput").value || "TEST1").trim().toUpperCase();
+    ref = window.rtdb.ref(`quiz_rooms/${roomId}`);
     const fresh = {
       phase: "lobby",
       currentPlayerUsername: null,

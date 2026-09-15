@@ -70,6 +70,18 @@
     .size-btn { background: #14161a; border: 1px solid rgba(255,255,255,0.12); color: var(--text-light);
         padding: 10px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
     .size-btn.active { border-color: var(--accent); background: rgba(56, 207, 160, 0.15); color: var(--accent); }
+
+    /* --------- вхід у кімнату --------- */
+    input.text-input { width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 10px;
+        border: 1px solid rgba(255,255,255,0.15); background: #14161a; color: var(--text-light);
+        font-size: 16px; letter-spacing: 0.08em; text-align: center; text-transform: uppercase; margin-bottom: 10px; }
+    .rooms-list { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-bottom: 10px; max-height: 160px; overflow-y: auto; }
+    .room-item { background: #14161a; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px;
+        padding: 10px 12px; cursor: pointer; text-align: left; font-size: 13px; }
+    .room-item:active { border-color: var(--accent); }
+    .room-item-title { font-weight: 700; }
+    .room-item-count { color: var(--text-muted); font-size: 12px; }
+    .divider { font-size: 12px; color: var(--text-muted); margin: 10px 0; }
   </style>
 </head>
 <body>
@@ -105,6 +117,18 @@
   </div>
 </div>
 
+<div class="overlay" id="roomEntryOverlay">
+  <div class="modal">
+    <h3>🐍 Мультиплеєр</h3>
+    <div class="rooms-list" id="activeRoomsList"></div>
+    <div class="divider">або вручну</div>
+    <input class="text-input" id="roomCodeInput" maxlength="5" placeholder="КОД КІМНАТИ" />
+    <button class="btn-primary" id="joinRoomBtn">Приєднатись</button>
+    <button class="btn-primary" id="createRoomBtn">Створити нову кімнату</button>
+    <button class="btn-secondary" id="soloOnlyBtn">Грати соло</button>
+  </div>
+</div>
+
 <div class="overlay" id="deadOverlay">
   <div class="modal">
     <h3 id="deadTitle">💀 Ти вибув</h3>
@@ -117,11 +141,15 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
 <script src="js/firebase-config.js"></script>
+<script src="js/app-settings.js"></script>
+<link rel="stylesheet" href="js/game-header.css">
+<script src="js/game-header.js"></script>
 <script src="js/login.js"></script>
 <script src="js/score-connect.js"></script>
 <script src="js/records.js"></script>
 <script src="js/online-engine.js"></script>
 <script src="js/snake-multiplayer.js"></script>
+<script src="js/room-code-ui.js"></script>
 <script src="js/back-button.js"></script>
 <script>
   (function () {
@@ -134,28 +162,14 @@
     const deadOverlay = document.getElementById("deadOverlay");
     const settingsOverlay = document.getElementById("settingsOverlay");
 
-    // ---------------- Налаштування розмірів ----------------
-    const SIZE_CONFIGS = {
-      S:  { size: "48px", font: "18px", gap: "5px" },
-      M:  { size: "58px", font: "22px", gap: "6px" },
-      L:  { size: "70px", font: "28px", gap: "8px" },
-      XL: { size: "84px", font: "34px", gap: "10px" }
-    };
-
-    function applyControlSize(sizeKey) {
-      const config = SIZE_CONFIGS[sizeKey] || SIZE_CONFIGS.M;
-      document.documentElement.style.setProperty("--ctrl-size", config.size);
-      document.documentElement.style.setProperty("--ctrl-font", config.font);
-      document.documentElement.style.setProperty("--ctrl-gap", config.gap);
-      localStorage.setItem("snake_ctrl_size", sizeKey);
-
+    // ---------------- Налаштування розмірів (спільні через AppSettings) ----------------
+    function markActiveSizeBtn(sizeKey) {
       document.querySelectorAll(".size-btn").forEach((btn) => {
         btn.classList.toggle("active", btn.dataset.size === sizeKey);
       });
     }
 
-    const savedSize = localStorage.getItem("snake_ctrl_size") || "M";
-    applyControlSize(savedSize);
+    markActiveSizeBtn(AppSettings.get("controlSize"));
 
     document.getElementById("settingsBtn").addEventListener("click", () => {
       settingsOverlay.classList.add("open");
@@ -164,7 +178,10 @@
       settingsOverlay.classList.remove("open");
     });
     document.querySelectorAll(".size-btn").forEach((btn) => {
-      btn.addEventListener("click", () => applyControlSize(btn.dataset.size));
+      btn.addEventListener("click", () => {
+        AppSettings.set("controlSize", btn.dataset.size);
+        markActiveSizeBtn(btn.dataset.size);
+      });
     });
 
     function setMsg(text) { if (msgEl) msgEl.textContent = text; }
@@ -344,12 +361,12 @@
       window.location.href = "index.html";
     });
 
-    function startMultiplayer(username) {
+    function startMultiplayer(username, roomId) {
       session = username;
       window.SnakeMP.onStateChange = (type, data) => {
         if (type === "room-update") {
           mode = "room";
-          setMsg("Мультиплеєр: спільне поле");
+          setMsg(`Мультиплеєр: кімната ${roomId}`);
           if (soloTimer) clearInterval(soloTimer);
           latestRoomForRender = data.room;
           const me = data.room.players && data.room.players[session];
@@ -370,14 +387,39 @@
           }
         }
       };
-      window.SnakeMP.startPresence(username);
+      window.SnakeMP.startPresence(username, roomId);
     }
+
+    // ---------------- вхід у кімнату ----------------
+    const roomEntryOverlay = document.getElementById("roomEntryOverlay");
+
+    function openRoomEntry(username) {
+      roomEntryOverlay.classList.add("open");
+      RoomCodeUI.mount({
+        containerId: "activeRoomsList",
+        codeInputId: "roomCodeInput",
+        joinBtnId: "joinRoomBtn",
+        createBtnId: "createRoomBtn",
+        autoFromUrl: false, // Змійка сама вирішує старт (соло за замовчуванням), без deep-link у кімнату
+        watchActiveRooms: window.SnakeMP.watchActiveRooms,
+        renderRoomItem: (r) => `
+          <div class="room-item-title">Кімната ${RoomCodeUI.escapeHtml(r.roomId)}${r.full ? " (повна)" : ""}</div>
+          <div class="room-item-count">Онлайн: ${r.connectedCount} / ${r.playerCount}</div>`,
+        onEnter: (roomId) => {
+          roomEntryOverlay.classList.remove("open");
+          startMultiplayer(username, roomId);
+        },
+      });
+    }
+    document.getElementById("soloOnlyBtn").addEventListener("click", () => {
+      roomEntryOverlay.classList.remove("open");
+    });
 
     // ---------------- старт ----------------
     const authSession = window.AppAuth && window.AppAuth.getSession();
     if (authSession && window.rtdbReady) {
-      startMultiplayer(authSession.username);
       startSolo();
+      openRoomEntry(authSession.username);
     } else if (authSession && !window.rtdbReady) {
       setMsg("Мультиплеєр недоступний (немає з'єднання)");
       startSolo();

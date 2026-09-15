@@ -11,25 +11,16 @@ body {
   margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
   font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   overscroll-behavior: none; -webkit-user-select: none; user-select: none;
+  /* #gameHeader тут position:fixed (game-header--fixed) — виходить із потоку,
+     тому контент під ним сам не відсувається. Компенсуємо тим самим
+     відступом, що й сам хедер резервує собі зверху (safe-area + висота). */
+  padding-top: calc(60px + env(safe-area-inset-top));
 }
 h1, h2 { margin: 0 0 8px; }
 .hint { color: #9a9aa5; font-size: 14px; margin: 4px 0 16px; }
 .error { color: #e74c3c; min-height: 20px; font-size: 14px; }
 .hidden { display: none !important; }
 
-#header-bar {
-  display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr); align-items: center;
-  gap: 10px; margin-top: 46px; padding: 10px 16px; background: #2b2b33; border-bottom: 1px solid #3a3a44;
-  font-size: 14px; position: relative; z-index: 2;
-}
-#gameHeader {
-  position: fixed;
-  inset: 0 0 auto;
-  z-index: 20;
-  padding: max(8px, env(safe-area-inset-top)) 16px 8px;
-  background: rgba(30,30,36,0.96);
-  border-bottom: 1px solid #3a3a44;
-}
 #gameHeader .slot-left,
 #gameHeader .slot-right { min-width: 96px; }
 #gameHeader .slot-right { justify-content: flex-end; }
@@ -117,10 +108,26 @@ button:disabled { opacity: 0.5; cursor: default; }
 .final-bar-track { height: 10px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
 .final-bar-fill { height: 100%; border-radius: 999px; width: 0%; transition: width 0.9s cubic-bezier(0.22,1,0.36,1); background: #3498db; }
 .final-score { font-size: 17px; font-weight: 800; min-width: 50px; text-align: right; flex-shrink: 0; }
+
+/* --------- вхід у кімнату --------- */
+.text-input { width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 8px;
+    border: 1px solid #444; background: #1e1e24; color: #fff; font-size: 16px;
+    letter-spacing: 0.08em; text-align: center; text-transform: uppercase; margin-bottom: 8px; }
+.text-input:focus { outline: 1px solid #3498db; }
+.divider { display: flex; align-items: center; gap: 10px; color: #9a9aa5; font-size: 12px; margin: 14px 0; }
+.divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: #3a3a44; }
+.rooms-list { display: flex; flex-direction: column; gap: 8px; text-align: left; margin-bottom: 4px; }
+.room-item { background: #2b2b33; border: 1px solid #3a3a44; border-radius: 8px; padding: 12px 14px; cursor: pointer; }
+.room-item:active { border-color: #3498db; }
+.room-item-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.room-item-title { font-weight: 700; }
+.room-item-phase { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 10px; background: #1e1e24; color: #9a9aa5; }
+.room-item-count { font-size: 12px; color: #9a9aa5; }
+#lobby-room-code { font-family: monospace; font-size: 16px; letter-spacing: 0.15em; color: #ffd76f; }
 </style>
 </head>
 <body>
-<div id="gameHeader" class="game-header">
+<div id="gameHeader" class="game-header game-header--fixed">
   <div class="slot-left"></div>
   <div class="slot-center"><span id="my-badge"></span></div>
   <div class="slot-right"><div id="top-bar"></div></div>
@@ -152,10 +159,22 @@ button:disabled { opacity: 0.5; cursor: default; }
   <p class="hint">Гра триває — приєднаєшся на наступній</p>
 </div>
 
+<div id="screen-room-entry" class="screen hidden">
+  <h1>Сміхліст</h1>
+  <p class="hint">Обери активну кімнату або введи код друга</p>
+  <div class="rooms-list" id="activeRoomsList"></div>
+  <div class="divider">або вручну</div>
+  <input class="text-input" id="roomCodeInput" maxlength="5" placeholder="КОД КІМНАТИ" />
+  <button id="joinRoomBtn">Приєднатись</button>
+  <div class="divider">або</div>
+  <button id="createRoomBtn" style="background:#2ecc71; color:#10331e;">Створити нову кімнату</button>
+</div>
+
 <div id="screen-lobby" class="screen hidden">
   <div id="lobby-ring">
     <div id="lobby-logo"><span>Сміх</span><span class="logo-accent">ліст</span></div>
   </div>
+  <p class="hint" id="lobby-room-code"></p>
   <p class="hint" id="lobby-hint"></p>
   <div id="avatar-picker">
     <label for="avatar-select">Аватар</label>
@@ -221,16 +240,19 @@ button:disabled { opacity: 0.5; cursor: default; }
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
 <script src="js/firebase-config.js"></script>
+<link rel="stylesheet" href="js/game-header.css">
+<script src="js/game-header.js"></script>
 <script src="js/login.js"></script>
 <script src="js/quiplash-prompts.js"></script>
 <script src="js/online-engine.js"></script>
 <script src="js/quiplash-game.js"></script>
+<script src="js/room-code-ui.js"></script>
 <script src="js/help.js"></script>
 <script src="js/back-button.js"></script>
 <script src="js/refresh-button.js"></script>
 <script>
 (function () {
-  const SCREENS = ["locked", "waiting", "lobby", "answer", "voting", "round-end", "game-over"];
+  const SCREENS = ["locked", "room-entry", "waiting", "lobby", "answer", "voting", "round-end", "game-over"];
   function screen(name) {
     SCREENS.forEach((s) => document.getElementById("screen-" + s).classList.toggle("hidden", s !== name));
   }
@@ -673,6 +695,7 @@ button:disabled { opacity: 0.5; cursor: default; }
     if (state.phase === "lobby") {
       screen("lobby");
       answerCards.dataset.answerKey = "";
+      document.getElementById("lobby-room-code").textContent = QuiplashGame.roomId ? `Код кімнати: ${QuiplashGame.roomId}` : "";
       renderLobbyRing(players.map(([n, p]) => ({ name: n, ...p })));
       renderAvatarPicker(state, ctx.username);
       const conn = QuiplashGame.connectedEntries(state.players);
@@ -729,11 +752,29 @@ button:disabled { opacity: 0.5; cursor: default; }
   continueBtn.addEventListener("click", () => QuiplashGame.continueGame());
   finishBtn.addEventListener("click", () => QuiplashGame.finishGame());
 
+  function beginGame(username_, roomId) {
+    session = username_;
+    QuiplashGame.onStateChange = (state, ctx) => { lastState = state; onState(state, ctx); };
+    QuiplashGame.start(username_, roomId);
+  }
+
   const authSession = window.AppAuth && window.AppAuth.getSession();
   if (authSession && window.rtdbReady) {
-    session = authSession.username;
-    QuiplashGame.onStateChange = (state, ctx) => { lastState = state; onState(state, ctx); };
-    QuiplashGame.start(session);
+    RoomCodeUI.mount({
+      containerId: "activeRoomsList",
+      codeInputId: "roomCodeInput",
+      joinBtnId: "joinRoomBtn",
+      createBtnId: "createRoomBtn",
+      watchActiveRooms: QuiplashGame.watchActiveRooms,
+      renderRoomItem: (r) => `
+        <div class="room-item-head">
+          <span class="room-item-title">Кімната ${escapeHtml(r.roomId)}</span>
+          <span class="room-item-phase">${r.phase === "lobby" ? "Лобі" : "Гра триває"}</span>
+        </div>
+        <div class="room-item-count">Онлайн: ${r.connectedCount} / ${r.playerCount}</div>`,
+      onEnter: (roomId) => beginGame(authSession.username, roomId),
+    });
+    screen("room-entry");
   } else {
     screen("locked");
   }

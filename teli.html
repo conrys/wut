@@ -23,8 +23,20 @@
     <div class="empty-state"><div class="empty-icon">⏳</div><div class="status-line">Гра триває — приєднаєшся на наступній</div></div>
   </div>
 
+  <!-- ВХІД У КІМНАТУ -->
+  <div class="hidden stage" id="view-room-entry">
+    <div class="status-line">Обери активну кімнату або введи код друга</div>
+    <div class="card rooms-list" id="activeRoomsList"></div>
+    <div class="divider">або вручну</div>
+    <input class="field" id="roomCodeInput" maxlength="5" placeholder="КОД КІМНАТИ" style="text-align:center; text-transform:uppercase; letter-spacing:0.1em;" />
+    <button class="btn btn-primary btn-block" id="joinRoomBtn">Приєднатись</button>
+    <div class="divider">або</div>
+    <button class="btn btn-block" id="createRoomBtn">Створити нову кімнату</button>
+  </div>
+
   <!-- ЛОБІ -->
   <div class="hidden stage" id="view-lobby">
+    <div class="room-code-display" id="roomCodeDisplay"></div>
     <div class="status-line" id="lobbyStatus"><span class="pulse-dot"></span> Очікуємо гравців...</div>
     <div class="card">
       <h3>Гравці</h3>
@@ -103,15 +115,18 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
 <script src="js/firebase-config.js"></script>
+<link rel="stylesheet" href="js/game-header.css">
+<script src="js/game-header.js"></script>
 <script src="js/login.js"></script>
 <script src="js/online-engine.js"></script>
 <script src="js/teli-game.js"></script>
+<script src="js/room-code-ui.js"></script>
 <script src="js/draw-canvas.js"></script>
 <script src="js/help.js"></script>
 <script src="js/back-button.js"></script>
 <script>
 (function () {
-  const VIEWS = ["locked", "waiting", "lobby", "active", "reveal"];
+  const VIEWS = ["locked", "room-entry", "waiting", "lobby", "active", "reveal"];
   function showView(name) {
     VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name));
     document.getElementById("titleBlock").classList.toggle("hidden", name === "active");
@@ -130,6 +145,7 @@
   function renderLobby(room, ctx) {
     const connNames = TeliGame.connectedNames(room.players);
     const hostName = TeliGame.computeHost(room.players);
+    document.getElementById("roomCodeDisplay").textContent = TeliGame.roomId || "";
     document.getElementById("lobbyStatus").innerHTML =
       `<span class="pulse-dot"></span> Гравців онлайн: ${connNames.length} (потрібно мінімум ${TeliGame.MIN_PLAYERS})`;
 
@@ -312,11 +328,27 @@
     });
   }
 
+  function beginGame(username_, roomId) {
+    username = username_;
+    TeliGame.onStateChange = onState;
+    TeliGame.start(username_, roomId);
+  }
+
   const session = window.AppAuth && window.AppAuth.getSession();
   if (session && window.rtdbReady) {
-    username = session.username;
-    TeliGame.onStateChange = onState;
-    TeliGame.start(username);
+    RoomCodeUI.mount({
+      containerId: "activeRoomsList",
+      codeInputId: "roomCodeInput",
+      joinBtnId: "joinRoomBtn",
+      createBtnId: "createRoomBtn",
+      watchActiveRooms: TeliGame.watchActiveRooms,
+      renderRoomItem: (r) => `
+        <div class="player-chip"><span>Кімната ${RoomCodeUI.escapeHtml(r.roomId)}</span>
+        <span class="badge">${r.phase === "lobby" ? "Лобі" : "Гра триває"}</span></div>
+        <div class="status-line" style="text-align:left; font-size:12px;">Онлайн: ${r.connectedCount} / ${r.playerCount}</div>`,
+      onEnter: (roomId) => beginGame(session.username, roomId),
+    });
+    showView("room-entry");
   } else {
     showView("locked");
   }

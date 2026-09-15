@@ -2,8 +2,8 @@
 // Кнопка «🏆 Рекорди» + модалка з топ-10 по поточній грі.
 // Назва гри визначається автоматично з імені файлу (tetris.html -> 'tetris',
 // 2048.html -> '2048') — той самий рядок, що передається в sendScore().
-// Підключати ТІЛЬКИ на сторінках ігор (після firebase-config.js, login.js,
-// score-connect.js), на index.html не потрібен.
+// Підключати ТІЛЬКИ на сторінках ігор (після firebase-config.js,
+// game-header.js, login.js, score-connect.js), на index.html не потрібен.
 // ==========================================================================
 (function () {
   function currentGameName() {
@@ -61,26 +61,9 @@
 
     const btn = document.createElement("div");
     btn.className = "records-btn";
-    btn.textContent = "🏆 Рекорди";
+    btn.textContent = "Рекорди";
 
-    function getHeaderSlot(slotName) {
-      let header = document.getElementById("gameHeader");
-      if (!header) {
-        header = document.createElement("div");
-        header.id = "gameHeader";
-        header.className = "game-header";
-        header.innerHTML = `
-          <div class="slot-left"></div>
-          <div class="slot-center"></div>
-          <div class="slot-right"></div>
-        `;
-        const page = document.querySelector(".page") || document.body;
-        page.insertBefore(header, page.firstChild);
-      }
-      return header.querySelector(`.slot-${slotName}`);
-    }
-
-    getHeaderSlot("center").appendChild(btn);
+    GameHeader.slot("center").appendChild(btn);
 
     const overlay = document.createElement("div");
     overlay.className = "records-overlay";

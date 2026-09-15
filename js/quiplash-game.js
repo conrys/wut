@@ -12,6 +12,7 @@
 // Одна спільна гра на застосунок (як і Шпигун) — вечірка грає разом.
 // ==========================================================================
 (function () {
+  const GAME_KEY = "quiplash";
   const HEARTBEAT_MS = 2000;
   const PRESENCE_TIMEOUT_MS = 5000;
   const TICK_MS = 500;
@@ -47,7 +48,7 @@
     ...emptyState(),
   };
   const ABANDON_MS = 3 * 60 * 1000; // нікого онлайн 3 хв — кімнату скидаємо
-  const Engine = window.OnlineEngine.create("quiplash", {
+  const Engine = window.OnlineEngine.create(GAME_KEY, {
     phases: ["lobby", "answering", "answer_countdown", "voting", "reveal", "round_end", "game_over"],
     abandonMs: ABANDON_MS,
   });
@@ -232,7 +233,36 @@
     };
   }
 
-  function start(user) {
+  // ------------------------- список активних кімнат -------------------------
+  function watchActiveRooms(callback) {
+    if (!window.rtdb) { callback([]); return () => {}; }
+    const roomsRef = window.rtdb.ref(`${GAME_KEY}_rooms`);
+    const onValue = (snap) => {
+      const rooms = snap.val() || {};
+      const t = now();
+      const list = Object.entries(rooms).map(([roomId, room]) => {
+        const players = room.players || {};
+        const connected = Object.entries(players).filter(([, p]) => Engine.isConnected(p));
+        const lastSeens = Object.values(players).map((p) => p.lastSeen || 0);
+        const mostRecentPlayer = lastSeens.length ? Math.max(...lastSeens) : 0;
+        const lastActivity = Math.max(room.lastActivityAt || 0, room.createdAt || 0, mostRecentPlayer);
+        const stale = !connected.length && (!lastActivity || t - lastActivity > ABANDON_MS);
+        return {
+          roomId,
+          phase: room.phase || "lobby",
+          playerCount: Object.keys(players).length,
+          connectedCount: connected.length,
+          stale,
+        };
+      }).filter((r) => !r.stale)
+        .sort((a, b) => b.connectedCount - a.connectedCount || b.playerCount - a.playerCount);
+      callback(list);
+    };
+    roomsRef.on("value", onValue);
+    return () => roomsRef.off("value", onValue);
+  }
+
+  function start(user, roomId) {
     username = user;
     Engine.start(user, { useLobby: false });
     Engine.onStateChange = (type, data) => {
@@ -262,13 +292,12 @@
       onStateChange(state, { username, host: computeHost(state.players) === username });
     };
 
-    Engine.getOrCreateRoom(Engine.SHARED_ROOM_ID, ROOM_SCHEMA, () => emptyState()).then(({ room }) => {
+    return Engine.getOrCreateRoom(roomId, ROOM_SCHEMA, () => emptyState()).then(({ room }) => {
       ref = Engine.roomRef;
 
-      
       const extra = room.phase === "lobby" ? playerProfile(room.players, username) : null;
       if (extra) rememberProfile(username, extra);
-      Engine.joinRoom(Engine.SHARED_ROOM_ID, { asPlayer: room.phase === "lobby", extra });
+      return Engine.joinRoom(roomId, { asPlayer: room.phase === "lobby", extra });
     });
   }
 
@@ -465,10 +494,12 @@
   }
 
   function resetGame() {
-    Engine.forceResetRoom(Engine.SHARED_ROOM_ID, ROOM_SCHEMA, () => emptyState()).then(({ room }) => {
+    const roomId = Engine.currentRoomId;
+    if (!roomId) return;
+    Engine.forceResetRoom(roomId, ROOM_SCHEMA, () => emptyState()).then(({ room }) => {
       const extra = playerProfile(room.players, username);
       rememberProfile(username, extra);
-      Engine.joinRoom(Engine.SHARED_ROOM_ID, { asPlayer: room.phase === "lobby", extra });
+      Engine.joinRoom(roomId, { asPlayer: room.phase === "lobby", extra });
     });
   }
 
@@ -723,10 +754,12 @@
     MIN_PLAYERS, MAX_PLAYERS, TOTAL_ROUNDS,
     MIN_VOTE_SECONDS, MAX_VOTE_SECONDS, DEFAULT_VOTE_SECONDS, VOTE_INTRO_MS,
     connectedEntries, computeHost,
+    watchActiveRooms,
     start, stop, cleanupIfAbandoned,
     updateSettings, startGame, 
     submitAnswer, submitVote, submitGalleryVote,
     setPause, resetGame, continueGame, finishGame, setAvatar,
+    get roomId() { return Engine.currentRoomId; },
     set onStateChange(fn) { onStateChange = fn; },
   };
 })();

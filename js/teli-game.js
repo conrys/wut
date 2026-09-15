@@ -12,8 +12,10 @@
 // draw-canvas.js.
 // ==========================================================================
 (function () {
+  const GAME_KEY = "teli";
   const PHASES = ["lobby", "active", "reveal"];
   const MIN_PLAYERS = 2;
+  const ABANDON_MS = 15 * 60 * 1000;
   const MAX_TEXT_LEN = 140;
   const MAX_DRAWING_BYTES = 900000; // приблизна межа розміру data URL картинки
 
@@ -29,9 +31,10 @@
     players: {},
   };
 
-  const engine = window.OnlineEngine.create("teli", {
+  const engine = window.OnlineEngine.create(GAME_KEY, {
     phases: PHASES,
     lockedHost: true, // потрібне тільки host-election (щоб один клієнт вів перехід кіл), не тік
+    abandonMs: ABANDON_MS,
   });
 
   let username = null;
@@ -46,13 +49,42 @@
     return Object.entries(players || {}).filter(([, p]) => engine.isConnected(p)).map(([n]) => n);
   }
 
+  // ------------------------- список активних кімнат -------------------------
+  function watchActiveRooms(callback) {
+    if (!window.rtdb) { callback([]); return () => {}; }
+    const ref = window.rtdb.ref(`${GAME_KEY}_rooms`);
+    const onValue = (snap) => {
+      const rooms = snap.val() || {};
+      const t = engine.now();
+      const list = Object.entries(rooms).map(([roomId, room]) => {
+        const players = room.players || {};
+        const connected = connectedNames(players);
+        const lastSeens = Object.values(players).map((p) => p.lastSeen || 0);
+        const mostRecentPlayer = lastSeens.length ? Math.max(...lastSeens) : 0;
+        const lastActivity = Math.max(room.lastActivityAt || 0, room.createdAt || 0, mostRecentPlayer);
+        const stale = !connected.length && (!lastActivity || t - lastActivity > ABANDON_MS);
+        return {
+          roomId,
+          phase: room.phase || "lobby",
+          playerCount: Object.keys(players).length,
+          connectedCount: connected.length,
+          stale,
+        };
+      }).filter((r) => !r.stale)
+        .sort((a, b) => b.connectedCount - a.connectedCount || b.playerCount - a.playerCount);
+      callback(list);
+    };
+    ref.on("value", onValue);
+    return () => ref.off("value", onValue);
+  }
+
   // ------------------------- старт -------------------------
-  async function start(user) {
+  async function start(user, roomId) {
     username = user;
     engine.onStateChange = handleEngineEvent;
     engine.start(username, { useLobby: false });
-    await engine.getOrCreateRoom(engine.SHARED_ROOM_ID, SCHEMA, buildFreshRoom);
-    await engine.joinRoom(engine.SHARED_ROOM_ID, { asPlayer: false });
+    await engine.getOrCreateRoom(roomId, SCHEMA, buildFreshRoom);
+    await engine.joinRoom(roomId, { asPlayer: false });
   }
 
   function stop() {
@@ -174,7 +206,9 @@
   }
 
   function resetGame() {
-    engine.forceResetRoom(engine.SHARED_ROOM_ID, SCHEMA, buildFreshRoom);
+    const roomId = engine.currentRoomId;
+    if (!roomId) return;
+    engine.forceResetRoom(roomId, SCHEMA, buildFreshRoom);
   }
 
   window.TeliGame = {
@@ -183,12 +217,14 @@
     computeHost: (players) => engine.computeHost(players),
     isConnected: (p) => engine.isConnected(p),
     unanswered,
+    watchActiveRooms,
     start,
     stop,
     startGame,
     submitEntry,
     forceAdvance,
     resetGame,
+    get roomId() { return engine.currentRoomId; },
     set onStateChange(fn) { onStateChange = fn; },
   };
 })();

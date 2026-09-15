@@ -57,23 +57,6 @@
       window.location.href = "index.html";
     });
 
-    function getHeaderSlot(slotName) {
-      let header = document.getElementById("gameHeader");
-      if (!header) {
-        header = document.createElement("div");
-        header.id = "gameHeader";
-        header.className = "game-header";
-        header.innerHTML = `
-          <div class="slot-left"></div>
-          <div class="slot-center"></div>
-          <div class="slot-right"></div>
-        `;
-        const page = document.querySelector(".page") || document.body;
-        page.insertBefore(header, page.firstChild);
-      }
-      return header.querySelector(`.slot-${slotName}`);
-    }
-
-    getHeaderSlot("left").appendChild(backBtn);
+    GameHeader.slot("left").appendChild(backBtn);
   });
 })();

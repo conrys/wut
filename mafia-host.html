@@ -84,7 +84,7 @@
   /* ---------- НЕЗМІННИЙ заголовок гри — той самий блок для всіх ігрових
      фаз, щоб перехід між фазами не змінював висоту хедера (раніше
      night_result не мав .phase-caption/.big-timer, і екран "стрибав") ---------- */
-  .game-header { width: 100%; max-width: 640px; display: flex; flex-direction: column; align-items: center; }
+  .phase-header { width: 100%; max-width: 640px; display: flex; flex-direction: column; align-items: center; }
   .phase-title { font-family: var(--font-display); font-size: 30px; text-align: center; margin-bottom: 4px; min-height: 38px; }
   .phase-caption { font-size: 15px; color: var(--text-muted); text-align: center; margin-bottom: 10px; min-height: 20px; }
   .big-timer { font-family: var(--font-display); font-size: 56px; color: var(--gold);
@@ -254,7 +254,7 @@
   </div>
 
   <div id="gameShell" class="hidden">
-    <div class="game-header">
+    <div class="phase-header">
       <div class="phase-title" id="phaseTitleEl"></div>
       <div class="phase-caption" id="phaseCaptionEl"></div>
       <div class="big-timer" id="bigTimerEl"></div>

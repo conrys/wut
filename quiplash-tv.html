@@ -196,6 +196,7 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
 
 <div id="host-screen-lobby" class="host-screen">
   <div id="lobby-ring"><div id="lobby-logo"><span>Сміх</span><span class="logo-accent">ліст</span></div></div>
+  <p class="hint" id="host-room-code" style="font-family:monospace; font-size:20px; letter-spacing:0.15em; color:#ffd76f;"></p>
   <p class="hint" id="host-lobby-hint"></p>
   <p class="hint" id="host-vote-seconds-hint"></p>
 </div>
@@ -674,7 +675,15 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
 
   function waitForRtdb() {
     if (!window.rtdbReady) { setTimeout(waitForRtdb, 300); return; }
-    window.rtdb.ref("quiplash_rooms/shared").on("value", (snap) => {
+    // Номерні кімнати: TV бере код з ?room=CODE в URL (лінк, який хост
+    // показує на телефоні в лобі), або питає його один раз при відкритті —
+    // той самий підхід, що й у quiz-tv.html.
+    const roomId = (new URLSearchParams(location.search).get("room") || prompt("Код кімнати Смішліста:") || "").trim().toUpperCase();
+    if (!roomId) return;
+    history.replaceState(null, "", location.pathname + "?room=" + roomId);
+    const codeLabel = document.getElementById("host-room-code");
+    if (codeLabel) codeLabel.textContent = `Код кімнати: ${roomId}`;
+    window.rtdb.ref(`quiplash_rooms/${roomId}`).on("value", (snap) => {
       const state = snap.val();
       if (state) render(state);
     });

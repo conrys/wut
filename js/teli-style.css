@@ -317,3 +317,13 @@ button:disabled { opacity: 0.35; cursor: not-allowed; }
 .empty-state .empty-icon { font-size: 40px; }
 .empty-state .status-line { font-size: 16px; }
 .host-active-panel { display: flex; flex-direction: column; gap: 8px; margin-top: auto; }
+
+/* ---- вхід у кімнату (номерні кімнати) ---- */
+.field { width: 100%; box-sizing: border-box; }
+.divider { text-align: center; color: var(--text-muted); font-size: 12px; margin: 10px 0; }
+.room-code-display { font-family: var(--font-display); font-size: 20px; letter-spacing: 0.12em;
+    background: var(--bg-panel); border: 1px dashed var(--border-soft); border-radius: 10px;
+    padding: 10px 16px; margin-bottom: 12px; text-align: center; }
+.rooms-list { display: flex; flex-direction: column; gap: 8px; cursor: default; }
+.rooms-list .room-item { cursor: pointer; background: var(--bg-tile); border-radius: 10px; padding: 10px 12px; margin-bottom: 4px; }
+.rooms-list .room-item:active { border: 1px solid var(--accent); }

@@ -17,7 +17,7 @@
   html, body { margin: 0; padding: 0; min-height: 100dvh; background: var(--bg-void);
     background-image: radial-gradient(circle at 15% 10%, rgba(123,97,255,0.16), transparent 45%), radial-gradient(circle at 85% 90%, rgba(255,200,71,0.10), transparent 40%);
     color: var(--text-primary); font-family: var(--font-body); overflow-x: hidden; touch-action: manipulation; }
-  .page { max-width: 460px; margin: 0 auto; padding: 60px 18px 30px; display: flex; flex-direction: column; align-items: center; min-height: 100dvh; }
+  .page { max-width: 460px; margin: 0 auto; padding: 0 18px 30px; display: flex; flex-direction: column; align-items: center; min-height: 100dvh; }
   .hidden { display: none !important; }
   h2 { font-family: var(--font-display); font-size: 20px; margin: 0 0 14px; text-align: center; }
   .status-line { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 14px; }
@@ -77,6 +77,21 @@
   .host-controls .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
   .host-controls button { flex: 1; min-width: 90px; }
   .danger-btn { background: transparent !important; border: 1px solid var(--wrong) !important; color: var(--wrong) !important; }
+
+  /* --------- вхід у кімнату --------- */
+  input.text-input { width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 10px;
+    border: 1px solid var(--border-soft); background: var(--bg-tile); color: var(--text-primary);
+    font-size: 16px; letter-spacing: 0.08em; text-align: center; text-transform: uppercase; }
+  input.text-input:focus { outline: 1px solid var(--gold); }
+  .divider { display: flex; align-items: center; gap: 10px; width: 100%; margin: 18px 0; color: var(--text-muted); font-size: 12px; }
+  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--border-soft); }
+  .rooms-list { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-bottom: 4px; }
+  .room-item { background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 12px; padding: 12px 14px; cursor: pointer; }
+  .room-item:active { border-color: var(--gold); }
+  .room-item-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .room-item-title { font-family: var(--font-display); font-size: 15px; letter-spacing: 0.05em; }
+  .room-item-phase { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 10px; background: var(--bg-tile); color: var(--text-muted); }
+  .room-item-count { font-size: 12px; color: var(--text-muted); }
 </style>
 </head>
 <body>
@@ -87,8 +102,19 @@
     <div class="status-line">Увійди в профіль (кнопка зверху), щоб грати з друзями</div>
   </div>
 
-  <div id="view-status" class="hidden">
+  <div id="view-room-entry" class="hidden">
     <h2>🎯 Quiz</h2>
+    <div class="status-line">Обери активну кімнату або введи код друга</div>
+    <div class="rooms-list" id="activeRoomsList"></div>
+    <div class="divider">або вручну</div>
+    <input class="text-input" id="roomCodeInput" maxlength="5" placeholder="КОД КІМНАТИ" />
+    <button class="primary-btn" id="joinRoomBtn">Приєднатись</button>
+    <div class="divider">або</div>
+    <button class="secondary-btn" id="createRoomBtn">Створити нову кімнату</button>
+  </div>
+
+  <div id="view-status" class="hidden">
+    <h2>🎯 Quiz <span id="roomCodeLabel" style="font-size:12px; color: var(--text-muted);"></span></h2>
     <div class="my-score" id="myScore">0</div>
     <div class="status-line" id="statusLine"><span class="pulse-dot"></span> Очікуємо…</div>
     <div class="scoreboard" id="scoreboardStatus"></div>
@@ -135,15 +161,18 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
 <script src="js/firebase-config.js"></script>
+<link rel="stylesheet" href="js/game-header.css">
+<script src="js/game-header.js"></script>
 <script src="js/login.js"></script>
 <script src="js/quiz-topics.js"></script>
 <script src="js/online-engine.js"></script>
 <script src="js/quiz-game.js"></script>
+<script src="js/room-code-ui.js"></script>
 <script src="js/help.js"></script>
 <script src="js/back-button.js"></script>
 <script>
 (function () {
-  const VIEWS = ["locked", "status", "select", "answer", "result", "end"];
+  const VIEWS = ["locked", "room-entry", "status", "select", "answer", "result", "end"];
   function showView(name) {
     VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name));
   }
@@ -263,6 +292,7 @@
     if (!ctx.username) { showView("locked"); return; }
 
     document.getElementById("myScore").textContent = (state.players[ctx.username] || {}).score || 0;
+    document.getElementById("roomCodeLabel").textContent = window.QuizGame.roomId ? `· ${window.QuizGame.roomId}` : "";
     updateHostControls(state, ctx);
 
     if (ctx.spectating) {
@@ -353,10 +383,28 @@
     }
   }, 250);
 
+  function beginGame(username, roomId) {
+    window.QuizGame.onStateChange = (state, ctx) => { lastState = state; onState(state, ctx); };
+    window.QuizGame.start(username, roomId);
+  }
+
   const session = window.AppAuth && window.AppAuth.getSession();
   if (session && window.rtdbReady) {
-    window.QuizGame.onStateChange = (state, ctx) => { lastState = state; onState(state, ctx); };
-    window.QuizGame.start(session.username);
+    RoomCodeUI.mount({
+      containerId: "activeRoomsList",
+      codeInputId: "roomCodeInput",
+      joinBtnId: "joinRoomBtn",
+      createBtnId: "createRoomBtn",
+      watchActiveRooms: window.QuizGame.watchActiveRooms,
+      renderRoomItem: (r) => `
+        <div class="room-item-head">
+          <span class="room-item-title">Кімната ${RoomCodeUI.escapeHtml(r.roomId)}</span>
+          <span class="room-item-phase">${r.phase === "lobby" || r.phase === "countdown" ? "Лобі" : "Гра триває"}</span>
+        </div>
+        <div class="room-item-count">Онлайн: ${r.connectedCount} / ${r.playerCount}</div>`,
+      onEnter: (roomId) => beginGame(session.username, roomId),
+    });
+    showView("room-entry");
   } else {
     showView("locked");
   }

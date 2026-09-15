@@ -1,14 +1,11 @@
 // ==========================================================================
-// Мультиплеєр-шар змійки — на спільному online-engine.js, модель "одна
-// спільна арена" (як Шпигун), а не динамічні кімнати на кожну пару гравців.
-// Перший, хто відкриває гру, створює арену й одразу стає першим гравцем
-// (а отже й першим хостом — computeHost/CAS обирають найдавнішого живого).
-// Усі наступні просто заходять у ТУ САМУ кімнату — жодного запрошення чи
-// підтвердження "приєднатись до X?" більше не потрібно.
+// Мультиплеєр-шар змійки — на спільному online-engine.js, номерні кімнати
+// (room-code флоу, за зразком mafia-game.js / pingpong-game.js) замість
+// однієї спільної арени (Engine.SHARED_ROOM_ID) на весь застосунок.
 //
-// Публічний API (window.SnakeMP) підтримує старі назви (backToSolo,
-// respawn, sendDirection), але requestJoinMultiplayer/joinAsSpectatorOrPlayer
-// прибрані — вони належали до старої моделі динамічних кімнат.
+// startPresence(username) стало startPresence(username, roomId) — snake.html
+// сам показує екран вибору/створення кімнати (RoomCodeUI) ПЕРЕД викликом.
+// Публічний API інакше не змінився (backToSolo, respawn, sendDirection).
 //
 // lockedHost:true — постійний tick-loop (не подієва гра, як Шпигун/Quiplash),
 // тому хост фіксується в кімнаті через CAS-транзакцію, і рушій сам керує
@@ -22,9 +19,11 @@
 //   казуальної гри з друзями це не критично.
 // ==========================================================================
 (function () {
+  const GAME_KEY = "snake";
   const GRID = 22;
   const MAX_PLAYERS = 8;
   const TICK_MS = 160;
+  const ABANDON_MS = 15 * 60 * 1000;
   const COLORS = ["#38cfa0", "#e0b84c", "#ff6b6b", "#8fb8ff", "#c77dff", "#4dd0e1", "#ffb84d", "#a3e635"];
   const DIRS = {
     up: { dx: 0, dy: -1 },
@@ -76,8 +75,9 @@
     return COLORS[hash % COLORS.length];
   }
 
-  const Engine = window.OnlineEngine.create("snake", {
+  const Engine = window.OnlineEngine.create(GAME_KEY, {
     lockedHost: true,
+    abandonMs: ABANDON_MS,
     // Мінімальний fallback — у наших власних шляхах нижче extra завжди
     // передається явно з правильним body/color/direction; це спрацює лише
     // як запобіжник на випадок непередбаченого виклику.
@@ -103,27 +103,56 @@
     };
   }
 
+  // ------------------------- список активних кімнат -------------------------
+  function watchActiveRooms(callback) {
+    if (!window.rtdb) { callback([]); return () => {}; }
+    const ref = window.rtdb.ref(`${GAME_KEY}_rooms`);
+    const onValue = (snap) => {
+      const rooms = snap.val() || {};
+      const t = Engine.now();
+      const list = Object.entries(rooms).map(([roomId, room]) => {
+        const players = room.players || {};
+        const connected = Object.entries(players).filter(([, p]) => Engine.isConnected(p));
+        const lastSeens = Object.values(players).map((p) => p.lastSeen || 0);
+        const mostRecentPlayer = lastSeens.length ? Math.max(...lastSeens) : 0;
+        const lastActivity = Math.max(room.lastActivityAt || 0, room.createdAt || 0, mostRecentPlayer);
+        const stale = !connected.length && (!lastActivity || t - lastActivity > ABANDON_MS);
+        return {
+          roomId,
+          playerCount: Object.keys(players).length,
+          connectedCount: connected.length,
+          full: Object.keys(players).length >= MAX_PLAYERS,
+          stale,
+        };
+      }).filter((r) => !r.stale)
+        .sort((a, b) => b.connectedCount - a.connectedCount || b.playerCount - a.playerCount);
+      callback(list);
+    };
+    ref.on("value", onValue);
+    return () => ref.off("value", onValue);
+  }
+
   // ------------------------- presence / арена -------------------------
-  function startPresence(user) {
+  function startPresence(user, roomId) {
     username = user;
     Engine.start(user, { useLobby: false });
 
     Engine.onStateChange = (type, data) => {
       if (type === "room-update") onStateChange("room-update", { room: data.room });
     };
-    Engine.onBecomeHost = (roomId) => {
+    Engine.onBecomeHost = () => {
       if (tickTimer) clearInterval(tickTimer);
-      tickTimer = setInterval(() => tick(roomId), TICK_MS);
+      tickTimer = setInterval(() => tick(), TICK_MS);
     };
     Engine.onLoseHost = () => {
       if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
     };
 
-    // Перший, хто відкриє гру, створює арену свіжою; усі наступні знаходять
-    // її вже готовою — в обох випадках дальше просто читаємо поточний стан
-    // і рахуємо БЕЗПЕЧНЕ місце спавну відносно нього.
-    Engine.getOrCreateRoom(Engine.SHARED_ROOM_ID, ROOM_SCHEMA, freshRoomPayload).then(({ room }) => {
-      Engine.joinRoom(Engine.SHARED_ROOM_ID, { extra: joinExtraFor(room) });
+    // Перший, хто відкриє кімнату, створює арену свіжою; усі наступні
+    // знаходять її вже готовою — в обох випадках дальше просто читаємо
+    // поточний стан і рахуємо БЕЗПЕЧНЕ місце спавну відносно нього.
+    return Engine.getOrCreateRoom(roomId, ROOM_SCHEMA, freshRoomPayload).then(({ room }) => {
+      return Engine.joinRoom(roomId, { extra: joinExtraFor(room) });
     });
   }
 
@@ -152,16 +181,18 @@
     Engine.roomRef.child("players/" + username + "/direction").set(dir);
   }
 
-  // Скинути спільну арену для всіх (напр. кнопка адміністрування в UI, якщо
-  // з'явиться) — аналог Spy.resetAll.
+  // Скинути поточну кімнату для всіх у ній (напр. кнопка адміністрування
+  // в UI, якщо з'явиться) — аналог Spy.resetAll.
   function resetGame() {
-    return Engine.forceResetRoom(Engine.SHARED_ROOM_ID, ROOM_SCHEMA, freshRoomPayload).then(({ room }) => {
-      Engine.joinRoom(Engine.SHARED_ROOM_ID, { extra: joinExtraFor(room) });
+    const roomId = Engine.currentRoomId;
+    if (!roomId) return Promise.resolve();
+    return Engine.forceResetRoom(roomId, ROOM_SCHEMA, freshRoomPayload).then(({ room }) => {
+      return Engine.joinRoom(roomId, { extra: joinExtraFor(room) });
     });
   }
 
   // ------------------------- ігровий тік (тільки хост) -------------------------
-  function tick(roomId) {
+  function tick() {
     const room = Engine.latestRoom;
     if (!room) return;
     const ref = Engine.roomRef;
@@ -248,12 +279,14 @@
     GRID,
     MAX_PLAYERS,
     COLORS,
+    watchActiveRooms,
     startPresence,
     stopPresence,
     backToSolo,
     respawn,
     sendDirection,
     resetGame,
+    get roomId() { return Engine.currentRoomId; },
     set onStateChange(fn) { onStateChange = fn; },
   };
 })();

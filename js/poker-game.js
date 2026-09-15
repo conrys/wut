@@ -40,6 +40,8 @@
 // свідомо не ускладнюю цим архітектуру зараз.
 // ==========================================================================
 (function () {
+  const GAME_KEY = "poker";
+  const ABANDON_MS = 15 * 60 * 1000;
   const STARTING_STACK = 1000;
   const SMALL_BLIND = 10;
   const BIG_BLIND = 20;
@@ -57,8 +59,9 @@
     players: {},
   };
 
-  const Engine = window.OnlineEngine.create("poker", {
+  const Engine = window.OnlineEngine.create(GAME_KEY, {
     lockedHost: true,
+    abandonMs: ABANDON_MS,
     onEmptyPlayer: () => ({}),
   });
 
@@ -563,8 +566,38 @@
     applyAction(state, mySeat, action, amount);
   }
 
+  // ------------------------- список активних кімнат -------------------------
+  function watchActiveRooms(callback) {
+    if (!window.rtdb) { callback([]); return () => {}; }
+    const ref = window.rtdb.ref(`${GAME_KEY}_rooms`);
+    const onValue = (snap) => {
+      const rooms = snap.val() || {};
+      const t = Engine.now();
+      const list = Object.entries(rooms).map(([roomId, room]) => {
+        const players = room.players || {};
+        const connected = Object.entries(players).filter(([, p]) => Engine.isConnected(p));
+        const humanSeats = Object.values(room.seats || {}).filter((s) => s.occupantType === "human");
+        const lastSeens = Object.values(players).map((p) => p.lastSeen || 0);
+        const mostRecentPlayer = lastSeens.length ? Math.max(...lastSeens) : 0;
+        const lastActivity = Math.max(room.lastActivityAt || 0, room.createdAt || 0, mostRecentPlayer);
+        const stale = !connected.length && (!lastActivity || t - lastActivity > ABANDON_MS);
+        return {
+          roomId,
+          phase: room.hand ? "active" : "lobby",
+          playerCount: humanSeats.length,
+          connectedCount: connected.length,
+          stale,
+        };
+      }).filter((r) => !r.stale)
+        .sort((a, b) => b.connectedCount - a.connectedCount || b.playerCount - a.playerCount);
+      callback(list);
+    };
+    ref.on("value", onValue);
+    return () => ref.off("value", onValue);
+  }
+
   // ------------------------- приєднання -------------------------
-  function start(user) {
+  function start(user, roomId) {
     username = user;
     Engine.start(user, { useLobby: false });
 
@@ -586,8 +619,8 @@
       onStateChange(data.room, { username, isHost: isHost(data.room) });
     };
 
-    Engine.getOrCreateRoom(Engine.SHARED_ROOM_ID, ROOM_SCHEMA, () => ({})).then(() => {
-      Engine.joinRoom(Engine.SHARED_ROOM_ID, { asPlayer: true }).then(() => claimSeat(username));
+    return Engine.getOrCreateRoom(roomId, ROOM_SCHEMA, () => ({})).then(() => {
+      return Engine.joinRoom(roomId, { asPlayer: true }).then(() => claimSeat(username));
     });
   }
 
@@ -595,15 +628,19 @@
 
   function resetTable(state) {
     if (!isHost(state)) return;
-    return Engine.forceResetRoom(Engine.SHARED_ROOM_ID, ROOM_SCHEMA, () => ({})).then(() => {
-      Engine.joinRoom(Engine.SHARED_ROOM_ID, { asPlayer: true }).then(() => claimSeat(username));
+    const roomId = Engine.currentRoomId;
+    if (!roomId) return Promise.resolve();
+    return Engine.forceResetRoom(roomId, ROOM_SCHEMA, () => ({})).then(() => {
+      return Engine.joinRoom(roomId, { asPlayer: true }).then(() => claimSeat(username));
     });
   }
 
   window.PokerGame = {
     STARTING_STACK, SMALL_BLIND, BIG_BLIND,
     evaluate5, compareHandValue, best5of7, computeSidePots,
+    watchActiveRooms,
     start, stop, playerAction, resetTable,
+    get roomId() { return Engine.currentRoomId; },
     set onStateChange(fn) { onStateChange = fn; },
   };
 })();

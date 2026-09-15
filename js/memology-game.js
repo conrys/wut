@@ -21,7 +21,9 @@
 // гравець з devtools зможе підглянути.
 // ==========================================================================
 (function () {
+  const GAME_KEY = "memology";
   const MIN_PLAYERS = 2;
+  const ABANDON_MS = 15 * 60 * 1000;
   const HAND_SIZE = 6;
   const SWAP_COST = 1;
   const DECK_RESET_COOLDOWN_ROUNDS = 4;
@@ -37,7 +39,8 @@
     players: {},
   };
 
-  const Engine = window.OnlineEngine.create("memology", {
+  const Engine = window.OnlineEngine.create(GAME_KEY, {
+    abandonMs: ABANDON_MS,
     onEmptyPlayer: () => ({ score: 0, hand: [] }),
   });
 
@@ -194,8 +197,37 @@
     }
   }
 
+  // ------------------------- список активних кімнат -------------------------
+  function watchActiveRooms(callback) {
+    if (!window.rtdb) { callback([]); return () => {}; }
+    const ref = window.rtdb.ref(`${GAME_KEY}_rooms`);
+    const onValue = (snap) => {
+      const rooms = snap.val() || {};
+      const t = Engine.now();
+      const list = Object.entries(rooms).map(([roomId, room]) => {
+        const players = room.players || {};
+        const connected = connectedEntries(players);
+        const lastSeens = Object.values(players).map((p) => p.lastSeen || 0);
+        const mostRecentPlayer = lastSeens.length ? Math.max(...lastSeens) : 0;
+        const lastActivity = Math.max(room.lastActivityAt || 0, room.createdAt || 0, mostRecentPlayer);
+        const stale = !connected.length && (!lastActivity || t - lastActivity > ABANDON_MS);
+        return {
+          roomId,
+          phase: room.phase || "lobby",
+          playerCount: Object.keys(players).length,
+          connectedCount: connected.length,
+          stale,
+        };
+      }).filter((r) => !r.stale)
+        .sort((a, b) => b.connectedCount - a.connectedCount || b.playerCount - a.playerCount);
+      callback(list);
+    };
+    ref.on("value", onValue);
+    return () => ref.off("value", onValue);
+  }
+
   // ------------------------- приєднання / presence -------------------------
-  function start(user) {
+  function start(user, roomId) {
     username = user;
     Engine.start(user, { useLobby: false });
 
@@ -215,8 +247,8 @@
       onStateChange(state, { username, host: isHost(state.players) });
     };
 
-    Engine.getOrCreateRoom(Engine.SHARED_ROOM_ID, ROOM_SCHEMA, () => ({})).then(() => {
-      Engine.joinRoom(Engine.SHARED_ROOM_ID, { asPlayer: true });
+    return Engine.getOrCreateRoom(roomId, ROOM_SCHEMA, () => ({})).then(() => {
+      return Engine.joinRoom(roomId, { asPlayer: true });
     });
   }
 
@@ -246,12 +278,14 @@
   }
 
   function resetAll(state) {
+    const roomId = Engine.currentRoomId;
+    if (!roomId) return Promise.resolve();
     const keptPlayers = {};
     connectedEntries(state.players).forEach(([name, p]) => {
       keptPlayers[name] = { joinedAt: p.joinedAt, lastSeen: p.lastSeen, score: 0, hand: [] };
     });
-    return Engine.forceResetRoom(Engine.SHARED_ROOM_ID, ROOM_SCHEMA, () => ({ players: keptPlayers })).then(() => {
-      Engine.joinRoom(Engine.SHARED_ROOM_ID, { asPlayer: true });
+    return Engine.forceResetRoom(roomId, ROOM_SCHEMA, () => ({ players: keptPlayers })).then(() => {
+      return Engine.joinRoom(roomId, { asPlayer: true });
     });
   }
 
@@ -372,6 +406,7 @@
     computeHost: Engine.computeHost,
     deckResetCost,
     deckResetRoundsLeft,
+    watchActiveRooms,
     start,
     stop,
     startGame,
@@ -384,6 +419,7 @@
     requestSwap,
     cancelSwap,
     respondSwap,
+    get roomId() { return Engine.currentRoomId; },
     set onStateChange(fn) { onStateChange = fn; },
   };
 })();
