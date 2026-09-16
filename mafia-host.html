@@ -358,47 +358,87 @@
   // ЗВУК — слоти під озвучку, які підвантажуються ОДИН РАЗ на старті
   // спостереження за кімнатою (щоб перший програш не був обрізаний
   // початком доріжки через відсутній буфер). Файлів поки нема — просто
-  // поклади mp3 у папку sounds/ з ТОЧНО такими іменами, і вони запрацюють
-  // без жодної додаткової правки коду. Відсутній файл = тихо ігнорується
-  // (без помилок у консолі).
+  // поклади mp3 у папку snd/mafia/ з ТОЧНО такими іменами, і вони
+  // запрацюють без жодної додаткової правки коду. Відсутній файл = тихо
+  // ігнорується (без помилок у консолі).
+  //
+  // ВАЖЛИВО: цей набір — ТОЙ САМИЙ, що й у mafia.html (телефон гравця).
+  // Раніше тут були власні назви/тека (sounds/*), і телефон гравця чекав
+  // зовсім інші файли (snd/mafia/*) — тобто довелось би записувати два
+  // окремих комплекти озвучки для однієї гри. Тепер обидві сторінки
+  // читають РІВНО ОДНІ Й ТІ САМІ файли з snd/mafia/.
   // ============================================================
   const SOUND_FILES = {
-    lobby:               "sounds/lobby.mp3",
-    night:                "sounds/night.mp3",
-    night_result_dead:    "sounds/night_result_dead.mp3",
-    night_result_safe:    "sounds/night_result_safe.mp3",
-    day_discussion:       "sounds/day.mp3",
-    day_voting:           "sounds/voting.mp3",
-    voting_result:        "sounds/verdict.mp3",
-    game_over_mafia:      "sounds/mafia_win.mp3",
-    game_over_civilians:  "sounds/civilians_win.mp3",
+    lobby:               "snd/mafia/lobby.mp3",
+    night:                "snd/mafia/night.mp3",
+    night_result_dead:    "snd/mafia/night-result-dead.mp3",
+    night_result_safe:    "snd/mafia/night-result-safe.mp3",
+    day_discussion:       "snd/mafia/day.mp3",
+    day_voting:           "snd/mafia/voting-start.mp3",
+    voting_result_eliminated: "snd/mafia/voting-result-eliminated.mp3",
+    voting_result_safe:       "snd/mafia/voting-result-safe.mp3",
+    game_over_mafia:      "snd/mafia/game-over-mafia.mp3",
+    game_over_civilians:  "snd/mafia/game-over-civilians.mp3",
   };
 
-  const sounds = {}; // { key: HTMLAudioElement }
+  // { key: [HTMLAudioElement, ...] } - пул варіантів одного звуку. Перший
+  // елемент завжди основний файл, решта - сусіди з цифрою в імені
+  // (night.mp3 + night1.mp3 + night2.mp3, night-result-dead.mp3 +
+  // night-result-dead2.mp3 ...). Реєструвати їх ніде не треба: ті, що
+  // реально існують, самі відгукнуться на loadedmetadata і потраплять у
+  // пул; відсутні тихо ігноруються. Дірки в нумерації дозволені.
+  const sounds = {};
+  const MAX_SOUND_VARIANTS = 5;
   let soundsReady = false;
   let soundsMuted = false;
   let lastPhaseForSound = null;
+  let currentAudio = null; // єдиний активний звук
+
+  function makeAudio(path) {
+    const audio = new Audio(path);
+    audio.preload = "auto";
+    audio.addEventListener("error", () => { /* файлу ще нема - тихо ігноруємо */ }, { once: true });
+    try { audio.load(); } catch (e) {}
+    return audio;
+  }
 
   function preloadSounds() {
     if (soundsReady) return;
     soundsReady = true;
     Object.entries(SOUND_FILES).forEach(([key, path]) => {
-      const audio = new Audio(path);
-      audio.preload = "auto";
-      audio.addEventListener("error", () => { /* файлу ще нема - тихо ігноруємо */ }, { once: true });
-      try { audio.load(); } catch (e) {}
-      sounds[key] = audio;
+      sounds[key] = [makeAudio(path)];
+
+      const dot = path.lastIndexOf(".");
+      if (dot < 1) return;
+      const base = path.slice(0, dot), ext = path.slice(dot);
+      for (let i = 1; i <= MAX_SOUND_VARIANTS; i++) {
+        const variant = makeAudio(base + i + ext);
+        variant.addEventListener("loadedmetadata", () => { sounds[key].push(variant); }, { once: true });
+      }
     });
   }
 
+  function stopSound() {
+    if (!currentAudio) return;
+    try { currentAudio.pause(); currentAudio.currentTime = 0; } catch (e) {}
+    currentAudio = null;
+  }
+
+  // Новий звук ЗАВЖДИ глушить попередній: інакше при швидкій зміні фаз
+  // (тест із ботами) voting-start.mp3 продовжував гудіти вже поверх вироку.
   function playSound(key) {
     if (soundsMuted) return;
-    const audio = sounds[key];
-    if (!audio) return;
+    const pool = sounds[key];
+    if (!pool || !pool.length) return;
+    stopSound();
+    const audio = pool.length > 1 ? pool[Math.floor(Math.random() * pool.length)] : pool[0];
     try {
       audio.currentTime = 0;
-      audio.play().catch(() => { /* автоплей заблокований чи файл відсутній - ігноруємо */ });
+      const p = audio.play();
+      if (p && p.catch) p.catch(() => { /* автоплей заблокований чи файл відсутній - ігноруємо */ });
     } catch (e) {}
+    currentAudio = audio;
+    audio.addEventListener("ended", () => { if (currentAudio === audio) currentAudio = null; }, { once: true });
   }
 
   // Реагує на КОЖНУ зміну фази (не на кожен рендер стану) - викликається
@@ -413,12 +453,13 @@
     }
     if (phase === "day_discussion") { playSound("day_discussion"); return; }
     if (phase === "day_voting") { playSound("day_voting"); return; }
-    if (phase === "voting_result") { playSound("voting_result"); return; }
+    if (phase === "voting_result") { playSound(state.lastEliminated ? "voting_result_eliminated" : "voting_result_safe"); return; }
     if (phase === "game_over") { playSound(state.winner === "mafia" ? "game_over_mafia" : "game_over_civilians"); return; }
   }
 
   function toggleMute() {
     soundsMuted = !soundsMuted;
+    if (soundsMuted) stopSound(); // глушимо одразу, а не чекаємо кінця доріжки
     const btn = document.getElementById("muteBtn");
     if (btn) btn.textContent = soundsMuted ? "🔇" : "🔊";
   }

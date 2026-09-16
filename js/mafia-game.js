@@ -9,6 +9,11 @@
 //   phase            — одна з PHASES нижче
 //   hostUsername     — керується рушієм (lockedHost: true)
 //   mafiaCount       — скільки мафіозі роздати при старті; null = авто за кількістю гравців
+//   nightMode        — "simultaneous" (усі нічні ролі ходять одночасно — для
+//                       гравців онлайн, які не бачать/не чують одне одного)
+//                       чи "sequential" (по черзі мафія → лікар → комісар —
+//                       для гри за одним фізичним столом із заплющеними
+//                       очима). Обирає хост у лобі, діє на всю гру.
 //   timers           — { phaseName: мс }, перевизначає DEFAULT_TIMERS; {} = усе за замовчуванням
 //   players           — { username: {
 //                            role,        'mafia' | 'doctor' | 'commissar' | 'civilian' | null
@@ -28,12 +33,25 @@
 // ---------------------------------------------------------------------
 // ФАЗИ (room.phase)
 // ---------------------------------------------------------------------
-//   lobby → night → night_result → day_discussion → day_voting → voting_result → (night | game_over)
+//   nightMode: "simultaneous" (за замовчуванням):
+//     lobby → night → night_result → day_discussion → day_voting → voting_result → (night | game_over)
+//
+//   nightMode: "sequential" — та сама ніч, але роль за роллю; ролей без
+//     живого власника (мало гравців чи роль уже мертва цієї гри) просто
+//     пропускають — night_mafia завжди є (мафія >= 1 завжди), доктор/комісар
+//     можуть бути відсутні:
+//     lobby → night_mafia → night_doctor → night_commissar → night_result → day_discussion → day_voting → voting_result → (night_mafia | game_over)
+//
+//   Який саме варіант відкриває ніч — вирішує nightEntryPhase(room) (єдине
+//   джерело правди для startGame() і для переходу voting_result → далі, щоб
+//   вони не могли розійтись). Резолвить ніч в обох режимах ОДНА Й ТА Ж
+//   resolveNightPhase()/resolveNightPatch() — вона просто читає nightAction
+//   з players, байдуже, зібрані вони одночасно чи по одній ролі за раз.
 //
 // Кожна фаза з дедлайном сама вирішує, чи оголошувати переможця, ПІСЛЯ
 // власного "reveal" — тобто гравці завжди спершу бачать, хто загинув/кого
 // вигнали, і лише тоді (за наступний тік) гра може перейти в game_over.
-// Переходи виконує ВИКЛЮЧНО хост усередині tick(). lobby → night
+// Переходи виконує ВИКЛЮЧНО хост усередині tick(). lobby → ніч
 // виконується явним викликом MafiaGame.startGame() хостом (старт гри —
 // дія людини, а не автоматичний тік).
 // ==========================================================================
@@ -48,13 +66,16 @@
   const MIN_PLAYERS = 4;
   const MAX_PLAYERS = 10;
 
-  const PHASES = ["lobby", "night", "night_result", "day_discussion", "day_voting", "voting_result", "game_over"];
+  const PHASES = ["lobby", "night", "night_mafia", "night_doctor", "night_commissar", "night_result", "day_discussion", "day_voting", "voting_result", "game_over"];
 
   // Тривалості фаз за замовчуванням (мс) — хост може перевизначити частину
   // з них через setTimers() ще в лобі; ефективна тривалість завжди йде
   // через effectiveDuration(room, phase).
   const DEFAULT_TIMERS = {
     night: 30000,
+    night_mafia: 20000,
+    night_doctor: 15000,
+    night_commissar: 15000,
     night_result: 8000,
     day_discussion: 90000,
     day_voting: 45000,
@@ -75,6 +96,7 @@
     phase: "lobby",
     hostUsername: null,
     mafiaCount: null,      // null = авто за кількістю гравців
+    nightMode: "simultaneous", // "simultaneous" (онлайн) | "sequential" (за одним столом)
     timers: {},            // перевизначення DEFAULT_TIMERS, часткове
     players: {},          // маркер — керується рушієм (presence/joinedAt/lastSeen)
     nightNumber: 0,
@@ -108,6 +130,7 @@
       winner: null,
       chat: {},
       mafiaCount: null,
+      nightMode: "simultaneous",
       timers: {},
     };
   }
@@ -284,6 +307,39 @@
     return alive.length > 0 && alive.every(([, p]) => !!p.vote);
   }
 
+  // ---- послідовний ("за одним столом") нічний режим: одна роль за раз ----
+  // Живих власників цієї ролі більше нема? -> нема кого чекати, під-фаза
+  // одразу вважається завершеною (роль просто пропускається).
+  function roleTurnDone(room, role) {
+    const holders = aliveEntries(room).filter(([, p]) => p.role === role);
+    return holders.every(([, p]) => !!p.nightAction);
+  }
+
+  // Переводить кімнату до наступної під-фази ночі за фіксованим порядком
+  // мафія → лікар → комісар, пропускаючи ролі, яких серед живих нема, і в
+  // кінці резолвить ніч ТІЄЮ Ж resolveNightPhase(), що й simultaneous-режим
+  // (вона сама бере nightAction з players — байдуже, зібрані вони одночасно
+  // чи послідовно).
+  function advanceSequentialNight(room, fromRole) {
+    if (fromRole === "mafia") {
+      if (aliveRoleExists(room, "doctor")) return enterNightSubPhase(room, "night_doctor");
+      fromRole = "doctor";
+    }
+    if (fromRole === "doctor") {
+      if (aliveRoleExists(room, "commissar")) return enterNightSubPhase(room, "night_commissar");
+      fromRole = "commissar";
+    }
+    resolveNightPhase(room);
+  }
+
+  function aliveRoleExists(room, role) {
+    return aliveEntries(room).some(([, p]) => p.role === role);
+  }
+
+  function enterNightSubPhase(room, phaseName) {
+    engine.setPhase(phaseName, { phaseDeadline: engine.now() + effectiveDuration(room, phaseName) });
+  }
+
   // Онлайн-гравці кімнати — для лобі-екрана ("N з M онлайн"), та сама ідея,
   // що й у spy-game.js.
   function connectedEntries(players) {
@@ -291,14 +347,46 @@
   }
 
   // ------------------------- хост: tick() -------------------------
+  // ВАЖЛИВО: hostTick() викликається з трьох місць — інтервалом раз/сек,
+  // одразу при старті, і (для миттєвої реакції) на КОЖЕН room-update у
+  // onStateChange. Останнє — джерело реентрантності: roomRef.update()
+  // застосовує запис до локального кешу Firebase і сповіщає .on("value")
+  // синхронно/майже синхронно, ще до повернення з функції, що зробила
+  // запис. Тобто switch нижче міг викликати engine.setPhase(...), це
+  // одразу ж (через локальне відлуння запису) повторно тригерило
+  // onStateChange → hostTick() ВКЛАДЕНО, поки зовнішній виклик ще не
+  // "дописав" — вкладений виклик бачив трохи інший стан і сам собі щось
+  // дописував, звідси мілісекундний пінг-понг фаз (і, як наслідок,
+  // здвоєні звуки на зміні фази). tickInProgress не дає другому виклику
+  // виконати switch, поки перший ще всередині нього.
+  let tickInProgress = false;
   function hostTick() {
     if (!engine.isHost || !latestRoom) return;
+    if (tickInProgress) return;
+    tickInProgress = true;
+    try {
+      hostTickBody();
+    } finally {
+      tickInProgress = false;
+    }
+  }
+
+  function hostTickBody() {
     const room = latestRoom;
     const t = engine.now();
 
     switch (room.phase) {
       case "night":
         if (t >= (room.phaseDeadline || 0) || allNightActionsIn(room)) resolveNightPhase(room);
+        break;
+      case "night_mafia":
+        if (t >= (room.phaseDeadline || 0) || roleTurnDone(room, "mafia")) advanceSequentialNight(room, "mafia");
+        break;
+      case "night_doctor":
+        if (t >= (room.phaseDeadline || 0) || roleTurnDone(room, "doctor")) advanceSequentialNight(room, "doctor");
+        break;
+      case "night_commissar":
+        if (t >= (room.phaseDeadline || 0) || roleTurnDone(room, "commissar")) advanceSequentialNight(room, "commissar");
         break;
       case "night_result":
         if (t >= (room.phaseDeadline || 0)) {
@@ -325,7 +413,8 @@
             engine.setPhase("game_over", { winner, phaseDeadline: null });
           } else {
             const nextNight = (room.nightNumber || 0) + 1;
-            engine.setPhase("night", { nightNumber: nextNight, phaseDeadline: engine.now() + effectiveDuration(room, "night") });
+            const entry = nightEntryPhase(room);
+            engine.setPhase(entry, { nightNumber: nextNight, phaseDeadline: engine.now() + effectiveDuration(room, entry) });
           }
         }
         break;
@@ -334,6 +423,13 @@
       default:
         break;
     }
+  }
+
+  // Яка фаза відкриває ніч — залежить від room.nightMode, обраного хостом
+  // ще в лобі. Один порядок правди для startGame() і для переходу
+  // voting_result -> наступна ніч, щоб вони ніколи не розійшлись.
+  function nightEntryPhase(room) {
+    return room && room.nightMode === "sequential" ? "night_mafia" : "night";
   }
 
   function resolveNightPhase(room) {
@@ -470,13 +566,14 @@
 
     const mafiaCount = clampMafiaCount(n, latestRoom.mafiaCount);
     const rolePatch = assignRolesPatch(players, mafiaCount);
-    return engine.setPhase("night", {
+    const entry = nightEntryPhase(latestRoom);
+    return engine.setPhase(entry, {
       ...rolePatch,
       nightNumber: 1,
       nightResult: null,
       lastEliminated: null,
       winner: null,
-      phaseDeadline: engine.now() + effectiveDuration(latestRoom, "night"),
+      phaseDeadline: engine.now() + effectiveDuration(latestRoom, entry),
     });
   }
 
@@ -488,6 +585,16 @@
     const n = Object.keys(playersOf(latestRoom)).length;
     const clamped = count == null ? null : clampMafiaCount(n, count);
     return engine.roomRef.update({ mafiaCount: clamped });
+  }
+
+  // Хост обирає режим ночі ще в лобі: "simultaneous" (усі ролі ходять
+  // одночасно — коли гравці онлайн і не бачать/не чують одне одного) або
+  // "sequential" (по черзі мафія → лікар → комісар — коли всі сидять за
+  // одним столом із заплющеними очима й самі не знають, чия зараз черга).
+  function setNightMode(mode) {
+    if (!engine.isHost || !latestRoom || latestRoom.phase !== "lobby" || !engine.roomRef) return Promise.resolve();
+    const val = mode === "sequential" ? "sequential" : "simultaneous";
+    return engine.roomRef.update({ nightMode: val });
   }
 
   // Хост перевизначає тривалість окремих фаз ще в лобі. partial — часткові
@@ -542,9 +649,18 @@
 
   // Нічна дія власної ролі (мафія/лікар/комісар обирають ціль). Прямий запис
   // у власний шлях players/{я}/nightAction — самозапис, транзакція не потрібна.
+  // У simultaneous-режимі приймається в фазі "night" від будь-кого з роллю;
+  // у sequential-режимі — лише в тій під-фазі, чия зараз черга, і лише від
+  // власника саме цієї ролі (щоб дочасний клік не "з'їв" хід чужої ролі).
+  const NIGHT_SUBPHASE_ROLE = { night_mafia: "mafia", night_doctor: "doctor", night_commissar: "commissar" };
   function submitNightAction(targetUsername) {
     const ref = myPlayerRef();
-    if (!ref || !latestRoom || latestRoom.phase !== "night") return Promise.resolve();
+    if (!ref || !latestRoom) return Promise.resolve();
+    const phase = latestRoom.phase;
+    const me = myUsername ? playersOf(latestRoom)[myUsername] : null;
+    const turnRole = NIGHT_SUBPHASE_ROLE[phase];
+    const allowed = phase === "night" || (turnRole && me && me.role === turnRole);
+    if (!allowed) return Promise.resolve();
     return ref.update({ nightAction: targetUsername });
   }
 
@@ -589,6 +705,7 @@
     resetGame,
     forceAdvance,
     setMafiaCount,
+    setNightMode,
     setTimers,
     submitNightAction,
     submitVote,

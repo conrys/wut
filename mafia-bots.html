@@ -65,6 +65,17 @@
   const PRESENCE_TIMEOUT_MS = 5000;
   const HEARTBEAT_MS = 2000;
 
+  // Пауза перед КОЖНИМ ходом бота (нічна дія / голос) — 2с + невеликий
+  // розкид, щоб боти не відповідали всі в одну мілісекунду. Раніше було
+  // 0.4-1.6с: фази пролітали майже миттєво, і на слух/на око неможливо
+  // було встигнути роздивитись, що відбувається на екрані.
+  const MOVE_DELAY_MS = 2000;
+  const MOVE_JITTER_MS = 600;
+
+  function moveDelay() {
+    return MOVE_DELAY_MS + Math.random() * MOVE_JITTER_MS;
+  }
+
   function emptyPlayerFields() {
     return { role: null, alive: true, ready: false, vote: null, nightAction: null, avatar: null };
   }
@@ -136,9 +147,16 @@
     document.getElementById("status").textContent = `Боти в кімнаті ${roomId} запущені.`;
   }
 
+  // У послідовному режимі ("За столом") ніч розбита на під-фази —
+  // night_mafia/night_doctor/night_commissar — і діяти повинен тільки той
+  // бот, чия роль відповідає ПОТОЧНІЙ під-фазі (mafia-game.js сам показує
+  // й приймає nightAction лише від власника цієї ролі в цій фазі).
+  const NIGHT_SUBPHASE_ROLE = { night_mafia: "mafia", night_doctor: "doctor", night_commissar: "commissar" };
+
   function reactToRoom(room) {
     const players = room.players || {};
     const alive = Object.keys(players).filter((u) => players[u].alive);
+    const subphaseRole = NIGHT_SUBPHASE_ROLE[room.phase] || null;
 
     botNames.forEach((name) => {
       const me = players[name];
@@ -152,14 +170,22 @@
         return;
       }
 
-      if (room.phase === "night" && me.alive && me.role && me.role !== "civilian" && !me.nightAction) {
+      // Одночасний режим ("night") — усі ролі ходять в одній фазі, крім
+      // мирних (їм немає чим ходити вночі). Послідовний режим — фаза сама
+      // визначає, чия зараз черга (subphaseRole), тож перевірка ролі бота
+      // проти неї замінює стару перевірку "role !== civilian".
+      const actsThisPhase = room.phase === "night"
+        ? me.alive && me.role && me.role !== "civilian" && !me.nightAction
+        : subphaseRole && me.alive && me.role === subphaseRole && !me.nightAction;
+
+      if (actsThisPhase) {
         const pool = alive.filter((u) => u !== name);
         if (!pool.length) return;
         const target = pickRandom(pool);
         setTimeout(() => {
           roomRef.child("players").child(name).update({ nightAction: target });
           log(`🌙 ${name} (${me.role}) обрав ціллю ${target}`);
-        }, 400 + Math.random() * 1200);
+        }, moveDelay());
         return;
       }
 
@@ -170,7 +196,7 @@
         setTimeout(() => {
           roomRef.child("players").child(name).update({ vote: target });
           log(`🗳️ ${name} проголосував за ${target}`);
-        }, 400 + Math.random() * 1200);
+        }, moveDelay());
       }
     });
   }

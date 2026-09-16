@@ -65,6 +65,13 @@
     function now() { return Date.now() + serverOffset; }
 
     let username = null;
+    // Унікальний ідентифікатор САМЕ ЦІЄЇ вкладки/сесії рушія — не плутати з
+    // username. Раніше хост визначався порівнянням room.hostUsername===username:
+    // якщо той самий гравець відкритий у двох вкладках (стара після reload ще
+    // жива + нова), ОБИДВІ бачать збіг і ОБИДВІ локально стають хостом, після
+    // чого незалежно одна від одної пишуть room.phase — звідси гонка запису.
+    // Порівняння тепер іде по mySessionId, унікальному на кожен createEngine().
+    const mySessionId = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
     let lobbyRef = null, myLobbyRef = null;
     let roomRef = null, myPlayerRef = null, isActivePlayer = false;
     let currentRoomId = null;
@@ -198,6 +205,7 @@
       return getOrCreateRoom(roomId, schema, () => ({
         ...buildFresh(),
         hostUsername: username,
+        hostSessionId: mySessionId, // без цього творець кімнати ніколи б не пройшов гілку !hostStale в maybeElectHostWithLock
         players: Object.fromEntries(
           Object.entries(players || {}).map(([name, extra], i) => [
             name,
@@ -316,17 +324,38 @@
       const hostEntry = players[room.hostUsername];
       const hostStale = !hostEntry || !isConnected(hostEntry);
       if (!hostStale) {
-        if (room.hostUsername === username && !isHost) { isHost = true; onBecomeHost(roomId); }
-        if (room.hostUsername !== username && isHost) { isHost = false; onLoseHost(); }
+        // Порівняння по mySessionId, а НЕ по username — щоб дві вкладки
+        // одного й того ж гравця (стара незакрита + нова після reload)
+        // не вважали хостом себе ОБИДВІ одночасно.
+        if (room.hostSessionId === mySessionId && !isHost) { isHost = true; onBecomeHost(roomId); }
+        if (room.hostSessionId !== mySessionId && isHost) { isHost = false; onLoseHost(); }
         return;
       }
       const alive = Object.entries(players).filter(([, p]) => isConnected(p))
         .sort((a, b) => (a[1].joinedAt || 0) - (b[1].joinedAt || 0));
       if (alive.length && alive[0][0] === username) {
-        window.rtdb.ref(`${ROOMS_PATH}/${roomId}/hostUsername`).transaction((current) => {
-          if (current === room.hostUsername) return username; // compare-and-swap
+        // ВАЖЛИВО: RTDB не зберігає null (запис null == видалення шляху), тож
+        // для шляху, який ще ЖОДНОГО разу не записувався, transaction() дає
+        // current === null, а room.hostSessionId (звичайне звернення до
+        // відсутньої властивості JS-об'єкта) === undefined. Пряме "current
+        // === room.hostSessionId" через це порівняння null !== undefined
+        // ЗАВЖДИ хибне для першого обрання хоста в кімнаті — CAS ніколи не
+        // комітився, і хоста не обирав ніхто. Нормалізуємо обидві сторони
+        // до null перед порівнянням.
+        window.rtdb.ref(`${ROOMS_PATH}/${roomId}/hostSessionId`).transaction((current) => {
+          const expected = room.hostSessionId == null ? null : room.hostSessionId;
+          if ((current == null ? null : current) === expected) return mySessionId; // compare-and-swap
           return;
-        }).then(() => { if (!isHost) { isHost = true; onBecomeHost(roomId); } });
+        }).then((result) => {
+          // ВАЖЛИВО: transaction() резолвиться навіть коли CAS ПРОГРАНА
+          // (result.committed === false) — .then() спрацьовує в обох
+          // випадках. Раніше тут isHost виставлявся безумовно, тож той, хто
+          // програв гонку за хоста, все одно локально вважав себе хостом.
+          // Тепер isHost=true лише якщо реально записане значення — наше.
+          if (!result || !result.committed || result.snapshot.val() !== mySessionId) return;
+          window.rtdb.ref(`${ROOMS_PATH}/${roomId}/hostUsername`).set(username); // для решти ігор/UI, які читають лише hostUsername
+          if (!isHost) { isHost = true; onBecomeHost(roomId); }
+        });
       }
     }
 

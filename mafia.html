@@ -197,6 +197,12 @@
   .stepper .val { font-family: var(--font-display); font-size: 15px; min-width: 18px; text-align: center; }
   .timer-select { background: var(--tile-bg-2); border: 1px solid var(--line); border-radius: 8px;
       color: var(--text-light); font-size: 13px; padding: 5px 8px; }
+  .mode-toggle { display: flex; gap: 6px; }
+  .mode-btn { background: var(--tile-bg-2); border: 1px solid var(--line); border-radius: 8px;
+      color: var(--text-muted); font-size: 12px; padding: 6px 10px; cursor: pointer; }
+  .mode-btn.active { color: var(--text-light); border-color: var(--accent); background: var(--tile-bg-2); }
+  .mode-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+  .turn-label { font-size: 12px; color: var(--text-muted); margin-left: 6px; }
 
   /* ---------- напарники по мафії (ніч) ---------- */
   .teammates-box { font-size: 12.5px; color: var(--text-muted); background: var(--tile-bg);
@@ -306,6 +312,14 @@
     <div class="players-list" id="playersList"></div>
     <div class="settings-box hidden" id="hostSettingsBox">
       <div class="settings-row">
+        <span class="settings-label">Режим ночі</span>
+        <div class="mode-toggle" id="nightModeToggle">
+          <button type="button" class="mode-btn" data-value="simultaneous">Онлайн</button>
+          <button type="button" class="mode-btn" data-value="sequential">За столом</button>
+        </div>
+      </div>
+      <div class="mode-hint" id="nightModeHint"></div>
+      <div class="settings-row">
         <span class="settings-label">Мафія</span>
         <div class="stepper">
           <button id="mafiaCountMinus">−</button>
@@ -342,7 +356,7 @@
 
   <div id="view-night" class="hidden">
     <div class="phase-bar">
-      <span><span class="pulse-dot"></span>Ніч <span id="nightNumberLabel"></span></span>
+      <span><span class="pulse-dot"></span>Ніч <span id="nightNumberLabel"></span><span class="turn-label" id="nightTurnLabel"></span></span>
       <span class="timer" id="nightTimer"></span>
     </div>
     <div id="nightContent"></div>
@@ -396,6 +410,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
 <script src="js/firebase-config.js"></script>
+<script src="js/app-settings.js"></script>
 <link rel="stylesheet" href="js/game-header.css">
 <script src="js/game-header.js"></script>
 <script src="js/login.js"></script>
@@ -407,9 +422,11 @@
 <script>
 (function () {
   const VIEWS = ["locked", "room-entry", "waiting", "lobby", "night", "night_result", "day_discussion", "day_voting", "voting_result", "game_over"];
+  const NIGHT_SUBPHASES = ["night_mafia", "night_doctor", "night_commissar"];
   function showView(name) {
-    VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name));
-    document.getElementById("dossierStrip").classList.toggle("hidden", !["night", "night_result", "day_discussion", "day_voting", "voting_result", "game_over"].includes(name));
+    const mapped = NIGHT_SUBPHASES.includes(name) ? "night" : name;
+    VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== mapped));
+    document.getElementById("dossierStrip").classList.toggle("hidden", !["night", ...NIGHT_SUBPHASES, "night_result", "day_discussion", "day_voting", "voting_result", "game_over"].includes(name));
   }
 
   function escapeHtml(s) {
@@ -441,6 +458,158 @@
   let lastState = null, lastCtx = null;
   let pendingMafiaCount = null;
 
+  // ------------------------- звук/вібро: під'язано до AppSettings -------------------------
+  // Кожен гравець сидить за спільним столом зі своїм телефоном — звук і є
+  // "ведучим": підказує особисто йому, коли настала ніч/його роль/день/пора
+  // розплющити очі, без потреби озвучувати це вголос. Просто поклади файли
+  // за цими шляхами — самі звуки нічого не знають про AppSettings, лише
+  // грають/вібрують через нього.
+  const SND = {
+    night: "snd/mafia/night.mp3",                     // ніч настає — усім, заплющити очі
+    nightResultDead: "snd/mafia/night-result-dead.mp3", // ранок настав, хтось загинув
+    nightResultSafe: "snd/mafia/night-result-safe.mp3", // ранок настав, усі живі
+    day: "snd/mafia/day.mp3",                          // початок обговорення
+    votingStart: "snd/mafia/voting-start.mp3",         // спікер відкриває голосування (звук сесії ВР)
+    votingTick: "snd/mafia/voting-tick.mp3",           // тік таймера голосування, як у ВР — останні секунди
+    votingResultEliminated: "snd/mafia/voting-result-eliminated.mp3", // вирок: когось вигнали
+    votingResultSafe: "snd/mafia/voting-result-safe.mp3",             // вирок: нічия — нікого не вигнали
+    gameOverMafia: "snd/mafia/game-over-mafia.mp3",    // перемогла мафія
+    gameOverCivilians: "snd/mafia/game-over-civilians.mp3", // перемогли мирні
+    role: {
+      mafia: "snd/mafia/role-mafia.mp3",
+      doctor: "snd/mafia/role-doctor.mp3",
+      commissar: "snd/mafia/role-commissar.mp3",
+    },
+  };
+
+  // ------------------------- лог послідовності звуків (для дебагу) -------------------------
+  // Постав false, коли доробиш моніторинг — це просто console.log, на гру
+  // не впливає. Кожен рядок: час від зміни фази (з) + що саме грає.
+  // Для сигналів ролі, які стартують не одразу, а через setTimeout(900),
+  // додатково видно, чи фаза до моменту спрацювання ВЖЕ змінилась
+  // ("⚠ ЗАПІЗНИВСЯ") — це і є підозрюваний баг із 900мс.
+  const SND_DEBUG = true;
+  let sndDebugPhaseAt = 0;
+  const sndSessionStart = performance.now(); // з моменту завантаження сторінки — щоб бачити, коли САМЕ (хв:с.мс ігрового сеансу) щось увімкнулось, а не лише відносно попередньої фази
+
+  function sndClock() {
+    const ms = performance.now() - sndSessionStart;
+    const totalSec = Math.floor(ms / 1000);
+    const mm = String(Math.floor(totalSec / 60)).padStart(2, "0");
+    const ss = String(totalSec % 60).padStart(2, "0");
+    const mmm = String(Math.floor(ms % 1000)).padStart(3, "0");
+    return `${mm}:${ss}.${mmm}`;
+  }
+
+  function sndLog(msg) {
+    if (!SND_DEBUG) return;
+    const t = ((performance.now() - sndDebugPhaseAt) / 1000).toFixed(2);
+    console.log(`[snd ${sndClock()} | +${t}s] ${msg}`);
+  }
+
+  function playAndLog(path, label) {
+    sndLog(`▶ ${label} → ${path}`);
+    window.AppSettings.playSound(path);
+  }
+
+  // Грає роль-звук + вібро ТІЛЬКИ на телефоні власника цієї ролі (якщо він
+  // живий) — використовується для simultaneous "night", де в кожного своя
+  // роль одночасно і транслювати "чию це чергу" нема сенсу (черги нема).
+  function cueOwnRoleTurn(expectedRole, state, ctx, scheduledPhase) {
+    const stale = lastState && scheduledPhase && lastState.phase !== scheduledPhase;
+    sndLog(
+      `${stale ? "⚠ ЗАПІЗНИВСЯ (фаза вже \"" + lastState.phase + "\", а планувався під \"" + scheduledPhase + "\")" : "спрацював вчасно"} — cueOwnRoleTurn(${expectedRole})`
+    );
+    const me = ctx.username && (state.players || {})[ctx.username];
+    if (!me || !me.alive || me.role !== expectedRole || !SND.role[expectedRole]) {
+      sndLog(`  (пропущено: моя роль "${me && me.role}" ≠ "${expectedRole}", або мертвий/немає файлу)`);
+      return;
+    }
+    playAndLog(SND.role[expectedRole], `role-${expectedRole} (own turn)`);
+    window.AppSettings.vibrate(200);
+  }
+
+  // Послідовний режим ("За столом"): night_mafia/night_doctor/night_commissar
+  // — тут черга РЕАЛЬНО одна на всіх (фаза й так уже видно кожному, це не
+  // секрет), тож звук грає в усіх ОДНАКОВИЙ — "зараз хід мафії" чують усі,
+  // а не тільки сама мафія. Вібро лишаємо адресним: воно особисто підказує
+  // власнику ролі, що йти саме йому.
+  function cueRoleTurnForAll(role, state, ctx, scheduledPhase) {
+    const stale = lastState && scheduledPhase && lastState.phase !== scheduledPhase;
+    sndLog(
+      `${stale ? "⚠ ЗАПІЗНИВСЯ (фаза вже \"" + lastState.phase + "\", а планувався під \"" + scheduledPhase + "\")" : "спрацював вчасно"} — cueRoleTurnForAll(${role})`
+    );
+    if (SND.role[role]) playAndLog(SND.role[role], `role-${role} (для всіх)`);
+    const me = ctx.username && (state.players || {})[ctx.username];
+    if (me && me.alive && me.role === role) window.AppSettings.vibrate(200);
+  }
+
+  function playPhaseSounds(prevPhase, state, ctx) {
+    if (!window.AppSettings || prevPhase === state.phase) return; // грати лише на ЗМІНУ фази, не на кожен heartbeat
+    const AS = window.AppSettings;
+    sndDebugPhaseAt = performance.now();
+    sndLog(`══ фаза: "${prevPhase}" → "${state.phase}" ══`);
+
+    switch (state.phase) {
+      case "night": {
+        // Simultaneous-режим: немає окремих послідовних "ходів" ролей у
+        // стейт-машині — мафія/лікар/комісар подають нічні дії одночасно в
+        // межах однієї фази "night" (див. resolveNightPatch у mafia-game.js).
+        // Але для гравця це виглядає так само, ніби "хід настав": вібрує
+        // ТІЛЬКИ той телефон, чия роль щось вирішує цієї ночі.
+        playAndLog(SND.night, "night (загальне)"); // усім — не розкриває роль
+        const me = ctx.username && (state.players || {})[ctx.username];
+        // Невелика пауза, щоб загальний сигнал не наклався на особистий.
+        if (me && me.alive && me.role) {
+          sndLog(`  … cueOwnRoleTurn(${me.role}) заплановано через 900мс`);
+          setTimeout(() => cueOwnRoleTurn(me.role, state, ctx, "night"), 900);
+        }
+        break;
+      }
+      case "night_mafia":
+        // Перша під-фаза послідовної ночі — тут лунає загальний "ніч
+        // настає" для всіх, а вже потім — сигнал ролі "мафія", теж усім.
+        playAndLog(SND.night, "night (night_mafia)");
+        sndLog(`  … cueRoleTurnForAll("mafia") заплановано через 900мс`);
+        setTimeout(() => cueRoleTurnForAll("mafia", state, ctx, "night_mafia"), 900);
+        break;
+      case "night_doctor":
+        cueRoleTurnForAll("doctor", state, ctx, "night_doctor");
+        break;
+      case "night_commissar":
+        cueRoleTurnForAll("commissar", state, ctx, "night_commissar");
+        break;
+      case "night_result":
+        playAndLog(
+          state.nightResult && state.nightResult.deadPlayer ? SND.nightResultDead : SND.nightResultSafe,
+          "night_result"
+        );
+        AS.vibrate([100, 80, 100]);
+        break;
+      case "day_discussion":
+        playAndLog(SND.day, "day_discussion");
+        break;
+      case "day_voting":
+        playAndLog(SND.votingStart, "day_voting (start)");
+        AS.vibrate(150);
+        break;
+      case "voting_result":
+        playAndLog(
+          state.lastEliminated ? SND.votingResultEliminated : SND.votingResultSafe,
+          "voting_result"
+        );
+        AS.vibrate([100, 80, 100]);
+        break;
+      case "game_over":
+        playAndLog(
+          state.winner === "mafia" ? SND.gameOverMafia : SND.gameOverCivilians,
+          "game_over"
+        );
+        break;
+
+    }
+  }
+
   function autoMafiaCount(n) { return n <= 5 ? 1 : n <= 7 ? 2 : 3; }
   function maxMafiaCount(n) { return Math.max(1, Math.ceil(n / 2) - 1); }
 
@@ -448,6 +617,11 @@
     const s = Math.max(0, Math.ceil(ms / 1000));
     return s + "с";
   }
+
+  // Останній "тікнутий" цілий рахунок секунд голосування — щоб тік грав
+  // рівно раз на секунду (updateCountdowns викликається setInterval'ом
+  // раз/сек, але дедуп все одно рятує, якщо цей інтервал колись пришвидшать).
+  let lastVotingTickSecond = null;
 
   function updateCountdowns() {
     if (!lastState) return;
@@ -460,6 +634,19 @@
       el.textContent = lastState.phaseDeadline ? label : "";
       el.classList.toggle("urgent", urgent);
     });
+
+    // Останні 10с голосування — тік-звук/вібро в стилі таймера сесії ВР.
+    if (window.AppSettings && lastState.phase === "day_voting" && urgent && remaining > 0) {
+      const sec = Math.ceil(remaining / 1000);
+      if (sec !== lastVotingTickSecond) {
+        lastVotingTickSecond = sec;
+        sndLog(`▶ voting-tick (${sec}с лишилось) → ${SND.votingTick}`);
+        window.AppSettings.playSound(SND.votingTick);
+        window.AppSettings.vibrate(40);
+      }
+    } else {
+      lastVotingTickSecond = null;
+    }
   }
 
   // ------------------------- рендер лобі -------------------------
@@ -498,6 +685,14 @@
     const settingsBox = document.getElementById("hostSettingsBox");
     settingsBox.classList.toggle("hidden", !ctx.host);
     if (ctx.host) {
+      const nightMode = state.nightMode === "sequential" ? "sequential" : "simultaneous";
+      document.querySelectorAll("#nightModeToggle .mode-btn").forEach((b) => {
+        b.classList.toggle("active", b.dataset.value === nightMode);
+      });
+      document.getElementById("nightModeHint").textContent = nightMode === "sequential"
+        ? "Ролі ходять по черзі (мафія → лікар → комісар) — для гри всіма за одним столом."
+        : "Усі нічні ролі ходять одночасно — для гри, коли гравці не бачать і не чують одне одного.";
+
       pendingMafiaCount = state.mafiaCount == null ? null : state.mafiaCount;
       document.getElementById("mafiaCountVal").textContent = pendingMafiaCount == null ? "авто" : String(pendingMafiaCount);
       const timers = state.timers || {};
@@ -509,14 +704,39 @@
   }
 
   // ------------------------- рендер ночі -------------------------
+  // "night" (simultaneous) чи одна з трьох послідовних під-фаз — null у
+  // simultaneous-режимі, бо там усі ролі ходять одночасно.
+  function activeNightRole(phase) {
+    if (phase === "night_mafia") return "mafia";
+    if (phase === "night_doctor") return "doctor";
+    if (phase === "night_commissar") return "commissar";
+    return null;
+  }
+
   function renderNight(state, ctx) {
     document.getElementById("nightNumberLabel").textContent = state.nightNumber || 1;
+    const seqRole = activeNightRole(state.phase);
+    document.getElementById("nightTurnLabel").textContent = seqRole
+      ? ` · Хід: ${(ROLE_META[seqRole] || {}).name || seqRole}` : "";
+
     const players = state.players || {};
     const me = players[ctx.username];
     const content = document.getElementById("nightContent");
 
     if (!me || !me.alive) {
       content.innerHTML = `<div class="sleeping-screen"><div class="moon">🌙</div>Ти вибув з гри. Спостерігай за розслідуванням мовчки.</div>`;
+      return;
+    }
+
+    // Послідовний режим: зараз хід не моєї ролі — просто чекаю, заплющивши
+    // очі, як за фізичним столом. Публічно видно ЧИЙ це хід (ROLE_META name
+    // у шапці вище), але не хто саме ця людина — так само, як ведучий вголос
+    // каже "мафіє, прокинься", не називаючи імен.
+    if (seqRole && me.role !== seqRole) {
+      const waitingText = me.role === "civilian" || !me.role
+        ? "У тебе немає нічної дії. Зачекай на ранок."
+        : `Зараз хід ролі «${(ROLE_META[seqRole] || {}).name || seqRole}». Твоя черга ще прийде цієї ж ночі.`;
+      content.innerHTML = `<div class="sleeping-screen"><div class="moon">🌙</div>${waitingText}</div>`;
       return;
     }
 
@@ -660,6 +880,7 @@
 
   // ------------------------- головний диспетчер стану -------------------------
   function onState(state, ctx) {
+    const prevPhase = lastState ? lastState.phase : null;
     lastState = state; lastCtx = ctx;
     if (!ctx.username) { showView("locked"); return; }
 
@@ -667,13 +888,19 @@
     const iAmIn = !!players[ctx.username];
     if (!iAmIn && state.phase !== "lobby") { showView("waiting"); return; }
 
+    playPhaseSounds(prevPhase, state, ctx);
+
     showView(state.phase);
     renderDossierStrip(state);
     toggleHostSkipButtons(ctx);
 
     switch (state.phase) {
       case "lobby": renderLobby(state, ctx); break;
-      case "night": renderNight(state, ctx); break;
+      case "night":
+      case "night_mafia":
+      case "night_doctor":
+      case "night_commissar":
+        renderNight(state, ctx); break;
       case "night_result": renderNightResult(state, ctx); break;
       case "day_discussion": renderDayDiscussion(state, ctx); break;
       case "day_voting": renderDayVoting(state, ctx); break;
@@ -688,6 +915,10 @@
     window.MafiaGame.setReady(!(me && me.ready));
   });
   document.getElementById("startGameBtn").addEventListener("click", () => window.MafiaGame.startGame());
+
+  document.querySelectorAll("#nightModeToggle .mode-btn").forEach((b) => {
+    b.addEventListener("click", () => window.MafiaGame.setNightMode(b.dataset.value));
+  });
 
   document.getElementById("mafiaCountMinus").addEventListener("click", () => {
     const n = lastState ? Object.keys(lastState.players || {}).length : 4;
@@ -759,10 +990,23 @@
         const session = window.AppAuth.getSession();
         const roomId = item.dataset.room;
         stopWatchingRoomsList();
-        history.replaceState(null, "", location.pathname + "?room=" + roomId);
+        setRoomInUrl(roomId);
         beginGame(session.username, roomId);
       });
     });
+  }
+
+  // history.replaceState на file:// Chrome відкидає з помилкою в консолі
+  // ("'file:' URLs are treated as unique security origins") — і, що гірше,
+  // кидає SecurityError, який обриває решту обробника кліку. У Capacitor
+  // сторінка теж може відкриватись як file://, тому просто пропускаємо
+  // оновлення адреси там, де воно недоступне: на роботу гри воно не
+  // впливає (roomId усе одно передається в beginGame напряму).
+  function setRoomInUrl(roomId) {
+    if (location.protocol === "file:") return;
+    try {
+      setRoomInUrl(roomId);
+    } catch (e) {}
   }
 
   function beginGame(username, roomId) {
@@ -776,14 +1020,14 @@
   document.getElementById("createRoomBtn").addEventListener("click", () => {
     const session = window.AppAuth.getSession();
     const code = randomRoomCode();
-    history.replaceState(null, "", location.pathname + "?room=" + code);
+    setRoomInUrl(code);
     beginGame(session.username, code);
   });
   document.getElementById("joinRoomBtn").addEventListener("click", () => {
     const session = window.AppAuth.getSession();
     const code = document.getElementById("roomCodeInput").value.trim().toUpperCase();
     if (!code) return;
-    history.replaceState(null, "", location.pathname + "?room=" + code);
+    setRoomInUrl(code);
     beginGame(session.username, code);
   });
   document.getElementById("roomCodeInput").addEventListener("input", (e) => {
@@ -804,11 +1048,20 @@
     showView("locked");
   }
 
-  window.addEventListener("beforeunload", () => {
+  // pagehide — на відміну від beforeunload, значно надійніше спрацьовує в
+  // Android WebView на file://-навігаціях (у т.ч. коли фрейм намагається
+  // перезавантажити сам себе). Без цього стара сесія може лишитись живою
+  // (Firebase-підключення + hostTick далі тікає) паралельно з новою — обидві
+  // з тим самим username, обидві намагаються бути хостом → нескінченний
+  // пінг-понг фаз. persisted:true (bfcache) сюди не має потрапляти — тоді
+  // сторінку не вивантажують, і стопати рушій не треба.
+  function teardownGame() {
     if (countdownTimer) clearInterval(countdownTimer);
     stopWatchingRoomsList();
     if (window.MafiaGame) window.MafiaGame.stop();
-  });
+  }
+  window.addEventListener("beforeunload", teardownGame);
+  window.addEventListener("pagehide", (e) => { if (!e.persisted) teardownGame(); });
 })();
 </script>
 </body>
