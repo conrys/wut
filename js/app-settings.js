@@ -8,7 +8,7 @@
 // Раніше розмір керування жив ЛОКАЛЬНО тільки в snake.html (свій
 // localStorage-ключ "snake_ctrl_size", своя таблиця SIZE_CONFIGS). Тепер
 // таблиця тут, а snake.html лише читає/пише через AppSettings — і той
-// самий вибір видно/змінюваний з index.html.
+// самый вибір видно/змінюваний з index.html.
 //
 // Підключати РАНО на кожній сторінці (одразу після firebase-config.js,
 // до game-header.js/login.js/back-button.js/records.js), щоб CSS-змінні
@@ -237,10 +237,6 @@
     try { navigator.vibrate(pattern); } catch (e) {}
   }
 
-  // Той самий механізм, що й vibrate(), але СВІДОМО ігнорує тумблер
-  // "Вібрація увімк./вимк." — це чиста діагностика заліза/плагіна:
-  // натиснута кнопка тест-вібро мала б спрацювати незалежно від того, в
-  // якому стані зараз загальне налаштування.
   function testVibrate() {
     if (!vibrateViaCapacitor(100) && navigator.vibrate) {
       try { navigator.vibrate(100); } catch (e) {}
@@ -383,8 +379,7 @@
           <button type="button" class="opt-btn" data-value="on">Увімк.</button>
           <button type="button" class="opt-btn" data-value="off">Вимк.</button>
         </div>
-        <button type="button" class="close-btn" id="testVibrateBtn" style="background: rgba(255,255,255,0.1); color: #f0f0f0; margin-bottom: 10px;">🔔 Тест вібро (0.1с)</button>
-        <button type="button" class="close-btn">Готово</button>
+        <button type="button" class="close-btn" id="appSettingsCloseBtn">Готово</button>
       </div>
     `;
 
@@ -410,20 +405,8 @@
     panel.addEventListener("click", (e) => {
       if (e.target === panel) panel.classList.remove("open");
     });
-    panel.querySelector(".close-btn").addEventListener("click", () => {
+    document.getElementById("appSettingsCloseBtn").addEventListener("click", () => {
       panel.classList.remove("open");
-    });
-    const testBtn = document.getElementById("testVibrateBtn");
-    testBtn.addEventListener("click", () => {
-      const hasCapacitor = !!(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics);
-      const hasWebVibrate = !!navigator.vibrate;
-      testVibrate();
-      testBtn.textContent = hasCapacitor
-        ? "✅ Capacitor Haptics знайдено"
-        : hasWebVibrate
-        ? "⚠️ тільки navigator.vibrate (без Capacitor)"
-        : "❌ жодного способу вібрувати нема";
-      setTimeout(() => { testBtn.textContent = "🔔 Тест вібро (0.1с)"; }, 2500);
     });
     panel.querySelectorAll(".opt-btn").forEach((b) => {
       b.addEventListener("click", () => {
