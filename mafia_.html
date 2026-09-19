@@ -108,8 +108,22 @@
       color: #f4ede0; text-shadow: 0 3px 10px rgba(0,0,0,0.8); padding: 20px; background: rgba(0,0,0,0.35); border-radius: 10px; }
   @keyframes bannerFade { from { opacity: 0; } to { opacity: 1; } }
 
-  /* --------- роль-картка: розмітку/стилі анімації перегортання тепер
-     інжектить js/mafia-role-reveal.js (мітка #rrDonTag/.rr-* тощо) --------- */
+  /* --------- роль-картка --------- */
+  .role-flip { width: 210px; height: 300px; margin: 24px auto; perspective: 1000px; }
+  .role-flip-inner { position: relative; width: 100%; height: 100%; transition: transform 0.8s; transform-style: preserve-3d; }
+  .role-flip.flipped .role-flip-inner { transform: rotateY(180deg); }
+  .role-face { position: absolute; inset: 0; backface-visibility: hidden; border-radius: 16px; overflow: hidden;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+      background: var(--tile-bg); border: 1px solid var(--line); padding: 14px; }
+  .role-face.back { background: #241f16 url('img/mafia/card_back.png') center/cover; }
+  .role-face.front { transform: rotateY(180deg); background-size: cover; background-position: center; }
+  .role-face.front.mafia { background-image: url('img/mafia/role_mafia.png'); }
+  .role-face.front.doctor { background-image: url('img/mafia/role_doctor.png'); }
+  .role-face.front.sheriff { background-image: url('img/mafia/role_sheriff.png'); }
+  .role-face.front.civilian { background-image: url('img/mafia/role_civilian.png'); }
+  .role-name-tag { font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 700;
+      background: rgba(0,0,0,0.55); padding: 6px 16px; border-radius: 10px; margin-top: auto; }
+  .don-tag { font-size: 12px; color: var(--accent); background: rgba(0,0,0,0.6); padding: 3px 10px; border-radius: 8px; margin-top: 6px; }
 
   .sleeping-screen { text-align: center; padding: 36px 10px; color: var(--text-muted); font-size: 15px;}
   .sleeping-screen .icon { font-size: 44px; margin-bottom: 12px; }
@@ -266,7 +280,12 @@
   <div id="view-role-reveal" class="pad hidden">
     <div class="timer-bar" id="roleRevealTimer"><div class="timer-bar-fill"></div></div>
     <h2>Твоя роль</h2>
-    <div id="roleRevealStage"></div>
+    <div class="role-flip" id="roleFlip">
+      <div class="role-flip-inner">
+        <div class="role-face back"></div>
+        <div class="role-face front" id="roleFront"><div class="role-name-tag" id="roleNameTag"></div></div>
+      </div>
+    </div>
   </div>
 
   <div id="view-night" class="pad hidden">
@@ -327,7 +346,6 @@
 <script src="js/login.js"></script>
 <script src="js/online-engine.js"></script>
 <script src="js/mafia-sounds.js"></script>
-<script src="js/mafia-role-reveal.js"></script>
 <script src="js/mafia-game.js"></script>
 <script src="js/room-code-ui.js"></script>
 <script src="js/help.js"></script>
@@ -350,7 +368,6 @@
   // play(). Не рятує від file:// CORS (та сама причина — див. відповідь),
   // але прибирає затримку/пропуск першого відтворення у звичайному http(s).
   if (window.MafiaSounds && window.MafiaSounds.preloadAll) window.MafiaSounds.preloadAll();
-  window.MafiaRoleReveal.mount(document.getElementById("roleRevealStage"));
 
   // ------------------------- банери (bnr_night/bnr_day/bnr_win/bnr_lose) -------------------------
   const BANNER_CAPTIONS = {
@@ -475,9 +492,15 @@
 
   // ------------------------- роль -------------------------
   function renderRoleReveal(state, ctx) {
-    if (!shouldRender("roleReveal", "1")) return; // анімація — рівно раз на вхід у фазу
+    if (!shouldRender("roleReveal", "1")) return; // анімація фліпу — рівно раз на вхід у фазу
     const me = (state.players || {})[ctx.username];
-    window.MafiaRoleReveal.play((me && me.role) || "civilian", { isDon: !!(me && me.isDon) });
+    const flip = document.getElementById("roleFlip");
+    const front = document.getElementById("roleFront");
+    front.className = "role-face front " + (me ? me.role : "civilian");
+    document.getElementById("roleNameTag").innerHTML =
+      `${(ROLE_META[me && me.role] || ROLE_META.civilian).name}` + (me && me.isDon ? `<div class="don-tag">Дон мафії</div>` : "");
+    flip.classList.remove("flipped");
+    requestAnimationFrame(() => setTimeout(() => flip.classList.add("flipped"), 250));
   }
 
   // ------------------------- ніч -------------------------
