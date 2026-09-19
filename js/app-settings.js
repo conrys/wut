@@ -269,7 +269,7 @@
       #appSettingsBtn {
         position: fixed;
         left: 16px;
-        bottom: 62px;
+        bottom: 16px;
         z-index: 999;
         width: 40px;
         height: 40px;
@@ -278,13 +278,11 @@
         background: rgba(30, 30, 36, 0.85);
         color: #f0f0f0;
         font-size: 18px;
-        
         display: flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
         backdrop-filter: blur(6px);
-        -webkit-backdrop-filter: blur(6px);
       }
       #appSettingsPanel {
         position: fixed;

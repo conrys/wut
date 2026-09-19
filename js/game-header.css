@@ -15,20 +15,16 @@
    (game-header--fixed).
    ========================================================================== */
 .game-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  max-width: 480px;
-  gap: 10px;
-  margin: max(env(safe-area-inset-top), var(--app-header-margin-top, 24px)) auto 8px;
-  padding: 6px 10px;
-  background: rgba(34, 37, 43, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 18px;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 10px;
+    margin-top: max(env(safe-area-inset-top), var(--app-header-margin-top, 24px));
+    padding: 6px 10px;
+    background: #00000050;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
 }
 
 .game-header .slot-left,

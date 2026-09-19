@@ -19,11 +19,11 @@
 (function () {
   "use strict";
 
-  const GAME_KEY = "mafia";
+  const GAME_KEY = "mafia2";
   const ROOMS_PATH = GAME_KEY + "_rooms"; // має 1-в-1 збігатись із внутрішньою назвою в online-engine.js
   const DISPATCH_DEBOUNCE_MS = 150;
 
-  const MIN_PLAYERS = 4;
+  const MIN_PLAYERS = 5;
   const MAX_PLAYERS = 12;
 
   const DEFAULT_SETTINGS = {
@@ -55,9 +55,9 @@
     night_reveal: 10000,
     last_words: 15000,
     day_discussion: 90000,
-    voting: 20000,
+    voting: 30000,
     player_elimination_anim: 7000,
-    banner_state: 4000, // плейтест-3: було 10000, задовго після голосування
+    banner_state: 10000,
   };
 
   // ------------------------- схема кімнати -------------------------
@@ -75,9 +75,6 @@
     lastEliminated: null,
     lastWords: null,
     lastWordsNext: null,
-    dayReady: {},   // плейтест-2: "готовий голосувати" — дострокове завершення day_discussion
-    paused: false,  // плейтест-2: загальна пауза гри
-    pausedAt: null,
     chat: {},
     winner: null,
     players: {},
@@ -95,9 +92,6 @@
       lastEliminated: null,
       lastWords: null,
       lastWordsNext: null,
-      dayReady: {},
-      paused: false,
-      pausedAt: null,
       chat: {},
       winner: null,
     };
@@ -223,66 +217,16 @@
     }, DISPATCH_DEBOUNCE_MS);
   }
 
-  // Плейтест-2: усі живі (і онлайн) гравці натиснули "Готовий голосувати"
-  // -> day_discussion завершується достроково, не чекаючи повного таймера.
-  // Єдиний виняток із правила "жодна фаза не завершується достроково" —
-  // навмисно, і лише тут: анонімність нічних дій тут не при чому, а 90с
-  // форсованого мовчання, коли всі вже готові, просто дратує.
-  function allAliveReadyToVote(room) {
-    const alive = connectedEntries(room.players || {}).filter(([, p]) => p.alive);
-    if (!alive.length) return false;
-    const ready = room.dayReady || {};
-    return alive.every(([u]) => !!ready[u]);
-  }
-
   // ------------------------- тік (лише на пристрої власника) -------------------------
   function ownerTick() {
     const room = engine.latestRoom;
     if (!room) return;
     if (room.phase === "lobby" || room.phase === "game_over") return;
-    if (room.paused) return; // плейтест-2: загальна пауза — тік просто не крутиться
     if (advancingSincePhase === room.phase) return; // перехід із цієї фази вже надіслано, чекаємо підтвердження
     if (room.phaseDeadline == null) return;
-    const deadlineReached = engine.now() >= room.phaseDeadline;
-    const earlyByReadyVote = room.phase === "day_discussion" && allAliveReadyToVote(room);
-    if (!deadlineReached && !earlyByReadyVote) return;
+    if (engine.now() < room.phaseDeadline) return;
     advancingSincePhase = room.phase;
     advancePhase(room);
-  }
-
-  // Плейтест-2: window.MafiaGame.Skip() у консолі — форсує перехід ПОТОЧНОЇ
-  // фази прямо зараз, ігноруючи дедлайн. Довірча devtool-функція (як і
-  // решта прямих RTDB-записів у проєкті) — працює з будь-якого підключеного
-  // клієнта, не лише з пристрою власника.
-  function forceAdvance() {
-    const room = engine.latestRoom;
-    if (!room) return;
-    if (room.phase === "lobby" || room.phase === "game_over") return;
-    advancingSincePhase = null;
-    advancePhase(room);
-  }
-
-  function pauseGame() {
-    const room = engine.latestRoom;
-    if (!room || room.hostUsername !== myUsername || room.paused) return;
-    engine.roomRef.update({ paused: true, pausedAt: engine.now() });
-  }
-
-  // Компенсуємо весь час паузи в phaseDeadline, інакше фаза "згорає" у
-  // фоні, поки гра на паузі.
-  function resumeGame() {
-    const room = engine.latestRoom;
-    if (!room || room.hostUsername !== myUsername || !room.paused) return;
-    const pausedFor = engine.now() - (room.pausedAt || engine.now());
-    const patch = { paused: false, pausedAt: null };
-    if (room.phaseDeadline != null) patch.phaseDeadline = room.phaseDeadline + pausedFor;
-    engine.roomRef.update(patch);
-  }
-
-  function setDayReady(ready) {
-    const room = engine.latestRoom; const me = room && room.players[myUsername];
-    if (!room || room.phase !== "day_discussion" || !me || !me.alive || !engine.roomRef) return;
-    engine.roomRef.child("dayReady/" + myUsername).set(!!ready);
   }
 
   function write(patch, nextPhase, duration) {
@@ -315,39 +259,29 @@
       case "sheriff_move":
         return resolveNight(room);
 
-      case "banner_morning": {
-        // плейтест-2: "ніхто не загинув" — 10с на порожній екран задовго,
-        // скорочуємо саме цей випадок; коли є жертва — лишаємо повний час
-        // (люди мають встигнути усвідомити). resolveNight() уже записав
-        // room.nightResult ДО входу в banner_morning, тож підглянути тут можна.
-        const safe = !(room.nightResult && room.nightResult.victim);
-        return write({}, "night_reveal", safe ? 2000 : PHASE_DURATIONS.night_reveal);
-      }
+      case "banner_morning":
+        return write({}, "night_reveal", PHASE_DURATIONS.night_reveal);
 
       case "night_reveal": {
         const victim = room.nightResult && room.nightResult.victim;
         if (victim) {
           return write({ lastWords: { victim }, lastWordsNext: "day_discussion" }, "last_words", PHASE_DURATIONS.last_words);
         }
-        return write({ lastWords: null, lastWordsNext: null, dayReady: {} }, "day_discussion", PHASE_DURATIONS.day_discussion);
+        return write({ lastWords: null, lastWordsNext: null }, "day_discussion", PHASE_DURATIONS.day_discussion);
       }
 
       case "last_words": {
         const next = room.lastWordsNext === "player_elimination_anim" ? "player_elimination_anim" : "day_discussion";
-        const patch = next === "day_discussion" ? { dayReady: {} } : {};
-        return write(patch, next, PHASE_DURATIONS[next]);
+        return write({}, next, PHASE_DURATIONS[next]);
       }
 
       case "day_discussion":
-        return write({ dayReady: {} }, "voting", PHASE_DURATIONS.voting);
+        return write({}, "voting", PHASE_DURATIONS.voting);
 
       case "voting":
         return resolveVoting(room);
 
       case "player_elimination_anim":
-        // плейтест-3: банер "Підбиваємо підсумки" тепер завжди короткий
-        // (4с) — раніше скорочував лише фінальний випадок, тепер це
-        // просто PHASE_DURATIONS.banner_state (=4000) для всіх випадків.
         return write({}, "banner_state", PHASE_DURATIONS.banner_state);
 
       case "banner_state": {
@@ -459,13 +393,10 @@
     engine.roomRef.child("moves/" + myUsername).set(target ? { choice: "target", target } : { choice: "skip", target: null });
   }
 
-  // Плейтест-2: скіп лікаря прибрано повністю — лікар МАЄ обрати когось,
-  // єдиний спосіб "не рятувати" — не встигнути до кінця таймера (moves
-  // лишиться порожнім). Виклик без target тепер просто ігнорується.
   function submitDoctorMove(target) {
     const room = engine.latestRoom; const me = room && room.players[myUsername];
-    if (!room || room.phase !== "doctor_move" || !me || !me.alive || me.role !== "doctor" || !target) return;
-    engine.roomRef.child("moves/" + myUsername).set({ choice: "target", target });
+    if (!room || room.phase !== "doctor_move" || !me || !me.alive || me.role !== "doctor") return;
+    engine.roomRef.child("moves/" + myUsername).set(target ? { choice: "target", target } : { choice: "skip", target: null });
   }
 
   function submitSheriffMove(target) {
@@ -609,8 +540,6 @@
     setReady, setSettings, startGame, resetGame,
     submitMafiaMove, submitDoctorMove, submitSheriffMove, submitVote,
     sendChatMessage, visibleChat, myChatChannel,
-    setDayReady, pauseGame, resumeGame,
-    Skip: forceAdvance, // плейтест-2: window.MafiaGame.Skip() у консолі браузера
     set onStateChange(fn) { gameOnStateChange = fn || (() => {}); },
   };
 })();
