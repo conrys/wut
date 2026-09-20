@@ -21,6 +21,8 @@
   const TICK_MS = 500;
   const ALLOWED_GALLERY_SECONDS = [45, 60, 90, 120, 180];
   const DEFAULT_GALLERY_SECONDS = 90;
+  const ALLOWED_DIFFICULTIES = ["easy", "medium", "hard"];
+  const DEFAULT_DIFFICULTY = "medium";
   const REVEAL_AUTO_ADVANCE_MS = 4500;
   const MAX_DRAWING_BYTES = 900000;
 
@@ -28,6 +30,7 @@
     phase: "lobby",
     hostUsername: null,
     mode: "crocodile",
+    difficulty: DEFAULT_DIFFICULTY,
     round: 0,
     gallerySettings: { drawSeconds: DEFAULT_GALLERY_SECONDS },
     gallery: null,
@@ -54,10 +57,18 @@
     return Object.entries(players || {}).filter(([, p]) => engine.isConnected(p)).map(([n]) => n);
   }
 
-  function pickPrompt(usedMap) {
-    const fresh = DRAW_PROMPTS.filter((p) => !usedMap || !usedMap[p]);
-    const pool = fresh.length ? fresh : DRAW_PROMPTS; // список вичерпано — починаємо по колу
-    return pool[Math.floor(Math.random() * pool.length)];
+  // DRAW_PROMPTS тепер об'єкт {easy, medium, hard} (як у crocodile-words.js),
+  // а не плаский масив — тому обираємо пул за складністю кімнати. usedMap
+  // тримаємо з ключами "складність::слово", щоб однакове слово в різних
+  // пулах (малоймовірно, але можливо) не заважало одне одному вважатись
+  // "вже показаним".
+  function usedKey(difficulty, prompt) { return `${difficulty}::${prompt}`; }
+
+  function pickPrompt(usedMap, difficulty) {
+    const pool = DRAW_PROMPTS[difficulty] || DRAW_PROMPTS[DEFAULT_DIFFICULTY];
+    const fresh = pool.filter((p) => !usedMap || !usedMap[usedKey(difficulty, p)]);
+    const list = fresh.length ? fresh : pool; // пул вичерпано — починаємо по колу
+    return list[Math.floor(Math.random() * list.length)];
   }
 
   // ------------------------- список активних кімнат -------------------------
@@ -128,6 +139,10 @@
     if (!ALLOWED_GALLERY_SECONDS.includes(seconds)) return;
     engine.roomRef.child("gallerySettings/drawSeconds").set(seconds);
   }
+  function setDifficulty(difficulty) {
+    if (!ALLOWED_DIFFICULTIES.includes(difficulty)) return;
+    engine.roomRef.child("difficulty").set(difficulty);
+  }
 
   async function startGame(room) {
     const names = connectedNames(room.players);
@@ -149,12 +164,14 @@
   // ------------------------- crocodile -------------------------
   async function startCrocodileRound(drawerUsername, round) {
     const room = engine.latestRoom;
+    const difficulty = (room && room.difficulty) || DEFAULT_DIFFICULTY;
     const usedPrompts = (room && room.usedPrompts) || usedPromptsCache;
-    const promptText = pickPrompt(usedPrompts);
-    usedPromptsCache = { ...usedPrompts, [promptText]: true };
+    const promptText = pickPrompt(usedPrompts, difficulty);
+    const key = usedKey(difficulty, promptText);
+    usedPromptsCache = { ...usedPrompts, [key]: true };
     await engine.roomRef.update({
       round: (round !== undefined ? round : (room ? room.round : 0)) + 1,
-      [`usedPrompts/${promptText}`]: true,
+      [`usedPrompts/${key}`]: true,
       crocodile: { drawerUsername, promptText, strokesVersion: engine.now() },
     });
     // окремий список штрихів — власний вузол, щоб не тягнути важкий масив
@@ -209,16 +226,18 @@
   async function startGalleryRound(room, names) {
     room = room || engine.latestRoom;
     names = names || connectedNames(room.players);
+    const difficulty = room.difficulty || DEFAULT_DIFFICULTY;
     const drawMs = (room.gallerySettings.drawSeconds || DEFAULT_GALLERY_SECONDS) * 1000;
     const usedPrompts = room.usedPrompts || usedPromptsCache;
     const prompts = {};
     const usedUpdates = {};
     let usedLocal = { ...usedPrompts };
     names.forEach((n) => {
-      const p = pickPrompt(usedLocal);
+      const p = pickPrompt(usedLocal, difficulty);
       prompts[n] = p;
-      usedLocal[p] = true;
-      usedUpdates[`usedPrompts/${p}`] = true;
+      const key = usedKey(difficulty, p);
+      usedLocal[key] = true;
+      usedUpdates[`usedPrompts/${key}`] = true;
     });
     usedPromptsCache = usedLocal;
     await engine.roomRef.update({
@@ -314,12 +333,14 @@
   window.DrawGame = {
     MIN_PLAYERS,
     ALLOWED_GALLERY_SECONDS,
+    ALLOWED_DIFFICULTIES,
+    DEFAULT_DIFFICULTY,
     connectedNames,
     computeHost: (players) => engine.computeHost(players),
     unanswered,
     watchActiveRooms,
     start, stop,
-    setMode, setGalleryTimer, startGame, resetGame,
+    setMode, setGalleryTimer, setDifficulty, startGame, resetGame,
     pushStrokeBatch, sendUndo, sendClear, markCorrectGuess, hostSkipPrompt, hostForceNextDrawer,
     submitDrawing, hostRevealAnswer, hostNextDrawing, hostNewGalleryRound,
     get roomId() { return engine.currentRoomId; },

@@ -60,6 +60,13 @@
           <option value="180">180 секунд</option>
         </select>
       </div>
+
+      <label style="font-size: 0.9rem; color: #aaa;">Складність слів:</label>
+      <select class="text-entry-input" id="difficultySelect" style="margin-top: 4px;">
+        <option value="easy">Легка</option>
+        <option value="medium" selected>Середня</option>
+        <option value="hard">Складна</option>
+      </select>
     </div>
 
     <div class="card">
@@ -316,6 +323,7 @@
     document.getElementById("modeCrocBtn").disabled = !isHost;
     document.getElementById("modeGalBtn").disabled = !isHost;
     document.getElementById("galleryTimeSelect").disabled = !isHost;
+    document.getElementById("difficultySelect").disabled = !isHost;
 
     document.getElementById("modeCrocBtn").classList.toggle("active", room.mode === "crocodile");
     document.getElementById("modeGalBtn").classList.toggle("active", room.mode === "gallery");
@@ -324,6 +332,7 @@
     if (room.gallerySettings && room.gallerySettings.drawSeconds) {
       document.getElementById("galleryTimeSelect").value = room.gallerySettings.drawSeconds;
     }
+    document.getElementById("difficultySelect").value = room.difficulty || DrawGame.DEFAULT_DIFFICULTY;
 
     if (isHost) {
       const enough = connNames.length >= DrawGame.MIN_PLAYERS;
@@ -500,6 +509,7 @@
   document.getElementById("modeCrocBtn").addEventListener("click", () => DrawGame.setMode("crocodile"));
   document.getElementById("modeGalBtn").addEventListener("click", () => DrawGame.setMode("gallery"));
   document.getElementById("galleryTimeSelect").addEventListener("change", (e) => DrawGame.setGalleryTimer(Number(e.target.value)));
+  document.getElementById("difficultySelect").addEventListener("change", (e) => DrawGame.setDifficulty(e.target.value));
 
   document.getElementById("startBtn").addEventListener("click", () => DrawGame.startGame(lastRoom));
   document.getElementById("resetBtn").addEventListener("click", () => { if (confirm("Скинути гру?")) DrawGame.resetGame(); });
