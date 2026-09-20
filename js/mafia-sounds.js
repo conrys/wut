@@ -36,8 +36,8 @@
     sheriff_move: [["rc.mp3", 100]],
     night_resolve: [],
     banner_morning: [["m.wav", 100]],
-    banner_morning_safe: [],
-    banner_morning_dead: [],
+    banner_morning_safe: [["ds.mp3", 100]],
+    banner_morning_dead: [["db.mp3", 100]],
     last_words: [],
     day_discussion: [["de.mp3", 3], ["dm.mp3", 97]],
     voting: [["v.wav", 100]],
@@ -46,9 +46,11 @@
     banner_state: [],
     game_over: [],
     // поза таблицею звуків (sounds.xlsx їх ще не розрізняє) — потрібні коду
-    // для різних банерів фіналу; поки що без файлів.
-    game_over_mafia_win: [],
-    game_over_mafia_lose: [],
+    // для різних банерів фіналу.
+    // gf.mp3 уже використовується для mafia_move — тут свідомо дублюємо
+    // той самий файл на game_over_mafia_win (той самий "переможний" тон).
+    game_over_mafia_win: [["gf.mp3", 100]],
+    game_over_mafia_lose: [["cv.mp3", 100]],
   };
 
   // [на тестування, плейтест-2] окрема ФОНОВА доріжка, що грає ПАРАЛЕЛЬНО

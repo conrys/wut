@@ -97,13 +97,33 @@
   .toggle-switch input:checked ~ .track .knob, .toggle-switch input:checked + .track .knob {}
   .toggle-switch input:checked ~ .knob { left: 20px; background: var(--teal); }
 
-  /* --------- банери переходів (bnr_night.png / bnr_day.png / bnr_win.png / bnr_lose.png) --------- */
+  /* --------- банери переходів (svg) ---------
+     bnr_day навмисно немає — банер ранку розгалужується на два варіанти
+     за результатом ночі (day-safe/day-killed), так само як звук вже
+     розгалужується в mafia-sounds.js (banner_morning_safe/_dead). Один
+     спільний "day" був би або неправильний, або зайвий проміжний стан.
+     bnr_win поки без файлу (WIP-збір, як і решта недоданих ассетів) —
+     .svg лишив наперед, підставиш файл, коли буде готовий. */
+  /* тест-10 фікс: banner-screen картинки — viewBox 1200x900 (4:3), а
+     екран мобільного — вузький і високий (9:16). background-size:cover
+     на такому співвідношенні масштабує зображення в рази, щоб "накрити"
+     висоту екрана — і обрізає майже всю ширину разом із вбудованим у
+     SVG текстом (звідси величезні обрізані літери на телефоні; на
+     ноутбуці, з ширшим вікном, той самий cover майже не обрізав).
+     contain — картинка завжди повністю влазить, згори/знизу видно
+     background-color-підложку замість обрізки. */
   .banner-screen { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center;
-      background-size: cover; background-position: center; animation: bannerFade 0.4s ease; }
-  .banner-screen.night { background-color: #05070c; background-image: url('img/mafia/bnr_night.png'); }
-  .banner-screen.day { background-color: #2b2f38; background-image: url('img/mafia/bnr_day.png'); }
-  .banner-screen.win { background-color: #1a0c0c; background-image: url('img/mafia/bnr_win.png'); }
-  .banner-screen.lose { background-color: #0c1a15; background-image: url('img/mafia/bnr_lose.png'); }
+      background-size: contain; background-repeat: no-repeat; background-position: center; animation: bannerFade 0.4s ease; }
+  .banner-screen.night { background-color: #05070c; background-image: url('img/mafia/bnr_night.svg'); }
+  .banner-screen.day-safe { background-color: #2b2f38; background-image: url('img/mafia/bnr_day_safe.svg'); }
+  .banner-screen.day-killed { background-color: #2b2f38; background-image: url('img/mafia/bnr_day_killed.svg'); }
+  /* УВАГА: назви файлів не збігаються зі змістом — bnr_win.svg насправді
+     показується при перемозі ЦИВІЛЬНИХ, bnr_lose.svg — при перемозі МАФІЇ
+     (так історично назвав файли Vlad, переплутавши). Клас .win/.lose тут
+     — це буквально ім'я файлу, а не "хто виграв"; яку з двох підставити —
+     вирішує виклик showBanner() в cueEnterPhase(), не ця CSS-назва. */
+  .banner-screen.win { background-color: #1a0c0c; background-image: url('img/mafia/bnr_win.svg'); }
+  .banner-screen.lose { background-color: #0c1a15; background-image: url('img/mafia/bnr_lose.svg'); }
   .banner-caption { font-family: 'Special Elite', 'Space Grotesk', sans-serif; font-size: 30px; text-align: center;
       color: #f4ede0; text-shadow: 0 3px 10px rgba(0,0,0,0.8); padding: 20px; background: rgba(0,0,0,0.35); border-radius: 10px; }
   @keyframes bannerFade { from { opacity: 0; } to { opacity: 1; } }
@@ -155,15 +175,19 @@
       border: 3px solid var(--accent); filter: grayscale(0.6); }
   .last-words-box .title { font-family: 'Special Elite', sans-serif; font-size: 22px; margin-bottom: 6px; }
 
-  /* --------- вибув (stamp_out.png) --------- */
+  /* --------- вибув: текстовий штамп "ВИБУВ" ---------
+     stamp_out.svg не використовується — картинку прибрано, лишається лише
+     текстовий штамп. КУТ (-8deg) продубльований у трьох місцях: тут в
+     .stamp-out-fallback і двічі в @keyframes stampIn (from/to) — усі три
+     мають лишатись однаковими, інакше штамп "стрибне" на інший кут
+     всередині власної анімації або в стані спокою після неї. */
   .elim-anim { text-align: center; padding: 20px; }
   .elim-anim .avatar-big { width: 100px; height: 100px; border-radius: 50%; background: var(--tile-bg-2);
       display: flex; align-items: center; justify-content: center; margin: 0 auto 10px; font-size: 34px; font-weight: 700;
       position: relative; filter: grayscale(1) brightness(0.6); }
-  .stamp-out { width: 220px; margin: 10px auto 0; display: block; animation: stampIn 0.5s cubic-bezier(.2,1.4,.5,1); }
-  .stamp-out-fallback { font-family: 'Special Elite', sans-serif; font-size: 34px; color: var(--blood);
-      border: 5px solid var(--blood); border-radius: 8px; padding: 10px 26px; transform: rotate(-8deg);
-      display: inline-block; margin-top: 10px; animation: stampIn 0.5s cubic-bezier(.2,1.4,.5,1); }
+  .stamp-out-fallback { font-family: 'Special Elite', sans-serif; font-size: 46px; font-weight: 700; color: var(--blood);
+      border: 8px solid var(--blood); border-radius: 10px; padding: 14px 34px; transform: rotate(-8deg);
+      display: inline-block; margin: 10px 0 28px; animation: stampIn 0.5s cubic-bezier(.2,1.4,.5,1);  text-shadow: 3px 3px 0px black;}
   @keyframes stampIn { from { transform: scale(2.4) rotate(-8deg); opacity: 0; } to { transform: scale(1) rotate(-8deg); opacity: 1; } }
 
   /* --------- чат --------- */
@@ -257,6 +281,7 @@
         <option value="majority">Більшість голосів</option>
         <option value="strict">Всі мають обрати однакову ціль</option>
       </select></label>
+      <label>Перший раунд ознайомчий <span class="toggle-switch"><input type="checkbox" id="introRoundToggle" /><span class="track"></span><span class="knob"></span></span></label>
       <button class="primary-btn" id="startGameBtn">Почати гру</button>
       <div class="hint-text" id="startHint"></div>
     </div>
@@ -352,21 +377,19 @@
   if (window.MafiaSounds && window.MafiaSounds.preloadAll) window.MafiaSounds.preloadAll();
   window.MafiaRoleReveal.mount(document.getElementById("roleRevealStage"));
 
-  // ------------------------- банери (bnr_night/bnr_day/bnr_win/bnr_lose) -------------------------
-  const BANNER_CAPTIONS = {
-    banner_night_start: "МІСТО ЗАСИНАЄ\nМафія виходить на полювання.",
-    banner_morning: "РАНОК НАСТАЄ\nМісто прокидається.",
-  };
+  // ------------------------- банери (bnr_night / bnr_day_safe / bnr_day_killed / bnr_win / bnr_lose) -------------------------
   let bannerTimeout = null;
-  function showBanner(kind, caption, soundName) {
+  function showBanner(kind, caption, soundName, durationMs) {
     const overlay = document.getElementById("bannerOverlay");
     overlay.className = "banner-screen " + kind;
-    document.getElementById("bannerCaption").textContent = caption;
+    const captionEl = document.getElementById("bannerCaption");
+    captionEl.textContent = caption || "";
+    captionEl.classList.toggle("hidden", !caption); // без тексту — без порожньої плашки під ним
     if (soundName) window.MafiaSounds.play(soundName);
     clearTimeout(bannerTimeout);
     // Банер сам не веде фазу (дедлайн — у room.phaseDeadline), лишень
     // ховається трохи раніше кінця фази, щоб встиг показатись наступний вид.
-    bannerTimeout = setTimeout(() => overlay.classList.add("hidden"), 1400);
+    bannerTimeout = setTimeout(() => overlay.classList.add("hidden"), durationMs || 1400);
   }
 
   // ------------------------- звук по фазі -------------------------
@@ -393,8 +416,11 @@
     const snd = PHASE_SOUND[state.phase];
     if (snd) window.MafiaSounds.play(snd);
     if (state.phase === "day_discussion") window.MafiaSounds.playAmbient("day_discussion");
-    if (state.phase === "banner_night_start") showBanner("night", BANNER_CAPTIONS.banner_night_start);
-    if (state.phase === "banner_morning") showBanner("day", BANNER_CAPTIONS.banner_morning);
+    if (state.phase === "banner_night_start") showBanner("night", null, null, 1400 + 1500);
+    if (state.phase === "banner_morning") {
+      const killed = !!(state.nightResult && state.nightResult.victim);
+      showBanner(killed ? "day-killed" : "day-safe", null, null, 1400 + 1500);
+    }
     // night_reveal: два взаємовиключні варіанти звуку однієї й тієї ж фази
     // (є жертва / нема) — узгоджено в mafia-sounds.js, не окремі фази.
     if (state.phase === "night_reveal") {
@@ -406,7 +432,15 @@
     }
     if (state.phase === "game_over") {
       const mafiaWon = state.winner === "mafia";
-      showBanner(mafiaWon ? "win" : "lose", mafiaWon ? "МАФІЯ ПЕРЕМОГЛА" : "МИРНІ ЖИТЕЛІ ПЕРЕМОГЛИ");
+      // УВАГА: файли названі не за власним результатом, а навпаки — Vlad
+      // переплутав назви при створенні: bnr_lose.svg показується, коли
+      // МАФІЯ ВИГРАЛА, а bnr_win.svg — коли ВИГРАЛИ ЦИВІЛЬНІ. Це навмисно
+      // так у коді, не одруківка — не "виправляй" назад на mafiaWon?"win":"lose".
+      // тест-10 фікс: caption тепер null, як і в night/day-safe/day-killed
+      // вище — bnr_win.svg/bnr_lose.svg вже мають текст переможця
+      // намальованим усередині SVG; окремий HTML-caption лише дублював
+      // його поверх (звідси сірий блок із перекритим текстом на телефоні).
+      showBanner(mafiaWon ? "lose" : "win", null);
       window.MafiaSounds.play(mafiaWon ? "game_over_mafia_win" : "game_over_mafia_lose");
     }
   }
@@ -452,6 +486,7 @@
     document.getElementById("doctorToggle").checked = !!settings.doctorEnabled;
     document.getElementById("sheriffToggle").checked = !!settings.sheriffEnabled;
     document.getElementById("mafiaConsensusSelect").value = settings.mafiaConsensus;
+    document.getElementById("introRoundToggle").checked = !!settings.introRoundEnabled;
     if (!mafiaCountBuilt) {
       document.getElementById("mafiaCountSelect").innerHTML = `<option value="">авто</option>` + [1, 2, 3].map((n) => `<option value="${n}">${n}</option>`).join("");
       mafiaCountBuilt = true;
@@ -481,6 +516,10 @@
   }
 
   // ------------------------- ніч -------------------------
+  function isIntroRound(state) {
+    return !!(state.settings && state.settings.introRoundEnabled) && (state.nightNumber || 1) === 1;
+  }
+
   const NIGHT_ROLE_OF_PHASE = { mafia_move: "mafia", doctor_move: "doctor", sheriff_move: "sheriff" };
   const NIGHT_TITLE = { mafia_move: "🔪 Хід мафії", doctor_move: "💉 Хід лікаря", sheriff_move: "🕵️ Хід шерифа" };
 
@@ -494,7 +533,7 @@
     });
     if (!shouldRender("night", sig)) return;
 
-    document.getElementById("nightTitle").textContent = NIGHT_TITLE[state.phase] || "🌙 Ніч";
+    document.getElementById("nightTitle").textContent = (NIGHT_TITLE[state.phase] || "🌙 Ніч") + (isIntroRound(state) ? " · ознайомчий" : "");
     const content = document.getElementById("nightContent");
 
     if (!me || !me.alive) {
@@ -662,7 +701,7 @@
 
   function renderDay(state, ctx) {
     if (shouldRender("daySkeleton", state.phase)) {
-      document.getElementById("dayTitle").textContent = state.phase === "voting" ? "🗳️ Голосування" : "💬 Обговорення";
+      document.getElementById("dayTitle").textContent = (state.phase === "voting" ? "🗳️ Голосування" : "💬 Обговорення") + (isIntroRound(state) ? " · ознайомчий" : "");
       document.getElementById("dayContent").innerHTML =
         (state.phase === "voting" ? `<div id="dayVoteArea"></div>` : "") + `<div id="chatArea"></div>`;
     }
@@ -688,18 +727,22 @@
       const pool = Object.entries(players).filter(([u, p]) => p.alive && u !== ctx.username);
       const sig = JSON.stringify({ myVote: votes[ctx.username], counts, pool: pool.map(([u]) => u) });
       if (shouldRender("voteArea", sig)) {
+        const myVote = votes[ctx.username];
         voteArea.innerHTML = `
           <div class="target-grid">
             ${pool.map(([u]) => `
-              <div class="target-card ${votes[ctx.username] === u ? "selected" : ""}" data-id="${escapeHtml(u)}">
+              <div class="target-card ${myVote === u ? "selected" : ""}" data-id="${escapeHtml(u)}">
                 ${counts[u] ? `<span class="vote-count">${counts[u]}</span>` : ""}
                 <div class="avatar">${initials(u)}</div><div class="name">${escapeHtml(u)}</div>
               </div>`).join("")}
           </div>
-          <div class="hint-text">${votes[ctx.username] ? "Голос враховано — можна змінити." : "Клікни на аватарку, кого підозрюєш."}</div>`;
+          ${myVote ? `<button class="secondary-btn" id="cancelVoteBtn">🚫 Скасувати голос</button>` : ""}
+          <div class="hint-text">${myVote ? "Голос враховано — можна змінити або скасувати." : "Клікни на аватарку, кого підозрюєш."}</div>`;
         voteArea.querySelectorAll(".target-card").forEach((el) => {
           el.addEventListener("click", () => window.MafiaGame.submitVote(el.dataset.id));
         });
+        const cancelBtn = document.getElementById("cancelVoteBtn");
+        if (cancelBtn) cancelBtn.addEventListener("click", () => window.MafiaGame.submitVote(null));
       }
     }
     renderChat(state, ctx, "chatArea");
@@ -711,7 +754,6 @@
     if (!shouldRender("elimAnim", victim || "")) return;
     document.getElementById("elimAnimContent").innerHTML = `
       <div class="avatar-big">${initials(victim)}</div>
-      <img class="stamp-out hidden" src="img/mafia/stamp_out.png" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-block';" />
       <div class="stamp-out-fallback">ВИБУВ</div>
       <div class="status-line">${escapeHtml(victim)} вигнаний(а) голосуванням.</div>`;
   }
@@ -869,6 +911,7 @@
   document.getElementById("sheriffToggle").addEventListener("change", (e) => window.MafiaGame.setSettings({ sheriffEnabled: e.target.checked }));
   document.getElementById("mafiaCountSelect").addEventListener("change", (e) => window.MafiaGame.setSettings({ mafiaCount: e.target.value === "" ? null : Number(e.target.value) }));
   document.getElementById("mafiaConsensusSelect").addEventListener("change", (e) => window.MafiaGame.setSettings({ mafiaConsensus: e.target.value }));
+  document.getElementById("introRoundToggle").addEventListener("change", (e) => window.MafiaGame.setSettings({ introRoundEnabled: e.target.checked }));
   document.getElementById("startGameBtn").addEventListener("click", () => window.MafiaGame.startGame());
   document.getElementById("toggleReadyBtn").addEventListener("click", () => {
     const me = window.MafiaGame.me;

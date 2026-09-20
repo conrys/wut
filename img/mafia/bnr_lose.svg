@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 26.1.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<svg version="1.1" id="Шар_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="0 0 1200 900" style="enable-background:new 0 0 1200 900;" xml:space="preserve">
+<style type="text/css">
+	.st0{opacity:0.85;}
+	.st1{fill:#57463C;}
+	.st2{fill:#4C403B;}
+	.st3{opacity:0.22;fill:url(#projector2_00000141449883359045873100000004121254945590151861_);}
+	.st4{fill:none;}
+	.st5{opacity:0.85;fill:#FF0000;stroke:#FF0000;stroke-width:12;stroke-miterlimit:10;}
+	.st6{font-family:'Stereonic-XS';}
+	.st7{font-size:143px;}
+</style>
+<g class="st0">
+	<path class="st1" d="M0,172v556h1200V172H0z M84.93,703.29H19v-61.78h65.93V703.29z M84.93,258.49H19v-61.78h65.93V258.49z
+		 M216.78,703.29h-65.93v-61.78h65.93V703.29z M216.78,258.49h-65.93v-61.78h65.93V258.49z M348.63,703.29h-65.93v-61.78h65.93
+		V703.29z M348.63,258.49h-65.93v-61.78h65.93V258.49z M480.49,703.29h-65.93v-61.78h65.93V703.29z M480.49,258.49h-65.93v-61.78
+		h65.93V258.49z M612.34,703.29h-65.93v-61.78h65.93V703.29z M612.34,258.49h-65.93v-61.78h65.93V258.49z M743.53,703.29h-65.27
+		v-61.78h65.27V703.29z M743.53,258.49h-65.27v-61.78h65.27V258.49z M876.36,703.4h-65.93v-61.78h65.93V703.4z M876.36,258.6h-65.93
+		v-61.78h65.93V258.6z M1008.21,703.4h-65.93v-61.78h65.93V703.4z M1008.21,258.6h-65.93v-61.78h65.93V258.6z M1140.06,703.4h-65.93
+		v-61.78h65.93V703.4z M1140.06,258.6h-65.93v-61.78h65.93V258.6z"/>
+</g>
+<g id="frame" class="st0">
+	<rect x="49" y="295.89" class="st2" width="1100" height="308.89"/>
+</g>
+<radialGradient id="projector2_00000049199559852651233400000016316651168577337217_" cx="612" cy="458" r="561.5804" gradientUnits="userSpaceOnUse">
+	<stop  offset="0.4514" style="stop-color:#FFFFFF"/>
+	<stop  offset="1" style="stop-color:#FBB03B;stop-opacity:0.2"/>
+</radialGradient>
+<ellipse id="projector2" style="opacity:0.22;fill:url(#projector2_00000049199559852651233400000016316651168577337217_);" cx="612" cy="458" rx="571" ry="552"/>
+<rect x="50.19" y="305.49" class="st4" width="1097.62" height="296.51"/>
+<text transform="matrix(1 0 0 1 53.6073 503.7926)" class="st5 st6 st7">МАФІЯ ПЕРЕМОГЛА</text>
+</svg>

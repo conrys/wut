@@ -31,6 +31,12 @@
     sheriffEnabled: true,
     mafiaCount: null, // null = авто (за кількістю гравців)
     mafiaConsensus: "majority", // "majority" | "strict"
+    // Перший цикл ніч+день (room.nightNumber === 1) проходить повністю
+    // (ролі, ходи, перевірка шерифа) — ЛИШЕ фактична смерть від мафії й
+    // лінч на голосуванні приглушуються, щоб новачки встигли зрозуміти
+    // механіку без реальних втрат за першу ніч/день. З другого раунду
+    // (nightNumber >= 2) гра йде звичайно.
+    introRoundEnabled: false,
   };
 
   const ROLE_META = {
@@ -411,7 +417,8 @@
       }
     }
 
-    const victim = (killTarget && killTarget !== doctorSave) ? killTarget : null;
+    const isIntroRound = settings.introRoundEnabled && (room.nightNumber || 1) === 1;
+    const victim = (!isIntroRound && killTarget && killTarget !== doctorSave) ? killTarget : null;
     const patch = { nightResult: { victim: victim || null, sheriffCheck }, moves: {} };
     if (victim) patch["players/" + victim + "/alive"] = false;
 
@@ -427,6 +434,8 @@
   function resolveVoting(room) {
     const players = room.players || {};
     const votes = room.votes || {};
+    const settings = Object.assign({}, DEFAULT_SETTINGS, room.settings);
+    const isIntroRound = settings.introRoundEnabled && (room.nightNumber || 1) === 1;
     const tally = {};
     Object.entries(votes).forEach(([voter, target]) => {
       if (players[voter] && players[voter].alive && players[target] && players[target].alive) {
@@ -435,7 +444,7 @@
     });
     const entries = Object.entries(tally);
     let eliminated = null;
-    if (entries.length) {
+    if (!isIntroRound && entries.length) {
       const max = Math.max(...entries.map(([, c]) => c));
       const top = entries.filter(([, c]) => c === max);
       if (top.length === 1) eliminated = top[0][0]; // нічия — ніхто не вигнаний
@@ -475,10 +484,20 @@
     engine.roomRef.child("moves/" + myUsername).set({ choice: "target", target });
   }
 
+  // target === null означає "скасувати голос" (прибрати запис голосу
+  // повністю, а не просто "не голосувати ні за кого візуально") — на
+  // відміну від лікаря/шерифа, тут це свідомо дозволено: якщо ніч не дала
+  // жодної зачіпки (ніхто не загинув, перевірка шерифа нічого не прояснила),
+  // гравці мають право явно відмовитись від лінчу того дня, а не бути
+  // змушеними тицяти в когось навмання.
   function submitVote(target) {
     const room = engine.latestRoom; const me = room && room.players[myUsername];
-    if (!room || room.phase !== "voting" || !me || !me.alive || !target) return;
-    engine.roomRef.child("votes/" + myUsername).set(target);
+    if (!room || room.phase !== "voting" || !me || !me.alive) return;
+    if (target) {
+      engine.roomRef.child("votes/" + myUsername).set(target);
+    } else {
+      engine.roomRef.child("votes/" + myUsername).remove();
+    }
   }
 
   // ------------------------- чат -------------------------
