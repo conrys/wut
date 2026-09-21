@@ -1,0 +1,820 @@
+<!-- Гра: Шахи  |  Файл: chess.html -->
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<title>Шахи</title>
+<link rel="stylesheet" href="js/teli-style.css" />
+<style>
+  :root {
+    --board-light: #e9d8b4;
+    --board-dark: #8a6a4a;
+    --board-select: rgba(217, 180, 92, 0.55);
+    --board-lastmove: rgba(217, 180, 92, 0.28);
+    --board-check: rgba(217, 90, 90, 0.55);
+    --board-dot: rgba(30, 20, 10, 0.35);
+    --radius-xs: 4px;
+    --radius-sm: 8px;
+    --radius-md: 14px;
+    --radius-lg: 20px;
+    --radius-pill: 999px;
+    --scrim: rgba(0,0,0,0.31);
+    --scrim-strong: rgba(0,0,0,0.82);
+  }
+
+  .mode-grid { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+  .mode-card {
+    background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: var(--radius-md);
+    padding: 18px; text-align: left; color: var(--text-primary); font-family: var(--font-body);
+  }
+  .mode-card .mtitle { font-family: var(--font-display); font-weight: 700; font-size: 17px; margin-bottom: 4px; }
+  .mode-card .mdesc { color: var(--text-muted); font-size: 13px; }
+
+  .role-slot {
+    display: flex; align-items: center; width: 100%; text-align: left; gap: 10px;
+    padding: 12px; background: var(--bg-tile); border-radius: var(--radius-sm); margin-bottom: 8px;
+    border: 1px solid transparent; font-family: var(--font-body); color: var(--text-primary);
+  }
+  .role-slot .csw { font-size: 20px; }
+  .role-slot .cname { flex: 1; font-size: 14px; color: var(--text-muted); }
+  .role-slot .raction { font-size: 12px; color: var(--accent); }
+  .role-slot.mine { border-color: var(--accent); }
+  .role-slot.mine .cname { color: var(--text-primary); }
+  .role-slot.taken { opacity: 0.6; }
+
+  .clock-bar { display: flex; gap: 10px; margin-bottom: 10px; }
+  .clock-chip { flex: 1; background: var(--bg-tile); border-radius: var(--radius-sm); padding: 8px 10px; display: flex; justify-content: space-between; align-items: center; font-family: var(--font-body); font-size: 13px; }
+  .clock-chip .cc-time { font-family: var(--font-display); font-weight: 700; font-size: 16px; }
+  .clock-chip.active { box-shadow: inset 0 0 0 2px var(--accent); }
+  .clock-chip.low .cc-time { color: var(--board-check, #d55); }
+
+
+  .turn-bar { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 10px; font-size: 14px; color: var(--text-muted); }
+  .turn-bar .who { font-family: var(--font-display); font-weight: 700; color: var(--text-primary); }
+  .turn-bar .swatch { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+  .turn-bar .swatch.w { background: #eee; border: 1px solid #999; }
+  .turn-bar .swatch.b { background: #222; border: 1px solid #555; }
+
+  .board-wrap { width: 100%; max-width: 420px; margin: 0 auto; }
+  .board {
+    display: grid; grid-template-columns: repeat(8, 1fr); width: 100%; aspect-ratio: 1/1;
+    border-radius: var(--radius-sm); overflow: hidden; border: 2px solid var(--border-soft);
+  }
+  .sq {
+    position: relative; display: flex; align-items: center; justify-content: center;
+    user-select: none; -webkit-user-select: none;
+    aspect-ratio: 1/1;
+  }
+  .sq.light { background: var(--board-light); }
+  .sq.dark { background: var(--board-dark); }
+  .sq .piece {
+    position: relative; z-index: 2; width: 78%; height: 78%; display: block;
+    filter: drop-shadow(0 1px 1.5px rgba(0,0,0,0.4)); cursor: pointer;
+    pointer-events: none; /* клік ловить .sq, фігурі не треба бути ціллю окремо */
+  }
+  .sq.selected::before { content: ""; position: absolute; inset: 0; background: var(--board-select); }
+  .sq.lastmove::before { content: ""; position: absolute; inset: 0; background: var(--board-lastmove); }
+  .sq.check::before { content: ""; position: absolute; inset: 0; background: var(--board-check); }
+  .sq .movedot { position: absolute; width: 26%; height: 26%; border-radius: 50%; background: var(--board-dot); z-index: 1; }
+  .sq .movedot.capture { width: 100%; height: 100%; border-radius: 0; background: transparent; box-shadow: inset 0 0 0 4px var(--board-dot); }
+  .sq .coord { position: absolute; bottom: 2px; left: 3px; font-size: 9px; font-family: var(--font-body); opacity: 0.5; z-index: 1; }
+
+  .promo-picker {
+    position: fixed; inset: 0; background: var(--scrim-strong); z-index: 100;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .promo-box { background: var(--bg-panel); border-radius: var(--radius-md); padding: 18px; display: flex; gap: 10px; }
+  .promo-box button { width: 56px; height: 56px; padding: 6px; border-radius: var(--radius-sm); background: var(--bg-tile); display: flex; align-items: center; justify-content: center; }
+  .promo-box button .piece { width: 100%; height: 100%; pointer-events: none; }
+
+  .move-history { max-height: 110px; overflow-y: auto; font-size: 13px; color: var(--text-muted); display: flex; flex-wrap: wrap; gap: 4px 10px; }
+  .move-history .mv-pair { white-space: nowrap; }
+  .move-history b { color: var(--text-primary); }
+
+  .board-actions { display: flex; gap: 8px; margin-top: 12px; }
+  .board-actions .btn { flex: 1; font-size: 13px; padding: 10px; }
+
+  .result-panel { text-align: center; }
+  .result-panel .rtitle { font-family: var(--font-display); font-weight: 700; font-size: 20px; margin-bottom: 6px; }
+
+  .draw-offer-bar { display: flex; align-items: center; gap: 10px; justify-content: center; background: var(--bg-tile); border-radius: var(--radius-sm); padding: 10px; margin-bottom: 10px; font-size: 13px; }
+  .draw-offer-bar .btn { padding: 6px 12px; font-size: 12px; }
+</style>
+</head>
+<body>
+<!-- Спрайт фігур (спільний для шахів і шашок; symbol id = колір(w/b)+тип: p,n,b,r,q,k) -->
+<svg style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true" focusable="false"><defs>
+    <symbol id="wp" viewBox="0 0 100 100"><!-- білий пішак -->
+<g xmlns="http://www.w3.org/2000/svg">
+	<g>
+		<path fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" d="M73,89c0,2.2-1.8,4-4,4H31c-2.2,0-4-1.8-4-4l0,0    c0-2.2,1.8-4,4-4h38C71.2,85,73,86.8,73,89L73,89z" />
+	</g>
+	<circle fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" cx="50" cy="22" r="13" />
+	<g>
+		<path fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" d="M63,38c0,1.65-1.35,3-3,3H40c-1.65,0-3-1.35-3-3    l0,0c0-1.65,1.35-3,3-3h20C61.65,35,63,36.35,63,38L63,38z" />
+	</g>
+	<g>
+		<path fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" d="M68,82c0,1.65-1.35,3-3,3H35c-1.65,0-3-1.35-3-3    l0,0c0-1.65,1.35-3,3-3h30C66.65,79,68,80.35,68,82L68,82z" />
+	</g>
+	<path fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" d="M63.99,79C62.052,74.959,58,74.478,58,41H42   c0,33.478-4.052,33.959-5.99,38H63.99z" />
+</g>
+
+    </symbol>
+
+    <symbol id="wn" viewBox="0 0 100 100"><!-- білий кінь -->
+<g xmlns="http://www.w3.org/2000/svg">
+	<g>
+		<path fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" d="M76,89c0,2.2-1.8,4-4,4H28c-2.2,0-4-1.8-4-4l0,0    c0-2.2,1.8-4,4-4h44C74.2,85,76,86.8,76,89L76,89z" />
+	</g>
+	<path fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" d="M71.86,47.477C68.391,55.789,64,66.297,64,79H36   l-2-22c7.18,0,13-5.82,13-13" />
+	<g>
+		<path fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" d="M71,82c0,1.65-1.35,3-3,3H32c-1.65,0-3-1.35-3-3    l0,0c0-1.65,1.35-3,3-3h36C69.65,79,71,80.35,71,82L71,82z" />
+	</g>
+	<line fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" x1="27" y1="45" x2="32" y2="41" />
+	<line fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" x1="41" y1="24" x2="46" y2="21" />
+	<line fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" x1="24" y1="39" x2="27" y2="37" />
+	<path fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" d="M52,20V10c13.255,0,24,10.745,24,24   S65.255,58,52,58" />
+	<path fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" d="M20,38c0-8.24,16-14.169,16-16c0-3.866,3.134-7,7-7   h9" />
+	<path fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" d="M20,38c0,3.866,3.134,7,7,7" />
+	<path fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" d="M28,45c0,2.209,1.791,4,4,4s4-1.791,4-4l7-3   c2.539,2.539,6.654,2.539,9.192,0s2.539-6.654,0-9.192" />
+</g>
+
+    </symbol>
+
+    <symbol id="wb" viewBox="0 0 100 100"><!-- білий слон -->
+<g xmlns="http://www.w3.org/2000/svg">
+	<g>
+		<path fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" d="M73,89c0,2.2-1.8,4-4,4H31c-2.2,0-4-1.8-4-4l0,0    c0-2.2,1.8-4,4-4h38C71.2,85,73,86.8,73,89L73,89z" />
+	</g>
+	<g>
+		<path fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" d="M63,40c0,1.65-1.35,3-3,3H40c-1.65,0-3-1.35-3-3    l0,0c0-1.65,1.35-3,3-3h20C61.65,37,63,38.35,63,40L63,40z" />
+	</g>
+	<g>
+		<path fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" d="M68,82c0,1.65-1.35,3-3,3H35c-1.65,0-3-1.35-3-3    l0,0c0-1.65,1.35-3,3-3h30C66.65,79,68,80.35,68,82L68,82z" />
+	</g>
+	<path fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" d="M50,5c0,5-13,16-13,21s4,11,4,11h18c0,0,4-6,4-11   S50,10,50,5z" />
+	<line fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" x1="48" y1="23" x2="44" y2="15" />
+	<path fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" d="M62.578,79c-0.942-5.738-3.17-8.413-3.528-36h-18.1   c-0.358,27.587-2.586,30.262-3.528,36H62.578z" />
+</g>
+
+    </symbol>
+
+    <symbol id="wr" viewBox="0 0 100 100"><!-- білий тура -->
+<g xmlns="http://www.w3.org/2000/svg">
+	<g>
+		<path fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" d="M77,89c0,2.2-1.8,4-4,4H27c-2.2,0-4-1.8-4-4l0,0    c0-2.2,1.8-4,4-4h46C75.2,85,77,86.8,77,89L77,89z" />
+	</g>
+	<g>
+		<path fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" d="M67,32c0,1.65-1.35,3-3,3H36c-1.65,0-3-1.35-3-3    l0,0c0-1.65,1.35-3,3-3h28C65.65,29,67,30.35,67,32L67,32z" />
+	</g>
+	<g>
+		<path fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" d="M72,82c0,1.65-1.35,3-3,3H31c-1.65,0-3-1.35-3-3    l0,0c0-1.65,1.35-3,3-3h38C70.65,79,72,80.35,72,82L72,82z" />
+	</g>
+	<g>
+		<path fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" d="M31,10v16c0,1.65,1.35,3,3,3h32c1.65,0,3-1.35,3-3    V10" />
+	</g>
+	<polyline fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" points="69,16 69,10 62,10 62,16 56,16 56,10    44,10 44,16 38,16 38,10 31,10 31,16  " />
+	<path fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" d="M68.262,79C66.464,72.751,62,70.139,62,35H38   c0,35.139-4.464,37.751-6.262,44H68.262z" />
+</g>
+
+    </symbol>
+
+    <symbol id="wq" viewBox="0 0 100 100"><!-- білий ферзь -->
+<g xmlns="http://www.w3.org/2000/svg">
+	<g>
+		<path fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" d="M73,89c0,2.2-1.8,4-4,4H31c-2.2,0-4-1.8-4-4l0,0    c0-2.2,1.8-4,4-4h38C71.2,85,73,86.8,73,89L73,89z" />
+	</g>
+	<g>
+		<path fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" d="M63,36c0,1.65-1.35,3-3,3H40c-1.65,0-3-1.35-3-3    l0,0c0-1.65,1.35-3,3-3h20C61.65,33,63,34.35,63,36L63,36z" />
+	</g>
+	<g>
+		<path fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" d="M68,82c0,1.65-1.35,3-3,3H35c-1.65,0-3-1.35-3-3    l0,0c0-1.65,1.35-3,3-3h30C66.65,79,68,80.35,68,82L68,82z" />
+	</g>
+	<polyline fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" points="34,15 41,33 59,33 66,15  " />
+	<path fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" d="M36,20c0-1.657,6.268-3,14-3s14,1.343,14,3" />
+	<circle fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" cx="50" cy="13" r="4" />
+	<line fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" x1="37" y1="23" x2="63" y2="23" />
+	<path fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" d="M62.61,79c-0.946-6.487-3.306-10.059-3.583-40   H40.973c-0.277,29.941-2.637,33.513-3.583,40H62.61z" />
+</g>
+
+    </symbol>
+
+    <symbol id="wk" viewBox="0 0 100 100"><!-- білий король -->
+<g xmlns="http://www.w3.org/2000/svg">
+	<g>
+		<path fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" d="M73,89c0,2.2-1.8,4-4,4H31c-2.2,0-4-1.8-4-4l0,0    c0-2.2,1.8-4,4-4h38C71.2,85,73,86.8,73,89L73,89z" />
+	</g>
+	<g>
+		<path fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" d="M63,36c0,1.65-1.35,3-3,3H40c-1.65,0-3-1.35-3-3    l0,0c0-1.65,1.35-3,3-3h20C61.65,33,63,34.35,63,36L63,36z" />
+	</g>
+	<g>
+		<path fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" d="M68,82c0,1.65-1.35,3-3,3H35c-1.65,0-3-1.35-3-3    l0,0c0-1.65,1.35-3,3-3h30C66.65,79,68,80.35,68,82L68,82z" />
+	</g>
+	<polygon fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" points="63,20 59,33 41,33 37,20 50,15  " />
+	<line fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" x1="50" y1="15" x2="50" y2="5" />
+	<line fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" x1="46" y1="9" x2="54" y2="9" />
+	<line fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" x1="38" y1="23" x2="62" y2="23" />
+	<path fill="none" stroke="#000000" stroke-width="4" stroke-miterlimit="10" d="M62.61,79c-0.946-6.487-3.306-10.059-3.583-40   H40.973c-0.277,29.941-2.637,33.513-3.583,40H62.61z" />
+</g>
+
+    </symbol>
+
+    <symbol id="bp" viewBox="0 0 100 100"><!-- чорний пішак -->
+<path xmlns="http://www.w3.org/2000/svg" d="M37,38c0-1.1,0.9-2,2-2h22c1.1,0,2,0.9,2,2s-0.9,2-2,2H39C37.9,40,37,39.1,37,38z M34,84h32c1.1,0,2-0.9,2-2s-0.9-2-2-2H34  c-1.1,0-2,0.9-2,2S32.9,84,34,84z M69,85H31c-2.2,0-4,1.8-4,4s1.8,4,4,4h38c2.2,0,4-1.8,4-4S71.2,85,69,85z M50,35  c7.18,0,13-5.82,13-13S57.18,9,50,9s-13,5.82-13,13S42.82,35,50,35z M58,41H42c0,33.478-4.052,33.959-5.99,38H63.99  C62.052,74.959,58,74.478,58,41z" fill="#000000" />
+
+    </symbol>
+
+    <symbol id="bn" viewBox="0 0 100 100"><!-- чорний кінь -->
+<path xmlns="http://www.w3.org/2000/svg" d="M31.375,40.219l1.249,1.563l-5.475,4.379C27.676,48.357,29.645,50,32,50c2.527,0,4.622-1.885,4.954-4.32l5.849-2.508  c2.944,2.451,7.337,2.297,10.097-0.465c2.924-2.924,2.924-7.682,0-10.606l0.707-0.707c1.605,1.605,2.49,3.739,2.49,6.011  c0,1.328-0.311,2.607-0.884,3.764l0,0c-0.196,0.396-0.425,0.775-0.681,1.14c-0.024,0.034-0.05,0.066-0.074,0.1  c-0.256,0.353-0.536,0.692-0.851,1.007c-0.276,0.276-0.57,0.523-0.873,0.752c-0.07,0.053-0.143,0.101-0.213,0.15  c-0.252,0.179-0.51,0.344-0.775,0.492c-1.508,0.844-3.216,1.203-4.894,1.057C45.944,52.158,40.545,57,34,57l2,22h28  c0-9.957,2.698-18.563,5.535-25.822C64.908,57.412,58.751,60,52,60v-1c13.785,0,25-11.215,25-25S65.785,9,52,9h-1v10h-1v-4h-7  c-3.866,0-7,3.134-7,7c0,1.831-16,7.76-16,16c0,3.38,2.395,6.199,5.58,6.855L31.375,40.219z M45.485,20.143l1.029,1.715l-5,3  l-1.029-1.715L45.485,20.143z M23.445,38.168l3-2l1.109,1.664l-3,2L23.445,38.168z M69,80c1.1,0,2,0.9,2,2s-0.9,2-2,2H31  c-1.1,0-2-0.9-2-2s0.9-2,2-2H69z M76,89c0,2.2-1.8,4-4,4H28c-2.2,0-4-1.8-4-4s1.8-4,4-4h44C74.2,85,76,86.8,76,89z" fill="#000000" />
+
+    </symbol>
+
+    <symbol id="bb" viewBox="0 0 100 100"><!-- чорний слон -->
+<path xmlns="http://www.w3.org/2000/svg" d="M37,40c0-1.1,0.9-2,2-2h22c1.1,0,2,0.9,2,2s-0.9,2-2,2H39C37.9,42,37,41.1,37,40z M34,84h32c1.1,0,2-0.9,2-2s-0.9-2-2-2H34  c-1.1,0-2,0.9-2,2S32.9,84,34,84z M69,85H31c-2.2,0-4,1.8-4,4s1.8,4,4,4h38c2.2,0,4-1.8,4-4S71.2,85,69,85z M40.95,43  c-0.358,27.588-2.586,30.262-3.528,36h25.156c-0.942-5.738-3.17-8.412-3.528-36H40.95z M59,37c0,0,4-6,4-11  c0-4.411-10.112-13.488-12.496-19h-1.008c-0.871,2.015-2.776,4.506-4.842,7.072l4.24,8.48l-1.789,0.895l-3.834-7.668  C40.1,19.686,37,23.558,37,26c0,5,4,11,4,11H59z" fill="#000000" />
+
+    </symbol>
+
+    <symbol id="br" viewBox="0 0 100 100"><!-- чорний тура -->
+<path xmlns="http://www.w3.org/2000/svg" d="M31,25V10h7v6h6v-6h12v6h6v-6h7v15c0,2.2-1.8,4-4,4H35C32.8,29,31,27.2,31,25z M65,34c1.1,0,2-0.9,2-2s-0.9-2-2-2H35  c-1.1,0-2,0.9-2,2s0.9,2,2,2H65z M30,84h40c1.1,0,2-0.9,2-2s-0.9-2-2-2H30c-1.1,0-2,0.9-2,2S28.9,84,30,84z M73,85H27  c-2.2,0-4,1.8-4,4s1.8,4,4,4h46c2.2,0,4-1.8,4-4S75.2,85,73,85z M68.262,79C66.464,72.752,62,70.139,62,35H38  c0,35.139-4.464,37.752-6.262,44H68.262z" fill="#000000" />
+
+    </symbol>
+
+    <symbol id="bq" viewBox="0 0 100 100"><!-- чорний ферзь -->
+<path xmlns="http://www.w3.org/2000/svg" d="M63,36c0,1.1-0.9,2-2,2H39c-1.1,0-2-0.9-2-2s0.9-2,2-2h22C62.1,34,63,34.9,63,36z M34,84h32c1.1,0,2-0.9,2-2s-0.9-2-2-2H34  c-1.1,0-2,0.9-2,2S32.9,84,34,84z M69,85H31c-2.2,0-4,1.8-4,4s1.8,4,4,4h38c2.2,0,4-1.8,4-4S71.2,85,69,85z M40.973,39  c-0.277,29.941-2.637,33.514-3.583,40H62.61c-0.946-6.486-3.306-10.059-3.583-40H40.973z M34.965,23l3.89,10h22.291l3.89-10H34.965z   M65.424,22l2.44-6.275l-3.729-1.449l-1.361,3.501c-1.851-0.886-5.641-1.543-10.218-1.724C53.432,15.318,54,14.23,54,13  c0-2.209-1.791-4-4-4s-4,1.791-4,4c0,1.23,0.568,2.318,1.443,3.053c-4.577,0.181-8.367,0.838-10.218,1.724l-1.361-3.501  l-3.729,1.449L34.576,22H65.424z" fill="#000000" />
+
+    </symbol>
+
+    <symbol id="bk" viewBox="0 0 100 100"><!-- чорний король -->
+<path xmlns="http://www.w3.org/2000/svg" d="M37,36c0-1.1,0.9-2,2-2h22c1.1,0,2,0.9,2,2s-0.9,2-2,2H39C37.9,38,37,37.1,37,36z M34,84h32c1.1,0,2-0.9,2-2s-0.9-2-2-2H34  c-1.1,0-2,0.9-2,2S32.9,84,34,84z M69,85H31c-2.2,0-4,1.8-4,4s1.8,4,4,4h38c2.2,0,4-1.8,4-4S71.2,85,69,85z M37,20l0.615,2h24.77  L63,20l-11-4.23V11h2V7h-2V5h-4v2h-2v4h2v4.77L37,20z M59,33l3.077-10H37.923L41,33H59z M40.973,39  c-0.277,29.941-2.637,33.514-3.583,40H62.61c-0.946-6.486-3.306-10.059-3.583-40H40.973z" fill="#000000" />
+
+    </symbol>
+  </defs></svg>
+<div class="wrap">
+  <div class="title-block" id="titleBlock">
+    <div class="logo">♟️ <span>Шахи</span></div>
+  </div>
+
+  <!-- ВИБІР РЕЖИМУ -->
+  <div class="hidden stage" id="view-mode">
+    <div class="mode-grid">
+      <button class="mode-card" id="btnModeOnline">
+        <div class="mtitle">Онлайн з другом</div>
+        <div class="mdesc">Кімната з кодом, кожен грає зі свого телефону</div>
+      </button>
+      <button class="mode-card" id="btnModeLocal">
+        <div class="mtitle">Локально, по черзі</div>
+        <div class="mdesc">Один екран, дошка перевертається після кожного ходу</div>
+      </button>
+    </div>
+  </div>
+
+  <!-- НЕ ЗАЛОГІНЕНИЙ -->
+  <div class="hidden stage-center" id="view-locked">
+    <div class="empty-state"><div class="empty-icon">🔒</div><div class="status-line">Увійди в профіль, щоб грати онлайн</div></div>
+    <button class="btn btn-block" id="backToModeFromLocked" style="margin-top:14px;">← Назад</button>
+  </div>
+
+  <!-- ВХІД У КІМНАТУ -->
+  <div class="hidden stage" id="view-room-entry">
+    <div class="status-line">Обери активну кімнату або введи код друга</div>
+    <div class="card rooms-list" id="activeRoomsList"></div>
+    <div class="divider">або вручну</div>
+    <input class="field" id="roomCodeInput" maxlength="5" placeholder="КОД КІМНАТИ" style="text-align:center; text-transform:uppercase; letter-spacing:0.1em;" />
+    <button class="btn btn-primary btn-block" id="joinRoomBtn">Приєднатись</button>
+    <div class="divider">або створи свою</div>
+    <div class="card">
+      <h3>Таймконтроль нового столу</h3>
+      <div class="status-line" style="font-size:12px; margin-bottom:8px;">Впливає лише на СТВОРЕННЯ нової кімнати — при приєднанні до чужої ігнорується.</div>
+      <select class="field" id="timeControlSelect">
+        <option value="none">Без таймера — дограти можна коли завгодно</option>
+        <option value="5+0">Бліц 5+0</option>
+        <option value="10+0">Швидкі 10+0</option>
+        <option value="15+10">Класика 15+10</option>
+      </select>
+    </div>
+    <button class="btn btn-block" id="createRoomBtn">Створити нову кімнату</button>
+  </div>
+
+  <!-- ЛОБІ -->
+  <div class="hidden stage" id="view-lobby">
+    <div class="room-code-display" id="roomCodeDisplay"></div>
+    <div class="status-line" id="lobbyTimeControlLine"></div>
+    <div class="card">
+      <h3>Оберіть роль</h3>
+      <button class="role-slot" id="slotWhite"><span class="csw">♔</span><span class="cname">—</span><span class="raction"></span></button>
+      <button class="role-slot" id="slotBlack"><span class="csw">♚</span><span class="cname">—</span><span class="raction"></span></button>
+      <div class="status-line" id="spectatorHint" style="margin-top:6px;">Не обереш роль — лишишся глядачем</div>
+    </div>
+    <button class="btn btn-primary btn-block hidden" id="startOnlineBtn">Почати партію</button>
+    <div class="status-line" id="lobbyHint"></div>
+  </div>
+
+  <!-- ГРА -->
+  <div class="hidden stage" id="view-board">
+    <div class="hidden clock-bar" id="clockBar">
+      <div class="clock-chip" id="clockWhite"><span class="cc-label">♔ Білі</span><span class="cc-time">--:--</span></div>
+      <div class="clock-chip" id="clockBlack"><span class="cc-label">♚ Чорні</span><span class="cc-time">--:--</span></div>
+    </div>
+    <div class="turn-bar" id="turnBar"></div>
+    <div class="hidden draw-offer-bar" id="drawOfferBar">
+      <span id="drawOfferText"></span>
+      <button class="btn btn-primary" id="acceptDrawBtn">Прийняти</button>
+      <button class="btn" id="declineDrawBtn">Відхилити</button>
+    </div>
+    <div class="board-wrap">
+      <div class="board" id="boardEl"></div>
+    </div>
+    <div class="board-actions" id="onlineActions">
+      <button class="btn" id="offerDrawBtn">Нічия?</button>
+      <button class="btn" id="resignBtn">Здатись</button>
+    </div>
+    <div class="board-actions hidden" id="localActions">
+      <button class="btn btn-block" id="newLocalGameBtn">Нова партія</button>
+    </div>
+    <div class="card" style="margin-top:10px;">
+      <h3>Ходи</h3>
+      <div class="move-history" id="moveHistory"></div>
+    </div>
+
+    <!-- РЕЗУЛЬТАТ -->
+    <div class="hidden card result-panel" id="resultPanel">
+      <div class="rtitle" id="resultTitle"></div>
+      <button class="btn btn-primary btn-block hidden" id="rematchBtn">Реванш</button>
+      <div class="status-line hidden" id="waitRematchLine">Чекаємо на суперника...</div>
+      <button class="btn btn-block" id="backToModeFromResult" style="margin-top:8px;">До вибору режиму</button>
+    </div>
+  </div>
+
+  <div class="hidden promo-picker" id="promoPicker">
+    <div class="promo-box" id="promoBox"></div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/app-settings.js"></script>
+<link rel="stylesheet" href="js/game-header.css">
+<script src="js/game-header.js"></script>
+<script src="js/login.js"></script>
+<script src="js/online-engine.js"></script>
+<script src="js/chess-rules.js"></script>
+<script src="js/chess-game.js"></script>
+<script src="js/room-code-ui.js"></script>
+<script src="js/help.js"></script>
+<script src="js/back-button.js"></script>
+<script>
+(function () {
+  const R = window.ChessRules;
+  // symbol id у спрайті (js/chess-pieces.svg, вставлений інлайном у <body>) —
+  // колір w/b + тип малою літерою (p,n,b,r,q,k).
+  const PIECE_SYMBOL = {
+    wK: "wk", wQ: "wq", wR: "wr", wB: "wb", wN: "wn", wP: "wp",
+    bK: "bk", bQ: "bq", bR: "br", bB: "bb", bN: "bn", bP: "bp",
+  };
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  function createPieceIcon(piece) {
+    const svg = document.createElementNS(SVG_NS, "svg");
+    svg.setAttribute("class", "piece");
+    svg.setAttribute("viewBox", "0 0 100 100");
+    const use = document.createElementNS(SVG_NS, "use");
+    use.setAttribute("href", "#" + PIECE_SYMBOL[piece]);
+    svg.appendChild(use);
+    return svg;
+  }
+  const FILES = "abcdefgh";
+
+  const VIEWS = ["mode", "locked", "room-entry", "lobby", "board"];
+  function showView(name) {
+    VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name));
+    document.getElementById("titleBlock").classList.toggle("hidden", name === "board");
+  }
+
+  let mode = null; // "online" | "local"
+  let username = null;
+  let roomCodeUi = null;
+
+  // ------------------------- локальний стан -------------------------
+  let localState = null;
+  let localOrientation = "w"; // хто внизу зараз
+
+  // ------------------------- спільний рендер дошки -------------------------
+  let selected = null; // idx обраної клітинки
+  let legalTargets = []; // idx-и, куди можна піти з обраної
+  let pendingPromotion = null; // { from, to } поки чекаємо вибір фігури
+  let lastAnimatedSignature = null; // щоб анімувати ЛИШЕ на новий хід, а не на кожен ре-рендер (виділення, heartbeat)
+
+  function currentState() {
+    return mode === "local" ? localState : (lastRoom && lastRoom.state ? R.decodeState(lastRoom.state) : null);
+  }
+  function orientation() {
+    if (mode === "local") return localOrientation;
+    if (lastCtx && lastCtx.myColor === "b") return "b";
+    return "w";
+  }
+  function myColorNow() {
+    if (mode === "local") return currentState() ? currentState().turn : "w";
+    return lastCtx ? lastCtx.myColor : null;
+  }
+  function canIMove() {
+    if (mode === "local") return true; // pass-and-play — обидва боки керує та сама людина
+    const st = currentState();
+    return st && lastCtx && lastCtx.myColor === st.turn && lastRoom.phase === "playing";
+  }
+
+  function moveSignature(st) {
+    if (!st || !st.lastMove) return "none";
+    return st.history.length + ":" + st.lastMove.from + ">" + st.lastMove.to + (st.lastMove.promotion || "");
+  }
+  function toVisual(idx, ori) {
+    const row = R.rowOf(idx), col = R.colOf(idx);
+    return ori === "w" ? { vr: row, vc: col } : { vr: 7 - row, vc: 7 - col };
+  }
+  // FLIP-анімація: дошка й так повністю перебудовується щоразу (простіше й
+  // надійніше за тримання постійних DOM-вузлів для 32 фігур), тож фігура вже
+  // "телепортується" в новий DOM-елемент на клітинці to. Тут просто зсуваємо
+  // її transform'ом назад у стару клітинку БЕЗ transition, форсуємо reflow,
+  // тоді знімаємо зсув — браузер сам домальовує рух.
+  function animateMove(boardEl, ori, mv) {
+    const cell = boardEl.getBoundingClientRect().width / 8;
+    const pairs = [[mv.from, mv.to]];
+    if (mv.castleRookFrom != null && mv.castleRookTo != null) pairs.push([mv.castleRookFrom, mv.castleRookTo]);
+    pairs.forEach(([from, to]) => {
+      const el = boardEl.querySelector('.sq[data-idx="' + to + '"] .piece');
+      if (!el) return;
+      const a = toVisual(from, ori), b = toVisual(to, ori);
+      const dx = (a.vc - b.vc) * cell, dy = (a.vr - b.vr) * cell;
+      el.style.transition = "none";
+      el.style.transform = `translate(${dx}px, ${dy}px)`;
+      void el.offsetWidth; // форсуємо reflow — інакше браузер об'єднає обидва стилі в один кадр і руху не буде видно
+      el.style.transition = "transform 0.7s cubic-bezier(.2,.7,.3,1)";
+      el.style.transform = "translate(0, 0)";
+    });
+  }
+
+  function renderBoard() {
+    const st = currentState();
+    const boardEl = document.getElementById("boardEl");
+    if (!st) { boardEl.innerHTML = ""; return; }
+    const ori = orientation();
+    const sig = moveSignature(st);
+    const moveToAnimate = (lastAnimatedSignature !== null && sig !== lastAnimatedSignature && st.lastMove) ? st.lastMove : null;
+    lastAnimatedSignature = sig;
+
+    boardEl.innerHTML = "";
+    const status = R.gameStatus(st);
+    const checkedKingIdx = status.status === "check" || status.status === "checkmate"
+      ? findKingIdx(st.board, st.turn) : -1;
+
+    for (let visRow = 0; visRow < 8; visRow++) {
+      for (let visCol = 0; visCol < 8; visCol++) {
+        const row = ori === "w" ? visRow : 7 - visRow;
+        const col = ori === "w" ? visCol : 7 - visCol;
+        const idx = R.idxOf(row, col);
+        const sq = document.createElement("div");
+        sq.className = "sq " + ((row + col) % 2 === 0 ? "light" : "dark");
+        sq.dataset.idx = idx;
+
+        if (selected === idx) sq.classList.add("selected");
+        if (st.lastMove && (st.lastMove.from === idx || st.lastMove.to === idx)) sq.classList.add("lastmove");
+        if (idx === checkedKingIdx) sq.classList.add("check");
+
+        const piece = st.board[idx];
+        if (piece) {
+          sq.appendChild(createPieceIcon(piece));
+        }
+        if (legalTargets.includes(idx)) {
+          const dot = document.createElement("div");
+          dot.className = "movedot" + (piece ? " capture" : "");
+          sq.appendChild(dot);
+        }
+        if (visCol === 0) {
+          const coord = document.createElement("div");
+          coord.className = "coord";
+          coord.textContent = 8 - row;
+          sq.appendChild(coord);
+        }
+
+        sq.addEventListener("click", () => onSquareClick(idx));
+        boardEl.appendChild(sq);
+      }
+    }
+
+    renderTurnBar(st, status);
+    renderMoveHistory(st);
+    if (moveToAnimate) animateMove(boardEl, ori, moveToAnimate);
+  }
+
+  function findKingIdx(board, color) {
+    for (let i = 0; i < 64; i++) if (board[i] === color + "K") return i;
+    return -1;
+  }
+
+  function renderTurnBar(st, status) {
+    const bar = document.getElementById("turnBar");
+    const swatchClass = st.turn;
+    let label = st.turn === "w" ? "Хід білих" : "Хід чорних";
+    if (status.status === "check") label += " — ШАХ!";
+    bar.innerHTML = `<span class="swatch ${swatchClass}"></span><span class="who">${label}</span>`;
+  }
+
+  function renderMoveHistory(st) {
+    const el = document.getElementById("moveHistory");
+    const h = st.history;
+    if (!h.length) { el.innerHTML = '<span style="opacity:0.5;">Ще нема ходів</span>'; return; }
+    let out = "";
+    for (let i = 0; i < h.length; i += 2) {
+      const num = i / 2 + 1;
+      const white = h[i] ? h[i].san : "";
+      const black = h[i + 1] ? h[i + 1].san : "";
+      out += `<span class="mv-pair"><b>${num}.</b> ${white} ${black}</span>`;
+    }
+    el.innerHTML = out;
+  }
+
+  function onSquareClick(idx) {
+    if (pendingPromotion) return;
+    const st = currentState();
+    if (!st || !canIMove()) return;
+
+    if (selected !== null && legalTargets.includes(idx)) {
+      const from = selected;
+      if (R.needsPromotion(st, from, idx)) {
+        pendingPromotion = { from, to: idx };
+        openPromoPicker(st.turn);
+      } else {
+        commitMove(from, idx, null);
+      }
+      selected = null; legalTargets = [];
+      renderBoard();
+      return;
+    }
+
+    const piece = st.board[idx];
+    if (piece && R.pieceColor(piece) === st.turn && R.pieceColor(piece) === myColorOrLocal(st)) {
+      selected = idx;
+      legalTargets = R.legalMovesFrom(st, idx);
+    } else {
+      selected = null; legalTargets = [];
+    }
+    renderBoard();
+  }
+
+  function myColorOrLocal(st) {
+    if (mode === "local") return st.turn; // локально ходить той, чия черга — завжди "свій"
+    return lastCtx ? lastCtx.myColor : null;
+  }
+
+  function openPromoPicker(color) {
+    const box = document.getElementById("promoBox");
+    box.innerHTML = "";
+    ["Q", "R", "B", "N"].forEach((t) => {
+      const btn = document.createElement("button");
+      btn.appendChild(createPieceIcon(color + t));
+      btn.addEventListener("click", () => {
+        const { from, to } = pendingPromotion;
+        pendingPromotion = null;
+        document.getElementById("promoPicker").classList.add("hidden");
+        commitMove(from, to, t);
+      });
+      box.appendChild(btn);
+    });
+    document.getElementById("promoPicker").classList.remove("hidden");
+  }
+
+  function commitMove(from, to, promotion) {
+    if (mode === "local") {
+      const next = R.makeMove(localState, { from, to, promotion });
+      if (!next) return;
+      localState = next;
+      renderBoard();
+      maybeShowLocalResult();
+    } else {
+      window.ChessGame.makeMove(from, to, promotion);
+    }
+  }
+
+  function maybeShowLocalResult() {
+    const status = R.gameStatus(localState);
+    if (status.status === "checkmate" || status.status === "stalemate" ||
+        status.status === "draw-50move" || status.status === "draw-material") {
+      showResult(resultText(status.status, status.winner), false);
+    }
+  }
+
+  function resultText(status, winner) {
+    const winnerLabel = winner === "w" ? "Білі" : winner === "b" ? "Чорні" : null;
+    if (status === "checkmate") return `♛ Мат! ${winnerLabel} перемагають`;
+    if (status === "stalemate") return "Пат — нічия";
+    if (status === "draw-50move") return "Нічия за правилом 50 ходів";
+    if (status === "draw-material") return "Нічия — недостатньо матеріалу";
+    if (status === "resign") return `${winnerLabel} перемагають — суперник здався`;
+    if (status === "draw-agreed") return "Нічия за згодою";
+    if (status === "timeout") return `${winnerLabel} перемагають — у суперника закінчився час`;
+    return "Гру завершено";
+  }
+
+  function showResult(text, isOnline) {
+    document.getElementById("resultTitle").textContent = text;
+    document.getElementById("resultPanel").classList.remove("hidden");
+    document.getElementById("onlineActions").classList.toggle("hidden", true);
+    document.getElementById("rematchBtn").classList.toggle("hidden", !isOnline);
+    document.getElementById("waitRematchLine").classList.add("hidden");
+  }
+
+  // ------------------------- локальний режим -------------------------
+  function startLocal() {
+    mode = "local";
+    localState = R.initialState();
+    localOrientation = "w";
+    selected = null; legalTargets = [];
+    lastAnimatedSignature = null;
+    document.getElementById("resultPanel").classList.add("hidden");
+    document.getElementById("onlineActions").classList.add("hidden");
+    document.getElementById("localActions").classList.remove("hidden");
+    document.getElementById("drawOfferBar").classList.add("hidden");
+    document.getElementById("clockBar").classList.add("hidden");
+    stopClockDisplayTicker();
+    showView("board");
+    renderBoard();
+  }
+
+  document.getElementById("newLocalGameBtn").addEventListener("click", startLocal);
+
+  // ------------------------- онлайн режим -------------------------
+  let lastRoom = null, lastCtx = null;
+  let clockDisplayTimer = null;
+
+  function tcLabel(tc) {
+    if (!tc || tc.type === "none") return "Без таймера";
+    const mins = Math.round(tc.initialSeconds / 60);
+    return `${mins}+${tc.incrementSeconds || 0}`;
+  }
+  function parseTimeControlChoice() {
+    const v = document.getElementById("timeControlSelect").value;
+    if (v === "none") return { type: "none" };
+    const [mins, inc] = v.split("+").map(Number);
+    return { type: "clock", initialSeconds: mins * 60, incrementSeconds: inc };
+  }
+
+  function roleSlotState(room, color) {
+    const holder = color === "w" ? room.white : room.black;
+    if (!holder) return "empty";
+    return holder === username ? "mine" : "taken";
+  }
+  function renderRoleSlot(elId, room, color, icon) {
+    const el = document.getElementById(elId);
+    const holder = color === "w" ? room.white : room.black;
+    const st = roleSlotState(room, color);
+    el.classList.toggle("mine", st === "mine");
+    el.classList.toggle("taken", st === "taken");
+    el.querySelector(".cname").textContent = holder || "Вільно";
+    el.querySelector(".raction").textContent = st === "mine" ? "Звільнити" : st === "taken" ? "Зайнято" : "Обрати";
+  }
+
+  function renderLobby(room) {
+    document.getElementById("roomCodeDisplay").textContent = window.ChessGame.roomId || "";
+    document.getElementById("lobbyTimeControlLine").textContent = "Таймконтроль: " + tcLabel(room.timeControl);
+    renderRoleSlot("slotWhite", room, "w");
+    renderRoleSlot("slotBlack", room, "b");
+
+    const bothIn = !!(room.white && room.black);
+    const iAmPlayer = room.white === username || room.black === username;
+    document.getElementById("startOnlineBtn").classList.toggle("hidden", !(bothIn && iAmPlayer));
+    document.getElementById("lobbyHint").textContent = bothIn
+      ? (iAmPlayer ? "Обидва готові — можна починати" : "Партія скоро почнеться")
+      : "Поділись кодом кімнати з другом і обери колір";
+  }
+
+  function onRoleSlotClick(color) {
+    if (!lastRoom || lastRoom.phase !== "lobby") return;
+    const st = roleSlotState(lastRoom, color);
+    if (st === "mine") window.ChessGame.releaseColor();
+    else if (st === "empty") window.ChessGame.claimColor(color);
+  }
+  document.getElementById("slotWhite").addEventListener("click", () => onRoleSlotClick("w"));
+  document.getElementById("slotBlack").addEventListener("click", () => onRoleSlotClick("b"));
+
+  function fmtClock(sec) {
+    sec = Math.max(0, Math.round(sec));
+    const m = Math.floor(sec / 60), s = sec % 60;
+    return m + ":" + String(s).padStart(2, "0");
+  }
+  function renderClocks() {
+    const room = lastRoom;
+    const bar = document.getElementById("clockBar");
+    if (!room || !room.timeControl || room.timeControl.type !== "clock" || !room.clock) {
+      bar.classList.add("hidden");
+      return;
+    }
+    bar.classList.remove("hidden");
+    const live = window.ChessGame.liveClockSeconds(room);
+    const st = room.state ? R.decodeState(room.state) : null;
+    const turn = st ? st.turn : null;
+    const wChip = document.getElementById("clockWhite"), bChip = document.getElementById("clockBlack");
+    wChip.querySelector(".cc-time").textContent = fmtClock(live.w);
+    bChip.querySelector(".cc-time").textContent = fmtClock(live.b);
+    wChip.classList.toggle("active", room.phase === "playing" && turn === "w");
+    bChip.classList.toggle("active", room.phase === "playing" && turn === "b");
+    wChip.classList.toggle("low", live.w <= 20);
+    bChip.classList.toggle("low", live.b <= 20);
+  }
+  function startClockDisplayTicker() {
+    stopClockDisplayTicker();
+    clockDisplayTimer = setInterval(renderClocks, 500);
+  }
+  function stopClockDisplayTicker() {
+    if (clockDisplayTimer) { clearInterval(clockDisplayTimer); clockDisplayTimer = null; }
+  }
+
+  function renderOnlineBoard(room, ctx) {
+    document.getElementById("onlineActions").classList.toggle("hidden", ctx.isSpectator || room.phase !== "playing");
+    document.getElementById("localActions").classList.add("hidden");
+
+    const offerBar = document.getElementById("drawOfferBar");
+    if (room.drawOfferBy && room.phase === "playing") {
+      offerBar.classList.remove("hidden");
+      const isMine = room.drawOfferBy === username;
+      document.getElementById("drawOfferText").textContent = isMine ? "Ти пропонуєш нічию..." : "Суперник пропонує нічию";
+      document.getElementById("acceptDrawBtn").classList.toggle("hidden", isMine);
+      document.getElementById("declineDrawBtn").classList.toggle("hidden", isMine);
+    } else {
+      offerBar.classList.add("hidden");
+    }
+
+    renderBoard();
+    renderClocks();
+    if (room.timeControl && room.timeControl.type === "clock" && room.phase === "playing") startClockDisplayTicker();
+    else stopClockDisplayTicker();
+
+    if (room.phase === "ended" && room.result) {
+      const text = resultText(room.result.status, room.result.winner);
+      showResult(text, !ctx.isSpectator);
+      if (!ctx.isSpectator) {
+        const votes = room.rematchVotes || {};
+        const iVoted = !!votes[username];
+        document.getElementById("rematchBtn").classList.toggle("hidden", iVoted);
+        document.getElementById("waitRematchLine").classList.toggle("hidden", !iVoted);
+      }
+    } else {
+      document.getElementById("resultPanel").classList.add("hidden");
+    }
+  }
+
+  function onOnlineState(room, ctx) {
+    lastRoom = room; lastCtx = ctx;
+    if (!username) return;
+    const known = room.white === username || room.black === username || (room.players && room.players[username]);
+    if (!known) { showView("locked"); return; }
+
+    if (room.phase === "lobby") { stopClockDisplayTicker(); showView("lobby"); renderLobby(room); }
+    else { showView("board"); renderOnlineBoard(room, ctx); }
+  }
+
+  function startOnline() {
+    mode = "online";
+    const session = window.AppAuth && window.AppAuth.getSession();
+    if (!session || !window.rtdbReady) { showView("locked"); return; }
+    username = session.username;
+    selected = null; legalTargets = [];
+    lastAnimatedSignature = null;
+    window.ChessGame.onStateChange = onOnlineState;
+    RoomCodeUI.mount({
+      containerId: "activeRoomsList",
+      codeInputId: "roomCodeInput",
+      joinBtnId: "joinRoomBtn",
+      createBtnId: "createRoomBtn",
+      watchActiveRooms: window.ChessGame.watchActiveRooms,
+      renderRoomItem: (r) => `
+        <div class="player-chip"><span>Кімната ${RoomCodeUI.escapeHtml(r.roomId)}</span>
+        <span class="badge">${r.phase === "lobby" ? "Лобі" : "Гра триває"}</span></div>
+        <div class="status-line" style="text-align:left; font-size:12px;">${r.white || "?"} vs ${r.black || "?"} · ${tcLabel(r.timeControl)}</div>`,
+      onEnter: (roomId) => window.ChessGame.start(username, roomId, parseTimeControlChoice()),
+    });
+    showView("room-entry");
+  }
+
+  document.getElementById("btnModeOnline").addEventListener("click", startOnline);
+  document.getElementById("btnModeLocal").addEventListener("click", startLocal);
+  document.getElementById("backToModeFromLocked").addEventListener("click", () => showView("mode"));
+  document.getElementById("backToModeFromResult").addEventListener("click", () => {
+    if (mode === "online" && window.ChessGame) window.ChessGame.stop();
+    stopClockDisplayTicker();
+    showView("mode");
+  });
+
+  document.getElementById("startOnlineBtn").addEventListener("click", () => window.ChessGame.startGame());
+  document.getElementById("resignBtn").addEventListener("click", () => { if (confirm("Здатись?")) window.ChessGame.resign(); });
+  document.getElementById("offerDrawBtn").addEventListener("click", () => window.ChessGame.offerDraw());
+  document.getElementById("acceptDrawBtn").addEventListener("click", () => window.ChessGame.acceptDraw());
+  document.getElementById("declineDrawBtn").addEventListener("click", () => window.ChessGame.declineDraw());
+  document.getElementById("rematchBtn").addEventListener("click", () => window.ChessGame.voteRematch());
+
+  showView("mode");
+  window.addEventListener("beforeunload", () => { if (mode === "online" && window.ChessGame) window.ChessGame.stop(); });
+})();
+</script>
+</body>
+</html>

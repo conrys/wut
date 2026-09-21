@@ -83,6 +83,34 @@
     let onLoseHost = () => {};
     let latestRoom = null;
 
+    // ------------------------- screen wake lock -------------------------
+    // Тримаємо екран хоста увімкненим, поки він веде гру: на Android
+    // автоблокування посеред партії (мафія й т.п.) зупиняє тік хоста —
+    // рафтимери/фази перестають рухатись, доки хтось не розблокує телефон,
+    // через що можуть "згубитись" стейти. Screen Wake Lock не заміняє
+    // ручне блокування кнопкою живлення, але прибирає автотаймаут.
+    // Непідтримувані браузери (iOS Safari < 16.4 тощо) просто ігнорують —
+    // немає window.navigator.wakeLock, requestWakeLock() одразу виходить.
+    let wakeLock = null;
+    async function requestWakeLock() {
+      if (!("wakeLock" in navigator) || wakeLock) return;
+      try {
+        wakeLock = await navigator.wakeLock.request("screen");
+        wakeLock.addEventListener("release", () => { wakeLock = null; });
+      } catch (e) {
+        // дозвіл відхилено, сторінка неактивна тощо — не критично
+      }
+    }
+    function releaseWakeLock() {
+      if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+    }
+    // Wake lock автоматично звільняється браузером, коли вкладка йде у
+    // фон (напр. переключення на іншу апку) — при поверненні перезапитуємо,
+    // якщо ми й досі хост.
+    document.addEventListener("visibilitychange", () => {
+      if (isHost && document.visibilityState === "visible") requestWakeLock();
+    });
+
     // ------------------------- presence -------------------------
     // start(user, { useLobby }) — heartbeat ЗАВЖДИ активний, незалежно від
     // того, чи гра взагалі має "лобі поза кімнатою". useLobby:false — для
@@ -274,7 +302,7 @@
       if (hostWatchTimer) { clearInterval(hostWatchTimer); hostWatchTimer = null; }
       if (roomRef && listeners.room) roomRef.off("value", listeners.room);
       if (myPlayerRef && !preservePresence) myPlayerRef.onDisconnect().cancel();
-      if (isHost) { isHost = false; onLoseHost(); }
+      if (isHost) { isHost = false; releaseWakeLock(); onLoseHost(); }
       currentRoomId = null; roomRef = null; myPlayerRef = null; isActivePlayer = false; latestRoom = null;
     }
 
@@ -327,8 +355,8 @@
         // Порівняння по mySessionId, а НЕ по username — щоб дві вкладки
         // одного й того ж гравця (стара незакрита + нова після reload)
         // не вважали хостом себе ОБИДВІ одночасно.
-        if (room.hostSessionId === mySessionId && !isHost) { isHost = true; onBecomeHost(roomId); }
-        if (room.hostSessionId !== mySessionId && isHost) { isHost = false; onLoseHost(); }
+        if (room.hostSessionId === mySessionId && !isHost) { isHost = true; requestWakeLock(); onBecomeHost(roomId); }
+        if (room.hostSessionId !== mySessionId && isHost) { isHost = false; releaseWakeLock(); onLoseHost(); }
         return;
       }
       const alive = Object.entries(players).filter(([, p]) => isConnected(p))
@@ -354,7 +382,7 @@
           // Тепер isHost=true лише якщо реально записане значення — наше.
           if (!result || !result.committed || result.snapshot.val() !== mySessionId) return;
           window.rtdb.ref(`${ROOMS_PATH}/${roomId}/hostUsername`).set(username); // для решти ігор/UI, які читають лише hostUsername
-          if (!isHost) { isHost = true; onBecomeHost(roomId); }
+          if (!isHost) { isHost = true; requestWakeLock(); onBecomeHost(roomId); }
         });
       }
     }

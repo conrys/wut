@@ -129,6 +129,21 @@
     if (groups[0].count === 2) return { category: 1, name: "Пара", tiebreak: [groups[0].rank, ...groups.slice(1).map((g) => g.rank)] };
     return { category: 0, name: "Старша карта", tiebreak: ranks };
   }
+
+  // Єдиний перелік усіх комбінацій (від найсильнішої) — і для довідкової
+  // модалки в UI, і щоб назви ГАРАНТОВАНО збігались з тим, що реально
+  // повертає evaluate5 (одне джерело правди замість дубльованого списку).
+  const HAND_CATEGORIES = [
+    { category: 8, name: "Стріт-флеш", example: "5 підряд, одна масть", cards: [{rank:9,suit:"H"},{rank:10,suit:"H"},{rank:11,suit:"H"},{rank:12,suit:"H"},{rank:13,suit:"H"}] },
+    { category: 7, name: "Каре", example: "4 карти одного рангу", cards: [{rank:14,suit:"S"},{rank:14,suit:"H"},{rank:14,suit:"D"},{rank:14,suit:"C"}] },
+    { category: 6, name: "Фул-хаус", example: "Трійка + пара", cards: [{rank:14,suit:"S"},{rank:14,suit:"H"},{rank:14,suit:"D"},{rank:13,suit:"S"},{rank:13,suit:"H"}] },
+    { category: 5, name: "Флеш", example: "5 карт однієї масті не підряд", cards: [{rank:14,suit:"S"},{rank:11,suit:"S"},{rank:8,suit:"S"},{rank:6,suit:"S"},{rank:3,suit:"S"}] },
+    { category: 4, name: "Стріт", example: "5 підряд, різні масті", cards: [{rank:5,suit:"S"},{rank:6,suit:"H"},{rank:7,suit:"D"},{rank:8,suit:"C"},{rank:9,suit:"S"}] },
+    { category: 3, name: "Трійка", example: "3 карти одного рангу", cards: [{rank:14,suit:"S"},{rank:14,suit:"H"},{rank:14,suit:"D"}] },
+    { category: 2, name: "Дві пари", example: "2 різні пари", cards: [{rank:14,suit:"S"},{rank:14,suit:"H"},{rank:13,suit:"S"},{rank:13,suit:"H"}] },
+    { category: 1, name: "Пара", example: "2 карти одного рангу", cards: [{rank:14,suit:"S"},{rank:14,suit:"H"}] },
+    { category: 0, name: "Старша карта", example: "Комбінації нема", cards: [{rank:14,suit:"S"}] },
+  ];
   function compareHandValue(a, b) {
     if (a.category !== b.category) return a.category - b.category;
     for (let i = 0; i < Math.max(a.tiebreak.length, b.tiebreak.length); i++) {
@@ -150,7 +165,7 @@
     let best = null;
     for (const c of combos) {
       const val = evaluate5(c);
-      if (!best || compareHandValue(val, best) > 0) best = val;
+      if (!best || compareHandValue(val, best) > 0) { best = val; best.cards = c; }
     }
     return best;
   }
@@ -269,6 +284,24 @@
     return keys.filter((k) => hand.seatsInHand[k] && !hand.seatsInHand[k].folded);
   }
 
+  // Ключі місць, що РЕАЛЬНО беруть участь у ПОТОЧНІЙ роздачі.
+  // ВАЖЛИВО: якщо хтось приєднується до столу ПОСЕРЕД роздачі (а з 4-5+
+  // людьми це майже завжди так — не всі тиснуть "приєднатись" в одну мить),
+  // його місце з'являється в state.seats, але hand.seatsInHand для нього
+  // ЩЕ НЕ існує (створюється лише в startNewHand на момент старту роздачі).
+  // Раніше applyAction/advanceStreet/runShowdown бездумно брали
+  // seatKeysSorted(state.seats) — ПОВНИЙ список місць за столом — і потім
+  // читали hand.seatsInHand[k].folded для кожного; для щойно приєднаного
+  // місця hand.seatsInHand[k] === undefined, і .folded кидав TypeError.
+  // Виняток стається всередині тіку хоста (раз на 700мс) — тік просто
+  // ніколи не завершувався, стан не писався, і стіл зависав НАЗАВЖДИ вже
+  // при першому ж приєднанні гравця посеред роздачі. Новоприєднаний просто
+  // чекає наступної роздачі (startNewHand сама бере ПОВНИЙ поточний
+  // seats — там усі, хто встиг сісти, дістають карти).
+  function activeHandKeys(seats, hand) {
+    return seatKeysSorted(seats).filter((k) => hand.seatsInHand[k]);
+  }
+
   function liveNonAllIn(hand, keys) {
     return keys.filter((k) => !hand.seatsInHand[k].folded && !hand.seatsInHand[k].allIn);
   }
@@ -326,8 +359,8 @@
         if (isFullRaise) updates["hand/minRaise"] = raiseTo - hand.currentBet;
         updates["hand/lastAggressorSeat"] = seatKey;
         // повний рейз відкриває дію заново всім живим, хто ще не в олл-іні
-        const allKeys = seatKeysSorted(state.seats);
-        allKeys.forEach((k) => {
+        const reopenKeys = activeHandKeys(state.seats, hand);
+        reopenKeys.forEach((k) => {
           if (k === seatKey) return;
           const s = hand.seatsInHand[k];
           if (s && !s.folded && !s.allIn) updates["hand/seatsInHand/" + k + "/acted"] = false;
@@ -338,8 +371,8 @@
     }
     updates["hand/lastActionAt"] = Date.now();
 
-    const allKeys = seatKeysSorted(state.seats);
     // рахуємо наступного, хто має ходити, ВЖЕ з урахуванням щойно застосованої дії
+    const allKeys = activeHandKeys(state.seats, hand);
     const mergedHand = JSON.parse(JSON.stringify(hand));
     Object.keys(updates).forEach((path) => {
       if (!path.startsWith("hand/")) return;
@@ -387,7 +420,7 @@
 
   function advanceStreet(state) {
     const hand = state.hand;
-    const allKeys = seatKeysSorted(state.seats);
+    const allKeys = activeHandKeys(state.seats, hand);
     const deck = hand.deckRemaining.slice();
     const updates = {};
 
@@ -451,7 +484,7 @@
 
   function runShowdown(state) {
     const hand = state.hand;
-    const allKeys = seatKeysSorted(state.seats);
+    const allKeys = activeHandKeys(state.seats, hand);
     const notFolded = allKeys.filter((k) => !hand.seatsInHand[k].folded);
     const contributions = {};
     allKeys.forEach((k) => { contributions[k] = hand.seatsInHand[k].totalBet; });
@@ -526,7 +559,23 @@
   }
 
   // ------------------------- тік хоста -------------------------
+  // ВАЖЛИВО: тік викликається раз на HOST_TICK_MS назавжди (setInterval), і
+  // якщо тіло кине виняток — .then() всередині якого він викликаний просто
+  // мовчки відхилиться, а стан у RTDB лишиться незмінним. Наступний тік за
+  // 700мс прочитає ТОЙ САМИЙ стан і впаде на тому самому місці — стіл
+  // зависає НАЗАВЖДИ й непомітно (жодної помилки в UI, просто нічого не
+  // рухається). try/catch тут — це не фікс конкретного багу (той пофіксили
+  // вище через activeHandKeys), а страховка від будь-якого ЩЕ НЕ знайденого
+  // випадку: хай стіл громко залогує помилку в консоль і спробує ще раз за
+  // 700мс, аби не вмирав тихо назавжди.
   function hostTick(state) {
+    try {
+      hostTickInner(state);
+    } catch (e) {
+      console.error("[poker] hostTick кинув виняток — стіл не зависає, спробує ще раз наступним тіком:", e);
+    }
+  }
+  function hostTickInner(state) {
     if (!state || !state.seats) return;
     const allKeys = seatKeysSorted(state.seats);
     if (allKeys.length < 2) return;
@@ -563,7 +612,11 @@
   function playerAction(state, action, amount) {
     const mySeat = seatKeysSorted(state.seats).find((k) => state.seats[k].occupantType === "human" && state.seats[k].username === username);
     if (!mySeat || !state.hand || state.hand.toActSeat !== mySeat) return;
-    applyAction(state, mySeat, action, amount);
+    try {
+      applyAction(state, mySeat, action, amount);
+    } catch (e) {
+      console.error("[poker] playerAction кинув виняток:", e);
+    }
   }
 
   // ------------------------- список активних кімнат -------------------------
@@ -637,7 +690,7 @@
 
   window.PokerGame = {
     STARTING_STACK, SMALL_BLIND, BIG_BLIND,
-    evaluate5, compareHandValue, best5of7, computeSidePots,
+    evaluate5, compareHandValue, best5of7, computeSidePots, HAND_CATEGORIES,
     watchActiveRooms,
     start, stop, playerAction, resetTable,
     get roomId() { return Engine.currentRoomId; },

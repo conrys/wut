@@ -160,6 +160,36 @@
   .action-buttons button:disabled { opacity: 0.35; }
   .waiting-line { text-align: center; font-size: 12px; color: var(--text-muted); padding: 8px 0; }
 
+  /* --------- підказка по комбінаціях --------- */
+  .combo-hint-row { display: flex; justify-content: center; margin: 2px 0 6px; }
+  .combo-hint-btn { border: 1px solid rgba(255,255,255,0.12); background: var(--rail-light); color: var(--text-muted);
+      border-radius: 999px; padding: 5px 12px; font-size: 11px; font-weight: 700; cursor: pointer; }
+  .combo-hint-btn:active { color: var(--accent); border-color: var(--accent); }
+  .card.combo-hl { box-shadow: 0 0 0 2px var(--accent), 0 2px 8px rgba(62,207,122,0.6); transform: translateY(-3px); transition: all 0.15s ease; }
+  .card.combo-dim { opacity: 0.35; transition: all 0.15s ease; }
+
+  .modal-overlay { position: fixed; inset: 0; background: rgba(6,12,9,0.72); z-index: 50;
+      display: flex; align-items: flex-end; justify-content: center; }
+  .modal-box { width: 100%; max-width: 480px; max-height: 82vh; overflow-y: auto;
+      background: var(--tile-bg); border-radius: 18px 18px 0 0; padding: 16px 14px calc(16px + env(safe-area-inset-bottom));
+      border: 1px solid rgba(255,255,255,0.08); border-bottom: none; }
+  .modal-title { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 16px; text-align: center; margin-bottom: 4px; }
+  .modal-close { position: absolute; top: 10px; right: 14px; background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; }
+  .my-combo-banner { text-align: center; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 15px;
+      color: var(--accent); background: rgba(62,207,122,0.1); border: 1px solid rgba(62,207,122,0.25);
+      border-radius: 12px; padding: 8px; margin: 10px 0 14px; }
+  .my-combo-banner.none { color: var(--text-muted); background: var(--rail-light); border-color: rgba(255,255,255,0.08); }
+  .combo-row { display: flex; align-items: center; gap: 10px; padding: 9px 8px; border-radius: 10px; margin-bottom: 3px; }
+  .combo-row.mine { background: rgba(62,207,122,0.12); border: 1px solid rgba(62,207,122,0.3); }
+  .combo-row .cr-cat { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 11px; color: var(--text-muted);
+      width: 16px; text-align: center; flex-shrink: 0; }
+  .combo-row .cr-cards { display: flex; gap: 3px; flex-shrink: 0; }
+  .combo-row .cr-body { flex: 1; min-width: 0; }
+  .combo-row .cr-name { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 13px; }
+  .combo-row.mine .cr-name { color: var(--accent); }
+  .combo-row .cr-example { font-size: 10px; color: var(--text-muted); }
+  .combo-row .cr-mine-tag { font-size: 10px; font-weight: 700; color: var(--accent); flex-shrink: 0; text-align: right; width: 44px; }
+
   /* --------- вхід у кімнату --------- */
   input.text-input { width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 10px;
       border: 1px solid rgba(255,255,255,0.15); background: var(--tile-bg); color: var(--text-light);
@@ -221,6 +251,9 @@
 
     <div class="my-seat">
       <div class="my-hole-cards" id="myHoleCards"></div>
+      <div class="combo-hint-row hidden" id="comboHintRow">
+        <button class="combo-hint-btn" id="comboHintBtn">❔ Яка в мене комбінація</button>
+      </div>
       <div class="my-info">Твій стек: <b id="myStack">0</b></div>
 
       <div class="action-bar hidden" id="actionBar">
@@ -246,6 +279,16 @@
     </div>
   </div>
 
+</div>
+
+<div class="hidden modal-overlay" id="comboModal">
+  <div class="modal-box">
+    <button class="modal-close" id="comboModalClose">✕</button>
+    <div class="modal-title">Комбінації покеру</div>
+    <div class="status-line" style="margin-bottom:0;">Від найсильнішої до найслабшої</div>
+    <div class="my-combo-banner" id="myComboBanner"></div>
+    <div id="comboList"></div>
+  </div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
@@ -281,6 +324,8 @@
     if (isHonor) cls += " honor";
     el.className = cls;
     if (!opts.faceDown && card) {
+      el.dataset.rank = card.rank;
+      el.dataset.suit = card.suit;
       el.innerHTML = `
         <div class="corner"><span class="rank">${rankLabel(card.rank)}</span><span class="mini-suit">${SUIT_SYMBOL[card.suit]}</span></div>
         <div class="suit">${SUIT_SYMBOL[card.suit]}</div>`;
@@ -451,13 +496,26 @@
     }
     document.getElementById("myStack").textContent = mySeat ? (state.seats[mySeat].stack || 0) : 0;
 
+    lastMyHs = (myHs && !myHs.folded) ? myHs : null;
+    lastCommunity = communityCards;
+    document.getElementById("comboHintRow").classList.toggle("hidden", !lastMyHs || !lastMyHs.holeCards);
+    if (comboModalOpen) refreshComboModal(); // модалка відкрита і йде наступна роздача/вулиця — оновити наживо
+
     const actionBar = document.getElementById("actionBar");
     const waitingLine = document.getElementById("waitingLine");
     const myTurn = mySeat && hand && hand.toActSeat === mySeat && myHs && !myHs.folded && !myHs.allIn;
     actionBar.classList.toggle("hidden", !myTurn);
     waitingLine.classList.toggle("hidden", !!myTurn);
     if (!myTurn) {
-      waitingLine.textContent = !mySeat ? "" : (hand && hand.street === "hand_result" ? "" : "Очікуємо хід...");
+      // mySeat є, hand є, а myHs нема — сіли за стіл ПОСЕРЕД роздачі (звичайна
+      // ситуація: роздача стартує за ~700мс після 2-го гравця, тож новий
+      // гравець майже завжди приєднується не "між роздачами", а в середині).
+      // Такого гравця просто не роздали в ЦІЙ роздачі — його роздадуть в
+      // наступній автоматично, щойно поточна дійде до hand_result.
+      const joinedMidHand = mySeat && hand && hand.street !== "hand_result" && !myHs;
+      waitingLine.textContent = !mySeat ? ""
+        : joinedMidHand ? "Приєднався серед роздачі — роздадуть у наступній"
+        : (hand && hand.street === "hand_result" ? "" : "Очікуємо хід...");
     }
     if (myTurn) updateActionBar(state, hand, mySeat, myHs, pot);
   }
@@ -508,6 +566,81 @@
       else if (q === "pot") setSliderValue(pot);
     });
   });
+
+  // ------------------------- підказка по комбінаціях -------------------------
+  let lastMyHs = null;
+  let lastCommunity = [];
+  let comboModalOpen = false;
+
+  function currentBestHand() {
+    if (!lastMyHs || !lastMyHs.holeCards) return null;
+    const seven = lastMyHs.holeCards.concat(lastCommunity);
+    if (seven.length < 5) return null; // префлоп — 2 карти, комбінацію ще не видно
+    return window.PokerGame.best5of7(seven);
+  }
+
+  function refreshComboModal() {
+    const best = currentBestHand();
+    const banner = document.getElementById("myComboBanner");
+    if (best) {
+      banner.textContent = "У тебе: " + best.name;
+      banner.classList.remove("none");
+    } else {
+      banner.textContent = lastCommunity.length ? "Ще збираєш руку — поки не видно комбінації"
+        : "Комбінацію видно лише з флопу — почекай на спільні карти";
+      banner.classList.add("none");
+    }
+
+    const list = document.getElementById("comboList");
+    list.innerHTML = "";
+    window.PokerGame.HAND_CATEGORIES.forEach((cat) => {
+      const row = document.createElement("div");
+      const mine = best && best.category === cat.category;
+      row.className = "combo-row" + (mine ? " mine" : "");
+      const cardsWrap = document.createElement("div");
+      cardsWrap.className = "cr-cards";
+      cat.cards.forEach((c) => cardsWrap.appendChild(makeCardEl(c, { tiny: true })));
+      row.innerHTML = `<span class="cr-cat">${cat.category + 1}</span>`;
+      row.appendChild(cardsWrap);
+      const body = document.createElement("div");
+      body.className = "cr-body";
+      body.innerHTML = `<span class="cr-name">${escapeHtml(cat.name)}</span><br><span class="cr-example">${escapeHtml(cat.example)}</span>`;
+      row.appendChild(body);
+      if (mine) {
+        const tag = document.createElement("span");
+        tag.className = "cr-mine-tag";
+        tag.textContent = "← твоя рука";
+        row.appendChild(tag);
+      }
+      list.appendChild(row);
+    });
+
+    applyComboHighlight(best ? best.cards : null);
+  }
+
+  function applyComboHighlight(cards) {
+    const cardEls = document.querySelectorAll("#myHoleCards .card, #communityRow .card");
+    cardEls.forEach((el) => {
+      el.classList.remove("combo-hl", "combo-dim");
+      if (!cards) return;
+      const isIn = cards.some((c) => String(c.rank) === el.dataset.rank && c.suit === el.dataset.suit);
+      el.classList.add(isIn ? "combo-hl" : "combo-dim");
+    });
+  }
+
+  function openComboModal() {
+    comboModalOpen = true;
+    refreshComboModal();
+    document.getElementById("comboModal").classList.remove("hidden");
+  }
+  function closeComboModal() {
+    comboModalOpen = false;
+    document.getElementById("comboModal").classList.add("hidden");
+    applyComboHighlight(null); // на столі підказка лишається лише поки модалка відкрита
+  }
+  document.getElementById("comboHintBtn").addEventListener("click", openComboModal);
+  document.getElementById("comboModalClose").addEventListener("click", closeComboModal);
+  document.getElementById("comboModal").addEventListener("click", (e) => { if (e.target.id === "comboModal") closeComboModal(); });
 
   document.getElementById("foldBtn").addEventListener("click", () => window.PokerGame.playerAction(lastState, "fold"));
   document.getElementById("resetTableBtn").addEventListener("click", () => {
