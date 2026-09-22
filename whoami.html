@@ -134,6 +134,8 @@
 <link rel="stylesheet" href="js/game-header.css">
 <script src="js/game-header.js"></script>
 <script src="js/login.js"></script>
+<script src="js/score-connect.js"></script>
+<script src="js/records.js"></script>
 <script>
 (function () {
   const VIEWS = ["setup", "active"];
@@ -205,6 +207,10 @@
   });
   document.getElementById("resetBtn").addEventListener("click", () => {
     if (confirm("Повернутися до вибору теми й складності? Поточний рахунок буде втрачено.")) {
+      const finalScore = window.WhoAmIGame.getState().score;
+      if (finalScore > 0 && window.AppScore && window.AppScore.sendScore) {
+        window.AppScore.sendScore("whoami", finalScore);
+      }
       showView("setup");
     }
   });

@@ -460,7 +460,7 @@
     </a>
 
     <a class="tile" href="chess.html" data-type="solo multi">
-      <div class="placeholder-icon">♟️</div>
+      <div class="tile-media" style="--icon: url('img/chess_logo.png');"></div>
       <div class="tags"><span class="tag tag-multi">1-2</span><span class="tag tag-it">🌐</span></div>
       <div class="tile-banner">
         <div class="name">Шахи</div>
@@ -468,7 +468,7 @@
     </a>
 
     <a class="tile" href="checkers.html" data-type="solo multi">
-      <div class="placeholder-icon">♟️</div>
+      <div class="tile-media" style="--icon: url('img/checkers_logo.png');"></div>
       <div class="tags"><span class="tag tag-multi">1-2</span><span class="tag tag-it">🌐</span></div>
       <div class="tile-banner">
         <div class="name">Шашки</div>
@@ -557,11 +557,11 @@
       </div>
     </a>
     
-    <a class="tile" href="mafia-host.html" data-type="host">
-      <div class="tile-media" style="--icon: url('img/mafiatv_logo.png');"></div>
-      <div class="tags"><span class="tag tag-multi">4-10</span><span class="tag tag-host">Хост</span><span class="tag tag-it">🌐</span></div>
+    <a class="tile" href="notes.html" data-type="host">
+      <div class="tile-media" style="--icon: url('');"></div>
+      <div class="tags"><span class="tag tag-it">🌐</span></div>
       <div class="tile-banner">
-        <div class="name">Мафія ТВ</div>
+        <div class="name">Notes</div>
       </div>
     </a>
 
@@ -648,6 +648,32 @@
   if (activeBtn) {
     applyFilter(activeBtn.dataset.filter);
   }
+
+  // Пам'ять позиції скролу: якщо зайшов у гру, погортавши сітку вниз, і
+  // натиснув "Назад" у грі — повертаємось на index.html скрольнутим туди ж,
+  // а не заново з нуля. sessionStorage живе, доки не закрита вкладка/апка,
+  // тож при холодному старті екран все одно чистий згори.
+  const SCROLL_KEY = 'games41_index_scroll';
+
+  const saveScroll = () => {
+    try { sessionStorage.setItem(SCROLL_KEY, String(window.scrollY)); } catch (e) {}
+  };
+
+  document.getElementById('games-grid').addEventListener('click', (e) => {
+    if (e.target.closest('a.tile')) saveScroll();
+  });
+  window.addEventListener('pagehide', saveScroll);
+
+  try {
+    const saved = sessionStorage.getItem(SCROLL_KEY);
+    if (saved !== null) {
+      // Подвійний rAF: чекаємо, поки браузер реально розкладе сітку (в т.ч.
+      // після applyFilter вище), а не скролимо по ще не готовому layout.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => window.scrollTo(0, parseInt(saved, 10) || 0));
+      });
+    }
+  } catch (e) {}
 
   setInterval(() => {
     const slot = document.querySelector('.rand-slot');

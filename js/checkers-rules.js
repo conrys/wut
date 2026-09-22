@@ -65,11 +65,12 @@
     return board;
   }
 
-  function initialState() {
+  function initialState(mandatoryCapture) {
     return {
       board: initialBoard(),
       turn: "w",
       forcedFrom: null,
+      mandatoryCapture: mandatoryCapture !== false,
       lastMove: null,
       history: [],
     };
@@ -155,7 +156,9 @@
     }
     const p = state.board[idx];
     if (!p || pieceColor(p) !== state.turn) return [];
-    if (hasAnyCapture(state, state.turn)) return captureMovesFrom(state.board, idx);
+    const mandatory = state.mandatoryCapture !== false;
+    if (mandatory && hasAnyCapture(state, state.turn)) return captureMovesFrom(state.board, idx);
+    if (!mandatory) return simpleMovesFrom(state.board, idx).concat(captureMovesFrom(state.board, idx));
     return simpleMovesFrom(state.board, idx);
   }
 
@@ -208,6 +211,7 @@
 
     return {
       board, turn, forcedFrom, lastMove,
+      mandatoryCapture: state.mandatoryCapture,
       history: state.history.concat([Object.assign({ san }, lastMove)]),
     };
   }
@@ -237,6 +241,7 @@
     return {
       board: encodeBoard(state.board),
       turn: state.turn,
+      mandatoryCapture: state.mandatoryCapture !== false,
       forcedFrom: state.forcedFrom === null || state.forcedFrom === undefined ? -1 : state.forcedFrom,
       lastMove: state.lastMove ? {
         from: state.lastMove.from,
@@ -255,6 +260,7 @@
     return {
       board: decodeBoard(obj.board),
       turn: obj.turn,
+      mandatoryCapture: obj.mandatoryCapture !== false,
       forcedFrom: obj.forcedFrom === -1 || obj.forcedFrom === undefined ? null : obj.forcedFrom,
       lastMove: obj.lastMove ? {
         from: obj.lastMove.from, to: obj.lastMove.to,

@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Нотатки</title>
+<style>
+  :root {
+    --bg: #14161a;
+    --surface-1: #1c1f2b;
+    --surface-2: #262a3a;
+    --line: rgba(255,255,255,0.08);
+    --text: #f2f1ec;
+    --text-muted: #8d90a3;
+    --accent: #d9b45c;
+    --danger: #d97070;
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-body: 'Inter', sans-serif;
+    --radius-xs: 4px;
+    --radius-sm: 8px;
+    --radius-md: 14px;
+    --radius-lg: 20px;
+    --radius-pill: 999px;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100dvh;
+    background: var(--bg); color: var(--text);
+    font-family: var(--font-body);
+  }
+  .page {
+    max-width: 640px; margin: 0 auto;
+    padding: 24px 16px 60px;
+  }
+  h1 {
+    font-family: var(--font-display); font-size: 22px; margin: 0 0 4px;
+  }
+  .subtitle { color: var(--text-muted); font-size: 13px; margin-bottom: 20px; }
+
+  .toolbar { display: flex; gap: 8px; margin-bottom: 18px; }
+  button {
+    font-family: var(--font-body); cursor: pointer; touch-action: manipulation;
+    border: none; border-radius: var(--radius-sm); padding: 10px 14px;
+    font-size: 13px; font-weight: 600;
+  }
+  .btn-primary { background: var(--accent); color: #14161a; }
+  .btn-ghost { background: var(--surface-2); color: var(--text); }
+
+  .group {
+    background: var(--surface-1); border: 1px solid var(--line);
+    border-radius: var(--radius-md); padding: 14px 16px; margin-bottom: 14px;
+  }
+  .group-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px; margin-bottom: 10px;
+  }
+  .group-title {
+    font-family: var(--font-display); font-size: 16px; font-weight: 700;
+    display: flex; align-items: baseline; gap: 6px;
+  }
+  .group-count { color: var(--text-muted); font-size: 12px; font-weight: 400; }
+  .copy-btn { background: var(--surface-2); color: var(--text); font-size: 12px; padding: 6px 10px; }
+
+  .note {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 8px 0; border-top: 1px solid var(--line);
+  }
+  .note:first-of-type { border-top: none; }
+  .note-body { flex: 1; min-width: 0; }
+  .note-text { font-size: 14px; white-space: pre-wrap; word-break: break-word; }
+  .note-meta { color: var(--text-muted); font-size: 11px; margin-top: 2px; }
+  .note-done {
+    background: transparent; border: 1px solid var(--line); color: var(--text-muted);
+    border-radius: var(--radius-pill); width: 26px; height: 26px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 13px; padding: 0;
+  }
+  .note-done:hover { color: var(--danger); border-color: var(--danger); }
+
+  .empty, .gate {
+    color: var(--text-muted); font-size: 14px; text-align: center; padding: 60px 20px;
+  }
+  .toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+    background: var(--surface-2); color: var(--text); padding: 10px 16px;
+    border-radius: var(--radius-pill); font-size: 13px; opacity: 0;
+    pointer-events: none; transition: opacity 0.2s ease;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Нотатки</h1>
+  <div class="subtitle" id="subtitle">Завантаження…</div>
+
+  <div id="gate" class="gate" style="display:none;">
+    Ця сторінка доступна лише для дозволених акаунтів.
+  </div>
+
+  <div id="content" style="display:none;">
+    <div class="toolbar">
+      <button class="btn-primary" id="copyAllBtn">Копіювати все</button>
+      <button class="btn-ghost" id="refreshBtn">Оновити</button>
+    </div>
+    <div id="groups"></div>
+    <div class="empty" id="emptyMsg" style="display:none;">Поки що порожньо.</div>
+  </div>
+</div>
+
+<div class="toast" id="toast">Скопійовано</div>
+
+<!-- Firebase (лише Firestore — так само, як в інших сторінках сайту) -->
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/login.js"></script>
+
+<script>
+(function () {
+  const NOTES_COLLECTION = "games41_notes";
+  const ALLOWED_VIEWERS = ["conrys", "test", "1111", "2222"];
+
+  const GAME_LABELS = {
+    "tetris": "Тетріс", "2048": "2048", "wordle": "Wordle", "sudoku": "Судоку",
+    "miner": "Сапер", "doodle": "Doodle Jump", "soliter": "Косинка", "poker": "Покер",
+    "snake": "Змійка", "spy": "Шпигун", "chess": "Шахи", "checkers": "Шашки",
+    "whoami": "Хто я?", "memology": "Мемологія", "crocodile": "Крокодил",
+    "quiplash": "Сміхлист", "mafia": "Мафія", "teli": "Зіпсований телефон",
+    "quiz": "Quiz", "draw": "Малювалка",
+  };
+  function gameLabel(key) {
+    return GAME_LABELS[key] || (key.charAt(0).toUpperCase() + key.slice(1));
+  }
+
+  const subtitleEl = document.getElementById("subtitle");
+  const gateEl = document.getElementById("gate");
+  const contentEl = document.getElementById("content");
+  const groupsEl = document.getElementById("groups");
+  const emptyEl = document.getElementById("emptyMsg");
+  const toastEl = document.getElementById("toast");
+
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    setTimeout(() => toastEl.classList.remove("show"), 1400);
+  }
+
+  function formatGroup(gameKey, notes) {
+    return `*${gameLabel(gameKey)}*\n` + notes.map((n) => n.text).join("\n");
+  }
+
+  function copyText(text) {
+    navigator.clipboard.writeText(text).then(
+      () => toast("Скопійовано"),
+      () => toast("Не вдалось скопіювати")
+    );
+  }
+
+  let latestGroups = {}; // gameKey -> [{id, text, author, createdAt}]
+
+  function render() {
+    const keys = Object.keys(latestGroups).sort(
+      (a, b) => Math.max(...latestGroups[b].map((n) => n.createdAt)) -
+                Math.max(...latestGroups[a].map((n) => n.createdAt))
+    );
+
+    groupsEl.innerHTML = "";
+    emptyEl.style.display = keys.length ? "none" : "block";
+
+    keys.forEach((key) => {
+      const notes = latestGroups[key].slice().sort((a, b) => a.createdAt - b.createdAt);
+      const group = document.createElement("div");
+      group.className = "group";
+
+      const head = document.createElement("div");
+      head.className = "group-head";
+      head.innerHTML = `
+        <div class="group-title">${gameLabel(key)} <span class="group-count">(${notes.length})</span></div>
+        <button class="copy-btn" type="button">Копіювати</button>
+      `;
+      head.querySelector(".copy-btn").addEventListener("click", () => copyText(formatGroup(key, notes)));
+      group.appendChild(head);
+
+      notes.forEach((n) => {
+        const row = document.createElement("div");
+        row.className = "note";
+        const date = new Date(n.createdAt).toLocaleString("uk-UA", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+        row.innerHTML = `
+          <div class="note-body">
+            <div class="note-text"></div>
+            <div class="note-meta">${n.author} · ${date}</div>
+          </div>
+          <button class="note-done" type="button" title="Позначити виконаним">✓</button>
+        `;
+        row.querySelector(".note-text").textContent = n.text;
+        row.querySelector(".note-done").addEventListener("click", () => {
+          firebase.firestore().collection(NOTES_COLLECTION).doc(n.id).delete().catch(() => {});
+        });
+        group.appendChild(row);
+      });
+
+      groupsEl.appendChild(group);
+    });
+  }
+
+  function copyAll() {
+    const keys = Object.keys(latestGroups).sort(
+      (a, b) => Math.max(...latestGroups[b].map((n) => n.createdAt)) -
+                Math.max(...latestGroups[a].map((n) => n.createdAt))
+    );
+    const text = keys.map((key) => formatGroup(key, latestGroups[key])).join("\n\n");
+    copyText(text || "Поки що порожньо.");
+  }
+
+  function startListening() {
+    firebase.firestore().collection(NOTES_COLLECTION)
+      .onSnapshot((snap) => {
+        const groups = {};
+        snap.forEach((doc) => {
+          const d = doc.data();
+          if (!d || !d.gameName || !d.text) return;
+          (groups[d.gameName] = groups[d.gameName] || []).push({
+            id: doc.id, text: d.text, author: d.author || "?", createdAt: d.createdAt || 0,
+          });
+        });
+        latestGroups = groups;
+        render();
+      }, (err) => {
+        console.warn("notes listen error:", err);
+        subtitleEl.textContent = "Помилка завантаження.";
+      });
+  }
+
+  document.getElementById("copyAllBtn").addEventListener("click", copyAll);
+  document.getElementById("refreshBtn").addEventListener("click", () => location.reload());
+
+  function init() {
+    const session = window.AppAuth && window.AppAuth.getSession();
+    if (!session || !ALLOWED_VIEWERS.includes(session.username)) {
+      gateEl.style.display = "block";
+      subtitleEl.textContent = "Немає доступу.";
+      return;
+    }
+    subtitleEl.textContent = "Увійшов як " + session.username;
+    contentEl.style.display = "block";
+    startListening();
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    // login.js читає сесію синхронно з localStorage, Firebase-з'єднання
+    // потрібне лише для читання даних — невелика затримка на завантаження SDK не заважає.
+    setTimeout(init, 150);
+  });
+})();
+</script>
+</body>
+</html>

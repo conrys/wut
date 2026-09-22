@@ -25,6 +25,7 @@
     drawOfferBy: null,
     rematchVotes: null,
     timeControl: null,
+    mandatoryCapture: true,
     clock: null,
     players: {},
   };
@@ -35,11 +36,12 @@
   let onStateChange = () => {};
   let clockTimer = null;
 
-  function buildFreshRoom(timeControl) {
+  function buildFreshRoom(timeControl, mandatoryCapture) {
     return {
       players: {}, white: null, black: null, state: null, result: null,
       drawOfferBy: null, rematchVotes: null,
       timeControl: timeControl || { type: "none" },
+      mandatoryCapture: mandatoryCapture !== false,
       clock: null,
     };
   }
@@ -78,11 +80,11 @@
     return () => ref.off("value", onValue);
   }
 
-  async function start(user, roomId, timeControl) {
+  async function start(user, roomId, timeControl, mandatoryCapture) {
     username = user;
     engine.onStateChange = handleEngineEvent;
     engine.start(username, { useLobby: false });
-    await engine.getOrCreateRoom(roomId, SCHEMA, () => buildFreshRoom(timeControl));
+    await engine.getOrCreateRoom(roomId, SCHEMA, () => buildFreshRoom(timeControl, mandatoryCapture));
     await engine.joinRoom(roomId, { asPlayer: false });
     engine.becomePlayer({});
     startClockTicker();
@@ -126,7 +128,7 @@
   function startGame() {
     const room = engine.latestRoom;
     if (!room || !room.white || !room.black) return;
-    const initial = R.encodeState(R.initialState());
+    const initial = R.encodeState(R.initialState(room.mandatoryCapture));
     const tc = room.timeControl || { type: "none" };
     const clock = tc.type === "clock" ? { w: tc.initialSeconds, b: tc.initialSeconds, turnStartedAt: engine.now() } : null;
     engine.roomRef.update({ phase: "playing", state: initial, result: null, drawOfferBy: null, rematchVotes: null, clock });
@@ -199,7 +201,7 @@
       engine.roomRef.update({
         phase: "playing",
         white: room.black, black: room.white,
-        state: R.encodeState(R.initialState()),
+        state: R.encodeState(R.initialState(room.mandatoryCapture)),
         result: null, drawOfferBy: null, rematchVotes: null, clock,
       });
     } else {

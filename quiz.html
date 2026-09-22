@@ -169,6 +169,8 @@
 <script src="js/online-engine.js"></script>
 <script src="js/quiz-game.js"></script>
 <script src="js/room-code-ui.js"></script>
+<script src="js/score-connect.js"></script>
+<script src="js/records.js"></script>
 <script src="js/help.js"></script>
 <script src="js/back-button.js"></script>
 <script>
@@ -306,6 +308,7 @@
     switch (state.phase) {
       case "lobby": {
         showView("status");
+        scoreSentForGame = false;
         const conn = window.QuizGame.connectedEntries(state.players).length;
         document.getElementById("statusLine").innerHTML = `<span class="pulse-dot"></span> Очікуємо гравців (${conn}/${window.QuizGame.MIN_PLAYERS})`;
         renderScoreboard(state, document.getElementById("scoreboardStatus"));
@@ -355,6 +358,13 @@
       case "game_over": {
         showView("end");
         renderEnd(state);
+        if (!scoreSentForGame) {
+          scoreSentForGame = true;
+          const me = state.players && state.players[ctx.username];
+          if (me && window.AppScore && window.AppScore.sendScore) {
+            window.AppScore.sendScore("quiz", me.score || 0);
+          }
+        }
         break;
       }
     }
@@ -368,6 +378,7 @@
   });
 
   let lastState = null;
+  let scoreSentForGame = false; // дедуп: щоб не слати рахунок повторно на кожен рендер game_over
   setInterval(() => {
     if (!lastState) return;
     if (lastState.phase === "countdown") {

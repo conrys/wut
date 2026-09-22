@@ -262,7 +262,14 @@
   // будь-якій сторінці, що підключила цей скрипт.
   // ------------------------------------------------------------------------
   function mountSettingsUI() {
-    if (document.getElementById("appSettingsBtn")) return;
+    if (document.getElementById("appSettingsPanel")) return;
+
+    // Плаваюча кнопка ⚙ лишається лише на index.html — на сторінках самих
+    // ігор налаштування тепер відкриваються через меню профілю (login.js),
+    // щоб не дублювати точку входу. Панель монтуємо всюди — вона потрібна
+    // для AppSettings.openPanel(), яким користується те саме меню профілю.
+    const currentFile = window.location.pathname.split("/").pop();
+    const isIndexPage = currentFile === "index.html" || currentFile === "";
 
     const style = document.createElement("style");
     style.textContent = `
@@ -270,46 +277,49 @@
         position: fixed;
         left: 16px;
         bottom: 16px;
-        z-index: 999;
+        z-index: var(--z-sticky, 999);
         width: 40px;
         height: 40px;
         border-radius: 50%;
-        border: 1px solid rgba(255, 255, 255, 0.15);
+        border: 1px solid var(--line, rgba(255, 255, 255, 0.15));
         background: rgba(30, 30, 36, 0.85);
-        color: #f0f0f0;
+        color: var(--text, #f0f0f0);
         font-size: 18px;
         display: flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
-        backdrop-filter: blur(6px);
+        backdrop-filter: blur(var(--blur-bg, 6px));
+        -webkit-backdrop-filter: blur(var(--blur-bg, 6px));
       }
       #appSettingsPanel {
         position: fixed;
         inset: 0;
-        z-index: 1000;
+        z-index: var(--z-modal, 1000);
         display: none;
-        align-items: flex-end;
-        justify-content: flex-start;
-        background: rgba(0, 0, 0, 0.5);
-        padding: 12px;
+        align-items: center;
+        justify-content: center;
+        background: var(--scrim-strong, rgba(0, 0, 0, 0.82));
+        backdrop-filter: blur(var(--blur-panel, 12px));
+        -webkit-backdrop-filter: blur(var(--blur-panel, 12px));
+        padding: 16px;
         box-sizing: border-box;
       }
       #appSettingsPanel.open { display: flex; }
       #appSettingsPanel .box {
-        background: #1e1e24;
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 14px;
+        background: var(--surface-1, #1e1e24);
+        border: 1px solid var(--line, rgba(255, 255, 255, 0.12));
+        border-radius: var(--radius-lg, 20px);
         padding: 16px;
         width: 260px;
         max-width: calc(100vw - 24px);
-        color: #f0f0f0;
+        color: var(--text, #f0f0f0);
         font-family: inherit;
       }
       #appSettingsPanel h4 {
         margin: 0 0 8px;
         font-size: 12px;
-        color: #9a9aa5;
+        color: var(--text-muted, #9a9aa5);
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.04em;
@@ -320,24 +330,24 @@
         min-width: 40px;
         padding: 8px 6px;
         font-size: 13px;
-        border-radius: 8px;
-        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: var(--radius-sm, 8px);
+        border: 1px solid var(--line, rgba(255, 255, 255, 0.12));
         background: rgba(255, 255, 255, 0.06);
-        color: #f0f0f0;
+        color: var(--text, #f0f0f0);
         cursor: pointer;
       }
       #appSettingsPanel .opt-btn.active {
-        border-color: #38cfa0;
+        border-color: var(--accent, #38cfa0);
         background: rgba(56, 207, 160, 0.15);
-        color: #38cfa0;
+        color: var(--accent, #38cfa0);
       }
       #appSettingsPanel .close-btn {
         width: 100%;
         margin-top: 4px;
         padding: 10px;
-        border-radius: 8px;
+        border-radius: var(--radius-sm, 8px);
         border: none;
-        background: #38cfa0;
+        background: var(--accent, #38cfa0);
         color: #14161a;
         font-weight: 700;
         cursor: pointer;
@@ -381,8 +391,15 @@
       </div>
     `;
 
-    document.body.appendChild(btn);
     document.body.appendChild(panel);
+    if (isIndexPage) document.body.appendChild(btn);
+
+    // Дозволяє іншим модулям (напр. меню профілю в login.js) відкрити цю ж
+    // панель, а не будувати свою копію налаштувань.
+    window.AppSettings.openPanel = () => {
+      refreshActive();
+      panel.classList.add("open");
+    };
 
     const BOOL_KEYS = ["soundOn", "vibrationOn"];
 
@@ -396,10 +413,12 @@
       });
     }
 
-    btn.addEventListener("click", () => {
-      refreshActive();
-      panel.classList.add("open");
-    });
+    if (isIndexPage) {
+      btn.addEventListener("click", () => {
+        refreshActive();
+        panel.classList.add("open");
+      });
+    }
     panel.addEventListener("click", (e) => {
       if (e.target === panel) panel.classList.remove("open");
     });

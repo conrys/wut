@@ -248,6 +248,8 @@ button:disabled { opacity: 0.5; cursor: default; }
 <script src="js/online-engine.js"></script>
 <script src="js/quiplash-game.js"></script>
 <script src="js/room-code-ui.js"></script>
+<script src="js/score-connect.js"></script>
+<script src="js/records.js"></script>
 <script src="js/help.js"></script>
 <script src="js/back-button.js"></script>
 <script src="js/refresh-button.js"></script>
@@ -268,6 +270,7 @@ button:disabled { opacity: 0.5; cursor: default; }
   let session = null;
   let appliedSessionSeed = null;
   let lastLobbyRingKey = null;
+  let scoreSentForGame = false; // дедуп: щоб не слати рахунок повторно на кожен рендер game_over
 
   const headerBar = document.getElementById("header-bar");
   const myBadge = document.getElementById("my-badge");
@@ -695,6 +698,7 @@ button:disabled { opacity: 0.5; cursor: default; }
 
     if (state.phase === "lobby") {
       screen("lobby");
+      scoreSentForGame = false;
       answerCards.dataset.answerKey = "";
       document.getElementById("lobby-room-code").textContent = QuiplashGame.roomId ? `Код кімнати: ${QuiplashGame.roomId}` : "";
       renderLobbyRing(players.map(([n, p]) => ({ name: n, ...p })));
@@ -741,6 +745,13 @@ button:disabled { opacity: 0.5; cursor: default; }
       screen("game-over");
       renderFinalBoard(finalScoreboard, players.sort((a, b) => (b[1].score || 0) - (a[1].score || 0)));
       restartBtn.classList.toggle("hidden", !ctx.host);
+      if (!scoreSentForGame) {
+        scoreSentForGame = true;
+        const me = state.players && state.players[ctx.username];
+        if (me && window.AppScore && window.AppScore.sendScore) {
+          window.AppScore.sendScore("quiplash", me.score || 0);
+        }
+      }
       return;
     }
   }
