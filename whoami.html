@@ -7,34 +7,76 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <style>
-  :root { --bg: #14161a; --tile-bg: #22252b; --text-light: #f4f5f1; --text-muted: #8b909c; --accent: #38cfa0; }
+  :root {
+    /* поверхні */
+    --bg: #14161a;
+    --surface-1: #22252b;   /* було --tile-bg */
+    --surface-2: #2b2f38;
+    --line: rgba(255,255,255,0.08);
+
+    /* текст */
+    --text: #f4f5f1;        /* було --text-light */
+    --text-muted: #8b909c;
+
+    /* акценти (вайб гри — лишається вільним) */
+    --accent: #38cfa0;
+    --danger: #d97070;
+
+    /* шрифти */
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-body: 'Inter', sans-serif;
+
+    /* --- структурні токени: спільні для всіх ігор, значення не міняти --- */
+    --radius-xs: 4px;
+    --radius-sm: 8px;
+    --radius-md: 14px;
+    --radius-lg: 20px;
+    --radius-pill: 999px;
+
+    --scrim: rgba(0,0,0,0.31);
+    --scrim-strong: rgba(0,0,0,0.82);
+    --blur-panel: 12px;
+    --blur-bg: 3px;
+
+    --z-bg-scene: 0;
+    --z-content: 1;
+    --z-sticky: 10;
+    --z-banner: 20;
+    --z-sidebar: 90;
+    --z-modal: 100;
+    --z-pause: 500;
+    --z-fx: 900;
+    --z-toast: 999;
+  }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none;
       -webkit-user-select: none; -webkit-touch-callout: none; }
   html, body { margin: 0; padding: 0; min-height: 100dvh; background: var(--bg);
-      font-family: 'Inter', sans-serif; color: var(--text-light); overflow-x: hidden; touch-action: manipulation; }
-  .page { max-width: 420px; margin: 0 auto; padding: 0 18px 30px; display: flex;
-      flex-direction: column; align-items: center; min-height: 100dvh; }
+      font-family: var(--font-body); color: var(--text); overflow-x: hidden; touch-action: manipulation; }
+  .page { max-width: 480px; margin: 0 auto; min-height: 100dvh; position: relative;
+      z-index: 0; overflow: hidden; display: flex; flex-direction: column; }
+  .pad { flex: 1; display: flex; flex-direction: column; align-items: center;
+      padding: 0 18px calc(30px + env(safe-area-inset-bottom)); }
   .hidden { display: none !important; }
 
-  h2 { font-family: 'Space Grotesk', sans-serif; font-size: 20px; margin: 0 0 14px; text-align: center; }
+  h2 { font-family: var(--font-display); font-size: 20px; margin: 0 0 14px; text-align: center; }
   .status-line { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 14px; }
 
-  .host-panel { width: 100%; background: var(--tile-bg); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .host-panel { width: 100%; background: var(--surface-1); border-radius: var(--radius-md); padding: 16px; margin-bottom: 14px; }
   .host-panel label { display: block; font-size: 12px; color: var(--text-muted); margin: 10px 0 4px; }
-  .host-panel select { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15);
-      background: #14161a; color: var(--text-light); font-size: 14px; }
+  .host-panel select { width: 100%; padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--line);
+      background: var(--bg); color: var(--text); font-size: 14px; }
 
-  button.primary-btn { width: 100%; border: none; border-radius: 20px; padding: 12px; font-weight: 700;
+  button.primary-btn { width: 100%; border: none; border-radius: var(--radius-lg); padding: 12px; font-weight: 700;
       font-size: 14px; cursor: pointer; background: var(--accent); color: #0e2318; margin-top: 10px; }
-  button.secondary-btn { width: 100%; border: none; border-radius: 20px; padding: 10px; font-weight: 700;
-      font-size: 13px; cursor: pointer; background: #272729; color: var(--text-light);
-      border: 1px solid rgba(255,255,255,0.12); margin-top: 8px; }
+  button.secondary-btn { width: 100%; border: none; border-radius: var(--radius-lg); padding: 10px; font-weight: 700;
+      font-size: 13px; cursor: pointer; background: var(--surface-2); color: var(--text);
+      border: 1px solid var(--line); margin-top: 8px; }
 
   .role-hint { color: var(--text-muted); font-size: 13px; text-align: center; margin-bottom: 18px; max-width: 320px; }
 
   .reveal-trigger {
-    width: min(90vw, 280px); padding: 50px 20px; border-radius: 20px;
-    background: var(--tile-bg); border: 1px dashed rgba(255,255,255,0.15);
+    width: min(90vw, 280px); padding: 50px 20px; border-radius: var(--radius-lg);
+    background: var(--surface-1); border: 1px dashed var(--line);
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
     color: var(--text-muted); font-size: 14px; text-align: center; margin-bottom: 18px;
     touch-action: none;
@@ -42,16 +84,16 @@
   .reveal-trigger .icon { font-size: 36px; }
 
   .tally { font-size: 14px; color: var(--text-muted); margin-bottom: 10px; }
-  .tally b { color: var(--text-light); font-family: 'Space Grotesk', sans-serif; font-size: 18px; }
+  .tally b { color: var(--text); font-family: var(--font-display); font-size: 18px; }
   .action-row { display: flex; gap: 10px; width: 100%; margin-bottom: 18px; }
-  .action-row button { flex: 1; border: none; border-radius: 14px; padding: 12px; font-weight: 700;
-      font-size: 13px; cursor: pointer; background: #272729; color: var(--text-light);
-      border: 1px solid rgba(255,255,255,0.12); }
+  .action-row button { flex: 1; border: none; border-radius: var(--radius-md); padding: 12px; font-weight: 700;
+      font-size: 13px; cursor: pointer; background: var(--surface-2); color: var(--text);
+      border: 1px solid var(--line); }
   .action-row button.guessed { background: var(--accent); color: #0e2318; }
 
   /* --------- повноекранне розкриття слова --------- */
   .fullscreen-reveal {
-    position: fixed; inset: 0; z-index: 100; background: var(--bg);
+    position: fixed; inset: 0; z-index: var(--z-modal); background: var(--bg);
     display: none; align-items: center; justify-content: center; padding: 6vh 5vw;
     touch-action: none;
   }
@@ -63,7 +105,7 @@
   .fullscreen-reveal.counting .countdown-block { display: flex; }
   .fullscreen-reveal.revealed .reveal-content { display: flex; }
   .countdown-digit {
-    font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 110px;
+    font-family: var(--font-display); font-weight: 700; font-size: 110px;
     animation: countdownPulse 1s ease-in-out infinite;
   }
   @keyframes countdownPulse { 0%,100%{ transform: scale(1); opacity: 1; } 50%{ transform: scale(0.9); opacity: 0.75; } }
@@ -73,13 +115,14 @@
     font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.12em;
   }
   .fullscreen-reveal .fit-text {
-    font-family: 'Space Grotesk', sans-serif; font-weight: 700; color: var(--text-light);
+    font-family: var(--font-display); font-weight: 700; color: var(--text);
     text-align: center; line-height: 1.05; max-width: 100%; word-break: break-word;
   }
 </style>
 </head>
 <body>
 <div class="page">
+<div class="pad">
 
   <div id="view-setup" class="hidden">
     <h2>🙈 Хто я?</h2>
@@ -111,6 +154,7 @@
     <button class="secondary-btn" id="resetBtn">🔄 До налаштувань</button>
   </div>
 
+</div>
 </div>
 
 <!-- повноекранний показ слова -->

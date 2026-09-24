@@ -7,36 +7,72 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <style>
-  :root { --bg: #14161a; --tile-bg: #22252b; --text-light: #f4f5f1; --text-muted: #8b909c; --accent: #38cfa0; }
+  :root {
+    --bg: #14161a;
+    --surface-1: #22252b;   /* було --tile-bg */
+    --surface-2: #1b1d22;   /* було хардкод #1b1d22 */
+    --line: rgba(255,255,255,0.1);
+
+    --text: #f4f5f1;        /* було --text-light */
+    --text-muted: #8b909c;
+
+    --accent: #38cfa0;
+
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-body: 'Inter', sans-serif;
+
+    --radius-xs: 4px;
+    --radius-sm: 8px;
+    --radius-md: 14px;
+    --radius-lg: 20px;
+    --radius-pill: 999px;
+
+    --scrim: rgba(0,0,0,0.31);
+    --scrim-strong: rgba(0,0,0,0.82);
+    --blur-panel: 12px;
+    --blur-bg: 3px;
+
+    --z-bg-scene: 0;
+    --z-content: 1;
+    --z-sticky: 10;
+    --z-banner: 20;
+    --z-sidebar: 90;
+    --z-modal: 100;
+    --z-pause: 500;
+    --z-fx: 900;
+    --z-toast: 999;
+  }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none;
       -webkit-user-select: none; -webkit-touch-callout: none; }
   html, body { margin: 0; padding: 0; min-height: 100dvh; background: var(--bg);
-      font-family: 'Inter', sans-serif; color: var(--text-light); overflow-x: hidden; touch-action: manipulation; }
-  .page { max-width: 420px; margin: 0 auto; padding: 0 18px 30px; display: flex;
-      flex-direction: column; align-items: center; min-height: 100dvh; }
+      font-family: var(--font-body); color: var(--text); overflow-x: hidden; touch-action: manipulation; }
+  .page { max-width: 480px; margin: 0 auto; min-height: 100dvh; position: relative;
+      z-index: 0; overflow: hidden; display: flex; flex-direction: column; }
+  .pad { flex: 1; display: flex; flex-direction: column; align-items: center;
+      padding: 0 18px calc(30px + env(safe-area-inset-bottom)); }
   .hidden { display: none !important; }
 
-  h2 { font-family: 'Space Grotesk', sans-serif; font-size: 20px; margin: 0 0 14px; text-align: center; }
+  h2 { font-family: var(--font-display); font-size: 20px; margin: 0 0 14px; text-align: center; }
   .status-line { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 14px; }
 
-  .host-panel { width: 100%; background: var(--tile-bg); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .host-panel { width: 100%; background: var(--surface-1); border-radius: var(--radius-md); padding: 16px; margin-bottom: 14px; }
   .host-panel label { display: block; font-size: 12px; color: var(--text-muted); margin: 10px 0 4px; }
-  .host-panel select { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15);
-      background: #14161a; color: var(--text-light); font-size: 14px; }
+  .host-panel select { width: 100%; padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--line);
+      background: var(--bg); color: var(--text); font-size: 14px; }
 
-  button.primary-btn { width: 100%; border: none; border-radius: 20px; padding: 12px; font-weight: 700;
+  button.primary-btn { width: 100%; border: none; border-radius: var(--radius-lg); padding: 12px; font-weight: 700;
       font-size: 14px; cursor: pointer; background: var(--accent); color: #0e2318; margin-top: 10px; }
   button.primary-btn:disabled { opacity: 0.35; cursor: default; }
-  button.secondary-btn { width: 100%; border: none; border-radius: 20px; padding: 10px; font-weight: 700;
-      font-size: 13px; cursor: pointer; background: #272729; color: var(--text-light);
-      border: 1px solid rgba(255,255,255,0.12); margin-top: 8px; }
+  button.secondary-btn { width: 100%; border: none; border-radius: var(--radius-lg); padding: 10px; font-weight: 700;
+      font-size: 13px; cursor: pointer; background: var(--surface-2); color: var(--text);
+      border: 1px solid var(--line); margin-top: 8px; }
 
   .hint-text { font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 6px; min-height: 16px; }
 
   /* --------- передача телефону --------- */
   .reveal-circle {
-    width: 220px; height: 220px; border-radius: 50%; background: #1b1d22;
-    border: 2px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center;
+    width: 220px; height: 220px; border-radius: 50%; background: var(--surface-2);
+    border: 2px solid var(--line); display: flex; align-items: center; justify-content: center;
     margin: 30px auto; text-align: center; padding: 20px; cursor: pointer;
   }
   .reveal-circle .icon { font-size: 40px; margin-bottom: 8px; }
@@ -44,27 +80,28 @@
 
   /* --------- активна гра --------- */
   .word-card {
-    width: 100%; background: var(--tile-bg); border-radius: 18px; padding: 34px 20px;
+    width: 100%; background: var(--surface-1); border-radius: var(--radius-md); padding: 34px 20px;
     display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 14px 0;
   }
   .word-card .theme-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; }
-  .word-card .word-text { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 30px; text-align: center; }
+  .word-card .word-text { font-family: var(--font-display); font-weight: 700; font-size: 30px; text-align: center; }
   .action-row { display: flex; gap: 10px; width: 100%; }
-  .action-row .btn-skip { flex: 1; border: none; border-radius: 20px; padding: 14px; font-weight: 700;
-      font-size: 14px; cursor: pointer; background: #272729; color: var(--text-light); border: 1px solid rgba(255,255,255,0.12); }
-  .action-row .btn-correct { flex: 1.4; border: none; border-radius: 20px; padding: 14px; font-weight: 700;
+  .action-row .btn-skip { flex: 1; border: none; border-radius: var(--radius-lg); padding: 14px; font-weight: 700;
+      font-size: 14px; cursor: pointer; background: var(--surface-2); color: var(--text); border: 1px solid var(--line); }
+  .action-row .btn-correct { flex: 1.4; border: none; border-radius: var(--radius-lg); padding: 14px; font-weight: 700;
       font-size: 15px; cursor: pointer; background: var(--accent); color: #0e2318; }
   .round-score { text-align: center; color: var(--text-muted); font-size: 13px; margin-top: 10px; }
-  .round-score b { color: var(--text-light); font-family: 'Space Grotesk', sans-serif; }
+  .round-score b { color: var(--text); font-family: var(--font-display); }
 
   /* --------- фінал --------- */
-  .summary-box { width: 100%; background: var(--tile-bg); border-radius: 14px; padding: 24px 18px; text-align: center; margin-bottom: 14px; }
-  .summary-box .big-num { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 40px; color: var(--accent); margin: 6px 0; }
+  .summary-box { width: 100%; background: var(--surface-1); border-radius: var(--radius-md); padding: 24px 18px; text-align: center; margin-bottom: 14px; }
+  .summary-box .big-num { font-family: var(--font-display); font-weight: 700; font-size: 40px; color: var(--accent); margin: 6px 0; }
   .summary-box .total-line { font-size: 13px; color: var(--text-muted); }
 </style>
 </head>
 <body>
 <div class="page">
+<div class="pad">
 
   <div id="view-setup">
     <h2>🐊 Крокодил</h2>
@@ -114,6 +151,7 @@
     <button class="primary-btn" id="newGameBtn">🔄 Нова гра</button>
   </div>
 
+</div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>

@@ -353,7 +353,11 @@
   function seatKeysSorted(seats) { return Object.keys(seats || {}).sort((a, b) => Number(a) - Number(b)); }
   function seatLabel(state, seatKey) {
     const s = state.seats[seatKey];
-    return s.occupantType === "bot" ? "Бот " + s.botId.slice(-1) : s.username;
+    if (s.occupantType !== "bot") return s.username;
+    const num = s.botId.slice(-1);
+    const labels = window.PokerGame.BOT_PERSONALITY_LABELS || {};
+    const trait = labels[s.personality];
+    return trait ? `Бот ${num} · ${trait}` : `Бот ${num}`;
   }
 
   // Розподіл місць по верхній дузі овалу (місце внизу залишається для гравця).

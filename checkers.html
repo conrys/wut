@@ -21,7 +21,16 @@
     --radius-pill: 999px;
     --scrim: rgba(0,0,0,0.31);
     --scrim-strong: rgba(0,0,0,0.82);
+    --z-modal: 100;
   }
+
+  /* .page/.pad — той самий контракт, що в мафії: .page БЕЗ горизонтальних
+     відступів (game-header.js вставляє #gameHeader першою дитиною .page,
+     тож хедер розтягується на всю ширину «екрана»); увесь padding — на .pad. */
+  .page { max-width: 480px; margin: 0 auto; min-height: 100dvh; position: relative;
+      z-index: 0; overflow: hidden; display: flex; flex-direction: column; }
+  .pad { flex: 1; display: flex; flex-direction: column;
+      padding: 22px 18px calc(22px + env(safe-area-inset-bottom)); }
 
   .mode-grid { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
   .check-row {
@@ -93,7 +102,16 @@
   .board-actions { display: flex; gap: 8px; margin-top: 12px; }
   .board-actions .btn { flex: 1; font-size: 13px; padding: 10px; }
 
-  .result-panel { text-align: center; }
+  .result-panel {
+    position: fixed; inset: 0; z-index: var(--z-modal);
+    display: flex; align-items: center; justify-content: center;
+    background: var(--scrim-strong); padding: 20px;
+  }
+  .result-panel .result-box {
+    background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: var(--radius-lg);
+    padding: 24px 20px; max-width: 340px; width: 100%; text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
   .result-panel .rtitle { font-family: var(--font-display); font-weight: 700; font-size: 20px; margin-bottom: 6px; }
 
   .draw-offer-bar { display: flex; align-items: center; gap: 10px; justify-content: center; background: var(--bg-tile); border-radius: var(--radius-sm); padding: 10px; margin-bottom: 10px; font-size: 13px; }
@@ -133,7 +151,8 @@
       <polygon points="50,30 54.7,43.5 69,43.8 57.6,52.5 61.8,66.2 50,58 38.2,66.2 42.4,52.5 31,43.8 45.3,43.5" fill="#e8c766" stroke="#a9832a" stroke-width="1"/>
     </symbol>
   </defs></svg>
-<div class="wrap">
+<div class="page">
+<div class="pad">
   <div class="title-block" id="titleBlock">
     <div class="logo">⛃ <span>Шашки</span></div>
   </div>
@@ -265,13 +284,16 @@
     </div>
 
     <!-- РЕЗУЛЬТАТ -->
-    <div class="hidden card result-panel" id="resultPanel">
-      <div class="rtitle" id="resultTitle"></div>
-      <button class="btn btn-primary btn-block hidden" id="rematchBtn">Реванш</button>
-      <div class="status-line hidden" id="waitRematchLine">Чекаємо на суперника...</div>
-      <button class="btn btn-block" id="backToModeFromResult" style="margin-top:8px;">До вибору режиму</button>
+    <div class="hidden result-panel" id="resultPanel">
+      <div class="result-box">
+        <div class="rtitle" id="resultTitle"></div>
+        <button class="btn btn-primary btn-block hidden" id="rematchBtn">Реванш</button>
+        <div class="status-line hidden" id="waitRematchLine">Чекаємо на суперника...</div>
+        <button class="btn btn-block" id="backToModeFromResult" style="margin-top:8px;">До вибору режиму</button>
+      </div>
     </div>
   </div>
+</div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
@@ -523,6 +545,12 @@
     const status = R.gameStatus(localState);
     if (status.status === "no-moves") {
       showResult(resultText(status.status, status.winner), false);
+      // Як і в шахах: проти бота рахунок нікуди сам не пишеться (на
+      // відміну від онлайн-партій, де це робить слухач room.result) —
+      // тому шлемо рекорд саме тут, в момент оголошення результату.
+      if (localBot && status.winner !== localBot.color) {
+        window.AppScore && window.AppScore.incrementScore && window.AppScore.incrementScore("checkers", 1);
+      }
     }
   }
 

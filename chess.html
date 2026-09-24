@@ -21,7 +21,18 @@
     --radius-pill: 999px;
     --scrim: rgba(0,0,0,0.31);
     --scrim-strong: rgba(0,0,0,0.82);
+    --z-modal: 100;
   }
+
+  /* .page/.pad — той самий контракт, що в мафії: .page БЕЗ горизонтальних
+     відступів (game-header.js вставляє #gameHeader першою дитиною .page,
+     тож хедер розтягується на всю ширину «екрана»); увесь padding — на .pad.
+     Раніше це давав .wrap із teli-style.css одним класом, що ховало хедер
+     всередині відступів — тепер розділено, як і в решті ігор. */
+  .page { max-width: 480px; margin: 0 auto; min-height: 100dvh; position: relative;
+      z-index: 0; overflow: hidden; display: flex; flex-direction: column; }
+  .pad { flex: 1; display: flex; flex-direction: column;
+      padding: 22px 18px calc(22px + env(safe-area-inset-bottom)); }
 
   .mode-grid { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
   .mode-card {
@@ -76,6 +87,11 @@
   .sq.selected::before { content: ""; position: absolute; inset: 0; background: var(--board-select); }
   .sq.lastmove::before { content: ""; position: absolute; inset: 0; background: var(--board-lastmove); }
   .sq.check::before { content: ""; position: absolute; inset: 0; background: var(--board-check); }
+  .sq.checkmate::before {
+    content: ""; position: absolute; inset: 0; background: var(--board-check);
+    animation: checkmatePulse 0.55s ease-in-out infinite alternate;
+  }
+  @keyframes checkmatePulse { from { opacity: 0.5; } to { opacity: 1; } }
   .sq .movedot { position: absolute; width: 26%; height: 26%; border-radius: 50%; background: var(--board-dot); z-index: 1; }
   .sq .movedot.capture { width: 100%; height: 100%; border-radius: 0; background: transparent; box-shadow: inset 0 0 0 4px var(--board-dot); }
   .sq .coord { position: absolute; bottom: 2px; left: 3px; font-size: 9px; font-family: var(--font-body); opacity: 0.5; z-index: 1; }
@@ -95,7 +111,16 @@
   .board-actions { display: flex; gap: 8px; margin-top: 12px; }
   .board-actions .btn { flex: 1; font-size: 13px; padding: 10px; }
 
-  .result-panel { text-align: center; }
+  .result-panel {
+    position: fixed; inset: 0; z-index: var(--z-modal);
+    display: flex; align-items: center; justify-content: center;
+    background: var(--scrim-strong); padding: 20px;
+  }
+  .result-panel .result-box {
+    background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: var(--radius-lg);
+    padding: 24px 20px; max-width: 340px; width: 100%; text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
   .result-panel .rtitle { font-family: var(--font-display); font-weight: 700; font-size: 20px; margin-bottom: 6px; }
 
   .draw-offer-bar { display: flex; align-items: center; gap: 10px; justify-content: center; background: var(--bg-tile); border-radius: var(--radius-sm); padding: 10px; margin-bottom: 10px; font-size: 13px; }
@@ -103,7 +128,8 @@
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="page">
+<div class="pad">
   <div class="title-block" id="titleBlock">
     <div class="logo">♟️ <span>Шахи</span></div>
   </div>
@@ -221,17 +247,20 @@
     </div>
 
     <!-- РЕЗУЛЬТАТ -->
-    <div class="hidden card result-panel" id="resultPanel">
-      <div class="rtitle" id="resultTitle"></div>
-      <button class="btn btn-primary btn-block hidden" id="rematchBtn">Реванш</button>
-      <div class="status-line hidden" id="waitRematchLine">Чекаємо на суперника...</div>
-      <button class="btn btn-block" id="backToModeFromResult" style="margin-top:8px;">До вибору режиму</button>
+    <div class="hidden result-panel" id="resultPanel">
+      <div class="result-box">
+        <div class="rtitle" id="resultTitle"></div>
+        <button class="btn btn-primary btn-block hidden" id="rematchBtn">Реванш</button>
+        <div class="status-line hidden" id="waitRematchLine">Чекаємо на суперника...</div>
+        <button class="btn btn-block" id="backToModeFromResult" style="margin-top:8px;">До вибору режиму</button>
+      </div>
     </div>
   </div>
 
   <div class="hidden promo-picker" id="promoPicker">
     <div class="promo-box" id="promoBox"></div>
   </div>
+</div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
@@ -370,7 +399,7 @@
 
         if (selected === idx) sq.classList.add("selected");
         if (st.lastMove && (st.lastMove.from === idx || st.lastMove.to === idx)) sq.classList.add("lastmove");
-        if (idx === checkedKingIdx) sq.classList.add("check");
+        if (idx === checkedKingIdx) sq.classList.add(status.status === "checkmate" ? "checkmate" : "check");
 
         const piece = st.board[idx];
         if (piece) {
@@ -409,6 +438,7 @@
     let label = st.turn === "w" ? "Хід білих" : "Хід чорних";
     if (mode === "local" && localBot && localBot.color === st.turn) label += " — бот думає…";
     if (status.status === "check") label += " — ШАХ!";
+    else if (status.status === "checkmate") label = "♛ МАТ!";
     bar.innerHTML = `<span class="swatch ${swatchClass}"></span><span class="who">${label}</span>`;
   }
 
@@ -495,7 +525,7 @@
   function maybeTriggerBot() {
     if (mode !== "local" || !localBot || !localState) return;
     const status = R.gameStatus(localState);
-    if (["checkmate", "stalemate", "draw-50move", "draw-material"].includes(status.status)) return;
+    if (["checkmate", "stalemate", "draw-50move", "draw-material", "draw-repetition"].includes(status.status)) return;
     if (localState.turn !== localBot.color) return;
     const myTurnToken = localState;
     setTimeout(() => {
@@ -513,8 +543,15 @@
   function maybeShowLocalResult() {
     const status = R.gameStatus(localState);
     if (status.status === "checkmate" || status.status === "stalemate" ||
-        status.status === "draw-50move" || status.status === "draw-material") {
+        status.status === "draw-50move" || status.status === "draw-material" ||
+        status.status === "draw-repetition") {
       showResult(resultText(status.status, status.winner), false);
+      // Проти бота рахунок нікуди самостійно не пишеться (на відміну від
+      // онлайн-партій, де це робить слухач room.result) — тому шлемо
+      // рекорд саме тут, у момент оголошення результату локальної гри.
+      if (localBot && status.status === "checkmate" && status.winner !== localBot.color) {
+        window.AppScore && window.AppScore.incrementScore && window.AppScore.incrementScore("chess", 1);
+      }
     }
   }
 
@@ -524,6 +561,7 @@
     if (status === "stalemate") return "Пат — нічия";
     if (status === "draw-50move") return "Нічия за правилом 50 ходів";
     if (status === "draw-material") return "Нічия — недостатньо матеріалу";
+    if (status === "draw-repetition") return "Нічия — потрійне повторення позиції";
     if (status === "resign") return `${winnerLabel} перемагають — суперник здався`;
     if (status === "draw-agreed") return "Нічия за згодою";
     if (status === "timeout") return `${winnerLabel} перемагають — у суперника закінчився час`;

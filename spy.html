@@ -7,16 +7,53 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <style>
-  :root { --bg: #14161a; --tile-bg: #22252b; --text-light: #f4f5f1; --text-muted: #8b909c; --accent: #38cfa0; }
+  :root {
+    --bg: #14161a;
+    --surface-1: #22252b;   /* було --tile-bg */
+    --surface-2: #1b1d22;   /* було хардкод #1b1d22 — «запалі» елементи (коло, інпут) */
+    --line: rgba(255,255,255,0.1);
+
+    --text: #f4f5f1;        /* було --text-light */
+    --text-muted: #8b909c;
+
+    --accent: #38cfa0;
+    --danger: #ff6b6b;      /* було хардкод #ff6b6b на .spy-label/.spies b */
+
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-body: 'Inter', sans-serif;
+
+    --radius-xs: 4px;
+    --radius-sm: 8px;
+    --radius-md: 14px;
+    --radius-lg: 20px;
+    --radius-pill: 999px;
+
+    --scrim: rgba(0,0,0,0.31);
+    --scrim-strong: rgba(0,0,0,0.82);
+    --blur-panel: 12px;
+    --blur-bg: 3px;
+
+    --z-bg-scene: 0;
+    --z-content: 1;
+    --z-sticky: 10;
+    --z-banner: 20;
+    --z-sidebar: 90;
+    --z-modal: 100;
+    --z-pause: 500;
+    --z-fx: 900;
+    --z-toast: 999;
+  }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none;
       -webkit-user-select: none; -webkit-touch-callout: none; }
   html, body { margin: 0; padding: 0; min-height: 100dvh; background: var(--bg);
-      font-family: 'Inter', sans-serif; color: var(--text-light); overflow-x: hidden; touch-action: manipulation; }
-  .page { max-width: 420px; margin: 0 auto; padding: 0 18px 30px; display: flex;
-      flex-direction: column; align-items: center; min-height: 100dvh; }
+      font-family: var(--font-body); color: var(--text); overflow-x: hidden; touch-action: manipulation; }
+  .page { max-width: 480px; margin: 0 auto; min-height: 100dvh; position: relative;
+      z-index: 0; overflow: hidden; display: flex; flex-direction: column; }
+  .pad { flex: 1; display: flex; flex-direction: column; align-items: center;
+      padding: 0 18px calc(30px + env(safe-area-inset-bottom)); }
   .hidden { display: none !important; }
 
-  h2 { font-family: 'Space Grotesk', sans-serif; font-size: 20px; margin: 0 0 14px; text-align: center; }
+  h2 { font-family: var(--font-display); font-size: 20px; margin: 0 0 14px; text-align: center; }
   .status-line { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 14px; }
   .pulse-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
       margin-right: 6px; animation: pulse 1.4s infinite; }
@@ -24,29 +61,29 @@
 
   .players-list { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-bottom: 18px; }
   .player-chip { display: flex; justify-content: space-between; align-items: center;
-      background: var(--tile-bg); border-radius: 10px; padding: 10px 14px; font-size: 14px; }
+      background: var(--surface-1); border-radius: var(--radius-md); padding: 10px 14px; font-size: 14px; }
   .player-chip.offline { opacity: 0.4; }
   .badge { font-size: 10px; font-weight: 700; background: var(--accent); color: #0e2318;
-      padding: 3px 8px; border-radius: 10px; }
+      padding: 3px 8px; border-radius: var(--radius-pill); }
 
-  .host-panel { width: 100%; background: var(--tile-bg); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .host-panel { width: 100%; background: var(--surface-1); border-radius: var(--radius-md); padding: 16px; margin-bottom: 14px; }
   .host-panel label { display: block; font-size: 12px; color: var(--text-muted); margin: 10px 0 4px; }
-  .host-panel select { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15);
-      background: #14161a; color: var(--text-light); font-size: 14px; }
+  .host-panel select { width: 100%; padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--line);
+      background: var(--bg); color: var(--text); font-size: 14px; }
 
-  button.primary-btn { width: 100%; border: none; border-radius: 20px; padding: 12px; font-weight: 700;
+  button.primary-btn { width: 100%; border: none; border-radius: var(--radius-lg); padding: 12px; font-weight: 700;
       font-size: 14px; cursor: pointer; background: var(--accent); color: #0e2318; margin-top: 10px; }
   button.primary-btn:disabled { opacity: 0.35; cursor: default; }
-  button.secondary-btn { width: 100%; border: none; border-radius: 20px; padding: 10px; font-weight: 700;
-      font-size: 13px; cursor: pointer; background: #272729; color: var(--text-light);
-      border: 1px solid rgba(255,255,255,0.12); margin-top: 8px; }
+  button.secondary-btn { width: 100%; border: none; border-radius: var(--radius-lg); padding: 10px; font-weight: 700;
+      font-size: 13px; cursor: pointer; background: var(--surface-2); color: var(--text);
+      border: 1px solid var(--line); margin-top: 8px; }
 
   .hint-text { font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 6px; min-height: 16px; }
 
   /* --------- картка Шпигуна --------- */
   .reveal-circle {
-    width: 220px; height: 220px; border-radius: 50%; background: #1b1d22;
-    border: 2px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center;
+    width: 220px; height: 220px; border-radius: 50%; background: var(--surface-2);
+    border: 2px solid var(--line); display: flex; align-items: center; justify-content: center;
     margin: 30px auto; text-align: center; padding: 20px; cursor: pointer;
   }
   .reveal-circle .prompt { font-size: 13px; color: var(--text-muted); }
@@ -54,40 +91,41 @@
   .reveal-circle.showing .prompt { display: none; }
   .reveal-circle.showing .card-content { display: block; }
   .card-content .theme { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
-  .card-content .word { font-family: 'Space Grotesk', sans-serif; font-size: 24px; font-weight: 700; }
-  .card-content .spy-label { font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 700; color: #ff6b6b; }
+  .card-content .word { font-family: var(--font-display); font-size: 24px; font-weight: 700; }
+  .card-content .spy-label { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: var(--danger); }
 
   /* --------- фаза розкриття --------- */
-  .reveal-box { width: 100%; background: var(--tile-bg); border-radius: 14px; padding: 20px; text-align: center; margin-bottom: 14px; }
+  .reveal-box { width: 100%; background: var(--surface-1); border-radius: var(--radius-md); padding: 20px; text-align: center; margin-bottom: 14px; }
   .reveal-box .theme { font-size: 12px; color: var(--text-muted); }
-  .reveal-box .word { font-family: 'Space Grotesk', sans-serif; font-size: 26px; font-weight: 700; margin: 6px 0 12px; }
+  .reveal-box .word { font-family: var(--font-display); font-size: 26px; font-weight: 700; margin: 6px 0 12px; }
   .reveal-box .spies { font-size: 14px; }
-  .reveal-box .spies b { color: #ff6b6b; }
+  .reveal-box .spies b { color: var(--danger); }
 
   /* --------- вхід у кімнату --------- */
-  input.text-input { width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 10px;
-      border: 1px solid rgba(255,255,255,0.15); background: #1b1d22; color: var(--text-light);
+  input.text-input { width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: var(--radius-md);
+      border: 1px solid var(--line); background: var(--surface-2); color: var(--text);
       font-size: 16px; letter-spacing: 0.08em; text-align: center; text-transform: uppercase; }
   input.text-input:focus { outline: 1px solid var(--accent); }
   .divider { display: flex; align-items: center; gap: 10px; width: 100%; margin: 18px 0;
       color: var(--text-muted); font-size: 12px; }
-  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: rgba(255,255,255,0.1); }
-  .room-code-display { font-family: 'Space Grotesk', sans-serif; font-size: 22px; letter-spacing: 0.12em;
-      background: var(--tile-bg); border: 1px dashed rgba(255,255,255,0.15); border-radius: 10px;
+  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+  .room-code-display { font-family: var(--font-display); font-size: 22px; letter-spacing: 0.12em;
+      background: var(--surface-1); border: 1px dashed var(--line); border-radius: var(--radius-md);
       padding: 10px 16px; margin-bottom: 14px; text-align: center; }
   .rooms-list { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-bottom: 4px; }
-  .room-item { background: var(--tile-bg); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px;
+  .room-item { background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--radius-md);
       padding: 12px 14px; cursor: pointer; }
   .room-item:active { border-color: var(--accent); }
   .room-item-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-  .room-item-title { font-family: 'Space Grotesk', sans-serif; font-size: 15px; letter-spacing: 0.05em; }
-  .room-item-phase { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 10px;
-      background: #1b1d22; color: var(--text-muted); }
+  .room-item-title { font-family: var(--font-display); font-size: 15px; letter-spacing: 0.05em; }
+  .room-item-phase { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: var(--radius-pill);
+      background: var(--surface-2); color: var(--text-muted); }
   .room-item-count { font-size: 12px; color: var(--text-muted); }
 </style>
 </head>
 <body>
 <div class="page">
+<div class="pad">
 
   <div id="view-locked" class="hidden">
     <h2>🕵️ Шпигун</h2>
@@ -147,6 +185,7 @@
     <button class="primary-btn hidden" id="nextRoundBtn">Нове коло</button>
   </div>
 
+</div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>

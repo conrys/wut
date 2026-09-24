@@ -189,7 +189,8 @@
     }
 
     if (status.status === "checkmate" || status.status === "stalemate" ||
-        status.status === "draw-50move" || status.status === "draw-material") {
+        status.status === "draw-50move" || status.status === "draw-material" ||
+        status.status === "draw-repetition") {
       update.phase = "ended";
       update.result = { status: status.status, winner: status.winner, reason: status.status };
     }

@@ -360,6 +360,33 @@
     return false;
   }
 
+  // Позиція для правила потрійного повторення: дошка + черга + права на
+  // рокіровку + клітинка взяття на проході. Свідомо НЕ включаємо
+  // halfmoveClock/fullmoveNumber/lastMove/history — це саме "та сама
+  // позиція", а не "та сама партія до цього моменту".
+  function positionSignature(state) {
+    const c = state.castling;
+    return encodeBoard(state.board) + "|" + state.turn + "|" +
+      (c.wK ? 1 : 0) + (c.wQ ? 1 : 0) + (c.bK ? 1 : 0) + (c.bQ ? 1 : 0) + "|" +
+      (state.enPassant === null || state.enPassant === undefined ? -1 : state.enPassant);
+  }
+
+  // Рахуємо, скільки разів поточна позиція вже зустрічалась за партію.
+  // Навмисно рахуємо реплеєм історії з initialState(), а не окремим полем
+  // у GameState — так не треба нічого нового серіалізувати для RTDB, і
+  // рушій лишається "чистою функцією" від board+history, як і задумано.
+  function countRepetitions(state) {
+    let cur = initialState();
+    const counts = Object.create(null);
+    const bump = (sig) => { counts[sig] = (counts[sig] || 0) + 1; };
+    bump(positionSignature(cur));
+    for (const h of state.history) {
+      cur = applyMoveRaw(cur, { from: h.from, to: h.to, promotion: h.promotion });
+      bump(positionSignature(cur));
+    }
+    return counts[positionSignature(state)] || 0;
+  }
+
   function gameStatus(state) {
     const legal = allLegalMoves(state);
     const check = inCheck(state, state.turn);
@@ -370,6 +397,12 @@
     }
     if (state.halfmoveClock >= 100) return { status: "draw-50move", winner: null };
     if (isInsufficientMaterial(state.board)) return { status: "draw-material", winner: null };
+    // Правило потрійного повторення — саме те, що ловить "вічний шах"
+    // ботом (наприклад, ферзем з двох полів): бот не мухлює, гра просто
+    // не мала способу побачити повторення. Бота нічого не треба
+    // "перебивати" — це не оцінка ходу, а окрема перевірка результату
+    // партії ПІСЛЯ того, як хід уже зроблено.
+    if (countRepetitions(state) >= 3) return { status: "draw-repetition", winner: null };
     return { status: check ? "check" : "playing", winner: null };
   }
 

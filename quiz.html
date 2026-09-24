@@ -8,94 +8,129 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg-void: #0a0e2e; --bg-panel: #131a4d; --bg-panel-2: #1c2566; --bg-tile: #202a70;
-    --gold: #ffc847; --gold-soft: #ffe7a8; --correct: #35d399; --wrong: #ff5c7c;
-    --text-primary: #f4f1ff; --text-muted: #8b90c4; --border-soft: rgba(255, 200, 71, 0.18);
-    --font-display: 'Space Grotesk', sans-serif; --font-body: 'Inter', sans-serif;
+    --bg: #0a0e2e;                 /* було --bg-void */
+    --surface-1: #131a4d;          /* було --bg-panel */
+    --surface-2: #202a70;          /* було --bg-tile */
+    --line: rgba(255, 200, 71, 0.18); /* було --border-soft */
+
+    --text: #f4f1ff;               /* було --text-primary */
+    --text-muted: #8b90c4;
+
+    --accent: #ffc847;             /* було --gold */
+    --correct: #35d399;
+    --danger: #ff5c7c;             /* було --wrong */
+
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-body: 'Inter', sans-serif;
+
+    --radius-xs: 4px;
+    --radius-sm: 8px;
+    --radius-md: 14px;
+    --radius-lg: 20px;
+    --radius-pill: 999px;
+
+    --scrim: rgba(0,0,0,0.31);
+    --scrim-strong: rgba(0,0,0,0.82);
+    --blur-panel: 12px;
+    --blur-bg: 3px;
+
+    --z-bg-scene: 0;
+    --z-content: 1;
+    --z-sticky: 10;
+    --z-banner: 20;
+    --z-sidebar: 90;
+    --z-modal: 100;
+    --z-pause: 500;
+    --z-fx: 900;
+    --z-toast: 999;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
-  html, body { margin: 0; padding: 0; min-height: 100dvh; background: var(--bg-void);
+  html, body { margin: 0; padding: 0; min-height: 100dvh; background: var(--bg);
     background-image: radial-gradient(circle at 15% 10%, rgba(123,97,255,0.16), transparent 45%), radial-gradient(circle at 85% 90%, rgba(255,200,71,0.10), transparent 40%);
-    color: var(--text-primary); font-family: var(--font-body); overflow-x: hidden; touch-action: manipulation; }
-  .page { max-width: 460px; margin: 0 auto; padding: 0 18px 30px; display: flex; flex-direction: column; align-items: center; min-height: 100dvh; }
+    color: var(--text); font-family: var(--font-body); overflow-x: hidden; touch-action: manipulation; }
+  .page { max-width: 480px; margin: 0 auto; min-height: 100dvh; position: relative;
+      z-index: 0; overflow: hidden; display: flex; flex-direction: column; }
+  .pad { flex: 1; display: flex; flex-direction: column; align-items: center;
+      padding: 0 18px calc(30px + env(safe-area-inset-bottom)); }
   .hidden { display: none !important; }
   h2 { font-family: var(--font-display); font-size: 20px; margin: 0 0 14px; text-align: center; }
   .status-line { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 14px; }
-  .pulse-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--gold); margin-right: 6px; animation: pulse 1.4s infinite; }
+  .pulse-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-right: 6px; animation: pulse 1.4s infinite; }
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
-  .my-score { font-family: var(--font-display); font-size: 54px; color: var(--gold); }
+  .my-score { font-family: var(--font-display); font-size: 54px; color: var(--accent); }
 
-  .panel { width: 100%; background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .panel { width: 100%; background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--radius-md); padding: 16px; margin-bottom: 14px; }
   .scoreboard { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-bottom: 14px; }
-  .score-row { display: flex; justify-content: space-between; align-items: center; background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 10px; padding: 8px 14px; font-size: 14px; }
-  .score-row.is-active { border-color: var(--gold); background: linear-gradient(90deg, rgba(255,200,71,0.14), var(--bg-panel)); }
-  .score-row .points { font-family: var(--font-display); font-weight: 700; color: var(--gold); }
-  .score-row .points.negative { color: var(--wrong); }
-  .badge-turn { font-size: 10px; background: var(--gold); color: #201400; padding: 2px 8px; border-radius: 999px; font-weight: 700; margin-left: 6px; }
-  .dot-offline { width: 7px; height: 7px; border-radius: 50%; background: var(--wrong); display: inline-block; margin-right: 4px; }
+  .score-row { display: flex; justify-content: space-between; align-items: center; background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--radius-md); padding: 8px 14px; font-size: 14px; }
+  .score-row.is-active { border-color: var(--accent); background: linear-gradient(90deg, rgba(255,200,71,0.14), var(--surface-1)); }
+  .score-row .points { font-family: var(--font-display); font-weight: 700; color: var(--accent); }
+  .score-row .points.negative { color: var(--danger); }
+  .badge-turn { font-size: 10px; background: var(--accent); color: #201400; padding: 2px 8px; border-radius: var(--radius-pill); font-weight: 700; margin-left: 6px; }
+  .dot-offline { width: 7px; height: 7px; border-radius: 50%; background: var(--danger); display: inline-block; margin-right: 4px; }
 
-  button.primary-btn { width: 100%; border: none; border-radius: 20px; padding: 12px; font-weight: 700; font-size: 14px;
-    cursor: pointer; background: var(--gold); color: #1a1200; margin-top: 10px; font-family: var(--font-display); }
-  button.secondary-btn { width: 100%; border: none; border-radius: 20px; padding: 10px; font-weight: 700; font-size: 13px;
-    cursor: pointer; background: var(--bg-tile); color: var(--text-primary); border: 1px solid var(--border-soft); margin-top: 8px; }
+  button.primary-btn { width: 100%; border: none; border-radius: var(--radius-lg); padding: 12px; font-weight: 700; font-size: 14px;
+    cursor: pointer; background: var(--accent); color: #1a1200; margin-top: 10px; font-family: var(--font-display); }
+  button.secondary-btn { width: 100%; border: none; border-radius: var(--radius-lg); padding: 10px; font-weight: 700; font-size: 13px;
+    cursor: pointer; background: var(--surface-2); color: var(--text); border: 1px solid var(--line); margin-top: 8px; }
 
   .select-cat { text-align: left; margin-bottom: 10px; }
   .select-cat .cat-name { color: var(--text-muted); font-size: 13px; margin-bottom: 6px; }
   .select-cat .vals { display: flex; gap: 8px; flex-wrap: wrap; }
-  .val-btn { background: var(--bg-tile); border: 1px solid var(--border-soft); border-radius: 10px; padding: 10px 14px;
-    font-family: var(--font-display); font-weight: 700; color: var(--gold); font-size: 15px; }
+  .val-btn { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 14px;
+    font-family: var(--font-display); font-weight: 700; color: var(--accent); font-size: 15px; }
   .val-btn.played { opacity: 0.25; color: var(--text-muted); }
 
-  .answer-value { font-family: var(--font-display); font-size: 18px; color: var(--gold); text-align: center; }
+  .answer-value { font-family: var(--font-display); font-size: 18px; color: var(--accent); text-align: center; }
   .answer-timer { font-family: var(--font-display); font-size: 40px; margin: 6px 0; text-align: center; }
-  .answer-timer.urgent { color: var(--wrong); }
+  .answer-timer.urgent { color: var(--danger); }
   .answer-q { font-size: 18px; font-weight: 600; line-height: 1.4; margin: 10px 0 18px; text-align: center; }
   .answer-options { display: grid; gap: 10px; width: 100%; }
-  .opt-btn { background: var(--bg-tile); border: 1px solid var(--border-soft); border-radius: 14px; padding: 16px;
-    font-size: 16px; font-weight: 600; text-align: left; color: var(--text-primary); display: flex; align-items: center; gap: 10px; width: 100%; }
-  .opt-btn .letter { font-family: var(--font-display); color: var(--gold); font-weight: 700; }
-  .opt-btn.chosen { border-color: var(--gold); background: rgba(255,200,71,0.18); }
+  .opt-btn { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-md); padding: 16px;
+    font-size: 16px; font-weight: 600; text-align: left; color: var(--text); display: flex; align-items: center; gap: 10px; width: 100%; }
+  .opt-btn .letter { font-family: var(--font-display); color: var(--accent); font-weight: 700; }
+  .opt-btn.chosen { border-color: var(--accent); background: rgba(255,200,71,0.18); }
   .opt-btn.locked { opacity: 0.5; }
   .opt-btn.is-correct { border-color: var(--correct); background: rgba(53,211,153,0.2); }
-  .opt-btn.is-wrong-choice { border-color: var(--wrong); background: rgba(255,92,124,0.2); }
+  .opt-btn.is-wrong-choice { border-color: var(--danger); background: rgba(255,92,124,0.2); }
 
-  .result-banner { text-align: center; padding: 20px; border-radius: 16px; width: 100%; }
+  .result-banner { text-align: center; padding: 20px; border-radius: var(--radius-md); width: 100%; }
   .result-banner.correct { background: rgba(53,211,153,0.15); border: 1px solid var(--correct); }
-  .result-banner.wrong { background: rgba(255,92,124,0.15); border: 1px solid var(--wrong); }
+  .result-banner.wrong { background: rgba(255,92,124,0.15); border: 1px solid var(--danger); }
   .result-banner .title { font-family: var(--font-display); font-size: 22px; font-weight: 700; margin-bottom: 6px; }
 
-  .podium-row { display: flex; align-items: center; justify-content: space-between; background: var(--bg-tile);
-    border-radius: 12px; padding: 12px 18px; border: 1px solid var(--border-soft); width: 100%; margin-bottom: 8px; }
-  .podium-row.win { border-color: var(--gold); background: linear-gradient(90deg, rgba(255,200,71,0.18), var(--bg-tile)); }
+  .podium-row { display: flex; align-items: center; justify-content: space-between; background: var(--surface-2);
+    border-radius: var(--radius-md); padding: 12px 18px; border: 1px solid var(--line); width: 100%; margin-bottom: 8px; }
+  .podium-row.win { border-color: var(--accent); background: linear-gradient(90deg, rgba(255,200,71,0.18), var(--surface-2)); }
   .podium-rank { font-family: var(--font-display); font-weight: 700; width: 32px; color: var(--text-muted); }
-  .podium-row.win .podium-rank { color: var(--gold); }
+  .podium-row.win .podium-rank { color: var(--accent); }
   .podium-name { flex: 1; font-weight: 600; }
-  .podium-score { font-family: var(--font-display); font-weight: 700; color: var(--gold); }
+  .podium-score { font-family: var(--font-display); font-weight: 700; color: var(--accent); }
 
   .host-controls { width: 100%; margin-top: 6px; }
-  .host-controls .eyebrow { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold); text-align: center; margin-bottom: 8px; opacity: 0.8; }
+  .host-controls .eyebrow { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); text-align: center; margin-bottom: 8px; opacity: 0.8; }
   .host-controls .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
   .host-controls button { flex: 1; min-width: 90px; }
-  .danger-btn { background: transparent !important; border: 1px solid var(--wrong) !important; color: var(--wrong) !important; }
+  .danger-btn { background: transparent !important; border: 1px solid var(--danger) !important; color: var(--danger) !important; }
 
   /* --------- вхід у кімнату --------- */
-  input.text-input { width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 10px;
-    border: 1px solid var(--border-soft); background: var(--bg-tile); color: var(--text-primary);
+  input.text-input { width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: var(--radius-md);
+    border: 1px solid var(--line); background: var(--surface-2); color: var(--text);
     font-size: 16px; letter-spacing: 0.08em; text-align: center; text-transform: uppercase; }
-  input.text-input:focus { outline: 1px solid var(--gold); }
+  input.text-input:focus { outline: 1px solid var(--accent); }
   .divider { display: flex; align-items: center; gap: 10px; width: 100%; margin: 18px 0; color: var(--text-muted); font-size: 12px; }
-  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--border-soft); }
+  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
   .rooms-list { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-bottom: 4px; }
-  .room-item { background: var(--bg-panel); border: 1px solid var(--border-soft); border-radius: 12px; padding: 12px 14px; cursor: pointer; }
-  .room-item:active { border-color: var(--gold); }
+  .room-item { background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--radius-md); padding: 12px 14px; cursor: pointer; }
+  .room-item:active { border-color: var(--accent); }
   .room-item-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
   .room-item-title { font-family: var(--font-display); font-size: 15px; letter-spacing: 0.05em; }
-  .room-item-phase { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 10px; background: var(--bg-tile); color: var(--text-muted); }
+  .room-item-phase { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: var(--radius-pill); background: var(--surface-2); color: var(--text-muted); }
   .room-item-count { font-size: 12px; color: var(--text-muted); }
 </style>
 </head>
 <body>
 <div class="page">
+<div class="pad">
 
   <div id="view-locked" class="hidden">
     <h2>🎯 Quiz</h2>
@@ -155,6 +190,7 @@
     <button class="secondary-btn danger-btn" id="btnReset">🔄 Скинути гру</button>
   </div>
 
+</div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>

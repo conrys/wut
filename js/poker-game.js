@@ -46,6 +46,30 @@
   const SMALL_BLIND = 10;
   const BIG_BLIND = 20;
   const BOT_THINK_MS = 900;
+
+  // ------------------------- характери ботів -------------------------
+  // Кожен бот отримує один із цих профілів при посадці за стіл (claimSeat /
+  // addTestBots) — зберігається на самому місці (seats[k].personality), тож
+  // переживає перезаходи й однаковий для всіх, хто дивиться на стіл.
+  // botDecision() масштабує свої пороги/ймовірності цими множниками; сама
+  // структура рішення (check/bet/call/raise/fold) лишається тією ж, що й
+  // раніше — це навмисно, щоб не зламати "бот уже непогано грає".
+  const BOT_PERSONALITIES = {
+    // обережний: рідше блефує, легше фолдить, рідше рейзить не на монстрах
+    tight: { label: "обережний", betThreshold: 4, raiseThreshold: 3, aggression: 0.7, looseness: 0.22, bluffRate: 0.03 },
+    // урівноважений: близько до поведінки "до особистостей"
+    balanced: { label: "збалансований", betThreshold: 3, raiseThreshold: 2, aggression: 1.0, looseness: 0.35, bluffRate: 0.08 },
+    // вільний: платить ширшим діапазоном рук, не тільки сильними
+    loose: { label: "вільний", betThreshold: 2, raiseThreshold: 1, aggression: 1.1, looseness: 0.55, bluffRate: 0.10 },
+    // агресивний: більше ставить/рейзить узагалі
+    aggressive: { label: "агресивний", betThreshold: 2, raiseThreshold: 1, aggression: 1.5, looseness: 0.4, bluffRate: 0.15 },
+    // блефер: найвища ймовірність зобразити силу на порожній руці
+    bluffer: { label: "блефер", betThreshold: 2, raiseThreshold: 1, aggression: 1.3, looseness: 0.45, bluffRate: 0.30 },
+  };
+  const BOT_PERSONALITY_KEYS = Object.keys(BOT_PERSONALITIES);
+  function randomPersonality() {
+    return BOT_PERSONALITY_KEYS[Math.floor(Math.random() * BOT_PERSONALITY_KEYS.length)];
+  }
   const HAND_RESULT_PAUSE_MS = 8000;
   const HOST_TICK_MS = 700;
   const SUITS = ["S", "H", "D", "C"];
@@ -196,8 +220,8 @@
       if (seats === null || seats === undefined) {
         return {
           "0": { occupantType: "human", username: who, stack: STARTING_STACK },
-          "1": { occupantType: "bot", botId: "bot_1", stack: STARTING_STACK },
-          "2": { occupantType: "bot", botId: "bot_2", stack: STARTING_STACK },
+          "1": { occupantType: "bot", botId: "bot_1", stack: STARTING_STACK, personality: randomPersonality() },
+          "2": { occupantType: "bot", botId: "bot_2", stack: STARTING_STACK, personality: randomPersonality() },
         };
       }
       for (const key in seats) {
@@ -531,23 +555,34 @@
   function botDecision(state, seatKey) {
     const hand = state.hand;
     const seatState = hand.seatsInHand[seatKey];
+    const seatInfo = state.seats[seatKey];
+    const P = BOT_PERSONALITIES[seatInfo.personality] || BOT_PERSONALITIES.balanced;
     const toCall = hand.currentBet - seatState.betThisRound;
     const seven = seatState.holeCards.concat(hand.community || []);
-    const strength = seven.length >= 5 ? best5of7(seven).category : estimatePreflop(seatState.holeCards);
+    const realStrength = seven.length >= 5 ? best5of7(seven).category : estimatePreflop(seatState.holeCards);
+
+    // Блеф: незалежно від реальної сили руки, з ймовірністю P.bluffRate бот
+    // цього ходу грає так, ніби рука сильна (effectiveStrength=6) — тобто
+    // інколи ставить/рейзить у порожню руку. Ймовірність своя для кожного
+    // характеру (bluffer суттєво частіше за tight).
+    const bluffing = Math.random() < P.bluffRate;
+    const strength = bluffing ? 6 : realStrength;
     const r = Math.random();
 
     if (toCall <= 0) {
-      if (strength >= 3 && r < 0.35) return { action: "bet", amount: seatState.betThisRound + hand.minRaise * 2 };
+      if (strength >= P.betThreshold && r < 0.35 * P.aggression) {
+        return { action: "bet", amount: seatState.betThisRound + hand.minRaise * 2 };
+      }
       return { action: "check" };
     }
     const stack = state.seats[seatKey].stack || 0;
     const potOdds = toCall / Math.max(1, hand.currentBet * 2);
-    if (strength >= 5 || (strength >= 2 && r < 0.5)) {
-      if (r < 0.25 && stack > toCall) return { action: "raise", amount: seatState.betThisRound + toCall + hand.minRaise };
+    if (strength >= 5 || (strength >= P.raiseThreshold && r < 0.5 * P.aggression)) {
+      if (r < 0.25 * P.aggression && stack > toCall) return { action: "raise", amount: seatState.betThisRound + toCall + hand.minRaise };
       return { action: "call" };
     }
-    if (strength >= 1 && potOdds < 0.35) return { action: "call" };
-    if (toCall <= 20 && r < 0.4) return { action: "call" };
+    if (strength >= 1 && potOdds < P.looseness) return { action: "call" };
+    if (toCall <= 20 && r < 0.4 * (P.looseness / 0.35)) return { action: "call" };
     return { action: "fold" };
   }
   // дуже грубий preflop-евристик: пара -> 2, одномастні/конектори -> 1, інше -> 0
@@ -688,11 +723,42 @@
     });
   }
 
+  // ------------------------- бот-тестування (консоль) -------------------------
+  // Виклик з devtools, коли вже сидиш за столом: PokerGame.addTestBots(5) —
+  // додає ще 5 ботів у нові місця, щоб перевірити, як стіл/UI тримають
+  // велику кількість гравців. Хост-тік веде БУДЬ-яке місце з occupantType
+  // "bot" однаково (не лише дефолтні bot_1/bot_2 з claimSeat), тож нові боти
+  // одразу ходять як звичайні — окремий тестовий движок не потрібен.
+  // Застереження: poker.html підписує бота як "Бот " + botId.slice(-1), тож
+  // за екраном лишається лише остання цифра імені — для 1-9 нових ботів це
+  // ще читабельно, за 10 краще звати кілька разів по кілька штук і дивитись
+  // прямо в RTDB, які botId реально додались.
+  function addTestBots(count) {
+    count = Math.max(1, Math.min(20, Number(count) || 1));
+    if (!Engine.roomRef) {
+      console.warn("PokerGame.addTestBots: спочатку зайди в кімнату (відкрий poker.html і сядь за стіл).");
+      return Promise.resolve();
+    }
+    return Engine.roomRef.child("seats").transaction((seats) => {
+      seats = seats || {};
+      const next = Object.assign({}, seats);
+      let maxIdx = Object.keys(seats).reduce((m, k) => Math.max(m, Number(k)), -1);
+      for (let i = 0; i < count; i++) {
+        maxIdx += 1;
+        next[String(maxIdx)] = { occupantType: "bot", botId: "bot_test" + maxIdx, stack: STARTING_STACK, personality: randomPersonality() };
+      }
+      return next;
+    }).then(() => {
+      console.log(`✅ PokerGame.addTestBots: додано ${count} ботів.`);
+    });
+  }
+
   window.PokerGame = {
     STARTING_STACK, SMALL_BLIND, BIG_BLIND,
     evaluate5, compareHandValue, best5of7, computeSidePots, HAND_CATEGORIES,
+    BOT_PERSONALITY_LABELS: Object.fromEntries(Object.entries(BOT_PERSONALITIES).map(([k, v]) => [k, v.label])),
     watchActiveRooms,
-    start, stop, playerAction, resetTable,
+    start, stop, playerAction, resetTable, addTestBots,
     get roomId() { return Engine.currentRoomId; },
     set onStateChange(fn) { onStateChange = fn; },
   };
