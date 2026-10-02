@@ -1,0 +1,286 @@
+<!-- Гра: Human Bingo  |  Файл: humanbingo.html -->
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<title>Human Bingo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #14161a; --tile-bg: #22252b; --text-light: #f4f5f1; --text-muted: #8b909c;
+    --accent: #38cfa0; --red: #d9455f;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100dvh;
+    background: radial-gradient(circle at 50% 20%, #1f242d 0%, #14161a 70%), radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 100%, 24px 24px;
+    font-family: 'Inter', sans-serif; color: var(--text-light); touch-action: manipulation;
+  }
+  .page { max-width: 480px; margin: 0 auto; padding: 0 12px 20px; min-height: 100dvh; }
+  .hidden { display: none !important; }
+  h2 { font-family: 'Space Grotesk', sans-serif; font-size: 20px; margin: 14px 0; text-align: center; }
+  h3 { font-family: 'Space Grotesk', sans-serif; font-size: 14px; margin: 0 0 8px; }
+  .status-line { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 14px; }
+  .btn { border: none; border-radius: 12px; padding: 12px; font-family: 'Space Grotesk', sans-serif; font-weight: 700;
+      font-size: 14px; background: var(--tile-bg); color: var(--text-light); cursor: pointer; width: 100%; margin-bottom: 8px; }
+  .btn-primary { background: var(--accent); color: #06231a; }
+  .btn-danger { background: var(--red); color: #fff; }
+  .btn-sm { width: auto; padding: 8px 14px; font-size: 12px; margin: 0; }
+  .btn:disabled { opacity: 0.35; }
+  .field { width: 100%; box-sizing: border-box; padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12);
+      background: var(--tile-bg); color: var(--text-light); font-size: 14px; margin-bottom: 10px; }
+  .field:focus { outline: none; border-color: var(--accent); }
+  .divider { text-align: center; color: var(--text-muted); font-size: 12px; margin: 10px 0; }
+  .card { background: var(--tile-bg); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+  .rooms-list .room-item { cursor: pointer; background: var(--tile-bg); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
+  .empty-state { text-align: center; padding: 30px 0; color: var(--text-muted); font-size: 13px; }
+
+  .player-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; font-size: 13px; }
+  .player-row .role-tag { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; }
+  .role-tag.host { background: rgba(56,207,160,0.18); color: var(--accent); }
+  .role-tag.cohost { background: rgba(255,255,255,0.1); color: var(--text-muted); }
+  .player-row .make-cohost { margin-left: auto; font-size: 11px; color: var(--accent); cursor: pointer; background: none; border: none; }
+
+  .spice-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .spice-row input[type=range] { flex: 1; accent-color: var(--accent); }
+  .spice-row .spice-val { font-family: 'Space Grotesk', sans-serif; font-weight: 700; min-width: 18px; text-align: center; }
+
+  .fact-input-row { display: flex; gap: 8px; }
+  .fact-input-row .field { margin-bottom: 0; }
+  .fact-input-row select { width: 70px; }
+  .submit-hint { font-size: 11px; color: var(--text-muted); margin: 4px 0 12px; }
+
+  .queue-item, .approved-item { background: rgba(255,255,255,0.03); border-radius: 10px; padding: 10px; margin-bottom: 8px; }
+  .queue-item .qtext, .approved-item .qtext { font-size: 13px; margin-bottom: 4px; }
+  .queue-item .similar-to { font-size: 11px; color: var(--text-muted); background: rgba(255,255,255,0.04); border-radius: 6px; padding: 6px 8px; margin: 6px 0; }
+  .queue-item .qactions, .approved-item .qactions { display: flex; gap: 6px; }
+  .pool-count { text-align: center; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+
+  .bingo-grid { display: grid; gap: 6px; margin: 0 auto 16px; }
+  .bingo-cell { background: var(--tile-bg); border-radius: 8px; padding: 6px; font-size: 10.5px; line-height: 1.25;
+      display: flex; align-items: center; justify-content: center; text-align: center; aspect-ratio: 1/1; }
+  .bingo-cell b { display: block; color: var(--accent); font-size: 9px; margin-bottom: 2px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h2>🎯 Human Bingo</h2>
+
+  <div class="hidden" id="view-locked"><div class="empty-state">🔒 Увійди в профіль, щоб грати</div></div>
+
+  <div class="hidden" id="view-room-entry">
+    <div class="status-line">Обери активну кімнату або введи код друга</div>
+    <div class="rooms-list" id="activeRoomsList"></div>
+    <div class="divider">або вручну</div>
+    <input class="field" id="roomCodeInput" maxlength="5" placeholder="КОД КІМНАТИ" style="text-align:center; text-transform:uppercase;" />
+    <button class="btn btn-primary" id="joinRoomBtn">Приєднатись</button>
+    <div class="divider">або</div>
+    <button class="btn" id="createRoomBtn">Створити нову кімнату</button>
+  </div>
+
+  <div class="hidden" id="view-lobby">
+    <div class="status-line" id="roomCodeLine"></div>
+    <div class="card">
+      <h3>Гравці</h3>
+      <div id="lobbyPlayers"></div>
+    </div>
+    <button class="hidden btn btn-primary" id="beginCollectingBtn">Почати збір фактів</button>
+    <div class="status-line" id="lobbyHint"></div>
+  </div>
+
+  <div class="hidden" id="view-collecting">
+    <div class="status-line" id="collectingRoomLine"></div>
+    <div class="card">
+      <h3>Твій внесок (мінімум 2)</h3>
+      <div class="status-line" id="myFactCountLine" style="margin-bottom:8px;"></div>
+      <div class="submit-hint">Продовж речення: "Я..." — так само підійде і для бінго, і для King's Cup</div>
+      <div class="fact-input-row">
+        <input class="field" id="factInput" placeholder="їздив зайцем у транспорті" />
+        <select class="field" id="factLevel">
+          <option value="1">1</option><option value="2">2</option><option value="3" selected>3</option>
+          <option value="4">4</option><option value="5">5</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" id="submitFactBtn">Додати</button>
+      <div class="status-line hidden" id="factFeedback" style="margin-top:8px;"></div>
+    </div>
+
+    <div class="card hidden" id="hostControls">
+      <h3>Гострота контенту (хост)</h3>
+      <div class="spice-row"><span>🌶️</span><input type="range" id="spiceSlider" min="1" max="5" value="3" /><span class="spice-val" id="spiceVal">3</span></div>
+      <div class="status-line" style="margin:0 0 10px;">Впливає на те, які факти підуть у карти бінго</div>
+      <h3>Черга на модерацію</h3>
+      <div id="moderationQueue"></div>
+      <div class="status-line" id="queueEmptyLine">Черга порожня</div>
+    </div>
+
+    <div class="card">
+      <h3>Пул (<span id="poolCount">0</span>)</h3>
+      <div id="approvedList"></div>
+    </div>
+
+    <button class="hidden btn btn-primary" id="startGameBtn">Роздати картки й почати</button>
+    <div class="status-line hidden" id="notEnoughLine">Потрібно щонайменше 9 схвалених фактів (3×3)</div>
+  </div>
+
+  <div class="hidden" id="view-playing">
+    <div class="status-line">Знайди серед гостей людину, що підходить під клітинку, і запиши хто це — на чесність</div>
+    <div class="bingo-grid" id="bingoGrid"></div>
+    <button class="hidden btn btn-danger" id="endGameBtn">Завершити (хост)</button>
+  </div>
+
+  <div class="hidden" id="view-ended">
+    <div class="empty-state">Гру завершено 🎉</div>
+    <button class="btn btn-primary" id="backToLobbyBtn">Назад у лобі</button>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/app-settings.js"></script>
+<link rel="stylesheet" href="js/game-header.css">
+<link rel="stylesheet" href="js/reactions.css">
+<script src="js/game-header.js"></script>
+<script src="js/login.js"></script>
+<script src="js/online-engine.js"></script>
+<script src="js/fact-pool.js"></script>
+<script src="js/humanbingo-game.js"></script>
+<script src="js/room-code-ui.js"></script>
+<script src="js/reactions.js"></script>
+<script src="js/help.js"></script>
+<script src="js/back-button.js"></script>
+<script>
+(function () {
+  const F = window.FactPool;
+  function escapeHtml(s) { const d = document.createElement("div"); d.textContent = s || ""; return d.innerHTML; }
+
+  const VIEWS = ["locked", "room-entry", "lobby", "collecting", "playing", "ended"];
+  function showView(name) { VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name)); }
+
+  let username = null;
+  let lastRoom = null;
+  let lastCtx = null;
+  let reactionsMounted = false;
+
+  function renderLobby(room, ctx) {
+    document.getElementById("roomCodeLine").textContent = window.HumanBingoGame.roomId || "";
+    const names = Object.keys(room.players || {});
+    document.getElementById("lobbyPlayers").innerHTML = names.map((n) => {
+      const isHost = room.hostUsername === n, isCoHost = room.coHostUsername === n;
+      const tag = isHost ? '<span class="role-tag host">хост</span>' : isCoHost ? '<span class="role-tag cohost">ко-хост</span>' : "";
+      const canPromote = ctx.isHost && !isHost && !isCoHost;
+      return `<div class="player-row"><span>${escapeHtml(n)}</span>${tag}${canPromote ? `<button class="make-cohost" data-name="${escapeHtml(n)}">зробити ко-хостом</button>` : ""}</div>`;
+    }).join("");
+    document.querySelectorAll(".make-cohost").forEach((btn) => btn.addEventListener("click", () => window.HumanBingoGame.setCoHost(btn.dataset.name)));
+    document.getElementById("beginCollectingBtn").classList.toggle("hidden", !ctx.isHost);
+    document.getElementById("lobbyHint").textContent = ctx.isHost ? "" : "Чекай, поки хост почне збір фактів";
+  }
+
+  function renderCollecting(room, ctx) {
+    document.getElementById("collectingRoomLine").textContent = window.HumanBingoGame.roomId || "";
+    document.getElementById("myFactCountLine").textContent = `Ти додав(ла): ${window.HumanBingoGame.myFactCount(room)}`;
+    document.getElementById("hostControls").classList.toggle("hidden", !ctx.isCoHost);
+
+    const spice = (room.factPool && room.factPool.spiceLevel) || 3;
+    const spiceSlider = document.getElementById("spiceSlider");
+    if (document.activeElement !== spiceSlider) spiceSlider.value = spice;
+    document.getElementById("spiceVal").textContent = spice;
+
+    const facts = (room.factPool && room.factPool.facts) || {};
+    const queue = (room.factPool && room.factPool.queue) || {};
+    const approvedCount = Object.keys(facts).length;
+    document.getElementById("poolCount").textContent = approvedCount;
+    document.getElementById("approvedList").innerHTML = Object.entries(facts).map(([id, f]) => `
+      <div class="approved-item"><div class="qtext">${escapeHtml(f.text)} <span style="color:var(--text-muted);">· 🌶️${f.level}</span></div>
+      ${ctx.isCoHost ? `<div class="qactions"><button class="btn btn-sm btn-danger" data-remove="${id}">Прибрати</button></div>` : ""}</div>`).join("")
+      || '<div class="status-line">Ще нічого нема</div>';
+    document.querySelectorAll("[data-remove]").forEach((btn) => btn.addEventListener("click", () => window.HumanBingoGame.removeApproved(btn.dataset.remove)));
+
+    const queueEntries = Object.entries(queue);
+    document.getElementById("queueEmptyLine").classList.toggle("hidden", queueEntries.length > 0);
+    document.getElementById("moderationQueue").innerHTML = queueEntries.map(([id, f]) => `
+      <div class="queue-item">
+        <div class="qtext">${escapeHtml(f.text)} <span style="color:var(--text-muted);">· 🌶️${f.level}</span></div>
+        ${f.similarTo && facts[f.similarTo] ? `<div class="similar-to">Схоже на: «${escapeHtml(facts[f.similarTo].text)}»</div>` : ""}
+        <div class="qactions"><button class="btn btn-sm btn-primary" data-approve="${id}">Дозволити</button><button class="btn btn-sm btn-danger" data-reject="${id}">Відхилити</button></div>
+      </div>`).join("");
+    document.querySelectorAll("[data-approve]").forEach((btn) => btn.addEventListener("click", () => window.HumanBingoGame.approve(btn.dataset.approve)));
+    document.querySelectorAll("[data-reject]").forEach((btn) => btn.addEventListener("click", () => window.HumanBingoGame.reject(btn.dataset.reject)));
+
+    const size = F.bingoGridSize(F.approvedAtOrBelow(facts, spice).length);
+    document.getElementById("startGameBtn").classList.toggle("hidden", !ctx.isHost || !size);
+    document.getElementById("notEnoughLine").classList.toggle("hidden", !ctx.isHost || !!size);
+  }
+
+  function renderPlaying(room, ctx) {
+    const cardIds = (room.cards && room.cards[username]) || [];
+    const facts = (room.factPool && room.factPool.facts) || {};
+    const size = Math.round(Math.sqrt(cardIds.length)) || 3;
+    const grid = document.getElementById("bingoGrid");
+    grid.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+    grid.innerHTML = cardIds.map((id) => {
+      const f = facts[id];
+      return `<div class="bingo-cell"><span><b>Знайди того, хто</b>${escapeHtml(f ? f.text : "?")}</span></div>`;
+    }).join("");
+    document.getElementById("endGameBtn").classList.toggle("hidden", !ctx.isHost);
+  }
+
+  function onGameState(room, ctx) {
+    lastRoom = room; lastCtx = ctx;
+    if (!username) return;
+    if (!reactionsMounted && window.GameReactions && window.HumanBingoGame.roomRef) {
+      reactionsMounted = true;
+      window.GameReactions.mount(window.HumanBingoGame.roomRef, username);
+    }
+    if (room.phase === "lobby") { showView("lobby"); renderLobby(room, ctx); }
+    else if (room.phase === "collecting") { showView("collecting"); renderCollecting(room, ctx); }
+    else if (room.phase === "playing") { showView("playing"); renderPlaying(room, ctx); }
+    else if (room.phase === "ended") { showView("ended"); }
+  }
+
+  function startFlow() {
+    const session = window.AppAuth && window.AppAuth.getSession();
+    if (!session || !window.rtdbReady) { showView("locked"); return; }
+    username = session.username;
+    window.HumanBingoGame.onStateChange = onGameState;
+    RoomCodeUI.mount({
+      containerId: "activeRoomsList", codeInputId: "roomCodeInput", joinBtnId: "joinRoomBtn", createBtnId: "createRoomBtn",
+      watchActiveRooms: window.HumanBingoGame.watchActiveRooms,
+      renderRoomItem: (r) => `<div><b>Кімната ${RoomCodeUI.escapeHtml(r.roomId)}</b></div><div class="status-line" style="text-align:left; margin:2px 0 0; font-size:12px;">${r.phase} · ${r.playerCount} гравців</div>`,
+      onEnter: (roomId) => window.HumanBingoGame.start(username, roomId),
+    });
+    showView("room-entry");
+  }
+
+  document.getElementById("beginCollectingBtn").addEventListener("click", () => window.HumanBingoGame.beginCollecting());
+  document.getElementById("submitFactBtn").addEventListener("click", () => {
+    const input = document.getElementById("factInput");
+    const level = Number(document.getElementById("factLevel").value);
+    const text = input.value;
+    if (!text.trim()) return;
+    window.HumanBingoGame.submitFact(text, level).then((res) => {
+      const fb = document.getElementById("factFeedback");
+      fb.classList.remove("hidden");
+      if (res.verdict === "duplicate") fb.textContent = "Схоже, це вже є в пулі — не додано";
+      else if (res.verdict === "review") fb.textContent = "Додано, чекає на модерацію (схоже на щось наявне)";
+      else fb.textContent = "Додано!";
+      input.value = "";
+    });
+  });
+  document.getElementById("spiceSlider").addEventListener("change", (e) => window.HumanBingoGame.setSpiceLevel(Number(e.target.value)));
+  document.getElementById("spiceSlider").addEventListener("input", (e) => { document.getElementById("spiceVal").textContent = e.target.value; });
+  document.getElementById("startGameBtn").addEventListener("click", () => window.HumanBingoGame.startGame());
+  document.getElementById("endGameBtn").addEventListener("click", () => window.HumanBingoGame.endGame());
+  document.getElementById("backToLobbyBtn").addEventListener("click", () => window.HumanBingoGame.backToLobby());
+
+  startFlow();
+  window.addEventListener("beforeunload", () => { if (window.HumanBingoGame) window.HumanBingoGame.stop(); });
+})();
+</script>
+</body>
+</html>

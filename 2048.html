@@ -264,7 +264,7 @@
       }
     }
 
-    let grid, tiles, nextId, score, best, phase, previousState;
+    let grid, tiles, nextId, score, best, phase, previousState, hasWonBefore;
 
     function resetState() {
       grid = [[null,null,null,null],[null,null,null,null],[null,null,null,null],[null,null,null,null]];
@@ -273,6 +273,7 @@
       score = 0;
       phase = 'playing';
       previousState = null;
+      hasWonBefore = false;
       tilesLayer.innerHTML = '';
     }
 
@@ -437,14 +438,21 @@
         spawnRandomTile();
         checkWin();
         checkGameOver();
+        sendScoreProgress();
       }, MOVE_DURATION);
     }
 
     function checkWin() {
-      if (phase !== 'playing') return;
+      // hasWonBefore: плитка 2048 лишається на полі й після перемоги (це
+      // нормально — гра просто триває далі), тому самого "є плитка 2048"
+      // недостатньо як умови показу банера. Без цього прапорця popup
+      // вилазив би на КОЖЕН наступний хід, бо checkWin() знову бачив би ту
+      // саму плитку, щойно phase повертався в 'playing' після "Продовжити".
+      if (phase !== 'playing' || hasWonBefore) return;
       for (const id in tiles) {
         if (tiles[id].value === 2048) {
           phase = 'won';
+          hasWonBefore = true;
           showOverlay('2048! ПЕРЕМОГА 🎉', 'Продовжити гру', () => { phase = 'playing'; hideOverlay(); });
           return;
         }
@@ -464,6 +472,15 @@
       phase = 'over';
       showOverlay('ГРА ЗАКІНЧЕНА', 'Нова гра', () => newGame());
       window.AppScore && window.AppScore.sendScore('2048', score);
+    }
+
+    // Раніше рахунок зберігався ЛИШЕ тут, у checkGameOver() — тобто тільки
+    // коли дошка повністю заповнена і ходів більше нема. Більшість людей
+    // просто зупиняються задоволені рахунком задовго до цього стану — і
+    // рекорд губився без жодного попередження. sendScore сам ігнорує виклик,
+    // якщо це не новий рекорд, тож можна смітити ним по кожному ходу.
+    function sendScoreProgress() {
+      if (score > 0) window.AppScore && window.AppScore.sendScore('2048', score);
     }
 
     function newGame() {

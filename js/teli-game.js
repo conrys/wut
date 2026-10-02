@@ -18,13 +18,18 @@
   const ABANDON_MS = 15 * 60 * 1000;
   const MAX_TEXT_LEN = 140;
   const MAX_DRAWING_BYTES = 900000; // приблизна межа розміру data URL картинки
+  const DEFAULT_DRAW_SECONDS = 60;
+  const MIN_DRAW_SECONDS = 20;
+  const MAX_DRAW_SECONDS = 180;
 
   const SCHEMA = {
     phase: "lobby",
     hostUsername: null,
+    lobbySettings: { drawSeconds: DEFAULT_DRAW_SECONDS },
     playerOrder: null,
     totalRounds: 0,
     currentRound: 0,
+    roundDeadline: null,
     books: null,
     assignments: null,
     submitted: null,
@@ -41,7 +46,20 @@
   let onStateChange = () => {};
   let advancing = false;
 
-  function buildFreshRoom() { return { players: {} }; }
+  function buildFreshRoom() { return { players: {}, lobbySettings: { drawSeconds: DEFAULT_DRAW_SECONDS } }; }
+
+  function clampDrawSeconds(v) {
+    v = Number(v) || DEFAULT_DRAW_SECONDS;
+    return Math.max(MIN_DRAW_SECONDS, Math.min(MAX_DRAW_SECONDS, Math.round(v)));
+  }
+
+  function updateLobbySettings(partial) {
+    const room = engine.latestRoom;
+    if (!room || room.phase !== "lobby") return;
+    const next = {};
+    if (partial && partial.drawSeconds !== undefined) next.drawSeconds = clampDrawSeconds(partial.drawSeconds);
+    if (Object.keys(next).length) engine.roomRef.child("lobbySettings").update(next);
+  }
 
   function unanswered(v) { return v === null || v === undefined; }
 
@@ -134,31 +152,43 @@
     const totalRounds = playerOrder.length;
     const books = Array.from({ length: totalRounds }, () => []);
     const assignments = buildAssignments(playerOrder, 0, totalRounds, books);
+    const drawSeconds = clampDrawSeconds(room.lobbySettings && room.lobbySettings.drawSeconds);
     await engine.roomRef.update({
       phase: "active",
       playerOrder,
       totalRounds,
       currentRound: 0,
+      roundDeadline: engine.now() + drawSeconds * 1000,
       books,
       assignments,
       submitted: {},
     });
   }
 
+  // Повертає { ok:true } або { ok:false, reason }. Раніше при завеликому
+  // малюнку функція просто мовчки виходила (return;) — жодної помилки,
+  // жодного запису submitted/username. Гравець бачив "відправлено" в UI
+  // (бо UI не перевіряв результат), а насправді його внесок у книгу так і
+  // не потрапляв. Якщо згодом хост тиснув "пропустити очікування"
+  // (forceAdvance, бо хтось один "завис" — а насправді просто мовчки
+  // провалився), той гравець випадав з книги без жодного сліду — саме це
+  // й виглядає як "у декого на одну відповідь менше" за кілька раундів.
   function submitEntry({ text, drawing }) {
     const room = engine.latestRoom;
-    if (!room || room.phase !== "active") return;
+    if (!room || room.phase !== "active") return { ok: false, reason: "wrong-phase" };
     const assignment = room.assignments && room.assignments[username];
-    if (!assignment) return;
-    if (room.submitted && room.submitted[username]) return;
+    if (!assignment) return { ok: false, reason: "no-assignment" };
+    if (room.submitted && room.submitted[username]) return { ok: false, reason: "already-submitted" };
 
     let content;
     if (assignment.type === "text") {
       content = (text || "").trim().slice(0, MAX_TEXT_LEN);
-      if (!content) return;
+      if (!content) return { ok: false, reason: "empty-text" };
     } else {
-      if (!drawing || typeof drawing !== "string" || !drawing.startsWith("data:image/")) return;
-      if (drawing.length > MAX_DRAWING_BYTES) return;
+      if (!drawing || typeof drawing !== "string" || !drawing.startsWith("data:image/")) {
+        return { ok: false, reason: "no-drawing" };
+      }
+      if (drawing.length > MAX_DRAWING_BYTES) return { ok: false, reason: "drawing-too-large" };
       content = drawing;
     }
 
@@ -172,6 +202,7 @@
     }).then(() => {
       engine.roomRef.child(`submitted/${username}`).set(true);
     });
+    return { ok: true };
   }
 
   function maybeAutoAdvance(room) {
@@ -191,7 +222,11 @@
         return;
       }
       const assignments = buildAssignments(room.playerOrder, nextRound, room.totalRounds, room.books);
-      await engine.roomRef.update({ currentRound: nextRound, assignments, submitted: {} });
+      const drawSeconds = clampDrawSeconds(room.lobbySettings && room.lobbySettings.drawSeconds);
+      await engine.roomRef.update({
+        currentRound: nextRound, assignments, submitted: {},
+        roundDeadline: engine.now() + drawSeconds * 1000,
+      });
     } finally {
       advancing = false;
     }
@@ -213,6 +248,9 @@
 
   window.TeliGame = {
     MIN_PLAYERS,
+    MAX_DRAWING_BYTES,
+    DEFAULT_DRAW_SECONDS, MIN_DRAW_SECONDS, MAX_DRAW_SECONDS,
+    updateLobbySettings,
     connectedNames,
     computeHost: (players) => engine.computeHost(players),
     isConnected: (p) => engine.isConnected(p),
@@ -225,6 +263,7 @@
     forceAdvance,
     resetGame,
     get roomId() { return engine.currentRoomId; },
+    get roomRef() { return engine.roomRef; },
     set onStateChange(fn) { onStateChange = fn; },
   };
 })();

@@ -4,6 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Смішліст — великий екран</title>
+<link rel="stylesheet" href="js/quiplash-shared.css">
+<link rel="stylesheet" href="js/reactions.css">
 <style>
 * { box-sizing: border-box; }
 body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
@@ -23,7 +25,7 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
   animation: scene-bg-spin var(--ray-speed,140s) linear infinite;
 }
 .bg-reverse #scene-bg::before { animation-direction: reverse; }
-@keyframes scene-bg-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
 
 #lobby-ring { position: relative; width: min(56vw,520px); aspect-ratio: 1/1; margin: 0 auto 24px; }
 #lobby-logo { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); text-align: center;
@@ -36,7 +38,7 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
 .lobby-character-avatar img { width: 100%; height: 100%; object-fit: contain; }
 .lobby-character-name { font-size: 16px; font-weight: 600; max-width: 130px; text-align: center;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-@keyframes lobby-char-in { from { opacity: 0; transform: translate(-50%,-50%) scale(0.5); } to { opacity: 1; transform: translate(-50%,-50%) scale(1); } }
+
 
 .prompt-image { display: block; max-width: 100%; max-height: 360px; margin: 0 auto 12px; border-radius: 8px; object-fit: contain; background: #14141a; }
 .prompt-image.big { max-width: 420px; margin: 0 auto 16px; border-radius: 14px; }
@@ -261,6 +263,7 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
 <script src="js/quiplash-prompts.js"></script>
 <script src="js/online-engine.js"></script>
 <script src="js/quiplash-game.js"></script>
+<script src="js/reactions.js"></script>
 <script>
 (function () {
   function escapeHtml(s) { const d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML; }
@@ -294,6 +297,7 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
   let appliedSessionSeed = null;
   let voteIntroKey = null;
   let latestState = null;
+  let reactionsMounted = false;
 
   function playersArray(state) {
     return Object.entries(state.players || {}).map(([id, p]) => ({ id, name: id, ...p }));
@@ -436,6 +440,10 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
   function render(state) {
     latestState = state;
     document.body.dataset.scene = state.phase;
+    if (!reactionsMounted && window.GameReactions && QuiplashGame.roomRef) {
+      reactionsMounted = true;
+      window.GameReactions.mountOverlay(QuiplashGame.roomRef);
+    }
     // Те саме, що й у quiplash.html — createdAt додає варіативність МІЖ
     // іграми, а не лише всередині однієї (round завжди скидається на 0).
     applySessionBackground((state.createdAt || 0) + (state.round || 0) * 97);
@@ -523,7 +531,7 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
           document.getElementById("host-vote-main").classList.toggle("hidden", showIntro);
 
           document.getElementById("host-vote-progress").textContent = `Раунд ${state.round}/${QuiplashGame.TOTAL_ROUNDS} · Голосування за найкращий підпис`;
-          setTimerFill(document.getElementById("host-vote-timer"), effectiveDeadline(state), ((state.settings.voteSeconds || 60) + 10) * 1000);
+          setTimerFill(document.getElementById("host-vote-timer"), effectiveDeadline(state), window.QuiplashGame.galleryVoteMs(state));
           document.getElementById("host-prompt").textContent = g.text;
           const promptImg = document.getElementById("host-prompt-image");
           promptImg.src = g.image; promptImg.classList.remove("hidden");
@@ -576,7 +584,7 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
         document.getElementById("host-pair-choices").classList.remove("hidden");
         document.getElementById("host-gallery-choices").classList.add("hidden");
         document.getElementById("host-vote-progress").textContent = `Раунд ${state.round}/${QuiplashGame.TOTAL_ROUNDS} · Пара ${state.currentMatchupIndex + 1}/${list.length}`;
-        setTimerFill(document.getElementById("host-vote-timer"), effectiveDeadline(state), (state.settings.voteSeconds || 60) * 1000);
+        setTimerFill(document.getElementById("host-vote-timer"), effectiveDeadline(state), window.QuiplashGame.classicVoteMs(state));
         document.getElementById("host-prompt").textContent = m.promptText;
         document.getElementById("host-prompt-image").classList.add("hidden");
         document.getElementById("host-answer-a-text").textContent = m.answerA;
@@ -697,9 +705,7 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
     }
     if (latestState.phase !== "voting") return;
     const timer = document.getElementById("host-vote-timer");
-    const total = latestState.gallery
-      ? ((latestState.settings.voteSeconds || 60) + 10) * 1000
-      : (latestState.settings.voteSeconds || 60) * 1000;
+    const total = latestState.gallery ? window.QuiplashGame.galleryVoteMs(latestState) : window.QuiplashGame.classicVoteMs(latestState);
     setTimerFill(timer, effectiveDeadline(latestState), total);
   }, 200);
   waitForRtdb();

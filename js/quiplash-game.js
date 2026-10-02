@@ -753,6 +753,7 @@
   window.QuiplashGame = {
     MIN_PLAYERS, MAX_PLAYERS, TOTAL_ROUNDS,
     MIN_VOTE_SECONDS, MAX_VOTE_SECONDS, DEFAULT_VOTE_SECONDS, VOTE_INTRO_MS,
+    GALLERY_VOTE_BONUS_SECONDS, classicVoteMs, galleryVoteMs,
     connectedEntries, computeHost,
     watchActiveRooms,
     start, stop, cleanupIfAbandoned,
@@ -760,6 +761,7 @@
     submitAnswer, submitVote, submitGalleryVote,
     setPause, resetGame, continueGame, finishGame, setAvatar,
     get roomId() { return Engine.currentRoomId; },
+    get roomRef() { return Engine.roomRef; },
     set onStateChange(fn) { onStateChange = fn; },
   };
 })();

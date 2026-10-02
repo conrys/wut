@@ -97,7 +97,7 @@
     "wordle": "Wordle",
     "sudoku": "Судоку",
     "miner": "Сапер",
-    "doodle": "Doodle",
+    "doodle": "Стрибунець",
     "soliter": "Косинка",
     "poker": "Покер",
     "snake": "Змійка",
@@ -112,6 +112,9 @@
     "teli": "Зіпсований телефон",
     "quiz": "Квіз",
     "draw": "Малювалка",
+    "durak": "Дурак",
+    "humanbingo": "Human Bingo",
+    "kingscup": "King's Cup",
   };
   // Невеличкі емодзі-іконки для секції "Ще не грав" у профілі — суто
   // декоративні, щоб список не був голим текстом. Гра без запису тут
@@ -121,7 +124,7 @@
     "miner": "💣", "doodle": "🐸", "soliter": "🃏", "poker": "🃏",
     "snake": "🐍", "spy": "🕵️", "chess": "♟️", "checkers": "🔴",
     "whoami": "❓", "memology": "😂", "crocodile": "🐊", "quiplash": "😆",
-    "mafia": "🔪", "teli": "📞", "quiz": "🧠", "draw": "🎨",
+    "mafia": "🔪", "teli": "📞", "quiz": "🧠", "draw": "🎨", "durak": "🃏",
   };
   const GAME_ORDER = Object.keys(GAME_LABELS);
 
@@ -132,8 +135,9 @@
   // прикрутити, але це окрема "командна" механіка, яку робитимемо окремо
   // й по-іншому, не як соло-топ. Wordle теж свідомо не тут — у нього власна
   // колекція (games41_wordle_*) і своя механіка стріків, не games41_scores.
+  // Дурак — накопичувальний лічильник перемог (як шахи/шашки), тому теж тут.
   const SCORABLE_GAMES = [
-    "tetris", "2048", "sudoku", "miner", "doodle", "soliter", "snake", "chess", "checkers",
+    "tetris", "2048", "sudoku", "miner", "doodle", "soliter", "snake", "chess", "checkers", "whoami", "durak",
   ];
 
   function gameLabel(gameName) {
@@ -497,6 +501,10 @@
           <div class="trophy"><span class="trophy-icon">🥈</span><span class="trophy-count" id="silverCount">0</span></div>
           <div class="trophy"><span class="trophy-icon">🥉</span><span class="trophy-count" id="bronzeCount">0</span></div>
         </div>
+        <div class="wordle-streak" id="wordleStreakRow" style="display:none;">
+          <span class="wordle-streak-fire">🔥</span>
+          <span>Wordle — стрік <span class="wordle-streak-value" id="wordleStreakValue">0</span> днів поспіль</span>
+        </div>
         <div class="profile-section-title">Мої рахунки</div>
         <div id="profileGamesList"><div class="profile-empty">Завантаження…</div></div>
         <div class="profile-section-title" id="profileUnplayedTitle" style="display:none;">Ще не грав</div>
@@ -550,21 +558,31 @@
     const listEl = profileEl.querySelector("#profileGamesList");
     const unplayedTitleEl = profileEl.querySelector("#profileUnplayedTitle");
     const unplayedListEl = profileEl.querySelector("#profileUnplayedList");
+    const wordleRowEl = profileEl.querySelector("#wordleStreakRow");
     listEl.innerHTML = '<div class="profile-empty">Завантаження…</div>';
     unplayedTitleEl.style.display = "none";
     unplayedListEl.innerHTML = "";
+    wordleRowEl.style.display = "none";
     profileEl.classList.add("open");
 
     if (!window.AppScore || !window.AppScore.getUserProfile) {
       listEl.innerHTML = '<div class="profile-empty">Недоступно</div>';
       return;
     }
-    const { trophies, games, joinedAt } = await window.AppScore.getUserProfile(session.username, SCORABLE_GAMES);
+    const { trophies, games, joinedAt, wordleStreak } = await window.AppScore.getUserProfile(session.username, SCORABLE_GAMES);
 
     profileEl.querySelector("#goldCount").textContent = trophies.gold;
     profileEl.querySelector("#silverCount").textContent = trophies.silver;
     profileEl.querySelector("#bronzeCount").textContent = trophies.bronze;
     profileEl.querySelector("#profileRating").textContent = computeRating(trophies);
+
+    // Wordle — не рекорд і не місце в топі, а стрік. Показуємо рядок лише
+    // якщо він реально є (>0); немає стріку — немає й рядка, щоб не плутати
+    // з "не грав" (могли грати вчора і саме сьогодні перервати стрік).
+    if (wordleStreak > 0) {
+      wordleRowEl.style.display = "";
+      profileEl.querySelector("#wordleStreakValue").textContent = wordleStreak;
+    }
 
     const joinedLabel = formatJoinDate(joinedAt);
     profileEl.querySelector("#profileJoined").textContent = joinedLabel ? `У грі з ${joinedLabel}` : "";

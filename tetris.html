@@ -361,6 +361,12 @@
       linesVal.textContent = lines;
       levelVal.textContent = level;
 
+      // Раніше рахунок зберігався лише при "ГРА ЗАКІНЧЕНА" (нова фігура не
+      // влазить) — хтось міг закрити вкладку із чудовим рахунком задовго до
+      // цього і втратити рекорд (той самий баг, що й у 2048). sendScore сам
+      // ігнорує виклик, якщо це не новий рекорд.
+      if (window.AppScore && score > 0) window.AppScore.sendScore('tetris', score);
+
       clearing = null;
       phase = 'playing';
       current = null;

@@ -71,13 +71,16 @@
   // технічно можуть колись писати в ту саму колекцію, але для профілю це
   // окрема механіка, яку рахувати разом із соло-рейтингом поки не треба.
   async function getUserProfile(username, filterGames) {
-    const empty = { trophies: { gold: 0, silver: 0, bronze: 0 }, games: [], joinedAt: null, gamesPlayedCount: 0 };
+    const empty = { trophies: { gold: 0, silver: 0, bronze: 0 }, games: [], joinedAt: null, gamesPlayedCount: 0, wordleStreak: 0 };
     if (!window.firebaseReady || !db) return empty;
     try {
       const allow = filterGames ? new Set(filterGames) : null;
-      const [scoresSnap, userSnap] = await Promise.all([
+      // Назва колекції захардкожена (не WORDLE_USERS_COLLECTION з wordle.js) —
+      // той скрипт підключений лише на wordle.html, тут його може не бути.
+      const [scoresSnap, userSnap, wordleSnap] = await Promise.all([
         db.collection(SCORES_COLLECTION).get(),
         db.collection(USERS_COLLECTION).doc(username).get().catch(() => null),
+        db.collection("games41_wordle_users").doc(username).get().catch(() => null),
       ]);
 
       const byGame = {};
@@ -103,8 +106,9 @@
       games.sort((a, b) => a.rank - b.rank || a.gameName.localeCompare(b.gameName));
 
       const joinedAt = userSnap && userSnap.exists ? (userSnap.data().createdAt || null) : null;
+      const wordleStreak = wordleSnap && wordleSnap.exists ? (wordleSnap.data().streak || 0) : 0;
 
-      return { trophies, games, joinedAt, gamesPlayedCount: games.length };
+      return { trophies, games, joinedAt, gamesPlayedCount: games.length, wordleStreak };
     } catch (e) {
       console.warn("getUserProfile error:", e);
       return empty;

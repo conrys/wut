@@ -302,13 +302,18 @@
 <script src="js/firebase-config.js"></script>
 <script src="js/app-settings.js"></script>
 <link rel="stylesheet" href="js/game-header.css">
+<link rel="stylesheet" href="js/reactions.css">
+<link rel="stylesheet" href="js/reactions.css">
 <script src="js/game-header.js"></script>
 <script src="js/login.js"></script>
 <script src="js/online-engine.js"></script>
 <script src="js/checkers-rules.js"></script>
 <script src="js/checkers-bot.js"></script>
 <script src="js/checkers-game.js"></script>
+
+<script src="js/reactions.js"></script>
 <script src="js/room-code-ui.js"></script>
+<script src="js/reactions.js"></script>
 <script src="js/score-connect.js"></script>
 <script src="js/records.js"></script>
 <script src="js/help.js"></script>
@@ -612,6 +617,7 @@
 
   // ------------------------- онлайн режим -------------------------
   let lastRoom = null, lastCtx = null;
+  let reactionsMounted = false;
   let clockDisplayTimer = null;
 
   function tcLabel(tc) {
@@ -745,6 +751,10 @@
     if (!username) return;
     const known = room.white === username || room.black === username || (room.players && room.players[username]);
     if (!known) { showView("locked"); return; }
+    if (!reactionsMounted && window.GameReactions && window.CheckersGame.roomRef) {
+      reactionsMounted = true;
+      window.GameReactions.mount(window.CheckersGame.roomRef, username);
+    }
 
     if (room.phase === "lobby") { stopClockDisplayTicker(); showView("lobby"); renderLobby(room); }
     else { showView("board"); renderOnlineBoard(room, ctx); }

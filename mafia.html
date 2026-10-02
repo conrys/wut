@@ -348,6 +348,7 @@
 <script src="js/firebase-config.js"></script>
 <script src="js/app-settings.js"></script>
 <link rel="stylesheet" href="js/game-header.css">
+<link rel="stylesheet" href="js/reactions.css">
 <script src="js/game-header.js"></script>
 <script src="js/login.js"></script>
 <script src="js/online-engine.js"></script>
@@ -355,6 +356,7 @@
 <script src="js/mafia-role-reveal.js"></script>
 <script src="js/mafia-game.js"></script>
 <script src="js/room-code-ui.js"></script>
+<script src="js/reactions.js"></script>
 <script src="js/help.js"></script>
 <script src="js/back-button.js"></script>
 <script>
@@ -846,11 +848,16 @@
 
   // ------------------------- диспетчер -------------------------
   let lastState = null;
+  let reactionsMounted = false;
   let wasPaused = false;
   function onState(state, ctx) {
     const prevPhase = lastState ? lastState.phase : null;
     lastState = state;
     if (!ctx.username) { showView("locked"); return; }
+    if (!reactionsMounted && window.GameReactions && window.MafiaGame.roomRef) {
+      reactionsMounted = true;
+      window.GameReactions.mount(window.MafiaGame.roomRef, ctx.username);
+    }
 
     const players = state.players || {};
     const iAmIn = !!players[ctx.username];

@@ -156,7 +156,8 @@
   </div>
 
   <div id="view-select" class="hidden" style="width:100%;">
-    <h2>🎯 Твій хід</h2>
+    <h2>🎯 Твій хід <span id="roundBadge" style="font-size:12px; color: var(--accent);"></span></h2>
+    <div class="status-line" id="catchUpBanner" style="display:none; color: var(--accent); font-weight:700;">🔥 Наздоганяюче питання — бали x2!</div>
     <div class="status-line">Вибери категорію та вартість</div>
     <div id="selectBoard" style="width:100%;"></div>
   </div>
@@ -199,12 +200,14 @@
 <script src="js/firebase-config.js"></script>
 <script src="js/app-settings.js"></script>
 <link rel="stylesheet" href="js/game-header.css">
+<link rel="stylesheet" href="js/reactions.css">
 <script src="js/game-header.js"></script>
 <script src="js/login.js"></script>
 <script src="js/quiz-topics.js"></script>
 <script src="js/online-engine.js"></script>
 <script src="js/quiz-game.js"></script>
 <script src="js/room-code-ui.js"></script>
+<script src="js/reactions.js"></script>
 <script src="js/score-connect.js"></script>
 <script src="js/records.js"></script>
 <script src="js/help.js"></script>
@@ -235,13 +238,22 @@
       .join("");
   }
 
+  function questionValueFor(state, ci, qi) {
+    const base = window.QuizGame.QUIZ_TOPICS[ci].questions[qi].value;
+    const roundMult = state.round === 2 ? window.QuizGame.ROUND2_VALUE_MULTIPLIER : 1;
+    const catchUpMult = state.isCatchUpTurn ? window.QuizGame.CATCHUP_VALUE_MULTIPLIER : 1;
+    return base * roundMult * catchUpMult;
+  }
+
   function renderSelectBoard(state) {
+    document.getElementById("roundBadge").textContent = `· Раунд ${state.round || 1}/${window.QuizGame.TOTAL_ROUNDS}`;
+    document.getElementById("catchUpBanner").style.display = state.isCatchUpTurn ? "" : "none";
     const el = document.getElementById("selectBoard");
     el.innerHTML = state.board
       .map((t, ci) => {
         const btns = t.questions
           .map((q, qi) => {
-            const value = window.QuizGame.QUIZ_TOPICS[ci].questions[qi].value;
+            const value = questionValueFor(state, ci, qi);
             return q.played
               ? `<span class="val-btn played">—</span>`
               : `<button class="val-btn" data-ci="${ci}" data-qi="${qi}">${value}</button>`;
@@ -266,7 +278,8 @@
     const key = `${categoryIndex}-${questionIndex}`;
     if (key !== lastQKey) { answeredThisQuestion = false; lastQKey = key; }
 
-    document.getElementById("answerMeta").textContent = `${state.board[categoryIndex].name} · ${q.value}`;
+    const displayValue = questionValueFor(state, categoryIndex, questionIndex);
+    document.getElementById("answerMeta").textContent = `${state.board[categoryIndex].name} · ${displayValue}${state.isCatchUpTurn ? " 🔥" : ""}`;
     if (state.phase === "questionActive") {
       const remaining = Math.max(0, Math.ceil((state.phaseDeadline - Date.now()) / 1000));
       const timerEl = document.getElementById("answerTimer");
@@ -329,6 +342,10 @@
 
   function onState(state, ctx) {
     if (!ctx.username) { showView("locked"); return; }
+    if (!reactionsMounted && window.GameReactions && window.QuizGame.roomRef) {
+      reactionsMounted = true;
+      window.GameReactions.mount(window.QuizGame.roomRef, ctx.username);
+    }
 
     document.getElementById("myScore").textContent = (state.players[ctx.username] || {}).score || 0;
     document.getElementById("roomCodeLabel").textContent = window.QuizGame.roomId ? `· ${window.QuizGame.roomId}` : "";
@@ -414,6 +431,7 @@
   });
 
   let lastState = null;
+  let reactionsMounted = false;
   let scoreSentForGame = false; // дедуп: щоб не слати рахунок повторно на кожен рендер game_over
   setInterval(() => {
     if (!lastState) return;

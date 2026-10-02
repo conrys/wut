@@ -176,6 +176,7 @@
     nextRound,
     resetAll,
     get roomId() { return Engine.currentRoomId; },
+    get roomRef() { return Engine.roomRef; },
     set onStateChange(fn) { onStateChange = fn; },
   };
 })();

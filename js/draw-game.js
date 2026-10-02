@@ -344,6 +344,7 @@
     pushStrokeBatch, sendUndo, sendClear, markCorrectGuess, hostSkipPrompt, hostForceNextDrawer,
     submitDrawing, hostRevealAnswer, hostNextDrawing, hostNewGalleryRound,
     get roomId() { return engine.currentRoomId; },
+    get roomRef() { return engine.roomRef; },
     set onStateChange(fn) { onStateChange = fn; },
   };
 })();

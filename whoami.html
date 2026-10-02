@@ -244,6 +244,15 @@
   document.getElementById("guessedBtn").addEventListener("click", () => {
     window.WhoAmIGame.markGuessed();
     renderActive();
+    // Раніше рахунок відправлявся лише коли явно тиснеш "Назад" і
+    // підтверджуєш діалог — якщо просто закрити гру чи вийти глобальною
+    // кнопкою "Назад", рахунок губився. Тепер шлемо одразу після кожного
+    // вгаданого слова: sendScore сам ігнорує виклик, якщо це не новий
+    // рекорд, тож зайвих записів у Firestore не буде.
+    const liveScore = window.WhoAmIGame.getState().score;
+    if (liveScore > 0 && window.AppScore && window.AppScore.sendScore) {
+      window.AppScore.sendScore("whoami", liveScore);
+    }
   });
   document.getElementById("skipBtn").addEventListener("click", () => {
     window.WhoAmIGame.skipWord();

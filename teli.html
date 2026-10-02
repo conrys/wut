@@ -43,6 +43,10 @@
       <div id="playersList"></div>
     </div>
     <div class="card hidden" id="hostPanel">
+      <label style="display:block; font-size:12px; color:var(--text-muted,#8b909c); margin-bottom:6px;">
+        Час на крок (секунди): <span id="drawSecondsValue">60</span>с
+      </label>
+      <input type="range" id="drawSecondsRange" min="20" max="180" step="5" value="60" style="width:100%; margin-bottom:12px;" />
       <button class="btn btn-primary btn-block" id="startBtn">Почати гру</button>
       <div class="err-msg" id="startHint"></div>
     </div>
@@ -52,6 +56,7 @@
   <!-- АКТИВНА ГРА -->
   <div class="hidden stage" id="view-active">
     <div class="waiting-count" id="roundLabel">Раунд 1 з 4</div>
+    <div class="hidden" id="roundTimer" style="text-align:center; font-weight:700; font-size:14px; margin-bottom:8px;"></div>
 
     <div class="hidden prompt-preview" id="promptPreview">
       <div class="deck-hint" id="promptHint">Попередній крок:</div>
@@ -117,11 +122,13 @@
 <script src="js/firebase-config.js"></script>
 <script src="js/app-settings.js"></script>
 <link rel="stylesheet" href="js/game-header.css">
+<link rel="stylesheet" href="js/reactions.css">
 <script src="js/game-header.js"></script>
 <script src="js/login.js"></script>
 <script src="js/online-engine.js"></script>
 <script src="js/teli-game.js"></script>
 <script src="js/room-code-ui.js"></script>
+<script src="js/reactions.js"></script>
 <script src="js/draw-canvas.js"></script>
 <script src="js/help.js"></script>
 <script src="js/back-button.js"></script>
@@ -138,9 +145,11 @@
 
   let username = null;
   let lastRoom = null;
+  let reactionsMounted = false;
   let lastCtx = null;
   let renderedTaskKey = null; // рендер-ключ поточного кроку — не перебудовуємо textarea/canvas на кожен heartbeat
   let revealPageIndex = 0;
+  let autoSubmittedForKey = null; // дедуп: щоб не намагатись автовідправити один і той самий крок повторно щосекунди
   let sawRevealPhase = false;
 
   function renderLobby(room, ctx) {
@@ -162,6 +171,15 @@
       const enough = connNames.length >= TeliGame.MIN_PLAYERS;
       document.getElementById("startBtn").disabled = !enough;
       document.getElementById("startHint").textContent = enough ? "" : `Потрібно ще ${TeliGame.MIN_PLAYERS - connNames.length} гравців(я)`;
+      // Синхронізуємо повзунок зі станом кімнати, але не під час активного
+      // перетягування самим хостом (document.activeElement) — інакше палець
+      // ще не відпущено, а значення вже смикається назад із сервера.
+      const drawSecondsRangeEl = document.getElementById("drawSecondsRange");
+      if (document.activeElement !== drawSecondsRangeEl) {
+        const s = (room.lobbySettings && room.lobbySettings.drawSeconds) || TeliGame.DEFAULT_DRAW_SECONDS;
+        drawSecondsRangeEl.value = s;
+        document.getElementById("drawSecondsValue").textContent = s;
+      }
     }
     renderedTaskKey = null; // наступного разу точно перебудуємо крок (нова гра)
   }
@@ -260,6 +278,10 @@
   function onState(room, ctx) {
     lastRoom = room; lastCtx = ctx;
     if (!ctx.username) { showView("locked"); return; }
+    if (!reactionsMounted && window.GameReactions && window.TeliGame.roomRef) {
+      reactionsMounted = true;
+      window.GameReactions.mount(window.TeliGame.roomRef, ctx.username);
+    }
     const iAmIn = room.players && room.players[ctx.username];
     if (!iAmIn && room.phase !== "lobby") { showView("waiting"); sawRevealPhase = false; return; }
 
@@ -273,12 +295,20 @@
   document.getElementById("resetBtn").addEventListener("click", () => { if (confirm("Скинути гру?")) TeliGame.resetGame(); });
   document.getElementById("resetBtn2").addEventListener("click", () => { if (confirm("Скинути гру?")) TeliGame.resetGame(); });
   document.getElementById("forceAdvanceBtn").addEventListener("click", () => TeliGame.forceAdvance());
+
+  const drawSecondsRange = document.getElementById("drawSecondsRange");
+  const drawSecondsValue = document.getElementById("drawSecondsValue");
+  drawSecondsRange.addEventListener("input", () => { drawSecondsValue.textContent = drawSecondsRange.value; });
+  drawSecondsRange.addEventListener("change", () => {
+    TeliGame.updateLobbySettings({ drawSeconds: Number(drawSecondsRange.value) });
+  });
   document.getElementById("playAgainBtn").addEventListener("click", () => TeliGame.resetGame());
 
   document.getElementById("submitTextBtn").addEventListener("click", () => {
     const text = document.getElementById("textEntryInput").value.trim();
     if (!text) return;
-    TeliGame.submitEntry({ text });
+    const result = TeliGame.submitEntry({ text });
+    if (!result.ok) alert("Не вдалося відправити відповідь, спробуй ще раз.");
   });
 
   document.getElementById("revealPrevBtn").addEventListener("click", () => {
@@ -325,9 +355,51 @@
     document.getElementById("undoBtn").addEventListener("click", () => teliDrawCanvas.undo());
     document.getElementById("clearCanvasBtn").addEventListener("click", () => teliDrawCanvas.clear());
     document.getElementById("submitDrawBtn").addEventListener("click", () => {
-      TeliGame.submitEntry({ drawing: teliDrawCanvas.exportImage() });
+      const drawing = teliDrawCanvas.exportImage(TeliGame.MAX_DRAWING_BYTES);
+      const result = TeliGame.submitEntry({ drawing });
+      if (!result.ok) {
+        alert(
+          result.reason === "drawing-too-large"
+            ? "Малюнок все ще завеликий навіть після стиснення — спробуй простіший малюнок."
+            : "Не вдалося відправити малюнок, спробуй ще раз."
+        );
+      }
     });
   }
+
+  // Видимий відлік + автовідправка по вичерпанню часу — суто клієнтська
+  // перевірка (кожен клієнт сам стежить за своїм roundDeadline і сам себе
+  // відправляє), без окремого хост-тіку: простіше й менше що може розсинхро-
+  // нитись, а forceAdvance лишається ручним запасним варіантом для хоста.
+  setInterval(() => {
+    const timerEl = document.getElementById("roundTimer");
+    if (!lastRoom || lastRoom.phase !== "active" || !lastRoom.roundDeadline) {
+      timerEl.classList.add("hidden");
+      return;
+    }
+    const inGame = lastRoom.playerOrder && lastRoom.playerOrder.includes(username);
+    const alreadySubmitted = lastRoom.submitted && lastRoom.submitted[username];
+    if (!inGame || alreadySubmitted) { timerEl.classList.add("hidden"); return; }
+
+    const remainingMs = lastRoom.roundDeadline - Date.now();
+    const remainingSec = Math.max(0, Math.ceil(remainingMs / 1000));
+    timerEl.classList.remove("hidden");
+    timerEl.textContent = `⏱ ${remainingSec}с`;
+    timerEl.style.color = remainingSec <= 10 ? "#ff6b6b" : "";
+
+    const assignment = lastRoom.assignments && lastRoom.assignments[username];
+    if (!assignment) return;
+    const key = `${lastRoom.currentRound}:${assignment.bookIndex}:${assignment.type}`;
+    if (remainingMs <= 0 && autoSubmittedForKey !== key) {
+      autoSubmittedForKey = key;
+      if (assignment.type === "text") {
+        const text = document.getElementById("textEntryInput").value.trim() || "…";
+        TeliGame.submitEntry({ text });
+      } else if (teliDrawCanvas) {
+        TeliGame.submitEntry({ drawing: teliDrawCanvas.exportImage(TeliGame.MAX_DRAWING_BYTES) });
+      }
+    }
+  }, 500);
 
   function beginGame(username_, roomId) {
     username = username_;

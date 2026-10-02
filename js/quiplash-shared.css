@@ -1,0 +1,9 @@
+/* ==========================================================================
+   Спільні анімації Сміхлиста — раніше ці два keyframes були продубльовані
+   ідентично в quiplash.html і quiplash-tv.html (кожен файл self-contained,
+   без спільного білд-кроку). Тепер обидва просто лінкують цей файл, а не
+   тримають свою копію в <style>.
+   ========================================================================== */
+
+@keyframes scene-bg-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes lobby-char-in { from { opacity: 0; transform: translate(-50%,-50%) scale(0.5); } to { opacity: 1; transform: translate(-50%,-50%) scale(1); } }

@@ -1,0 +1,350 @@
+<!-- Гра: King's Cup  |  Файл: kingscup.html -->
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<title>King's Cup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #14161a; --tile-bg: #22252b; --text-light: #f4f5f1; --text-muted: #8b909c;
+    --accent: #38cfa0; --red: #d9455f; --gold: #e0b84c;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100dvh;
+    background: radial-gradient(circle at 50% 20%, #1f242d 0%, #14161a 70%), radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 100%, 24px 24px;
+    font-family: 'Inter', sans-serif; color: var(--text-light); touch-action: manipulation;
+  }
+  .page { max-width: 480px; margin: 0 auto; padding: 0 12px 20px; min-height: 100dvh; }
+  .hidden { display: none !important; }
+  h2 { font-family: 'Space Grotesk', sans-serif; font-size: 20px; margin: 14px 0; text-align: center; }
+  h3 { font-family: 'Space Grotesk', sans-serif; font-size: 14px; margin: 0 0 8px; }
+  .status-line { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 14px; }
+  .btn { border: none; border-radius: 12px; padding: 12px; font-family: 'Space Grotesk', sans-serif; font-weight: 700;
+      font-size: 14px; background: var(--tile-bg); color: var(--text-light); cursor: pointer; width: 100%; margin-bottom: 8px; }
+  .btn-primary { background: var(--accent); color: #06231a; }
+  .btn-gold { background: var(--gold); color: #2a1f04; }
+  .btn-sm { width: auto; padding: 8px 14px; font-size: 12px; margin: 0; }
+  .btn-danger { background: var(--red); color: #fff; }
+  .btn:disabled { opacity: 0.35; }
+  .field { width: 100%; box-sizing: border-box; padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12);
+      background: var(--tile-bg); color: var(--text-light); font-size: 14px; margin-bottom: 10px; }
+  .field:focus { outline: none; border-color: var(--accent); }
+  .divider { text-align: center; color: var(--text-muted); font-size: 12px; margin: 10px 0; }
+  .card-box { background: var(--tile-bg); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+  .rooms-list .room-item { cursor: pointer; background: var(--tile-bg); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
+  .empty-state { text-align: center; padding: 30px 0; color: var(--text-muted); font-size: 13px; }
+
+  .cup-counter { text-align: center; margin: 6px 0 16px; }
+  .cup-counter .num { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 34px; color: var(--gold); }
+  .cup-counter .lbl { font-size: 11px; color: var(--text-muted); }
+
+  .turn-line { text-align: center; font-size: 13px; margin-bottom: 10px; }
+  .turn-line b { color: var(--accent); }
+
+  .playing-card { width: 90px; height: 126px; margin: 0 auto 14px; border-radius: 10px;
+      background: linear-gradient(145deg, #ffffff 0%, #f1f2ec 100%); display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4); position: relative; font-family: 'Space Grotesk', sans-serif; }
+  .playing-card.red { color: var(--red); } .playing-card.black { color: #1a1c21; }
+  .playing-card .pc-rank { position: absolute; top: 6px; left: 8px; font-weight: 700; font-size: 16px; }
+  .playing-card .pc-suit { font-size: 40px; }
+  .playing-card.back { background: radial-gradient(circle, #2b594b 0%, #132a23 100%); }
+
+  .rule-box { text-align: center; margin-bottom: 14px; }
+  .rule-box .rname { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 18px; color: var(--gold); margin-bottom: 6px; }
+  .rule-box .rtext { font-size: 14px; }
+
+  .buddy-list, .player-pick-list { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 10px; }
+  .buddy-list button, .player-pick-list button { background: var(--tile-bg); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px;
+      padding: 8px 14px; font-size: 13px; color: var(--text-light); cursor: pointer; }
+  .buddy-list button.selected { border-color: var(--accent); color: var(--accent); }
+
+  .house-rules-list { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+  .house-rules-list li { margin-bottom: 4px; }
+
+  .spice-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .spice-row input[type=range] { flex: 1; accent-color: var(--accent); }
+  .spice-row .spice-val { font-family: 'Space Grotesk', sans-serif; font-weight: 700; min-width: 18px; text-align: center; }
+  .queue-item { background: rgba(255,255,255,0.03); border-radius: 10px; padding: 10px; margin-bottom: 8px; }
+  .queue-item .qtext { font-size: 13px; margin-bottom: 6px; }
+  .queue-item .qactions { display: flex; gap: 6px; }
+  details summary { cursor: pointer; font-size: 13px; color: var(--text-muted); margin-bottom: 8px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h2>👑 King's Cup</h2>
+
+  <div class="hidden" id="view-locked"><div class="empty-state">🔒 Увійди в профіль, щоб грати</div></div>
+
+  <div class="hidden" id="view-room-entry">
+    <div class="status-line">Обери активну кімнату або введи код друга</div>
+    <div class="rooms-list" id="activeRoomsList"></div>
+    <div class="divider">або вручну</div>
+    <input class="field" id="roomCodeInput" maxlength="5" placeholder="КОД КІМНАТИ" style="text-align:center; text-transform:uppercase;" />
+    <button class="btn btn-primary" id="joinRoomBtn">Приєднатись</button>
+    <div class="divider">або</div>
+    <button class="btn" id="createRoomBtn">Створити нову кімнату</button>
+  </div>
+
+  <div class="hidden" id="view-lobby">
+    <div class="status-line" id="roomCodeLine"></div>
+    <div class="card-box">
+      <h3>Гравці (по колу в порядку приєднання)</h3>
+      <div id="lobbyPlayers"></div>
+    </div>
+
+    <details class="card-box">
+      <summary>Пул "Я ніколи не" для валета (<span id="poolCountLobby">0</span>)</summary>
+      <div class="spice-row"><span>🌶️</span><input type="range" id="spiceSlider" min="1" max="5" value="3" /><span class="spice-val" id="spiceVal">3</span></div>
+      <div class="fact-input-row" style="display:flex; gap:8px;">
+        <input class="field" id="factInput" placeholder="Я... (продовж речення)" style="margin-bottom:0;" />
+        <select class="field" id="factLevel" style="width:64px;"><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option></select>
+      </div>
+      <button class="btn btn-primary" id="submitFactBtn">Додати</button>
+      <div class="status-line hidden" id="factFeedback" style="margin-top:8px;"></div>
+      <div id="moderationQueue"></div>
+    </details>
+
+    <button class="hidden btn btn-primary" id="startGameBtn">Почати гру</button>
+    <div class="status-line" id="lobbyHint"></div>
+  </div>
+
+  <div class="hidden" id="view-playing">
+    <div class="cup-counter"><div class="num" id="cupCount">0</div><div class="lbl">у спільній чаші</div></div>
+    <div class="turn-line" id="turnLine"></div>
+
+    <div id="cardDisplay"></div>
+
+    <div class="hidden rule-box" id="ruleBox">
+      <div class="rname" id="ruleName"></div>
+      <div class="rtext" id="ruleText"></div>
+    </div>
+
+    <div class="hidden" id="buddyPicker">
+      <div class="status-line">Обери напарника</div>
+      <div class="buddy-list" id="buddyList"></div>
+    </div>
+
+    <div class="hidden" id="ruleInputBox">
+      <input class="field" id="newRuleInput" placeholder="Нове правило..." />
+    </div>
+
+    <button class="hidden btn btn-primary" id="drawCardBtn">Тягнути карту</button>
+    <button class="hidden btn btn-primary" id="advanceBtn">Далі →</button>
+    <div class="status-line" id="waitingLine"></div>
+
+    <details class="card-box" style="margin-top:16px;">
+      <summary>Правила гри</summary>
+      <div id="rulesReference"></div>
+    </details>
+    <details class="card-box" id="houseRulesBox" style="display:none;">
+      <summary>Нові правила цього вечора</summary>
+      <ul class="house-rules-list" id="houseRulesList"></ul>
+    </details>
+
+    <button class="hidden btn btn-danger" id="endGameBtn" style="margin-top:10px;">Завершити (хост)</button>
+  </div>
+
+  <div class="hidden" id="view-ended">
+    <div class="empty-state">Колода скінчилась 🎉</div>
+    <button class="btn btn-primary" id="backToLobbyBtn">Назад у лобі</button>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/app-settings.js"></script>
+<link rel="stylesheet" href="js/game-header.css">
+<link rel="stylesheet" href="js/reactions.css">
+<script src="js/game-header.js"></script>
+<script src="js/login.js"></script>
+<script src="js/online-engine.js"></script>
+<script src="js/fact-pool.js"></script>
+<script src="js/kingscup-game.js"></script>
+<script src="js/room-code-ui.js"></script>
+<script src="js/reactions.js"></script>
+<script src="js/help.js"></script>
+<script src="js/back-button.js"></script>
+<script>
+(function () {
+  const F = window.FactPool;
+  const SUIT_SYMBOL = { S: "♠", H: "♥", D: "♦", C: "♣" };
+  const RED_SUITS = new Set(["H", "D"]);
+  function escapeHtml(s) { const d = document.createElement("div"); d.textContent = s || ""; return d.innerHTML; }
+
+  const VIEWS = ["locked", "room-entry", "lobby", "playing", "ended"];
+  function showView(name) { VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name)); }
+
+  let username = null;
+  let selectedBuddy = null;
+  let reactionsMounted = false;
+
+  document.getElementById("rulesReference").innerHTML = "A Водоспад · 2 Ти · 3 Я · 4 Підлога · 7 Небо · 8 Друг · 10 Категорії · J Я ніколи не · Q Майстер питань · K Нове правило (4-й — п'єш чашу)";
+
+  // ------------------------- лобі (спільне з пулом фактів) -------------------------
+  function renderLobby(room, ctx) {
+    document.getElementById("roomCodeLine").textContent = window.KingsCupGame.roomId || "";
+    const names = Object.keys(room.players || {});
+    document.getElementById("lobbyPlayers").innerHTML = names.map((n) =>
+      `<div style="padding:6px 0; font-size:13px;">${escapeHtml(n)}${room.hostUsername === n ? ' <span style="color:var(--accent); font-size:11px;">хост</span>' : ""}</div>`
+    ).join("");
+    document.getElementById("startGameBtn").classList.toggle("hidden", !ctx.isHost || names.length < 2);
+    document.getElementById("lobbyHint").textContent = ctx.isHost && names.length < 2 ? "Потрібно щонайменше 2 гравці" : "";
+
+    const facts = (room.factPool && room.factPool.facts) || {};
+    const queue = (room.factPool && room.factPool.queue) || {};
+    document.getElementById("poolCountLobby").textContent = Object.keys(facts).length;
+    const spice = (room.factPool && room.factPool.spiceLevel) || 3;
+    const spiceSlider = document.getElementById("spiceSlider");
+    if (document.activeElement !== spiceSlider) spiceSlider.value = spice;
+    document.getElementById("spiceVal").textContent = spice;
+
+    document.getElementById("moderationQueue").innerHTML = Object.entries(queue).map(([id, f]) => `
+      <div class="queue-item">
+        <div class="qtext">${escapeHtml(f.text)} ${f.similarTo && facts[f.similarTo] ? `<br><span style="color:var(--text-muted); font-size:11px;">Схоже на: «${escapeHtml(facts[f.similarTo].text)}»</span>` : ""}</div>
+        <div class="qactions"><button class="btn btn-sm btn-primary" data-approve="${id}">Дозволити</button><button class="btn btn-sm btn-danger" data-reject="${id}">Відхилити</button></div>
+      </div>`).join("");
+    document.querySelectorAll("[data-approve]").forEach((btn) => btn.addEventListener("click", () => window.KingsCupGame.approve(btn.dataset.approve)));
+    document.querySelectorAll("[data-reject]").forEach((btn) => btn.addEventListener("click", () => window.KingsCupGame.reject(btn.dataset.reject)));
+  }
+  document.getElementById("spiceSlider").addEventListener("change", (e) => window.KingsCupGame.setSpiceLevel(Number(e.target.value)));
+  document.getElementById("spiceSlider").addEventListener("input", (e) => { document.getElementById("spiceVal").textContent = e.target.value; });
+  document.getElementById("submitFactBtn").addEventListener("click", () => {
+    const input = document.getElementById("factInput");
+    const level = Number(document.getElementById("factLevel").value);
+    if (!input.value.trim()) return;
+    window.KingsCupGame.submitFact(input.value, level).then((res) => {
+      const fb = document.getElementById("factFeedback");
+      fb.classList.remove("hidden");
+      fb.textContent = res.verdict === "duplicate" ? "Схоже, це вже є — не додано" : res.verdict === "review" ? "Додано, чекає модерації" : "Додано!";
+      input.value = "";
+    });
+  });
+
+  // ------------------------- гра -------------------------
+  function renderCard(card) {
+    const wrap = document.getElementById("cardDisplay");
+    if (!card) { wrap.innerHTML = '<div class="playing-card back"></div>'; return; }
+    const color = RED_SUITS.has(card.suit) ? "red" : "black";
+    const label = { 14: "A", 13: "K", 12: "Q", 11: "J" }[card.rank] || String(card.rank);
+    wrap.innerHTML = `<div class="playing-card ${color}"><span class="pc-rank">${label}${SUIT_SYMBOL[card.suit]}</span><span class="pc-suit">${SUIT_SYMBOL[card.suit]}</span></div>`;
+  }
+
+  function renderPlaying(room, ctx) {
+    document.getElementById("cupCount").textContent = room.cupCount || 0;
+    const turnOrder = room.turnOrder || [];
+    const currentUser = turnOrder[room.turnIdx || 0];
+    document.getElementById("turnLine").innerHTML = ctx.isMyTurn ? "Твоя черга тягнути" : `Тягне: <b>${escapeHtml(currentUser || "")}</b>`;
+
+    renderCard(room.currentCard);
+
+    const extra = room.currentExtra;
+    const ruleBox = document.getElementById("ruleBox");
+    const buddyPicker = document.getElementById("buddyPicker");
+    const ruleInputBox = document.getElementById("ruleInputBox");
+    buddyPicker.classList.add("hidden");
+    ruleInputBox.classList.add("hidden");
+    ruleBox.classList.add("hidden");
+
+    if (room.currentCard) {
+      const rule = window.KingsCupGame.RULES[room.currentCard.rank];
+      if (extra && extra.type === "fact") {
+        ruleBox.classList.remove("hidden");
+        document.getElementById("ruleName").textContent = "Я ніколи не...";
+        document.getElementById("ruleText").textContent = extra.text ? ("Хтось із присутніх ніколи не " + extra.text) : extra.text;
+      } else if (extra && extra.type === "drink-cup") {
+        ruleBox.classList.remove("hidden");
+        document.getElementById("ruleName").textContent = "4-й король!";
+        document.getElementById("ruleText").textContent = (room.lastCupDrink ? room.lastCupDrink.by : "Хтось") + " п'є всю чашу";
+      } else if (extra && extra.type === "new-rule") {
+        ruleBox.classList.remove("hidden");
+        document.getElementById("ruleName").textContent = "Король (" + extra.cycle + "/3)";
+        document.getElementById("ruleText").textContent = "Придумай нове правило на цей вечір";
+        if (ctx.isMyTurn) ruleInputBox.classList.remove("hidden");
+      } else if (extra && extra.type === "buddy") {
+        ruleBox.classList.remove("hidden");
+        document.getElementById("ruleName").textContent = "Друг";
+        document.getElementById("ruleText").textContent = "Обери напарника — коли п'єш ти, п'є і він";
+        if (ctx.isMyTurn) {
+          buddyPicker.classList.remove("hidden");
+          const others = turnOrder.filter((u) => u !== username);
+          document.getElementById("buddyList").innerHTML = others.map((u) =>
+            `<button data-pick="${escapeHtml(u)}" class="${selectedBuddy === u ? "selected" : ""}">${escapeHtml(u)}</button>`).join("");
+          document.querySelectorAll("[data-pick]").forEach((btn) => btn.addEventListener("click", () => {
+            selectedBuddy = btn.dataset.pick;
+            window.KingsCupGame.pickBuddy(selectedBuddy);
+          }));
+        }
+      } else if (rule) {
+        ruleBox.classList.remove("hidden");
+        document.getElementById("ruleName").textContent = rule.name;
+        document.getElementById("ruleText").textContent = rule.text;
+      } else {
+        ruleBox.classList.remove("hidden");
+        document.getElementById("ruleName").textContent = "Без правила";
+        document.getElementById("ruleText").textContent = "Просто карта — нічого не відбувається";
+      }
+    }
+
+    document.getElementById("drawCardBtn").classList.toggle("hidden", !ctx.isMyTurn || !!room.currentCard);
+    document.getElementById("advanceBtn").classList.toggle("hidden", !ctx.isMyTurn || !room.currentCard);
+    document.getElementById("waitingLine").textContent = !ctx.isMyTurn ? "" : room.currentCard ? "" : "Тягни карту";
+
+    const houseRules = room.houseRules || [];
+    document.getElementById("houseRulesBox").style.display = houseRules.length ? "" : "none";
+    document.getElementById("houseRulesList").innerHTML = houseRules.map((r) => `<li>${escapeHtml(r)}</li>`).join("");
+
+    document.getElementById("endGameBtn").classList.toggle("hidden", !ctx.isHost);
+  }
+
+  function onGameState(room, ctx) {
+    if (!username) return;
+    if (!reactionsMounted && window.GameReactions && window.KingsCupGame.roomRef) {
+      reactionsMounted = true;
+      window.GameReactions.mount(window.KingsCupGame.roomRef, username);
+    }
+    if (room.phase === "lobby") { selectedBuddy = null; showView("lobby"); renderLobby(room, ctx); }
+    else if (room.phase === "playing") { showView("playing"); renderPlaying(room, ctx); }
+    else if (room.phase === "ended") { showView("ended"); }
+  }
+
+  function startFlow() {
+    const session = window.AppAuth && window.AppAuth.getSession();
+    if (!session || !window.rtdbReady) { showView("locked"); return; }
+    username = session.username;
+    window.KingsCupGame.onStateChange = onGameState;
+    RoomCodeUI.mount({
+      containerId: "activeRoomsList", codeInputId: "roomCodeInput", joinBtnId: "joinRoomBtn", createBtnId: "createRoomBtn",
+      watchActiveRooms: window.KingsCupGame.watchActiveRooms,
+      renderRoomItem: (r) => `<div><b>Кімната ${RoomCodeUI.escapeHtml(r.roomId)}</b></div><div class="status-line" style="text-align:left; margin:2px 0 0; font-size:12px;">${r.phase} · ${r.playerCount} гравців</div>`,
+      onEnter: (roomId) => window.KingsCupGame.start(username, roomId),
+    });
+    showView("room-entry");
+  }
+
+  document.getElementById("startGameBtn").addEventListener("click", () => window.KingsCupGame.startGame());
+  document.getElementById("drawCardBtn").addEventListener("click", () => window.KingsCupGame.drawCard());
+  document.getElementById("advanceBtn").addEventListener("click", () => {
+    const text = document.getElementById("newRuleInput");
+    const wrap = document.getElementById("ruleInputBox");
+    if (!wrap.classList.contains("hidden") && text.value.trim()) window.KingsCupGame.addHouseRule(text.value);
+    text.value = "";
+    selectedBuddy = null;
+    window.KingsCupGame.advanceTurn();
+  });
+  document.getElementById("endGameBtn").addEventListener("click", () => window.KingsCupGame.endGame());
+  document.getElementById("backToLobbyBtn").addEventListener("click", () => window.KingsCupGame.backToLobby());
+
+  startFlow();
+  window.addEventListener("beforeunload", () => { if (window.KingsCupGame) window.KingsCupGame.stop(); });
+})();
+</script>
+</body>
+</html>

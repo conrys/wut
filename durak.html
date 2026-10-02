@@ -1,0 +1,550 @@
+<!-- Гра: Дурак (підкидний, 36 карт)  |  Файл: durak.html -->
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<title>Дурак</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #14161a; --tile-bg: #22252b; --text-light: #f4f5f1; --text-muted: #8b909c;
+    --accent: #38cfa0; --red: #d9455f; --black: #1a1c21;
+    --ease-smooth: cubic-bezier(0.42, 0, 0.58, 1);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none;
+      -webkit-user-select: none; -webkit-touch-callout: none; }
+  html, body {
+    margin: 0; padding: 0; min-height: 100dvh;
+    background:
+        radial-gradient(circle at 50% 20%, #1f242d 0%, #14161a 70%),
+        radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 100%, 24px 24px;
+    font-family: 'Inter', sans-serif; color: var(--text-light); overflow-x: hidden; touch-action: manipulation;
+  }
+  .page { max-width: 480px; margin: 0 auto; padding: 0 10px 14px; min-height: 100dvh; display: flex; flex-direction: column; position: relative; z-index: 1; }
+  .hidden { display: none !important; }
+  h2 { font-family: 'Space Grotesk', sans-serif; font-size: 20px; margin: 14px 0; text-align: center; }
+  .status-line { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 14px; }
+  .btn { border: none; border-radius: 12px; padding: 12px; font-family: 'Space Grotesk', sans-serif; font-weight: 700;
+      font-size: 14px; background: var(--tile-bg); color: var(--text-light); cursor: pointer; }
+  .btn-primary { background: var(--accent); color: #06231a; }
+  .btn-block { width: 100%; }
+  .btn:active { transform: scale(0.97); }
+  .field { width: 100%; box-sizing: border-box; padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12);
+      background: var(--tile-bg); color: var(--text-light); font-size: 14px; margin-bottom: 10px; }
+  .field:focus { outline: none; border-color: var(--accent); }
+  .divider { text-align: center; color: var(--text-muted); font-size: 12px; margin: 10px 0; }
+  .rooms-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 6px; }
+  .rooms-list .room-item { cursor: pointer; background: var(--tile-bg); border-radius: 10px; padding: 10px 12px; }
+  .rooms-list .room-item:active { border: 1px solid var(--accent); }
+  .empty-state { text-align: center; padding: 30px 0; color: var(--text-muted); font-size: 13px; }
+  .lobby-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-muted); padding: 8px 2px; }
+  .lobby-check input { width: 17px; height: 17px; accent-color: var(--accent); }
+  #autoTransferWrap { cursor: pointer; gap: 5px; }
+  #autoTransferWrap input { width: 14px; height: 14px; accent-color: var(--accent); }
+
+  /* --------- картки (той самий компонент, що й у пасьянсі) --------- */
+  .card { width: 44px; height: 62px; border-radius: 6px;
+      background: linear-gradient(145deg, #ffffff 0%, #f1f2ec 100%);
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Space Grotesk', sans-serif;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.8);
+      cursor: pointer; position: relative; touch-action: none;
+      backface-visibility: hidden; flex-shrink: 0; }
+  .card.red { color: var(--red); }
+  .card.black { color: var(--black); }
+  .card.honor { background: linear-gradient(145deg, #fffdfa 0%, #f4eee2 100%); border: 1px solid rgba(212, 175, 55, 0.4); }
+  .card.back { background: radial-gradient(circle, #2b594b 0%, #132a23 100%); border: 1px solid rgba(255,255,255,0.2); }
+  .card.back::before { content:""; position:absolute; inset:3px; border:1px dashed rgba(255,255,255,0.3); border-radius:3px;
+      background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.04) 0 4px, transparent 4px 8px); }
+  .card.back::after { content:"⚜️"; font-size:14px; opacity:0.7; filter:grayscale(0.3); }
+  .card .corner { position: absolute; top: 3px; left: 4px; display: flex; flex-direction: column; align-items: center; line-height: 0.85; }
+  .card .rank { font-size: 11px; font-weight: 700; }
+  .card .mini-suit { font-size: 8px; margin-top: 1px; opacity: 0.85; }
+  .card .suit { font-size: 22px; line-height: 1; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.08)); }
+  .card.tiny { width: 26px; height: 36px; border-radius: 4px; }
+  .card.tiny .corner { top: 2px; left: 2px; } .card.tiny .rank { font-size: 8px; } .card.tiny .mini-suit { font-size: 6px; } .card.tiny .suit { font-size: 13px; }
+  .card.dimmed { opacity: 0.35; cursor: default; }
+  .card.actionable { box-shadow: 0 2px 5px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.8), 0 0 0 2px var(--accent); }
+  .card.dragging-source { opacity: 0.2; }
+  .card.invalid-target { animation: shake 0.3s; }
+  @keyframes shake { 0%,100%{transform:translateX(0);} 25%{transform:translateX(-4px);} 75%{transform:translateX(4px);} }
+
+  #dragAvatar { position: fixed; pointer-events: none; z-index: 9999; top: 0; left: 0;
+      transform: translate3d(-999px,-999px,0); filter: drop-shadow(0 12px 20px rgba(0,0,0,0.5)); }
+  #dragAvatar.snap-back { transition: transform 0.3s var(--ease-smooth) !important; }
+  #dragAvatar .card { transform: scale(1.08); }
+
+  /* --------- опоненти --------- */
+  .opponents-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 10px; }
+  .opp-chip { background: var(--tile-bg); border-radius: 12px; padding: 6px 10px; display: flex; align-items: center; gap: 6px;
+      font-size: 12px; border: 1px solid transparent; }
+  .opp-chip.attacker { border-color: var(--red); }
+  .opp-chip.defender { border-color: var(--accent); }
+  .opp-chip.finished { opacity: 0.5; }
+  .opp-chip .opp-name { font-weight: 700; }
+  .opp-chip .opp-count { color: var(--text-muted); }
+  .opp-chip .opp-role { font-size: 10px; padding: 1px 5px; border-radius: 6px; font-weight: 700; }
+  .opp-chip.attacker .opp-role { background: rgba(217,69,95,0.18); color: var(--red); }
+  .opp-chip.defender .opp-role { background: rgba(56,207,160,0.15); color: var(--accent); }
+
+  .info-bar { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 10px; }
+  .info-chip { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); }
+
+  /* --------- стіл: пунктирні слоти, як у пасьянсі, а не сукно --------- */
+  #tableFelt { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-content: flex-start;
+      min-height: 110px; padding: 12px; margin-bottom: 6px; border-radius: 14px; }
+  .table-slot { position: relative; width: 44px; height: 62px; border: 1px dashed rgba(255,255,255,0.22); border-radius: 6px; flex-shrink: 0; }
+  .table-slot .attack-card { position: absolute; top: 0; left: 0; }
+  .table-slot .defend-card { position: absolute; top: 12px; left: 12px; }
+  .table-slot.drop-hover::after { content:""; position:absolute; inset:-4px; border:2px dashed var(--accent); border-radius:9px; pointer-events:none; }
+  #tableFelt.drop-hover-throw { box-shadow: inset 0 0 0 2px var(--accent); border-radius: 14px; }
+  #transferBtn.drop-hover-transfer { box-shadow: 0 0 0 2px var(--accent); }
+
+  .my-hand-wrap { margin-top: auto; }
+  .my-hand { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; padding: 8px 0 4px; }
+  .action-row { display: flex; gap: 8px; margin: 6px 0 10px; }
+  .action-row .btn { flex: 1; }
+
+  .result-overlay { position: fixed; inset: 0; background: rgba(6,8,10,0.85); z-index: 60;
+      display: flex; align-items: center; justify-content: center; }
+  .result-box { background: var(--tile-bg); border-radius: 18px; padding: 24px 20px; text-align: center; max-width: 340px; width: 90%; }
+  .result-box .rtitle { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 20px; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div id="titleBlock"><h2>🃏 Дурак</h2></div>
+
+  <div class="hidden" id="view-locked">
+    <div class="empty-state">🔒 Увійди в профіль, щоб грати</div>
+  </div>
+
+  <div class="hidden" id="view-room-entry">
+    <div class="status-line">Обери активну кімнату або введи код друга</div>
+    <div class="rooms-list" id="activeRoomsList"></div>
+    <div class="divider">або вручну</div>
+    <input class="field" id="roomCodeInput" maxlength="5" placeholder="КОД КІМНАТИ" style="text-align:center; text-transform:uppercase; letter-spacing:0.1em;" />
+    <button class="btn btn-primary btn-block" id="joinRoomBtn">Приєднатись</button>
+    <div class="divider">або</div>
+    <button class="btn btn-block" id="createRoomBtn">Створити нову кімнату</button>
+  </div>
+
+  <div class="hidden" id="view-lobby">
+    <div class="status-line" id="roomCodeLine"></div>
+    <div class="opponents-row" id="lobbyPlayers"></div>
+    <label class="lobby-check"><input type="checkbox" id="chkThrowAll" /> Підкидають усі (не лише сусіди захисника)</label>
+    <label class="lobby-check"><input type="checkbox" id="chkPerevodnoy" /> Перевідний (можна перевести хід)</label>
+    <div class="status-line" id="lobbyHint"></div>
+    <button class="btn btn-block" id="addBotBtn" style="margin-bottom:8px;">+ Бот</button>
+    <button class="hidden btn btn-primary btn-block" id="startGameBtn">Почати партію</button>
+  </div>
+
+  <div class="hidden" id="view-game">
+    <div class="opponents-row" id="opponentsRow"></div>
+    <div class="info-bar">
+      <div class="info-chip" id="trumpChip"></div>
+      <div class="info-chip" id="deckChip"></div>
+      <label class="info-chip" id="autoTransferWrap"><input type="checkbox" id="chkAutoTransfer" /> авто-перевід</label>
+    </div>
+    <div id="tableFelt"></div>
+    <div class="status-line" id="turnStatusLine"></div>
+    <div class="action-row" id="actionRow">
+      <button class="hidden btn" id="transferBtn">Перевести</button>
+      <button class="hidden btn" id="takeBtn">Взяти</button>
+      <button class="hidden btn btn-primary" id="passBtn">Бито</button>
+    </div>
+    <div class="my-hand-wrap">
+      <div class="my-hand" id="myHand"></div>
+    </div>
+  </div>
+
+  <div class="hidden result-overlay" id="resultOverlay">
+    <div class="result-box">
+      <div class="rtitle" id="resultTitle"></div>
+      <button class="btn btn-primary btn-block" id="rematchBtn">Ще партію</button>
+      <button class="btn btn-block" id="leaveRoomBtn" style="margin-top:8px;">Вийти в лобі</button>
+    </div>
+  </div>
+</div>
+
+<div id="dragAvatar"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/app-settings.js"></script>
+<link rel="stylesheet" href="js/game-header.css">
+<link rel="stylesheet" href="js/reactions.css">
+<script src="js/game-header.js"></script>
+<script src="js/login.js"></script>
+<script src="js/online-engine.js"></script>
+<script src="js/durak-rules.js"></script>
+<script src="js/durak-game.js"></script>
+<script src="js/room-code-ui.js"></script>
+<script src="js/reactions.js"></script>
+<script src="js/score-connect.js"></script>
+<script src="js/records.js"></script>
+<script src="js/help.js"></script>
+<script src="js/back-button.js"></script>
+<script>
+(function () {
+  const SUIT_SYMBOL = { S: "♠", H: "♥", D: "♦", C: "♣" };
+  const RED_SUITS = new Set(["H", "D"]);
+  const D = window.DurakRules;
+  function rankLabel(r) { return D.rankLabel(r); }
+  function colorOf(card) { return RED_SUITS.has(card.suit) ? "red" : "black"; }
+
+  function makeCardEl(card, opts) {
+    opts = opts || {};
+    const el = document.createElement("div");
+    const isHonor = !opts.faceDown && card && card.rank >= 11;
+    let cls = "card";
+    if (opts.tiny) cls += " tiny";
+    cls += opts.faceDown ? " back" : " " + colorOf(card);
+    if (isHonor) cls += " honor";
+    el.className = cls;
+    if (!opts.faceDown && card) {
+      el.dataset.rank = card.rank;
+      el.dataset.suit = card.suit;
+      el.innerHTML = `
+        <div class="corner"><span class="rank">${rankLabel(card.rank)}</span><span class="mini-suit">${SUIT_SYMBOL[card.suit]}</span></div>
+        <div class="suit">${SUIT_SYMBOL[card.suit]}</div>`;
+    }
+    return el;
+  }
+  function escapeHtml(s) { const d = document.createElement("div"); d.textContent = s || ""; return d.innerHTML; }
+  function sameCard(a, b) { return a && b && a.rank === b.rank && a.suit === b.suit; }
+
+  const VIEWS = ["locked", "room-entry", "lobby", "game"];
+  function showView(name) {
+    VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name));
+    document.getElementById("titleBlock").classList.toggle("hidden", name === "game");
+  }
+
+  let username = null;
+  let lastState = null;
+  let reactionsMounted = false;
+  let scoreSentForRoom = null;
+  let lastCtx = null;
+  let autoTransfer = false;
+  document.getElementById("chkAutoTransfer").addEventListener("change", (e) => { autoTransfer = e.target.checked; });
+
+  // ------------------------- лобі -------------------------
+  let syncingLobbyChecks = false;
+  function renderLobby(room) {
+    document.getElementById("roomCodeLine").textContent = window.DurakGame.roomId || "";
+    const names = Object.keys(room.players || {});
+    const wrap = document.getElementById("lobbyPlayers");
+    wrap.innerHTML = names.map((n) => {
+      const isBot = room.players[n] && room.players[n].isBot;
+      return `<div class="opp-chip"><span class="opp-name">${escapeHtml(n)}</span>${isBot ? `<span class="opp-count" data-remove-bot="${escapeHtml(n)}" style="cursor:pointer;">✕</span>` : ""}</div>`;
+    }).join("");
+    wrap.querySelectorAll("[data-remove-bot]").forEach((el) => el.addEventListener("click", () => window.DurakGame.removeBot(el.dataset.removeBot)));
+    document.getElementById("addBotBtn").classList.toggle("hidden", names.length >= window.DurakGame.MAX_PLAYERS);
+    const ok = names.length >= window.DurakGame.MIN_PLAYERS && names.length <= window.DurakGame.MAX_PLAYERS;
+    document.getElementById("startGameBtn").classList.toggle("hidden", !ok);
+    document.getElementById("lobbyHint").textContent = ok ? ""
+      : names.length < window.DurakGame.MIN_PLAYERS ? "Мінімум 2 гравці" : `Максимум ${window.DurakGame.MAX_PLAYERS}`;
+
+    const settings = room.lobbySettings || D.defaultSettings();
+    syncingLobbyChecks = true;
+    document.getElementById("chkThrowAll").checked = settings.throwInMode !== "neighbors";
+    document.getElementById("chkPerevodnoy").checked = !!settings.perevodnoy;
+    syncingLobbyChecks = false;
+  }
+  document.getElementById("chkThrowAll").addEventListener("change", (e) => {
+    if (syncingLobbyChecks) return;
+    window.DurakGame.updateLobbySettings({ throwInMode: e.target.checked ? "all" : "neighbors" });
+  });
+  document.getElementById("chkPerevodnoy").addEventListener("change", (e) => {
+    if (syncingLobbyChecks) return;
+    window.DurakGame.updateLobbySettings({ perevodnoy: e.target.checked });
+  });
+
+  // ------------------------- гра: рендер -------------------------
+  function renderOpponents(state) {
+    const row = document.getElementById("opponentsRow");
+    const others = state.order.filter((u) => u !== username);
+    row.innerHTML = "";
+    others.forEach((u) => {
+      const isAtk = D.attackerName(state) === u;
+      const isDef = D.defenderName(state) === u;
+      const finished = state.finishedOrder.includes(u);
+      const chip = document.createElement("div");
+      chip.className = "opp-chip" + (isAtk ? " attacker" : "") + (isDef ? " defender" : "") + (finished ? " finished" : "");
+      chip.innerHTML = `<span class="opp-name">${escapeHtml(u)}</span><span class="opp-count">${finished ? "🏆" : (state.hands[u] || []).length + "🂠"}</span>` +
+        (isAtk ? '<span class="opp-role">атакує</span>' : isDef ? '<span class="opp-role">захищає</span>' : "");
+      row.appendChild(chip);
+    });
+  }
+
+  function renderInfo(state) {
+    const trumpChip = document.getElementById("trumpChip");
+    trumpChip.innerHTML = "Козир: ";
+    if (state.deck.length > 0) trumpChip.appendChild(makeCardEl(state.trumpCard, { tiny: true }));
+    else trumpChip.appendChild(document.createTextNode(SUIT_SYMBOL[state.trumpSuit]));
+    document.getElementById("deckChip").textContent = "Колода: " + state.deck.length;
+  }
+
+  function renderTable(state) {
+    const felt = document.getElementById("tableFelt");
+    felt.innerHTML = "";
+    state.table.forEach((t, i) => {
+      const slot = document.createElement("div");
+      slot.className = "table-slot";
+      slot.dataset.idx = i;
+      const atk = makeCardEl(t.attack);
+      atk.classList.add("attack-card");
+      slot.appendChild(atk);
+      if (t.defend) { const de = makeCardEl(t.defend); de.classList.add("defend-card"); slot.appendChild(de); }
+      felt.appendChild(slot);
+    });
+    // порожній слот-натяк, куди підкинути/атакувати, коли на столі ще нічого нема
+    if (!state.table.length) {
+      const hint = document.createElement("div");
+      hint.className = "table-slot";
+      hint.style.borderColor = "rgba(255,255,255,0.12)";
+      felt.appendChild(hint);
+    }
+  }
+
+  function statusText(state, ctx) {
+    if (ctx.isSpectator) return "Глядач";
+    const atk = D.attackerName(state), def = D.defenderName(state);
+    if (username === def) return state.table.length === 0 ? "Чекай атаки" : "Захищайся — перетягни карту на карту суперника";
+    if (username === atk && state.table.length === 0) return "Атакуй — перетягни карту на стіл";
+    if (D.throwableCards(state, username).length) return "Можна підкинути";
+    if (D.canPass(state, username)) return "Бито?";
+    return "Чекай";
+  }
+
+  function renderMyHand(state) {
+    const hand = document.getElementById("myHand");
+    hand.innerHTML = "";
+    const myCards = state.hands[username] || [];
+    const throwable = D.throwableCards(state, username);
+    const defendable = D.defendableSlots(state, username);
+    const transferable = D.transferableCards(state, username);
+
+    myCards.forEach((c) => {
+      const el = makeCardEl(c);
+      const canThrow = throwable.some((tc) => sameCard(tc, c));
+      const canDefend = defendable.some((s) => s.cards.some((dc) => sameCard(dc, c)));
+      const canTransfer = transferable.some((tc) => sameCard(tc, c));
+      const actionable = canThrow || canDefend || canTransfer;
+      el.classList.toggle("actionable", actionable);
+      el.classList.toggle("dimmed", !actionable);
+      if (actionable) attachDrag(el, c);
+      hand.appendChild(el);
+    });
+  }
+
+  function renderActions(state) {
+    const takeBtn = document.getElementById("takeBtn");
+    const passBtn = document.getElementById("passBtn");
+    const transferBtn = document.getElementById("transferBtn");
+    takeBtn.classList.toggle("hidden", !D.canTake(state, username));
+    passBtn.classList.toggle("hidden", !D.canPass(state, username));
+    const transferOk = D.canTransfer(state, username);
+    transferBtn.classList.toggle("hidden", !transferOk);
+    document.getElementById("autoTransferWrap").classList.toggle("hidden", !(state.settings && state.settings.perevodnoy));
+    if (transferOk && autoTransfer) window.DurakGame.transferCard(D.transferableCards(state, username)[0]);
+  }
+
+  function renderResult(room, state) {
+    const overlay = document.getElementById("resultOverlay");
+    if (room.phase !== "ended" || !state || !state.result) { overlay.classList.add("hidden"); return; }
+    overlay.classList.remove("hidden");
+    if (state.result.draw) document.getElementById("resultTitle").textContent = "Нічия";
+    else document.getElementById("resultTitle").textContent = state.result.loser === username ? "Ти — Дурак 🤡" : escapeHtml(state.result.loser) + " — Дурак 🤡";
+    // Рахунок: усі, крім "дурня", отримують +1 до накопичувального рахунку
+    // (той самий підхід, що й лічильник перемог у шахах/шашках). Кожен
+    // клієнт рахує лише себе.
+    const roomKey = window.DurakGame.roomId;
+    if (!state.result.draw && state.result.loser !== username && scoreSentForRoom !== roomKey) {
+      scoreSentForRoom = roomKey;
+      if (window.AppScore && window.AppScore.incrementScore) window.AppScore.incrementScore("durak", 1);
+    }
+  }
+
+  // ------------------------- drag & drop (pointer events, той самий патерн, що й у пасьянсі) -------------------------
+  const dragAvatar = document.getElementById("dragAvatar");
+  let activeDrag = null;
+
+  function attachDrag(el, card) {
+    el.addEventListener("pointerdown", (e) => {
+      if (e.button && e.button !== 0) return;
+      const rect = el.getBoundingClientRect();
+      activeDrag = {
+        card, el,
+        startX: e.clientX, startY: e.clientY,
+        offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top,
+        initialLeft: rect.left, initialTop: rect.top,
+        isDragging: false,
+      };
+      el.setPointerCapture(e.pointerId);
+
+      const onMove = (pe) => {
+        if (!activeDrag) return;
+        const dist = Math.hypot(pe.clientX - activeDrag.startX, pe.clientY - activeDrag.startY);
+        if (!activeDrag.isDragging && dist > 5) { activeDrag.isDragging = true; startDragUI(); }
+        if (activeDrag.isDragging) {
+          dragAvatar.style.transform = `translate3d(${pe.clientX - activeDrag.offsetX}px, ${pe.clientY - activeDrag.offsetY}px, 0)`;
+          highlightDropTarget(pe.clientX, pe.clientY);
+        }
+      };
+      const onUp = (pe) => {
+        el.removeEventListener("pointermove", onMove);
+        el.removeEventListener("pointerup", onUp);
+        el.removeEventListener("pointercancel", onUp);
+        if (activeDrag && activeDrag.isDragging) finishDrag(pe.clientX, pe.clientY);
+        else if (activeDrag) quickAction(activeDrag.card, activeDrag.el);
+        clearDropHighlights();
+        activeDrag = null;
+      };
+      el.addEventListener("pointermove", onMove);
+      el.addEventListener("pointerup", onUp);
+      el.addEventListener("pointercancel", onUp);
+    });
+  }
+
+  function startDragUI() {
+    dragAvatar.style.transition = "none";
+    dragAvatar.classList.remove("snap-back");
+    dragAvatar.innerHTML = "";
+    dragAvatar.appendChild(makeCardEl(activeDrag.card));
+    activeDrag.el.classList.add("dragging-source");
+    dragAvatar.style.transform = `translate3d(${activeDrag.startX - activeDrag.offsetX}px, ${activeDrag.startY - activeDrag.offsetY}px, 0)`;
+    void dragAvatar.offsetWidth;
+  }
+
+  function elementsUnderDrag(x, y) {
+    dragAvatar.style.display = "none";
+    const el = document.elementFromPoint(x, y);
+    dragAvatar.style.display = "block";
+    return el;
+  }
+  function dropTargetAt(x, y) {
+    const el = elementsUnderDrag(x, y);
+    if (!el) return null;
+    const slotEl = el.closest(".table-slot");
+    if (slotEl && slotEl.dataset.idx !== undefined) return { type: "slot", index: Number(slotEl.dataset.idx) };
+    const transferEl = el.closest("#transferBtn");
+    if (transferEl && !transferEl.classList.contains("hidden")) return { type: "transfer" };
+    const feltEl = el.closest("#tableFelt");
+    if (feltEl) return { type: "throw" };
+    return null;
+  }
+  function clearDropHighlights() {
+    document.querySelectorAll(".drop-hover").forEach((el) => el.classList.remove("drop-hover"));
+    document.getElementById("tableFelt").classList.remove("drop-hover-throw");
+    document.getElementById("transferBtn").classList.remove("drop-hover-transfer");
+  }
+  function highlightDropTarget(x, y) {
+    clearDropHighlights();
+    const target = dropTargetAt(x, y);
+    if (!target) return;
+    if (target.type === "slot") document.querySelector(`.table-slot[data-idx="${target.index}"]`)?.classList.add("drop-hover");
+    if (target.type === "throw") document.getElementById("tableFelt").classList.add("drop-hover-throw");
+    if (target.type === "transfer") document.getElementById("transferBtn").classList.add("drop-hover-transfer");
+  }
+
+  function finishDrag(x, y) {
+    const target = dropTargetAt(x, y);
+    const card = activeDrag.card;
+    let ok = false;
+    if (target && target.type === "slot") ok = window.DurakGame.defendCard(target.index, card);
+    else if (target && target.type === "throw") ok = window.DurakGame.throwCard(card);
+    else if (target && target.type === "transfer") ok = window.DurakGame.transferCard(card);
+
+    if (ok) { dragAvatar.innerHTML = ""; dragAvatar.style.transform = "translate3d(-999px,-999px,0)"; }
+    else snapBack();
+  }
+  function snapBack() {
+    dragAvatar.classList.add("snap-back");
+    dragAvatar.style.transform = `translate3d(${activeDrag.initialLeft}px, ${activeDrag.initialTop}px, 0)`;
+    setTimeout(() => {
+      dragAvatar.style.transition = "none";
+      dragAvatar.classList.remove("snap-back");
+      dragAvatar.innerHTML = "";
+      dragAvatar.style.transform = "translate3d(-999px,-999px,0)";
+      document.querySelectorAll(".dragging-source").forEach((el) => el.classList.remove("dragging-source"));
+    }, 320);
+  }
+
+  // Просте тапання (без перетягування) — швидкий шлях, коли дія однозначна:
+  // підкинути можна відразу (немає куди "цілитись"); відбити можна відразу,
+  // тільки якщо це єдиний слот, який ця карта здатна побити. Інакше —
+  // трусонемо карткою як підказку "перетягни на потрібну".
+  function quickAction(card, el) {
+    const st = lastState;
+    if (!st) return;
+    if (D.throwableCards(st, username).some((c) => sameCard(c, card))) { window.DurakGame.throwCard(card); return; }
+    const targets = D.defendableSlots(st, username).filter((s) => s.cards.some((c) => sameCard(c, card)));
+    if (targets.length === 1) { window.DurakGame.defendCard(targets[0].slotIndex, card); return; }
+    el.classList.add("invalid-target");
+    setTimeout(() => el.classList.remove("invalid-target"), 300);
+  }
+
+  // ------------------------- підключення до DurakGame -------------------------
+  function onGameState(room, ctx) {
+    lastState = ctx.state; lastCtx = ctx;
+    if (!username) return;
+    if (!room.players || !room.players[username]) { showView("locked"); return; }
+    if (!reactionsMounted && window.GameReactions && window.DurakGame.roomRef) {
+      reactionsMounted = true;
+      window.GameReactions.mount(window.DurakGame.roomRef, username);
+    }
+    if (room.phase === "lobby") { showView("lobby"); renderLobby(room); return; }
+    showView("game");
+    const state = ctx.state;
+    if (!state) return;
+    renderOpponents(state);
+    renderInfo(state);
+    renderTable(state);
+    document.getElementById("turnStatusLine").textContent = statusText(state, ctx);
+    renderMyHand(state);
+    renderActions(state);
+    renderResult(room, state);
+  }
+
+  function startFlow() {
+    const session = window.AppAuth && window.AppAuth.getSession();
+    if (!session || !window.rtdbReady) { showView("locked"); return; }
+    username = session.username;
+    window.DurakGame.onStateChange = onGameState;
+    RoomCodeUI.mount({
+      containerId: "activeRoomsList",
+      codeInputId: "roomCodeInput",
+      joinBtnId: "joinRoomBtn",
+      createBtnId: "createRoomBtn",
+      watchActiveRooms: window.DurakGame.watchActiveRooms,
+      renderRoomItem: (r) => `
+        <div><b>Кімната ${RoomCodeUI.escapeHtml(r.roomId)}</b></div>
+        <div class="status-line" style="text-align:left; margin:2px 0 0; font-size:12px;">${r.phase === "lobby" ? "Лобі" : "Гра триває"} · ${r.playerNames.map(RoomCodeUI.escapeHtml).join(", ")}</div>`,
+      onEnter: (roomId) => window.DurakGame.start(username, roomId),
+    });
+    showView("room-entry");
+  }
+
+  document.getElementById("startGameBtn").addEventListener("click", () => window.DurakGame.startGame());
+  document.getElementById("addBotBtn").addEventListener("click", () => window.DurakGame.addBot());
+  document.getElementById("takeBtn").addEventListener("click", () => window.DurakGame.takeCards());
+  document.getElementById("passBtn").addEventListener("click", () => window.DurakGame.passAttack());
+  document.getElementById("transferBtn").addEventListener("click", () => {
+    const cards = D.transferableCards(lastState, username);
+    if (cards.length) window.DurakGame.transferCard(cards[0]);
+  });
+  document.getElementById("rematchBtn").addEventListener("click", () => window.DurakGame.rematch());
+  document.getElementById("leaveRoomBtn").addEventListener("click", () => { window.DurakGame.stop(); showView("room-entry"); });
+
+  startFlow();
+  window.addEventListener("beforeunload", () => { if (window.DurakGame) window.DurakGame.stop(); });
+})();
+</script>
+</body>
+</html>

@@ -26,9 +26,18 @@
   const REVEAL_DELAY_MS = 1200; // коротка "інтрига" перед показом результату
   const WRONG_PENALTY_RATIO = 0.5; // -50% від вартості питання за неправильну відповідь
   const TICK_MS = 500;
+  const TOTAL_ROUNDS = 2;
+  const ROUND2_VALUE_MULTIPLIER = 2; // "Складніше і подвоюємо бали" — доки нема окремого складнішого банку,
+                                      // тимчасово чесно подвоюємо вартість тих самих питань у раунді 2.
+  const CATCHUP_DEFICIT_RATIO = 0.4; // відстаючий має бути позаду лідера мінімум на 40% очок лідера
+  const CATCHUP_CHANCE = 0.5;        // і навіть тоді це не гарантовано — просто підвищений шанс, лишається "рандомним"
+  const CATCHUP_VALUE_MULTIPLIER = 2;
 
   const ROOM_SCHEMA = {
     phase: "lobby", // lobby|countdown|categorySelect|questionActive|evaluating|resultDisplay|game_over
+    round: 1, // 1|2 — див. TOTAL_ROUNDS
+    isCatchUpTurn: false, // цей хід — позачергове "наздоганяюче" питання для відстаючого
+    catchUpGivenTo: null, // { [username]: round } — щоб не сипати бонус тому самому гравцю щохід
     currentPlayerUsername: null,
     currentQuestion: null, // { categoryIndex, questionIndex }
     board: null, // [{ name, questions:[{played}] }]
@@ -205,12 +214,37 @@
     });
   }
 
+  // ------------------------- наздоганяюче питання -------------------------
+  // Викликається щоразу, коли хід переходить далі по колу. Якщо найвідсталіший
+  // підключений гравець позаду лідера мінімум на CATCHUP_DEFICIT_RATIO і йому
+  // ще не давали бонус у цьому раунді — з імовірністю CATCHUP_CHANCE саме він
+  // отримує позачерговий хід замість наступного по колу.
+  function pickCatchUpPlayer(room) {
+    const conn = connectedSorted(room.players);
+    if (conn.length < 2) return null;
+    const scores = conn.map(([n, p]) => [n, p.score || 0]);
+    let leader = scores[0], last = scores[0];
+    for (const s of scores) {
+      if (s[1] > leader[1]) leader = s;
+      if (s[1] < last[1]) last = s;
+    }
+    if (last[0] === leader[0] || leader[1] <= 0) return null;
+    const deficitRatio = (leader[1] - last[1]) / leader[1];
+    const alreadyGiven = room.catchUpGivenTo && room.catchUpGivenTo[last[0]] === room.round;
+    if (deficitRatio >= CATCHUP_DEFICIT_RATIO && !alreadyGiven && Math.random() < CATCHUP_CHANCE) {
+      return last[0];
+    }
+    return null;
+  }
+
   // ------------------------- оцінювання / перехід ходу (тільки хост) -------------------------
   function finalizeAnswer(room, selectedIndex) {
     const { categoryIndex, questionIndex } = room.currentQuestion;
     const q = QUIZ_TOPICS[categoryIndex].questions[questionIndex];
     const correct = selectedIndex !== null && q.correctIndices.includes(selectedIndex);
-    const pointsAwarded = correct ? q.value : -Math.round(q.value * WRONG_PENALTY_RATIO);
+    const multiplier = (room.round === 2 ? ROUND2_VALUE_MULTIPLIER : 1) * (room.isCatchUpTurn ? CATCHUP_VALUE_MULTIPLIER : 1);
+    const effectiveValue = q.value * multiplier;
+    const pointsAwarded = correct ? effectiveValue : -Math.round(effectiveValue * WRONG_PENALTY_RATIO);
     const activeName = room.currentPlayerUsername;
     const player = room.players[activeName];
 
@@ -223,25 +257,47 @@
         correct,
         selectedIndex,
         pointsAwarded,
-        value: q.value,
+        value: effectiveValue,
+        wasCatchUp: !!room.isCatchUpTurn,
+        round: room.round || 1,
       },
     };
     if (player) updates[`players/${activeName}/score`] = (player.score || 0) + pointsAwarded;
+    if (room.isCatchUpTurn) updates[`catchUpGivenTo/${activeName}`] = room.round || 1;
     ref.update(updates);
   }
 
   function advanceAfterResult(room) {
     if (allBoardPlayed(room.board)) {
-      ref.update({ phase: "game_over", phaseDeadline: null, currentQuestion: null, currentPlayerUsername: null });
+      if ((room.round || 1) < TOTAL_ROUNDS) {
+        // Другий раунд: та сама дошка тем, свіжі played-прапорці, бали за
+        // клітинку подвоюються (ROUND2_VALUE_MULTIPLIER) — поки нема окремого
+        // складнішого банку питань, це і є "складніше" в цифрах.
+        ref.update({
+          phase: "categorySelect",
+          round: (room.round || 1) + 1,
+          board: buildFreshBoard(),
+          currentPlayerUsername: pickNextPlayer(room, room.currentPlayerUsername),
+          currentQuestion: null,
+          phaseDeadline: null,
+          lastEvaluation: null,
+          isCatchUpTurn: false,
+          catchUpGivenTo: null,
+        });
+      } else {
+        ref.update({ phase: "game_over", phaseDeadline: null, currentQuestion: null, currentPlayerUsername: null });
+      }
       return;
     }
-    const next = pickNextPlayer(room, room.currentPlayerUsername);
+    const catchUpPlayer = pickCatchUpPlayer(room);
+    const next = catchUpPlayer || pickNextPlayer(room, room.currentPlayerUsername);
     ref.update({
       phase: "categorySelect",
       currentPlayerUsername: next,
       currentQuestion: null,
       phaseDeadline: null,
       lastEvaluation: null,
+      isCatchUpTurn: !!catchUpPlayer,
     });
   }
 
@@ -300,6 +356,9 @@
     MIN_PLAYERS,
     COUNTDOWN_SECONDS,
     RESULT_DISPLAY_SECONDS,
+    TOTAL_ROUNDS,
+    ROUND2_VALUE_MULTIPLIER,
+    CATCHUP_VALUE_MULTIPLIER,
     QUIZ_TOPICS,
     connectedEntries,
     computeHost,
@@ -313,6 +372,7 @@
     forceNextTurn,
     resetGame,
     get roomId() { return Engine.currentRoomId; },
+    get roomRef() { return Engine.roomRef; },
     set onStateChange(fn) { onStateChange = fn; },
   };
 })();

@@ -258,6 +258,7 @@
     liveClockSeconds,
     now: () => engine.now(),
     get roomId() { return engine.currentRoomId; },
+    get roomRef() { return engine.roomRef; },
     set onStateChange(fn) { onStateChange = fn; },
   };
 })();

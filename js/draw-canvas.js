@@ -104,7 +104,30 @@ function createDrawCanvas(canvas, { readOnly = false, onStroke } = {}) {
       redrawFromHistory();
       return lastStrokeId;
     },
-    exportImage: () => canvas.toDataURL('image/png'),
+    // maxBytes (опційно): якщо PNG повного розміру перевищує межу — пробуємо
+    // прогресивно зменшені копії канвасу (PNG, не JPEG — лінії на білому тлі
+    // JPEG "дзвонить" навколо різких контурів), і лише як останній шанс —
+    // JPEG із стисненням. Раніше виклики просто брали toDataURL('image/png')
+    // як є: для деталізованого малюнка 600x450 це легко перевищувало ліміт
+    // запису в RTDB (~900КБ), і виклик-сторона це мовчки відкидала — гравець
+    // думав, що відправив, а запис просто не йшов.
+    exportImage: (maxBytes) => {
+      let url = canvas.toDataURL('image/png');
+      if (!maxBytes || url.length <= maxBytes) return url;
+      const scales = [0.75, 0.5, 0.35, 0.25];
+      for (const scale of scales) {
+        const tmp = document.createElement('canvas');
+        tmp.width = Math.max(1, Math.round(W * scale));
+        tmp.height = Math.max(1, Math.round(H * scale));
+        tmp.getContext('2d').drawImage(canvas, 0, 0, tmp.width, tmp.height);
+        url = tmp.toDataURL('image/png');
+        if (url.length <= maxBytes) return url;
+      }
+      // Останній шанс — JPEG із стисненням; може досі перевищувати maxBytes
+      // на справді густо замальованому кадрі, виклик-сторона мусить і сама
+      // перевірити розмір перед відправкою, а не довіряти цьому наосліп.
+      return canvas.toDataURL('image/jpeg', 0.6);
+    },
     loadStrokes: (arr) => { history = [...(arr || [])]; redrawFromHistory(); },
     setColor: (c) => { currentColor = c; eraserOn = false; },
     setWidth: (w) => { currentWidth = w; },

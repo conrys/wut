@@ -111,8 +111,13 @@
 
   const engine = window.OnlineEngine.create(GAME_KEY, {
     onEmptyPlayer,
-    // lockedHost навмисно НЕ передаємо — hostUsername лишається тим, ким
-    // був записаний при створенні кімнати, назавжди.
+    // lockedHost: якщо хост згортає застосунок/вилітає з мережі — через
+    // ~5-7с (PRESENCE_TIMEOUT_MS + цикл переобрання) хост-тік сам
+    // підхопить інший живий гравець (той самий механізм, що й у
+    // покері/шахах/шашках/дураку). Раніше hostUsername писався один раз
+    // при створенні кімнати й ніколи не переобирався — гра просто
+    // зависала назавжди, якщо хост згортав телефон у фоні.
+    lockedHost: true,
   });
 
   let myUsername = null;
@@ -164,10 +169,17 @@
     myUsername = username;
     currentRoomId = roomId;
     engine.onStateChange = handleEngineEvent;
+    engine.onBecomeHost = startOwnerTick;
+    engine.onLoseHost = stopOwnerTick;
     engine.start(username, { useLobby: false });
-    return engine.getOrCreateRoom(roomId, ROOM_SCHEMA, () => Object.assign(buildFreshRoom(), {
-      hostUsername: username, // пишеться лише якщо кімната справді щойно створюється
-    })).then((result) => {
+    // hostUsername НЕ пишемо тут вручну — з lockedHost:true engine сам
+    // обирає й записує і hostUsername, і hostSessionId разом через CAS
+    // (maybeElectHostWithLock в online-engine.js), щойно побачить, що
+    // players[room.hostUsername] відсутній/офлайн. Якби ми продовжили
+    // писати лише hostUsername тут, engine побачив би "хост начебто є й
+    // онлайн" (бо це ми самі) і ніколи не пройшов би гілку обрання —
+    // onBecomeHost не спрацював би взагалі ні для кого.
+    return engine.getOrCreateRoom(roomId, ROOM_SCHEMA, buildFreshRoom).then((result) => {
       const room = result.room;
       const players = room.players || {};
       const alreadyIn = !!players[username];
@@ -188,8 +200,15 @@
     engine.becomePlayer();
   }
 
-  function stop() {
+  function startOwnerTick() {
+    if (!ownerTickTimer) ownerTickTimer = setInterval(ownerTick, 250);
+  }
+  function stopOwnerTick() {
     if (ownerTickTimer) { clearInterval(ownerTickTimer); ownerTickTimer = null; }
+  }
+
+  function stop() {
+    stopOwnerTick();
     if (dispatchTimer) { clearTimeout(dispatchTimer); dispatchTimer = null; }
     advancingSincePhase = null;
     engine.stop();
@@ -205,9 +224,10 @@
 
     maybeBecomePlayer(room);
 
-    const iAmOwner = room.hostUsername === myUsername;
-    if (iAmOwner && !ownerTickTimer) ownerTickTimer = setInterval(ownerTick, 250);
-    if (!iAmOwner && ownerTickTimer) { clearInterval(ownerTickTimer); ownerTickTimer = null; }
+    // Хост-тік більше НЕ керується тут вручну (порівнянням hostUsername) —
+    // engine сам викликає onBecomeHost/onLoseHost (startOwnerTick/
+    // stopOwnerTick вище) через lockedHost-механізм, включно з
+    // автоматичним переобранням, якщо попередній хост зникає.
 
     scheduleDispatch(room);
   }
@@ -623,6 +643,8 @@
     now: () => engine.now(),
     get me() { const r = engine.latestRoom; return r && myUsername ? (r.players || {})[myUsername] : null; },
     get room() { return engine.latestRoom; },
+    get roomId() { return engine.currentRoomId; },
+    get roomRef() { return engine.roomRef; },
     start, stop,
     connectedEntries, watchActiveRooms,
     setReady, setSettings, startGame, resetGame,

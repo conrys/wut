@@ -6,6 +6,7 @@
 <title>Quiz — Табло</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="js/reactions.css">
 <style>
   :root {
     --bg-void: #0a0e2e; --bg-panel: #131a4d; --bg-panel-2: #1c2566; --bg-tile: #202a70;
@@ -170,6 +171,7 @@
 <script src="js/quiz-topics.js"></script>
 <script src="js/online-engine.js"></script>
 <script src="js/quiz-game.js"></script>
+<script src="js/reactions.js"></script>
 <script>
 (function () {
   const VIEWS = ["waiting", "countdown", "board", "question", "result", "end"];
@@ -203,6 +205,13 @@
     document.getElementById("waitingPlayers").innerHTML = conn.map(([name]) => `<div class="waiting-chip">${escapeHtml(name)}</div>`).join("");
   }
 
+  function questionValueFor(state, ci, qi) {
+    const base = window.QuizGame.QUIZ_TOPICS[ci].questions[qi].value;
+    const roundMult = state.round === 2 ? window.QuizGame.ROUND2_VALUE_MULTIPLIER : 1;
+    const catchUpMult = state.isCatchUpTurn ? window.QuizGame.CATCHUP_VALUE_MULTIPLIER : 1;
+    return base * roundMult * catchUpMult;
+  }
+
   function renderBoard(state) {
     const catRow = document.getElementById("catHeaderRow");
     const valueGrid = document.getElementById("valueGrid");
@@ -217,21 +226,21 @@
       for (let c = 0; c < n; c++) {
         const cell = state.board[c].questions[row];
         if (!cell) { html += `<div></div>`; continue; }
-        const value = window.QuizGame.QUIZ_TOPICS[c].questions[row].value;
+        const value = questionValueFor(state, c, row);
         html += `<div class="value-tile ${cell.played ? "played" : ""}">${cell.played ? "" : value}</div>`;
       }
     }
     valueGrid.innerHTML = html;
     valueGrid.style.gridTemplateRows = `repeat(${maxQ}, 1fr)`;
 
-    document.getElementById("activeStrip").innerHTML = `<b>${escapeHtml(state.currentPlayerUsername || "")}</b> вибирає питання…`;
+    document.getElementById("activeStrip").innerHTML = `<b>${escapeHtml(state.currentPlayerUsername || "")}</b> вибирає питання… ${state.isCatchUpTurn ? "🔥 наздоганяюче питання (x2)" : ""} · Раунд ${state.round || 1}/${window.QuizGame.TOTAL_ROUNDS}`;
   }
 
   let lastQuestionKey = null;
   function renderQuestion(state) {
     const { categoryIndex, questionIndex } = state.currentQuestion;
     const q = window.QuizGame.QUIZ_TOPICS[categoryIndex].questions[questionIndex];
-    document.getElementById("qMeta").textContent = `${state.board[categoryIndex].name} · ${q.value}`;
+    document.getElementById("qMeta").textContent = `${state.board[categoryIndex].name} · ${questionValueFor(state, categoryIndex, questionIndex)}`;
     document.getElementById("qActivePlayer").textContent = state.currentPlayerUsername || "—";
     document.getElementById("qText").textContent = q.text;
 
@@ -292,8 +301,13 @@
   }
 
   let latestState = null;
+  let reactionsMounted = false;
   function render(state) {
     latestState = state;
+    if (!reactionsMounted && window.GameReactions && window.QuizGame.roomRef) {
+      reactionsMounted = true;
+      window.GameReactions.mountOverlay(window.QuizGame.roomRef);
+    }
     renderScoreboard(state);
 
     switch (state.phase) {
