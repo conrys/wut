@@ -281,7 +281,7 @@
     const displayValue = questionValueFor(state, categoryIndex, questionIndex);
     document.getElementById("answerMeta").textContent = `${state.board[categoryIndex].name} · ${displayValue}${state.isCatchUpTurn ? " 🔥" : ""}`;
     if (state.phase === "questionActive") {
-      const remaining = Math.max(0, Math.ceil((state.phaseDeadline - Date.now()) / 1000));
+      const remaining = Math.max(0, Math.ceil((state.phaseDeadline - window.QuizGame.now()) / 1000));
       const timerEl = document.getElementById("answerTimer");
       timerEl.textContent = remaining;
       timerEl.classList.toggle("urgent", remaining <= 5);
@@ -369,7 +369,7 @@
       }
       case "countdown": {
         showView("status");
-        const left = Math.max(0, Math.ceil((state.phaseDeadline - Date.now()) / 1000));
+        const left = Math.max(0, Math.ceil((state.phaseDeadline - window.QuizGame.now()) / 1000));
         document.getElementById("statusLine").textContent = `Гра почнеться через ${left} с`;
         renderScoreboard(state, document.getElementById("scoreboardStatus"));
         break;
@@ -438,12 +438,12 @@
     if (lastState.phase === "countdown") {
       const el = document.getElementById("statusLine");
       if (el && !document.getElementById("view-status").classList.contains("hidden")) {
-        const left = Math.max(0, Math.ceil((lastState.phaseDeadline - Date.now()) / 1000));
+        const left = Math.max(0, Math.ceil((lastState.phaseDeadline - window.QuizGame.now()) / 1000));
         el.textContent = `Гра почнеться через ${left} с`;
       }
     }
     if (lastState.phase === "questionActive" && !document.getElementById("view-answer").classList.contains("hidden")) {
-      const remaining = Math.max(0, Math.ceil((lastState.phaseDeadline - Date.now()) / 1000));
+      const remaining = Math.max(0, Math.ceil((lastState.phaseDeadline - window.QuizGame.now()) / 1000));
       const timerEl = document.getElementById("answerTimer");
       if (timerEl) { timerEl.textContent = remaining; timerEl.classList.toggle("urgent", remaining <= 5); }
     }

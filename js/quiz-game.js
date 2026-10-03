@@ -353,6 +353,9 @@
   }
 
   window.QuizGame = {
+    // Серверний час (з поправкою .info/serverTimeOffset) — для UI-таймерів і автовідправки.
+    // Локальний Date.now() у клієнта може йти наперед/назад і ламати дедлайни, які ставить хост.
+    now,
     MIN_PLAYERS,
     COUNTDOWN_SECONDS,
     RESULT_DISPLAY_SECONDS,

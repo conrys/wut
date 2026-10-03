@@ -331,6 +331,9 @@
   }
 
   window.DrawGame = {
+    // Серверний час (з поправкою .info/serverTimeOffset) — для UI-таймерів і автовідправки.
+    // Локальний Date.now() у клієнта може йти наперед/назад і ламати дедлайни, які ставить хост.
+    now: () => engine.now(),
     MIN_PLAYERS,
     ALLOWED_GALLERY_SECONDS,
     ALLOWED_DIFFICULTIES,

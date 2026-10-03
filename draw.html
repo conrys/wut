@@ -407,7 +407,7 @@
     if (sub === "drawing") {
       const prompt = (gal.prompts && gal.prompts[username]) || "...";
       document.getElementById("galPrompt").textContent = `Завдання: «${prompt}»`;
-      const secondsLeft = Math.max(0, Math.ceil((gal.drawEndsAt - Date.now()) / 1000));
+      const secondsLeft = Math.max(0, Math.ceil((gal.drawEndsAt - DrawGame.now()) / 1000));
       document.getElementById("galTimer").textContent = `${secondsLeft}s`;
     } else if (sub === "reveal") {
       const order = gal.revealOrder || [];

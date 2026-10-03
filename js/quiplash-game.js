@@ -751,6 +751,9 @@
   }
 
   window.QuiplashGame = {
+    // Серверний час (з поправкою .info/serverTimeOffset) — для UI-таймерів і автовідправки.
+    // Локальний Date.now() у клієнта може йти наперед/назад і ламати дедлайни, які ставить хост.
+    now,
     MIN_PLAYERS, MAX_PLAYERS, TOTAL_ROUNDS,
     MIN_VOTE_SECONDS, MAX_VOTE_SECONDS, DEFAULT_VOTE_SECONDS, VOTE_INTRO_MS,
     GALLERY_VOTE_BONUS_SECONDS, classicVoteMs, galleryVoteMs,

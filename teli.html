@@ -381,7 +381,7 @@
     const alreadySubmitted = lastRoom.submitted && lastRoom.submitted[username];
     if (!inGame || alreadySubmitted) { timerEl.classList.add("hidden"); return; }
 
-    const remainingMs = lastRoom.roundDeadline - Date.now();
+    const remainingMs = lastRoom.roundDeadline - TeliGame.now();
     const remainingSec = Math.max(0, Math.ceil(remainingMs / 1000));
     timerEl.classList.remove("hidden");
     timerEl.textContent = `⏱ ${remainingSec}с`;

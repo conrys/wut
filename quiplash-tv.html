@@ -348,14 +348,14 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
 
   function setTimerFill(el, deadline, totalMs) {
     if (!deadline) { el.style.width = "100%"; return; }
-    const remaining = Math.max(0, deadline - Date.now());
+    const remaining = Math.max(0, deadline - window.QuiplashGame.now());
     el.style.width = Math.max(0, Math.min(100, (remaining / totalMs) * 100)) + "%";
   }
 
   function effectiveDeadline(state) {
     if (!state.phaseDeadline) return null;
     return state.paused
-      ? state.phaseDeadline + Math.max(0, Date.now() - (state.pausedAt || Date.now()))
+      ? state.phaseDeadline + Math.max(0, window.QuiplashGame.now() - (state.pausedAt || window.QuiplashGame.now()))
       : state.phaseDeadline;
   }
 
@@ -526,7 +526,7 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
             voteIntroKey = introKey;
             renderVoteIntro(state, null, candidates, authors);
           }
-          const showIntro = !!state.voteRevealAt && Date.now() < state.voteRevealAt;
+          const showIntro = !!state.voteRevealAt && window.QuiplashGame.now() < state.voteRevealAt;
           document.getElementById("host-vote-intro").classList.toggle("hidden", !showIntro);
           document.getElementById("host-vote-main").classList.toggle("hidden", showIntro);
 
@@ -577,7 +577,7 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
           voteIntroKey = introKey;
           renderVoteIntro(state, { pa, pb });
         }
-        const showIntro = !!state.voteRevealAt && Date.now() < state.voteRevealAt;
+        const showIntro = !!state.voteRevealAt && window.QuiplashGame.now() < state.voteRevealAt;
         document.getElementById("host-vote-intro").classList.toggle("hidden", !showIntro);
         document.getElementById("host-vote-main").classList.toggle("hidden", showIntro);
 
@@ -699,7 +699,7 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
   setInterval(() => {
     if (!latestState) return;
     if (latestState.phase === "answer_countdown") {
-      const remaining = Math.max(0, (latestState.phaseDeadline || Date.now()) - Date.now());
+      const remaining = Math.max(0, (latestState.phaseDeadline || window.QuiplashGame.now()) - window.QuiplashGame.now());
       document.getElementById("host-answer-countdown").textContent = `Старт голосування через ${Math.ceil(remaining / 1000)}…`;
       return;
     }

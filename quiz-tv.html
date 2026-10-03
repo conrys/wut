@@ -257,12 +257,12 @@
 
     if (state.phase === "questionActive") {
       const total = q.timeLimit * 1000;
-      const value = Math.max(0, Math.ceil((state.phaseDeadline - Date.now()) / 1000));
+      const value = Math.max(0, Math.ceil((state.phaseDeadline - window.QuizGame.now()) / 1000));
       document.getElementById("timerNum").textContent = value;
       const ring = document.getElementById("timerRing");
       const circumference = 2 * Math.PI * 38;
       ring.style.strokeDasharray = circumference;
-      ring.style.strokeDashoffset = circumference * (1 - Math.max(0, state.phaseDeadline - Date.now()) / total);
+      ring.style.strokeDashoffset = circumference * (1 - Math.max(0, state.phaseDeadline - window.QuizGame.now()) / total);
       ring.style.stroke = value <= 5 ? "var(--wrong)" : "var(--gold)";
     }
   }
@@ -317,7 +317,7 @@
         break;
       case "countdown":
         showView("countdown");
-        document.getElementById("countdownNum").textContent = Math.max(0, Math.ceil((state.phaseDeadline - Date.now()) / 1000));
+        document.getElementById("countdownNum").textContent = Math.max(0, Math.ceil((state.phaseDeadline - window.QuizGame.now()) / 1000));
         break;
       case "categorySelect":
         showView("board");
@@ -343,7 +343,7 @@
   setInterval(() => {
     if (!latestState) return;
     if (latestState.phase === "countdown" && !document.getElementById("view-countdown").classList.contains("hidden")) {
-      document.getElementById("countdownNum").textContent = Math.max(0, Math.ceil((latestState.phaseDeadline - Date.now()) / 1000));
+      document.getElementById("countdownNum").textContent = Math.max(0, Math.ceil((latestState.phaseDeadline - window.QuizGame.now()) / 1000));
     }
     if (latestState.phase === "questionActive" && !document.getElementById("view-question").classList.contains("hidden")) {
       renderQuestion(latestState);

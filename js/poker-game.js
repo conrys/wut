@@ -294,7 +294,7 @@
         currentBet: BIG_BLIND,
         minRaise: BIG_BLIND,
         lastAggressorSeat: bbSeat,
-        lastActionAt: Date.now(),
+        lastActionAt: Engine.now(),
         resultText: null,
         sbSeat, bbSeat,
       },
@@ -393,7 +393,7 @@
     } else {
       return;
     }
-    updates["hand/lastActionAt"] = Date.now();
+    updates["hand/lastActionAt"] = Engine.now();
 
     // рахуємо наступного, хто має ходити, ВЖЕ з урахуванням щойно застосованої дії
     const allKeys = activeHandKeys(state.seats, hand);
@@ -438,7 +438,7 @@
     updates["seats/" + winnerSeat + "/stack"] = (state.seats[winnerSeat].stack || 0) + total;
     updates["hand/resultText"] = `${winnerName} забирає банк (${total}) — усі інші скинули карти`;
     updates["hand/street"] = "hand_result";
-    updates["hand/resultAt"] = Date.now();
+    updates["hand/resultAt"] = Engine.now();
     Engine.roomRef.update(updates);
   }
 
@@ -546,7 +546,7 @@
 
     updates["hand/street"] = "hand_result";
     updates["hand/resultText"] = winLines.join(" · ");
-    updates["hand/resultAt"] = Date.now();
+    updates["hand/resultAt"] = Engine.now();
     updates["hand/revealAll"] = true;
     Engine.roomRef.update(updates);
   }
@@ -622,7 +622,7 @@
     const hand = state.hand;
 
     if (hand.street === "hand_result") {
-      if (Date.now() - (hand.resultAt || 0) >= HAND_RESULT_PAUSE_MS) {
+      if (Engine.now() - (hand.resultAt || 0) >= HAND_RESULT_PAUSE_MS) {
         Engine.roomRef.child("hand").set(null).then(() => {
           Engine.roomRef.once("value").then((snap) => { const fresh = snap.val(); if (fresh) startNewHand(fresh); });
         });
@@ -637,7 +637,7 @@
 
     const seatInfo = state.seats[hand.toActSeat];
     if (seatInfo.occupantType === "bot") {
-      if (Date.now() - (hand.lastActionAt || 0) < BOT_THINK_MS) return;
+      if (Engine.now() - (hand.lastActionAt || 0) < BOT_THINK_MS) return;
       const decision = botDecision(state, hand.toActSeat);
       applyAction(state, hand.toActSeat, decision.action, decision.amount);
     }

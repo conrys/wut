@@ -247,6 +247,9 @@
   }
 
   window.TeliGame = {
+    // Серверний час (з поправкою .info/serverTimeOffset) — для UI-таймерів і автовідправки.
+    // Локальний Date.now() у клієнта може йти наперед/назад і ламати дедлайни, які ставить хост.
+    now: () => engine.now(),
     MIN_PLAYERS,
     MAX_DRAWING_BYTES,
     DEFAULT_DRAW_SECONDS, MIN_DRAW_SECONDS, MAX_DRAW_SECONDS,

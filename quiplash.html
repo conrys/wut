@@ -449,14 +449,14 @@ button:disabled { opacity: 0.5; cursor: default; }
 
   function setTimerFill(deadline, totalMs) {
     if (!deadline) { voteTimerFill.style.width = "100%"; return; }
-    const remaining = Math.max(0, deadline - Date.now());
+    const remaining = Math.max(0, deadline - window.QuiplashGame.now());
     voteTimerFill.style.width = Math.max(0, Math.min(100, (remaining / totalMs) * 100)) + "%";
   }
 
   function effectiveDeadline(state) {
     if (!state.phaseDeadline) return null;
     return state.paused
-      ? state.phaseDeadline + Math.max(0, Date.now() - (state.pausedAt || Date.now()))
+      ? state.phaseDeadline + Math.max(0, window.QuiplashGame.now() - (state.pausedAt || window.QuiplashGame.now()))
       : state.phaseDeadline;
   }
 
@@ -557,12 +557,12 @@ button:disabled { opacity: 0.5; cursor: default; }
   let voteIntroTimer = null;
 
   function isVoteIntroLocked(state) {
-    return !!state.voteRevealAt && Date.now() < state.voteRevealAt;
+    return !!state.voteRevealAt && window.QuiplashGame.now() < state.voteRevealAt;
   }
 
   function scheduleVoteIntroUnlock(state) {
     clearTimeout(voteIntroTimer);
-    const wait = Math.max(0, (state.voteRevealAt || 0) - Date.now());
+    const wait = Math.max(0, (state.voteRevealAt || 0) - window.QuiplashGame.now());
     voteIntroTimer = setTimeout(() => {
       if (lastState && lastState.phase === "voting") renderVoting(lastState);
     }, wait + 30);
