@@ -103,17 +103,8 @@
   // раунду — отримає своє завдання назад. Новий гравець може приєднатись
   // тільки в лобі (не можна влізти посеред активного кола).
   function maybeJoinAsPlayer(room) {
-    // Якщо гра вже почалася (не лобі)
-    if (room.phase !== "lobby") {
-      // Дозволяємо підключитися (відновити статус "онлайн") ТІЛЬКИ якщо гравець вже був у грі
-      if (room.players && room.players[username]) {
-        engine.becomePlayer({});
-      }
-      return; // Нових гравців посеред гри відхиляємо
-    }
-
-    // Якщо ми в лобі, викликаємо becomePlayer завжди (щоб відновити онлайн-статус 
-    // для старих гравців або додати нових)
+    if (room.players && room.players[username]) return;
+    if (room.phase !== "lobby") return;
     engine.becomePlayer({});
   }
 
@@ -143,7 +134,6 @@
     const totalRounds = playerOrder.length;
     const books = Array.from({ length: totalRounds }, () => []);
     const assignments = buildAssignments(playerOrder, 0, totalRounds, books);
-    
     await engine.roomRef.update({
       phase: "active",
       playerOrder,
@@ -155,30 +145,20 @@
     });
   }
 
-  // Повертає { ok:true } або { ok:false, reason }. Раніше при завеликому
-  // малюнку функція просто мовчки виходила (return;) — жодної помилки,
-  // жодного запису submitted/username. Гравець бачив "відправлено" в UI
-  // (бо UI не перевіряв результат), а насправді його внесок у книгу так і
-  // не потрапляв. Якщо згодом хост тиснув "пропустити очікування"
-  // (forceAdvance, бо хтось один "завис" — а насправді просто мовчки
-  // провалився), той гравець випадав з книги без жодного сліду — саме це
-  // й виглядає як "у декого на одну відповідь менше" за кілька раундів.
   function submitEntry({ text, drawing }) {
     const room = engine.latestRoom;
-    if (!room || room.phase !== "active") return { ok: false, reason: "wrong-phase" };
+    if (!room || room.phase !== "active") return;
     const assignment = room.assignments && room.assignments[username];
-    if (!assignment) return { ok: false, reason: "no-assignment" };
-    if (room.submitted && room.submitted[username]) return { ok: false, reason: "already-submitted" };
+    if (!assignment) return;
+    if (room.submitted && room.submitted[username]) return;
 
     let content;
     if (assignment.type === "text") {
       content = (text || "").trim().slice(0, MAX_TEXT_LEN);
-      if (!content) return { ok: false, reason: "empty-text" };
+      if (!content) return;
     } else {
-      if (!drawing || typeof drawing !== "string" || !drawing.startsWith("data:image/")) {
-        return { ok: false, reason: "no-drawing" };
-      }
-      if (drawing.length > MAX_DRAWING_BYTES) return { ok: false, reason: "drawing-too-large" };
+      if (!drawing || typeof drawing !== "string" || !drawing.startsWith("data:image/")) return;
+      if (drawing.length > MAX_DRAWING_BYTES) return;
       content = drawing;
     }
 
@@ -192,7 +172,6 @@
     }).then(() => {
       engine.roomRef.child(`submitted/${username}`).set(true);
     });
-    return { ok: true };
   }
 
   function maybeAutoAdvance(room) {
@@ -212,9 +191,7 @@
         return;
       }
       const assignments = buildAssignments(room.playerOrder, nextRound, room.totalRounds, room.books);
-      await engine.roomRef.update({
-        currentRound: nextRound, assignments, submitted: {},
-      });
+      await engine.roomRef.update({ currentRound: nextRound, assignments, submitted: {} });
     } finally {
       advancing = false;
     }
@@ -235,11 +212,7 @@
   }
 
   window.TeliGame = {
-    // Серверний час (з поправкою .info/serverTimeOffset) — для UI-таймерів і автовідправки.
-    // Локальний Date.now() у клієнта може йти наперед/назад і ламати дедлайни, які ставить хост.
-    now: () => engine.now(),
     MIN_PLAYERS,
-    MAX_DRAWING_BYTES,
     connectedNames,
     computeHost: (players) => engine.computeHost(players),
     isConnected: (p) => engine.isConnected(p),
@@ -252,7 +225,6 @@
     forceAdvance,
     resetGame,
     get roomId() { return engine.currentRoomId; },
-    get roomRef() { return engine.roomRef; },
     set onStateChange(fn) { onStateChange = fn; },
   };
 })();
