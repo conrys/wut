@@ -103,8 +103,17 @@
   // раунду — отримає своє завдання назад. Новий гравець може приєднатись
   // тільки в лобі (не можна влізти посеред активного кола).
   function maybeJoinAsPlayer(room) {
-    if (room.players && room.players[username]) return;
-    if (room.phase !== "lobby") return;
+    // Якщо гра вже почалася (не лобі)
+    if (room.phase !== "lobby") {
+      // Дозволяємо підключитися (відновити статус "онлайн") ТІЛЬКИ якщо гравець вже був у грі
+      if (room.players && room.players[username]) {
+        engine.becomePlayer({});
+      }
+      return; // Нових гравців посеред гри відхиляємо
+    }
+
+    // Якщо ми в лобі, викликаємо becomePlayer завжди (щоб відновити онлайн-статус 
+    // для старих гравців або додати нових)
     engine.becomePlayer({});
   }
 
