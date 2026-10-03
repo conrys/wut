@@ -18,18 +18,13 @@
   const ABANDON_MS = 15 * 60 * 1000;
   const MAX_TEXT_LEN = 140;
   const MAX_DRAWING_BYTES = 900000; // приблизна межа розміру data URL картинки
-  const DEFAULT_DRAW_SECONDS = 60;
-  const MIN_DRAW_SECONDS = 20;
-  const MAX_DRAW_SECONDS = 180;
 
   const SCHEMA = {
     phase: "lobby",
     hostUsername: null,
-    lobbySettings: { drawSeconds: DEFAULT_DRAW_SECONDS },
     playerOrder: null,
     totalRounds: 0,
     currentRound: 0,
-    roundDeadline: null,
     books: null,
     assignments: null,
     submitted: null,
@@ -46,20 +41,7 @@
   let onStateChange = () => {};
   let advancing = false;
 
-  function buildFreshRoom() { return { players: {}, lobbySettings: { drawSeconds: DEFAULT_DRAW_SECONDS } }; }
-
-  function clampDrawSeconds(v) {
-    v = Number(v) || DEFAULT_DRAW_SECONDS;
-    return Math.max(MIN_DRAW_SECONDS, Math.min(MAX_DRAW_SECONDS, Math.round(v)));
-  }
-
-  function updateLobbySettings(partial) {
-    const room = engine.latestRoom;
-    if (!room || room.phase !== "lobby") return;
-    const next = {};
-    if (partial && partial.drawSeconds !== undefined) next.drawSeconds = clampDrawSeconds(partial.drawSeconds);
-    if (Object.keys(next).length) engine.roomRef.child("lobbySettings").update(next);
-  }
+  function buildFreshRoom() { return { players: {} }; }
 
   function unanswered(v) { return v === null || v === undefined; }
 
@@ -152,13 +134,12 @@
     const totalRounds = playerOrder.length;
     const books = Array.from({ length: totalRounds }, () => []);
     const assignments = buildAssignments(playerOrder, 0, totalRounds, books);
-    const drawSeconds = clampDrawSeconds(room.lobbySettings && room.lobbySettings.drawSeconds);
+    
     await engine.roomRef.update({
       phase: "active",
       playerOrder,
       totalRounds,
       currentRound: 0,
-      roundDeadline: engine.now() + drawSeconds * 1000,
       books,
       assignments,
       submitted: {},
@@ -222,10 +203,8 @@
         return;
       }
       const assignments = buildAssignments(room.playerOrder, nextRound, room.totalRounds, room.books);
-      const drawSeconds = clampDrawSeconds(room.lobbySettings && room.lobbySettings.drawSeconds);
       await engine.roomRef.update({
         currentRound: nextRound, assignments, submitted: {},
-        roundDeadline: engine.now() + drawSeconds * 1000,
       });
     } finally {
       advancing = false;
@@ -252,8 +231,6 @@
     now: () => engine.now(),
     MIN_PLAYERS,
     MAX_DRAWING_BYTES,
-    DEFAULT_DRAW_SECONDS, MIN_DRAW_SECONDS, MAX_DRAW_SECONDS,
-    updateLobbySettings,
     connectedNames,
     computeHost: (players) => engine.computeHost(players),
     isConnected: (p) => engine.isConnected(p),
