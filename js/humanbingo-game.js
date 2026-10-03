@@ -18,7 +18,7 @@
   const SCHEMA = {
     phase: "lobby", hostUsername: null, coHostUsername: null,
     factPool: { spiceLevel: 3, thresholds: F.DEFAULT_THRESHOLDS, facts: {}, queue: {} },
-    cards: {}, players: {},
+    cards: {}, marks: {}, players: {},
   };
 
   const engine = window.OnlineEngine.create(GAME_KEY, { phases: PHASES, abandonMs: ABANDON_MS });
@@ -30,7 +30,7 @@
     return {
       hostUsername: null, coHostUsername: null,
       factPool: { spiceLevel: 3, thresholds: F.DEFAULT_THRESHOLDS, facts: {}, queue: {} },
-      cards: {}, players: {},
+      cards: {}, marks: {}, players: {},
     };
   }
 
@@ -117,7 +117,20 @@
       cards[n] = picked.map((f) => f.id);
       picked.forEach((f) => pool.markPlayed(f.id, room.createdAt || null));
     });
-    engine.roomRef.update({ phase: "playing", cards });
+    engine.roomRef.update({ phase: "playing", cards, marks: null });
+  }
+
+  // Відмітка "ця людина підходить під клітинку": marks/{я}/{factId} = ім'я.
+  // who === null прибирає відмітку. Себе вписувати не можна.
+  function setMark(factId, who) {
+    const room = engine.latestRoom;
+    if (!room || room.phase !== "playing" || !factId) return Promise.resolve();
+    const myCard = (room.cards && room.cards[username]) || [];
+    if (!myCard.includes(factId)) return Promise.resolve();
+    const ref = engine.roomRef.child("marks/" + username + "/" + factId);
+    if (!who) return ref.remove();
+    if (who === username || !(room.players && room.players[who])) return Promise.resolve();
+    return ref.set(who);
   }
 
   function endGame() {
@@ -128,12 +141,12 @@
   function backToLobby() {
     const room = engine.latestRoom;
     if (!room || room.hostUsername !== username) return;
-    engine.roomRef.update({ phase: "lobby", cards: {} });
+    engine.roomRef.update({ phase: "lobby", cards: {}, marks: null });
   }
 
   window.HumanBingoGame = {
     watchActiveRooms, start, stop,
-    setCoHost, beginCollecting, submitFact, myFactCount, startGame, endGame, backToLobby,
+    setCoHost, beginCollecting, submitFact, myFactCount, startGame, setMark, endGame, backToLobby,
     setSpiceLevel: (lvl) => pool && pool.setSpiceLevel(lvl),
     setThresholds: (th) => pool && pool.setThresholds(th),
     approve: (id) => pool && pool.approve(id),

@@ -181,7 +181,9 @@
       engine.roomRef.update({ phase: "ended" });
       return;
     }
-    engine.roomRef.update({ turnIdx: nextIdx, currentExtra: null });
+    // currentCard теж скидаємо: UI показує "Тягнути карту" лише коли currentCard
+    // порожній. Раніше стара карта лишалась, і всі бачили тільки кнопку "Далі".
+    engine.roomRef.update({ turnIdx: nextIdx, currentCard: null, currentExtra: null });
   }
 
   function endGame() {

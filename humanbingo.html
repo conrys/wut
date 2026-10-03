@@ -60,9 +60,32 @@
   .pool-count { text-align: center; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
 
   .bingo-grid { display: grid; gap: 6px; margin: 0 auto 16px; }
-  .bingo-cell { background: var(--tile-bg); border-radius: 8px; padding: 6px; font-size: 10.5px; line-height: 1.25;
+  .bingo-cell { position: relative; width: 100%; background: var(--tile-bg); border: 1px solid transparent; border-radius: 8px; padding: 6px;
+      font: inherit; color: inherit; font-size: 10.5px; line-height: 1.25; cursor: pointer;
       display: flex; align-items: center; justify-content: center; text-align: center; aspect-ratio: 1/1; }
+  .bingo-cell:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .bingo-cell b { display: block; color: var(--accent); font-size: 9px; margin-bottom: 2px; }
+  .bingo-cell.marked { background: rgba(56,207,160,0.12); border-color: rgba(56,207,160,0.55); padding-bottom: 22px; }
+  .bingo-cell .signed { position: absolute; left: 4px; right: 4px; bottom: 4px; padding: 2px 5px; border-radius: 5px;
+      background: var(--accent); color: #06231a; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 10px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .rules-list { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.5; }
+  .rules-list li { margin-bottom: 6px; }
+  details.card summary { cursor: pointer; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 14px; }
+  details.card[open] summary { margin-bottom: 10px; }
+
+  .sheet-backdrop { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,0.6); display: flex; align-items: flex-end; justify-content: center; }
+  .sheet { width: 100%; max-width: 480px; max-height: 80dvh; overflow-y: auto; background: #1b1e24; border-radius: 18px 18px 0 0;
+      padding: 16px 14px calc(16px + env(safe-area-inset-bottom)); }
+  .sheet-fact { font-size: 14px; margin-bottom: 14px; line-height: 1.35; }
+  .sheet-fact .lbl { display: block; color: var(--accent); font-size: 11px; margin-bottom: 2px; }
+  .sheet-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .pick-btn { border: 1px solid transparent; border-radius: 10px; padding: 12px 8px; background: var(--tile-bg); color: var(--text-light);
+      font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 14px; cursor: pointer;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pick-btn.selected { border-color: var(--accent); background: rgba(56,207,160,0.14); color: var(--accent); }
+  .pick-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 </style>
 </head>
 <body>
@@ -86,6 +109,16 @@
     <div class="card">
       <h3>Гравці</h3>
       <div id="lobbyPlayers"></div>
+    </div>
+    <div class="card">
+      <h3>Як грати</h3>
+      <ol class="rules-list" id="rulesLobby">
+        <li>Кожен додає мінімум 2 факти про себе: «Я…», наприклад «Я їздив(ла) зайцем». Чим пікантніше, тим веселіше.</li>
+        <li>Хост обирає гостроту (🌶️) і роздає всім картки. У кожній клітинці — «Знайди того, хто…».</li>
+        <li>Ходи по кімнаті й розпитуй людей. Знайшов того, кому підходить клітинка, — торкнись її й обери його ім'я зі списку гравців.</li>
+        <li>Себе вписувати не можна. Зібрав повний ряд, стовпчик чи діагональ — голосно кричи «Бінго!».</li>
+        <li>Застосунок нічого не перевіряє, тож граємо чесно.</li>
+      </ol>
     </div>
     <button class="hidden btn btn-primary" id="beginCollectingBtn">Почати збір фактів</button>
     <div class="status-line" id="lobbyHint"></div>
@@ -127,14 +160,28 @@
   </div>
 
   <div class="hidden" id="view-playing">
-    <div class="status-line">Знайди серед гостей людину, що підходить під клітинку, і запиши хто це — на чесність</div>
+    <div class="status-line">Знайшов людину, що підходить? Торкнись клітинки й обери її зі списку</div>
+    <div class="pool-count" id="progressLine"></div>
     <div class="bingo-grid" id="bingoGrid"></div>
+    <details class="card">
+      <summary>Як грати</summary>
+      <ol class="rules-list" id="rulesPlaying"></ol>
+    </details>
     <button class="hidden btn btn-danger" id="endGameBtn">Завершити (хост)</button>
   </div>
 
   <div class="hidden" id="view-ended">
     <div class="empty-state">Гру завершено 🎉</div>
     <button class="btn btn-primary" id="backToLobbyBtn">Назад у лобі</button>
+  </div>
+</div>
+
+<div class="sheet-backdrop hidden" id="pickerBackdrop">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="pickerFact">
+    <div class="sheet-fact"><span class="lbl">Знайди того, хто</span><span id="pickerFact"></span></div>
+    <div class="sheet-list" id="pickerList"></div>
+    <button class="hidden btn btn-danger" id="pickerClear">Прибрати відмітку</button>
+    <button class="btn" id="pickerCancel">Скасувати</button>
   </div>
 </div>
 
@@ -217,22 +264,51 @@
     document.getElementById("notEnoughLine").classList.toggle("hidden", !ctx.isHost || !!size);
   }
 
+  let pickerFactId = null;
+
   function renderPlaying(room, ctx) {
     const cardIds = (room.cards && room.cards[username]) || [];
     const facts = (room.factPool && room.factPool.facts) || {};
+    const marks = (room.marks && room.marks[username]) || {};
     const size = Math.round(Math.sqrt(cardIds.length)) || 3;
     const grid = document.getElementById("bingoGrid");
     grid.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
     grid.innerHTML = cardIds.map((id) => {
       const f = facts[id];
-      return `<div class="bingo-cell"><span><b>Знайди того, хто</b>${escapeHtml(f ? f.text : "?")}</span></div>`;
+      const who = marks[id];
+      return `<button type="button" class="bingo-cell${who ? " marked" : ""}" data-fact="${escapeHtml(id)}"><span><b>Знайди того, хто</b>${escapeHtml(f ? f.text : "?")}</span>${who ? `<span class="signed">${escapeHtml(who)}</span>` : ""}</button>`;
     }).join("");
+    const done = cardIds.filter((id) => marks[id]).length;
+    document.getElementById("progressLine").textContent = `Заповнено: ${done} з ${cardIds.length}`;
     document.getElementById("endGameBtn").classList.toggle("hidden", !ctx.isHost);
+    if (pickerFactId) renderPicker(room);
+  }
+
+  // ------------------------- вибір людини для клітинки -------------------------
+  function renderPicker(room) {
+    const f = ((room.factPool && room.factPool.facts) || {})[pickerFactId];
+    document.getElementById("pickerFact").textContent = f ? f.text : "?";
+    const current = ((room.marks && room.marks[username]) || {})[pickerFactId] || null;
+    const names = Object.keys(room.players || {}).filter((n) => n !== username);
+    document.getElementById("pickerList").innerHTML = names.length
+      ? names.map((n) => `<button type="button" class="pick-btn${n === current ? " selected" : ""}" data-pick="${escapeHtml(n)}">${escapeHtml(n)}</button>`).join("")
+      : '<div class="status-line" style="grid-column:1/-1;">У кімнаті більше нікого нема</div>';
+    document.getElementById("pickerClear").classList.toggle("hidden", !current);
+  }
+  function openPicker(factId) {
+    pickerFactId = factId;
+    document.getElementById("pickerBackdrop").classList.remove("hidden");
+    if (lastRoom) renderPicker(lastRoom);
+  }
+  function closePicker() {
+    pickerFactId = null;
+    document.getElementById("pickerBackdrop").classList.add("hidden");
   }
 
   function onGameState(room, ctx) {
     lastRoom = room; lastCtx = ctx;
     if (!username) return;
+    if (room.phase !== "playing" && pickerFactId) closePicker();
     if (!reactionsMounted && window.GameReactions && window.HumanBingoGame.roomRef) {
       reactionsMounted = true;
       window.GameReactions.mount(window.HumanBingoGame.roomRef, username);
@@ -277,6 +353,25 @@
   document.getElementById("startGameBtn").addEventListener("click", () => window.HumanBingoGame.startGame());
   document.getElementById("endGameBtn").addEventListener("click", () => window.HumanBingoGame.endGame());
   document.getElementById("backToLobbyBtn").addEventListener("click", () => window.HumanBingoGame.backToLobby());
+
+  document.getElementById("rulesPlaying").innerHTML = document.getElementById("rulesLobby").innerHTML;
+  document.getElementById("bingoGrid").addEventListener("click", (e) => {
+    const cell = e.target.closest("[data-fact]");
+    if (cell) openPicker(cell.dataset.fact);
+  });
+  document.getElementById("pickerList").addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-pick]");
+    if (!btn) return;
+    window.HumanBingoGame.setMark(pickerFactId, btn.dataset.pick);
+    closePicker();
+  });
+  document.getElementById("pickerClear").addEventListener("click", () => {
+    window.HumanBingoGame.setMark(pickerFactId, null);
+    closePicker();
+  });
+  document.getElementById("pickerCancel").addEventListener("click", closePicker);
+  document.getElementById("pickerBackdrop").addEventListener("click", (e) => { if (e.target.id === "pickerBackdrop") closePicker(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && pickerFactId) closePicker(); });
 
   startFlow();
   window.addEventListener("beforeunload", () => { if (window.HumanBingoGame) window.HumanBingoGame.stop(); });
