@@ -55,7 +55,7 @@
     lockedHost: true,
     abandonMs: ABANDON_MS,
     onEmptyPlayer: () => ({ score: 0 }),
-    onDisconnectPlayerPatch: { lastSeen: 0 },
+    onDisconnectPlayerPatch: { status: "inactive" }, // lastSeen не обнуляємо — діє PRESENCE_GRACE_MS рушія
   });
 
   let username = null;
@@ -353,9 +353,6 @@
   }
 
   window.QuizGame = {
-    // Серверний час (з поправкою .info/serverTimeOffset) — для UI-таймерів і автовідправки.
-    // Локальний Date.now() у клієнта може йти наперед/назад і ламати дедлайни, які ставить хост.
-    now,
     MIN_PLAYERS,
     COUNTDOWN_SECONDS,
     RESULT_DISPLAY_SECONDS,

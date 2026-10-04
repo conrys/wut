@@ -162,7 +162,9 @@
   }
 
   function computeHost(players) {
-    const conn = connectedEntries(players);
+    // Хост — лише гравець, чий клієнт живий просто зараз (isActiveNow), а не той,
+    // хто ще "в грі" за PRESENCE_GRACE_MS: згорнутий телефон не має вести тік.
+    const conn = Object.entries(players || {}).filter(([, p]) => Engine.isActiveNow(p));
     if (!conn.length) return null;
     return conn.sort((a, b) => (a[1].joinedAt || 0) - (b[1].joinedAt || 0))[0][0];
   }
@@ -751,9 +753,6 @@
   }
 
   window.QuiplashGame = {
-    // Серверний час (з поправкою .info/serverTimeOffset) — для UI-таймерів і автовідправки.
-    // Локальний Date.now() у клієнта може йти наперед/назад і ламати дедлайни, які ставить хост.
-    now,
     MIN_PLAYERS, MAX_PLAYERS, TOTAL_ROUNDS,
     MIN_VOTE_SECONDS, MAX_VOTE_SECONDS, DEFAULT_VOTE_SECONDS, VOTE_INTRO_MS,
     GALLERY_VOTE_BONUS_SECONDS, classicVoteMs, galleryVoteMs,

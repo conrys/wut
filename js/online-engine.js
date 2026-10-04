@@ -44,7 +44,11 @@
 // ==========================================================================
 (function () {
   const HEARTBEAT_MS = 2000;
-  const PRESENCE_TIMEOUT_MS = 5000;
+  const PRESENCE_TIMEOUT_MS = 5000; // "активний ЗАРАЗ": хост, тік, керування грою — має мігрувати швидко
+  // "Ще в грі": гравець згорнув браузер/глянув у іншу апку чи закрив вкладку, але
+  // не зник. Саме цим вікном ігри добирають учасників на старті й малюють
+  // scoreboard; хост-логіка його НЕ використовує (див. isActiveNow).
+  const DEFAULT_PRESENCE_GRACE_MS = 2 * 60 * 1000;
   const ABANDON_MS = 15 * 60 * 1000;
   const SHARED_ROOM_ID = "shared";
   const PHASES = ["lobby", "playing", "paused", "ended"];
@@ -54,7 +58,10 @@
     const LOBBY_PATH = `${gameKey}_lobby`;
     const ROOMS_PATH = `${gameKey}_rooms`;
     const onEmptyPlayer = opts.onEmptyPlayer || (() => ({}));
-    const onDisconnectPlayerPatch = opts.onDisconnectPlayerPatch || { lastSeen: 0, status: "inactive" };
+    // lastSeen НЕ обнуляємо: закрита вкладка лишається "в грі" до кінця
+    // PRESENCE_GRACE_MS (раніше lastSeen:0 знімав гравця з гри миттєво).
+    const onDisconnectPlayerPatch = opts.onDisconnectPlayerPatch || { status: "inactive" };
+    const PRESENCE_GRACE_MS = opts.presenceGraceMs != null ? opts.presenceGraceMs : DEFAULT_PRESENCE_GRACE_MS;
 
     const ABANDON_MS = opts.abandonMs != null ? opts.abandonMs : 15 * 60 * 1000;
 
@@ -142,14 +149,39 @@
         });
       }
 
-      heartbeatTimer = setInterval(() => {
-        const t = now();
-        if (myLobbyRef) myLobbyRef.child("lastSeen").set(t);
-        if (currentRoomId && myPlayerRef && roomRef && isActivePlayer) {
-          myPlayerRef.update({ lastSeen: t, status: "active" });
-          roomRef.child("lastActivityAt").set(t);
-        }
-      }, HEARTBEAT_MS);
+      heartbeatTimer = setInterval(heartbeatNow, HEARTBEAT_MS);
+    }
+
+    function heartbeatNow() {
+      const t = now();
+      if (myLobbyRef) myLobbyRef.child("lastSeen").set(t);
+      if (currentRoomId && myPlayerRef && roomRef && isActivePlayer) {
+        myPlayerRef.update({ lastSeen: t, status: "active" });
+        roomRef.child("lastActivityAt").set(t);
+      }
+    }
+
+    // onDisconnect на сервері одноразовий: після кожного обриву з'єднання його
+    // треба реєструвати заново, інакше наступне закриття вкладки вже нічого не
+    // позначить.
+    function armDisconnect() {
+      if (myPlayerRef && isActivePlayer) myPlayerRef.onDisconnect().update(onDisconnectPlayerPatch);
+    }
+
+    // Повернення в застосунок / відновлення мережі: одразу пересилаємо присутність,
+    // а не чекаємо наступного тіку таймера (у фоні він міг бути заморожений).
+    function resumePresence() {
+      try { if (window.rtdb && typeof window.rtdb.goOnline === "function") window.rtdb.goOnline(); } catch (e) { /* не критично */ }
+      armDisconnect();
+      heartbeatNow();
+    }
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") resumePresence();
+    });
+    window.addEventListener("pageshow", resumePresence);  // відновлення з bfcache
+    window.addEventListener("online", resumePresence);
+    if (window.rtdb) {
+      window.rtdb.ref(".info/connected").on("value", (snap) => { if (snap.val() === true) resumePresence(); });
     }
     const startPresence = start; // сумісна назва для room-based ігор (Змійка)
 
@@ -294,7 +326,7 @@
         return playerRef.update({ lastSeen: now(), status: "active", ...patch });
       }).then(() => {
         if (playerRef !== myPlayerRef) return;
-        return playerRef.onDisconnect().update(onDisconnectPlayerPatch);
+        return armDisconnect();
       });
     }
 
@@ -333,9 +365,14 @@
     function endGame(extra) { return setPhase("ended", { endedAt: now(), ...extra }); }
 
     // ------------------------- host election -------------------------
-    function isConnected(p) { return !!(p && p.lastSeen && now() - p.lastSeen < PRESENCE_TIMEOUT_MS); }
+    // isConnected — "гравець ще в грі" (учасники, scoreboard, старт): тримається
+    // PRESENCE_GRACE_MS після останнього heartbeat. isActiveNow — "його клієнт
+    // живий просто зараз": лише для вибору хоста, інакше тік завис би на
+    // згорнутому телефоні.
+    function isConnected(p) { return !!(p && p.lastSeen && now() - p.lastSeen < PRESENCE_GRACE_MS); }
+    function isActiveNow(p) { return !!(p && p.lastSeen && now() - p.lastSeen < PRESENCE_TIMEOUT_MS); }
     function computeHost(players) {
-      const conn = Object.entries(players || {}).filter(([, p]) => isConnected(p));
+      const conn = Object.entries(players || {}).filter(([, p]) => isActiveNow(p));
       if (!conn.length) return null;
       return conn.sort((a, b) => (a[1].joinedAt || 0) - (b[1].joinedAt || 0))[0][0];
     }
@@ -350,7 +387,7 @@
     function maybeElectHostWithLock(room, roomId) {
       const players = room.players || {};
       const hostEntry = players[room.hostUsername];
-      const hostStale = !hostEntry || !isConnected(hostEntry);
+      const hostStale = !hostEntry || !isActiveNow(hostEntry);
       if (!hostStale) {
         // Порівняння по mySessionId, а НЕ по username — щоб дві вкладки
         // одного й того ж гравця (стара незакрита + нова після reload)
@@ -359,7 +396,7 @@
         if (room.hostSessionId !== mySessionId && isHost) { isHost = false; releaseWakeLock(); onLoseHost(); }
         return;
       }
-      const alive = Object.entries(players).filter(([, p]) => isConnected(p))
+      const alive = Object.entries(players).filter(([, p]) => isActiveNow(p))
         .sort((a, b) => (a[1].joinedAt || 0) - (b[1].joinedAt || 0));
       if (alive.length && alive[0][0] === username) {
         // ВАЖЛИВО: RTDB не зберігає null (запис null == видалення шляху), тож
@@ -388,13 +425,13 @@
     }
 
     return {
-      HEARTBEAT_MS, PRESENCE_TIMEOUT_MS, ABANDON_MS, SHARED_ROOM_ID, PHASES,
+      HEARTBEAT_MS, PRESENCE_TIMEOUT_MS, PRESENCE_GRACE_MS, ABANDON_MS, SHARED_ROOM_ID, PHASES,
       now,
       start, stop, startPresence, stopPresence, touchLobby,
       validateRoomShape, getOrCreateRoom, forceResetRoom,
       createRoom, joinRoom, leaveRoom, becomePlayer,
       setPhase, startGame, pauseGame, resumeGame, endGame,
-      computeHost, isConnected,
+      computeHost, isConnected, isActiveNow,
       get currentRoomId() { return currentRoomId; },
       get roomRef() { return roomRef; }, // пряме RTDB-посилання на кімнату — для гро-специфічних полів поза схемою
       get latestRoom() { return latestRoom; },

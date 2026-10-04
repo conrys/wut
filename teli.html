@@ -43,6 +43,10 @@
       <div id="playersList"></div>
     </div>
     <div class="card hidden" id="hostPanel">
+      <label style="display:block; font-size:12px; color:var(--text-muted,#8b909c); margin-bottom:6px;">
+        Час на крок (секунди): <span id="drawSecondsValue">60</span>с
+      </label>
+      <input type="range" id="drawSecondsRange" min="20" max="180" step="5" value="60" style="width:100%; margin-bottom:12px;" />
       <button class="btn btn-primary btn-block" id="startBtn">Почати гру</button>
       <div class="err-msg" id="startHint"></div>
     </div>
@@ -52,7 +56,7 @@
   <!-- АКТИВНА ГРА -->
   <div class="hidden stage" id="view-active">
     <div class="waiting-count" id="roundLabel">Раунд 1 з 4</div>
-    <!-- <div class="hidden" id="roundTimer" style="text-align:center; font-weight:700; font-size:14px; margin-bottom:8px;"></div> -->
+    <div class="hidden" id="roundTimer" style="text-align:center; font-weight:700; font-size:14px; margin-bottom:8px;"></div>
 
     <div class="hidden prompt-preview" id="promptPreview">
       <div class="deck-hint" id="promptHint">Попередній крок:</div>
@@ -145,7 +149,31 @@
   let lastCtx = null;
   let renderedTaskKey = null; // рендер-ключ поточного кроку — не перебудовуємо textarea/canvas на кожен heartbeat
   let revealPageIndex = 0;
-  let autoSubmittedForKey = null; // дедуп: щоб не намагатись автовідправити один і той самий крок повторно щосекунди
+  let autoSubmittedForId = null; // дедуп: щоб не намагатись автовідправити один і той самий крок повторно щосекунди
+  // Таймер кроку НЕ залежить від годинників: рахуємо тривалість локально
+  // (performance.now), від моменту, коли цей клієнт побачив крок. Абсолютний
+  // roundDeadline (час хоста) із локальним Date.now() не порівнюємо ніколи —
+  // телефон, що спішить на хвилини, інакше миттєво автовідправляв би "…".
+  let stepTimer = null; // { id, startedPerf, durationMs }
+
+  function stepDurationMs(room) {
+    const v = Number(room.lobbySettings && room.lobbySettings.drawSeconds) || TeliGame.DEFAULT_DRAW_SECONDS;
+    return Math.max(TeliGame.MIN_DRAW_SECONDS, Math.min(TeliGame.MAX_DRAW_SECONDS, Math.round(v))) * 1000;
+  }
+  // id кроку — це лише непрозорий ідентифікатор раунду (roundDeadline однаковий
+  // у всіх гравців і новий для кожного раунду/гри); у математиці він не бере участі.
+  function ensureStepTimer(room) {
+    const id = String(room.roundDeadline || room.currentRound);
+    if (stepTimer && stepTimer.id === id) return;
+    let elapsed = 0; // якщо гравець перезайшов посеред кроку — не даємо йому час заново
+    const storageKey = `teliStep:${TeliGame.roomId}:${username}:${id}`;
+    try {
+      const saved = Number(sessionStorage.getItem(storageKey));
+      if (saved) elapsed = Math.max(0, Date.now() - saved); // різниця на одному й тому ж пристрої
+      else sessionStorage.setItem(storageKey, String(Date.now()));
+    } catch (e) { /* sessionStorage недоступний — не страшно */ }
+    stepTimer = { id, startedPerf: performance.now() - elapsed, durationMs: stepDurationMs(room) };
+  }
   let sawRevealPhase = false;
 
   function renderLobby(room, ctx) {
@@ -167,6 +195,15 @@
       const enough = connNames.length >= TeliGame.MIN_PLAYERS;
       document.getElementById("startBtn").disabled = !enough;
       document.getElementById("startHint").textContent = enough ? "" : `Потрібно ще ${TeliGame.MIN_PLAYERS - connNames.length} гравців(я)`;
+      // Синхронізуємо повзунок зі станом кімнати, але не під час активного
+      // перетягування самим хостом (document.activeElement) — інакше палець
+      // ще не відпущено, а значення вже смикається назад із сервера.
+      const drawSecondsRangeEl = document.getElementById("drawSecondsRange");
+      if (document.activeElement !== drawSecondsRangeEl) {
+        const s = (room.lobbySettings && room.lobbySettings.drawSeconds) || TeliGame.DEFAULT_DRAW_SECONDS;
+        drawSecondsRangeEl.value = s;
+        document.getElementById("drawSecondsValue").textContent = s;
+      }
     }
     renderedTaskKey = null; // наступного разу точно перебудуємо крок (нова гра)
   }
@@ -231,6 +268,7 @@
     }
 
     waitingLine.classList.add("hidden");
+    ensureStepTimer(room);
     const key = `${room.currentRound}:${assignment.bookIndex}:${assignment.type}`;
     if (key === renderedTaskKey) return; // той самий крок — не займаємо textarea/canvas користувача
     renderedTaskKey = key;
@@ -282,7 +320,13 @@
   document.getElementById("resetBtn").addEventListener("click", () => { if (confirm("Скинути гру?")) TeliGame.resetGame(); });
   document.getElementById("resetBtn2").addEventListener("click", () => { if (confirm("Скинути гру?")) TeliGame.resetGame(); });
   document.getElementById("forceAdvanceBtn").addEventListener("click", () => TeliGame.forceAdvance());
-  
+
+  const drawSecondsRange = document.getElementById("drawSecondsRange");
+  const drawSecondsValue = document.getElementById("drawSecondsValue");
+  drawSecondsRange.addEventListener("input", () => { drawSecondsValue.textContent = drawSecondsRange.value; });
+  drawSecondsRange.addEventListener("change", () => {
+    TeliGame.updateLobbySettings({ drawSeconds: Number(drawSecondsRange.value) });
+  });
   document.getElementById("playAgainBtn").addEventListener("click", () => TeliGame.resetGame());
 
   document.getElementById("submitTextBtn").addEventListener("click", () => {
@@ -349,7 +393,45 @@
   }
 
   // Видимий відлік + автовідправка по вичерпанню часу — суто клієнтська
-  
+  // перевірка (кожен клієнт сам стежить за своїм roundDeadline і сам себе
+  // відправляє), без окремого хост-тіку: простіше й менше що може розсинхро-
+  // нитись, а forceAdvance лишається ручним запасним варіантом для хоста.
+  setInterval(() => {
+    const timerEl = document.getElementById("roundTimer");
+    if (!lastRoom || lastRoom.phase !== "active" || !lastRoom.roundDeadline) {
+      timerEl.classList.add("hidden");
+      return;
+    }
+    const inGame = lastRoom.playerOrder && lastRoom.playerOrder.includes(username);
+    const alreadySubmitted = lastRoom.submitted && lastRoom.submitted[username];
+    if (!inGame || alreadySubmitted) { timerEl.classList.add("hidden"); return; }
+
+    // Крок ще не показано цьому клієнту — таймер не йде.
+    if (!stepTimer || stepTimer.id !== String(lastRoom.roundDeadline || lastRoom.currentRound)) {
+      timerEl.classList.add("hidden");
+      return;
+    }
+    const remainingMs = stepTimer.durationMs - (performance.now() - stepTimer.startedPerf);
+    const remainingSec = Math.max(0, Math.ceil(remainingMs / 1000));
+    timerEl.classList.remove("hidden");
+    timerEl.textContent = `⏱ ${remainingSec}с`;
+    timerEl.style.color = remainingSec <= 10 ? "#ff6b6b" : "";
+
+    const assignment = lastRoom.assignments && lastRoom.assignments[username];
+    if (!assignment) return;
+    if (remainingMs <= 0 && autoSubmittedForId !== stepTimer.id) {
+      let result = null;
+      if (assignment.type === "text") {
+        const text = document.getElementById("textEntryInput").value.trim() || "…";
+        result = TeliGame.submitEntry({ text });
+      } else if (teliDrawCanvas) {
+        result = TeliGame.submitEntry({ drawing: teliDrawCanvas.exportImage(TeliGame.MAX_DRAWING_BYTES) });
+      }
+      // Позначаємо крок відправленим лише після реальної спроби: якщо полотно ще
+      // не створене, наступний тік (500 мс) спробує знову, а не завмре назавжди.
+      if (result && (result.ok || result.reason !== "no-drawing")) autoSubmittedForId = stepTimer.id;
+    }
+  }, 500);
 
   function beginGame(username_, roomId) {
     username = username_;

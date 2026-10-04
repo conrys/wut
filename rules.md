@@ -130,6 +130,8 @@ function unanswered(value) {
 
 - Heartbeat оновлює `lastSeen` через стабільний інтервал.
 - `PRESENCE_TIMEOUT_MS` має бути більшим за нормальну затримку WebView/background wake-up.
+- Два рівні присутності: `engine.isConnected(p)` — "ще в грі" (учасники, старт, scoreboard; тримається `PRESENCE_GRACE_MS` після останнього heartbeat, щоб згорнутий браузер не випадав з гри); `engine.isActiveNow(p)` — "клієнт живий зараз" (тільки вибір хоста/тіку). Не використовуй `isConnected` для вибору хоста.
+- `onDisconnect`-патч не має обнуляти `lastSeen` — інакше закрита вкладка миттєво випадає з гри. Рушій сам реєструє `onDisconnect` після кожного reconnect і одразу шле heartbeat при поверненні у вкладку.
 - Не перебудовуй DOM і не запускай важкі операції через heartbeat.
 - Не викликай `becomePlayer()` з повним update на кожну state notification, якщо це не потрібно.
 - `onDisconnect()` є страховкою, але reconnect logic також має працювати явно.
