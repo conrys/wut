@@ -6,6 +6,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
 <title>Зіпсований телефон</title>
 <link rel="stylesheet" href="js/teli-style.css" />
+<style>
+  .brush-size { display: flex; align-items: center; gap: 12px; }
+  .brush-preview { flex: none; width: 44px; height: 44px; border-radius: 10px; background: #fff;
+    display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  #brushDot { display: block; border-radius: 50%; background: #1a1a1a; width: 6px; height: 6px; flex: none; }
+  #brushSize { flex: 1; min-width: 0; height: 32px; margin: 0; accent-color: var(--accent); }
+  #brushSize:disabled { opacity: 0.35; }
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -79,12 +87,17 @@
           <button class="swatch" style="background:#3c7de0" data-color="#3c7de0"></button>
           <button class="swatch" style="background:#4caf6d" data-color="#4caf6d"></button>
           <button class="swatch" style="background:#e0c23c" data-color="#e0c23c"></button>
+          <button class="swatch" style="background:#d8b98f" data-color="#d8b98f" aria-label="Бежевий"></button>
           <button class="swatch" style="background:#8d5a3c" data-color="#8d5a3c"></button>
         </div>
-        <div class="draw-tools">
-          <button class="tool-btn selected" id="thinBtn" data-width="4">Тонко</button>
-          <button class="tool-btn" id="thickBtn" data-width="12">Товсто</button>
+        <div class="draw-tools" style="flex-wrap:wrap">
+          <button class="tool-btn selected" id="penBtn">✏️ Олівець</button>
           <button class="tool-btn" id="eraserBtn">🧽 Ластик</button>
+          <button class="tool-btn" id="fillBtn">🪣 Заливка</button>
+        </div>
+        <div class="brush-size">
+          <span class="brush-preview" aria-hidden="true"><i id="brushDot"></i></span>
+          <input type="range" id="brushSize" min="2" max="30" step="1" value="6" aria-label="Товщина пензля" />
         </div>
       </div>
       <div class="draw-actions">
@@ -160,10 +173,11 @@
     const v = Number(room.lobbySettings && room.lobbySettings.drawSeconds) || TeliGame.DEFAULT_DRAW_SECONDS;
     return Math.max(TeliGame.MIN_DRAW_SECONDS, Math.min(TeliGame.MAX_DRAW_SECONDS, Math.round(v))) * 1000;
   }
-  // id кроку — це лише непрозорий ідентифікатор раунду (roundDeadline однаковий
-  // у всіх гравців і новий для кожного раунду/гри); у математиці він не бере участі.
+  // id кроку — лише непрозорий ідентифікатор (gameId унікальний для кожної гри,
+  // тож коло 2 не плутається з колом 1); у математиці часу він участі не бере.
+  function stepIdOf(room) { return `${room.gameId || ""}:${room.currentRound}`; }
   function ensureStepTimer(room) {
-    const id = String(room.roundDeadline || room.currentRound);
+    const id = stepIdOf(room);
     if (stepTimer && stepTimer.id === id) return;
     let elapsed = 0; // якщо гравець перезайшов посеред кроку — не даємо йому час заново
     const storageKey = `teliStep:${TeliGame.roomId}:${username}:${id}`;
@@ -209,6 +223,7 @@
   }
 
   function renderTaskUI(assignment) {
+    enableSubmitButtons(); // новий крок — кнопки знову активні
     const promptPreview = document.getElementById("promptPreview");
     const promptContent = document.getElementById("promptContent");
     if (assignment.prompt) {
@@ -278,13 +293,14 @@
   function renderReveal(room, ctx) {
     if (!sawRevealPhase) { sawRevealPhase = true; revealPageIndex = 0; }
     const books = room.books || [];
-    const total = books.length;
+    // total беремо з totalRounds: порожня книга (нікому не дісталась) у RTDB зникає з масиву
+    const total = room.totalRounds || books.length;
     if (!total) { document.getElementById("revealContent").innerHTML = ""; return; }
     if (revealPageIndex >= total) revealPageIndex = total - 1;
     if (revealPageIndex < 0) revealPageIndex = 0;
 
     document.getElementById("revealPageLabel").textContent = `Розмова ${revealPageIndex + 1} з ${total}`;
-    const book = books[revealPageIndex] || [];
+    const book = TeliGame.bookEntries(books[revealPageIndex]);
     const steps = book.map((entry, i) => {
       const content = entry.type === "text"
         ? `<div class="step-text">«${escapeHtml(entry.content)}»</div>`
@@ -329,11 +345,24 @@
   });
   document.getElementById("playAgainBtn").addEventListener("click", () => TeliGame.resetGame());
 
-  document.getElementById("submitTextBtn").addEventListener("click", () => {
+  const QUIET_REASONS = ["in-flight", "already-submitted"]; // повторний тап — не помилка
+  const submitTextBtn = document.getElementById("submitTextBtn");
+  function enableSubmitButtons() {
+    submitTextBtn.disabled = false;
+    const d = document.getElementById("submitDrawBtn");
+    if (d) d.disabled = false;
+  }
+  // Запис не дійшов до бази (мережа): знімаємо блокування, гравець може натиснути ще раз.
+  TeliGame.onSubmitError = () => {
+    enableSubmitButtons();
+    alert("Не вдалося відправити, перевір з'єднання і натисни ще раз.");
+  };
+  submitTextBtn.addEventListener("click", () => {
     const text = document.getElementById("textEntryInput").value.trim();
     if (!text) return;
     const result = TeliGame.submitEntry({ text });
-    if (!result.ok) alert("Не вдалося відправити відповідь, спробуй ще раз.");
+    if (result.ok) submitTextBtn.disabled = true;
+    else if (!QUIET_REASONS.includes(result.reason)) alert("Не вдалося відправити відповідь, спробуй ще раз.");
   });
 
   document.getElementById("revealPrevBtn").addEventListener("click", () => {
@@ -342,7 +371,7 @@
   });
   document.getElementById("revealNextBtn").addEventListener("click", () => {
     if (!lastRoom || !lastRoom.books) return;
-    revealPageIndex = Math.min(lastRoom.books.length - 1, revealPageIndex + 1);
+    revealPageIndex = Math.min((lastRoom.totalRounds || lastRoom.books.length) - 1, revealPageIndex + 1);
     renderReveal(lastRoom, lastCtx);
   });
 
@@ -353,36 +382,67 @@
     const canvasEl = document.getElementById("drawCanvas");
     teliDrawCanvas = createDrawCanvas(canvasEl, {}); // приватне малювання — без live-трансляції іншим
 
+    const penBtn = document.getElementById("penBtn");
+    const eraserBtn = document.getElementById("eraserBtn");
+    const fillBtn = document.getElementById("fillBtn");
+    const brushSize = document.getElementById("brushSize");
+    const brushDot = document.getElementById("brushDot");
     const swatches = document.querySelectorAll("#colorSwatches .swatch");
+    let currentTool = "pen"; // pen | eraser | fill — взаємовиключні
+    let currentColor = "#1a1a1a";
+
+    // Прев'ю: кружок у масштабі, у якому штрих побачить гравець (canvas 600 px логічних,
+    // на екрані вужчий). Ластик малює втричі товще за повзунок (draw-canvas.js).
+    function updateBrushPreview() {
+      const scale = canvasEl.clientWidth ? canvasEl.clientWidth / 600 : 0.74;
+      const w = Number(brushSize.value);
+      let px, bg, border = "none", radius = "50%";
+      if (currentTool === "fill") { px = 24; bg = currentColor; radius = "6px"; }
+      else if (currentTool === "eraser") { px = w * 3 * scale; bg = "#ffffff"; border = "2px solid #9aa0a6"; }
+      else { px = w * scale; bg = currentColor; }
+      px = Math.max(3, Math.min(42, Math.round(px)));
+      brushDot.style.width = px + "px"; brushDot.style.height = px + "px";
+      brushDot.style.background = bg; brushDot.style.border = border; brushDot.style.borderRadius = radius;
+      brushDot.style.boxSizing = "border-box";
+    }
+    function setTool(tool) {
+      currentTool = tool;
+      teliDrawCanvas.setEraser(tool === "eraser");
+      teliDrawCanvas.setFill(tool === "fill");
+      penBtn.classList.toggle("selected", tool === "pen");
+      eraserBtn.classList.toggle("selected", tool === "eraser");
+      fillBtn.classList.toggle("selected", tool === "fill");
+      brushSize.disabled = tool === "fill"; // для заливки товщина не потрібна
+      updateBrushPreview();
+    }
+    penBtn.addEventListener("click", () => setTool("pen"));
+    eraserBtn.addEventListener("click", () => setTool("eraser"));
+    // Заливка: спершу обери колір (кольори не вимикають заливку), потім торкнись області.
+    fillBtn.addEventListener("click", () => setTool("fill"));
+    brushSize.addEventListener("input", () => {
+      teliDrawCanvas.setWidth(Number(brushSize.value));
+      updateBrushPreview();
+    });
     swatches.forEach((sw) => {
       sw.addEventListener("click", () => {
-        teliDrawCanvas.setColor(sw.dataset.color);
+        currentColor = sw.dataset.color;
+        teliDrawCanvas.setColor(currentColor); // скидає ластик у модулі
         swatches.forEach((s) => s.classList.remove("selected"));
         sw.classList.add("selected");
-        document.getElementById("eraserBtn").classList.remove("selected");
+        if (currentTool === "eraser") setTool("pen"); // колір після ластика = повернення до олівця
+        else updateBrushPreview();                    // у заливці інструмент лишається
       });
     });
-    const thinBtn = document.getElementById("thinBtn");
-    const thickBtn = document.getElementById("thickBtn");
-    const eraserBtn = document.getElementById("eraserBtn");
-    thinBtn.addEventListener("click", () => {
-      teliDrawCanvas.setWidth(Number(thinBtn.dataset.width));
-      teliDrawCanvas.setEraser(false);
-      thinBtn.classList.add("selected"); thickBtn.classList.remove("selected"); eraserBtn.classList.remove("selected");
-    });
-    thickBtn.addEventListener("click", () => {
-      teliDrawCanvas.setWidth(Number(thickBtn.dataset.width));
-      teliDrawCanvas.setEraser(false);
-      thickBtn.classList.add("selected"); thinBtn.classList.remove("selected"); eraserBtn.classList.remove("selected");
-    });
-    eraserBtn.addEventListener("click", () => { teliDrawCanvas.setEraser(true); eraserBtn.classList.add("selected"); });
+    teliDrawCanvas.setWidth(Number(brushSize.value)); // стартова товщина = положення повзунка
+    updateBrushPreview();
 
     document.getElementById("undoBtn").addEventListener("click", () => teliDrawCanvas.undo());
     document.getElementById("clearCanvasBtn").addEventListener("click", () => teliDrawCanvas.clear());
     document.getElementById("submitDrawBtn").addEventListener("click", () => {
       const drawing = teliDrawCanvas.exportImage(TeliGame.MAX_DRAWING_BYTES);
       const result = TeliGame.submitEntry({ drawing });
-      if (!result.ok) {
+      if (result.ok) document.getElementById("submitDrawBtn").disabled = true;
+      else if (!QUIET_REASONS.includes(result.reason)) {
         alert(
           result.reason === "drawing-too-large"
             ? "Малюнок все ще завеликий навіть після стиснення — спробуй простіший малюнок."
@@ -398,7 +458,7 @@
   // нитись, а forceAdvance лишається ручним запасним варіантом для хоста.
   setInterval(() => {
     const timerEl = document.getElementById("roundTimer");
-    if (!lastRoom || lastRoom.phase !== "active" || !lastRoom.roundDeadline) {
+    if (!lastRoom || lastRoom.phase !== "active") {
       timerEl.classList.add("hidden");
       return;
     }
@@ -407,7 +467,7 @@
     if (!inGame || alreadySubmitted) { timerEl.classList.add("hidden"); return; }
 
     // Крок ще не показано цьому клієнту — таймер не йде.
-    if (!stepTimer || stepTimer.id !== String(lastRoom.roundDeadline || lastRoom.currentRound)) {
+    if (!stepTimer || stepTimer.id !== stepIdOf(lastRoom)) {
       timerEl.classList.add("hidden");
       return;
     }

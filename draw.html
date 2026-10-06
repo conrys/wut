@@ -14,6 +14,12 @@
   .guess-chip { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: rgba(255,255,255,0.05); margin-bottom: 6px; border-radius: 6px; }
   .timer-badge { font-size: 1.2rem; font-weight: bold; color: #ffca28; text-align: center; margin-bottom: 8px; }
   .gallery-preview img { max-width: 100%; border-radius: 8px; border: 2px solid rgba(255,255,255,0.2); }
+  .brush-size { display: flex; align-items: center; gap: 12px; }
+  .brush-preview { flex: none; width: 44px; height: 44px; border-radius: 10px; background: #fff;
+    display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .brush-dot { display: block; border-radius: 50%; background: #1a1a1a; width: 6px; height: 6px; flex: none; }
+  .brush-range { flex: 1; min-width: 0; height: 32px; margin: 0; accent-color: var(--accent); }
+  .brush-range:disabled { opacity: 0.35; }
 </style>
 </head>
 <body>
@@ -96,18 +102,24 @@
       <!-- Панель інструментів (лише для того, хто малює) -->
       <div id="crocTools" class="hidden" style="margin-top: 10px;">
         <div class="draw-toolbar">
-          <div class="color-swatches" id="crocSwatches">
+          <div class="color-swatches" id="crocSwatches" style="flex-wrap:wrap">
             <button class="swatch selected" style="background:#1a1a1a" data-color="#1a1a1a"></button>
             <button class="swatch" style="background:#e0503c" data-color="#e0503c"></button>
             <button class="swatch" style="background:#3c7de0" data-color="#3c7de0"></button>
             <button class="swatch" style="background:#4caf6d" data-color="#4caf6d"></button>
             <button class="swatch" style="background:#e0c23c" data-color="#e0c23c"></button>
-            <button class="swatch" style="background:#ffffff" data-color="#ffffff"></button>
+            <button class="swatch" style="background:#d8b98f" data-color="#d8b98f" aria-label="Бежевий"></button>
+            <button class="swatch" style="background:#8d5a3c" data-color="#8d5a3c"></button>
+            <button class="swatch" style="background:#ffffff" data-color="#ffffff" aria-label="Білий"></button>
           </div>
-          <div class="draw-tools">
-            <button class="tool-btn selected" id="crocThinBtn" data-width="4">Тонко</button>
-            <button class="tool-btn" id="crocThickBtn" data-width="12">Товсто</button>
+          <div class="draw-tools" style="flex-wrap:wrap">
+            <button class="tool-btn selected" id="crocPenBtn">✏️ Олівець</button>
             <button class="tool-btn" id="crocEraserBtn">🧽 Ластик</button>
+            <button class="tool-btn" id="crocFillBtn">🪣 Заливка</button>
+          </div>
+          <div class="brush-size">
+            <span class="brush-preview" aria-hidden="true"><i class="brush-dot" id="crocBrushDot"></i></span>
+            <input type="range" class="brush-range" id="crocBrushSize" min="2" max="30" step="1" value="6" aria-label="Товщина пензля" />
           </div>
         </div>
         <div class="draw-actions">
@@ -140,17 +152,24 @@
         </div>
 
         <div class="draw-toolbar" style="margin-top: 10px;">
-          <div class="color-swatches" id="galSwatches">
+          <div class="color-swatches" id="galSwatches" style="flex-wrap:wrap">
             <button class="swatch selected" style="background:#1a1a1a" data-color="#1a1a1a"></button>
             <button class="swatch" style="background:#e0503c" data-color="#e0503c"></button>
             <button class="swatch" style="background:#3c7de0" data-color="#3c7de0"></button>
             <button class="swatch" style="background:#4caf6d" data-color="#4caf6d"></button>
             <button class="swatch" style="background:#e0c23c" data-color="#e0c23c"></button>
+            <button class="swatch" style="background:#d8b98f" data-color="#d8b98f" aria-label="Бежевий"></button>
+            <button class="swatch" style="background:#8d5a3c" data-color="#8d5a3c"></button>
+            <button class="swatch" style="background:#ffffff" data-color="#ffffff" aria-label="Білий"></button>
           </div>
-          <div class="draw-tools">
-            <button class="tool-btn selected" id="galThinBtn" data-width="4">Тонко</button>
-            <button class="tool-btn" id="galThickBtn" data-width="12">Товсто</button>
-            <button class="tool-btn" id="galEraserBtn">🧽</button>
+          <div class="draw-tools" style="flex-wrap:wrap">
+            <button class="tool-btn selected" id="galPenBtn">✏️ Олівець</button>
+            <button class="tool-btn" id="galEraserBtn">🧽 Ластик</button>
+            <button class="tool-btn" id="galFillBtn">🪣 Заливка</button>
+          </div>
+          <div class="brush-size">
+            <span class="brush-preview" aria-hidden="true"><i class="brush-dot" id="galBrushDot"></i></span>
+            <input type="range" class="brush-range" id="galBrushSize" min="2" max="30" step="1" value="6" aria-label="Товщина пензля" />
           </div>
         </div>
         <div class="draw-actions">
@@ -256,35 +275,59 @@
   }
 
   function bindCanvasControls(canvasObj, prefix) {
+    const $ = (suffix) => document.getElementById(prefix + suffix);
+    const canvasEl = $("Canvas");
+    const penBtn = $("PenBtn"), eraserBtn = $("EraserBtn"), fillBtn = $("FillBtn");
+    const brushSize = $("BrushSize"), brushDot = $("BrushDot");
     const swatches = document.querySelectorAll(`#${prefix}Swatches .swatch`);
+    let currentTool = "pen"; // pen | eraser | fill — взаємовиключні
+    let currentColor = "#1a1a1a";
+
+    // Прев'ю: кружок у масштабі, у якому штрих побачать на екрані (canvas = 600 px логічних).
+    // Ластик малює втричі товще за повзунок (draw-canvas.js).
+    function updateBrushPreview() {
+      const scale = canvasEl && canvasEl.clientWidth ? canvasEl.clientWidth / 600 : 0.74;
+      const w = Number(brushSize.value);
+      let px, bg, border = "none", radius = "50%";
+      if (currentTool === "fill") { px = 24; bg = currentColor; radius = "6px"; }
+      else if (currentTool === "eraser") { px = w * 3 * scale; bg = "#ffffff"; border = "2px solid #9aa0a6"; }
+      else { px = w * scale; bg = currentColor; }
+      px = Math.max(3, Math.min(42, Math.round(px)));
+      brushDot.style.width = px + "px"; brushDot.style.height = px + "px";
+      brushDot.style.background = bg; brushDot.style.border = border; brushDot.style.borderRadius = radius;
+      brushDot.style.boxSizing = "border-box";
+    }
+    function setTool(tool) {
+      currentTool = tool;
+      canvasObj.setEraser(tool === "eraser");
+      canvasObj.setFill(tool === "fill");
+      penBtn.classList.toggle("selected", tool === "pen");
+      eraserBtn.classList.toggle("selected", tool === "eraser");
+      fillBtn.classList.toggle("selected", tool === "fill");
+      brushSize.disabled = tool === "fill"; // для заливки товщина не потрібна
+      updateBrushPreview();
+    }
+    penBtn.addEventListener("click", () => setTool("pen"));
+    eraserBtn.addEventListener("click", () => setTool("eraser"));
+    // Заливка: спершу обери колір (кольори не вимикають заливку), потім торкнись області.
+    // У Крокодилі заливка йде тим самим потоком, що й штрихи (onStroke → strokeBatches → addStroke).
+    fillBtn.addEventListener("click", () => setTool("fill"));
+    brushSize.addEventListener("input", () => {
+      canvasObj.setWidth(Number(brushSize.value));
+      updateBrushPreview();
+    });
     swatches.forEach((sw) => {
       sw.addEventListener("click", () => {
-        canvasObj.setColor(sw.dataset.color);
+        currentColor = sw.dataset.color;
+        canvasObj.setColor(currentColor); // скидає ластик у модулі
         swatches.forEach((s) => s.classList.remove("selected"));
         sw.classList.add("selected");
-        const eraser = document.getElementById(`${prefix}EraserBtn`);
-        if (eraser) eraser.classList.remove("selected");
+        if (currentTool === "eraser") setTool("pen"); // колір після ластика = повернення до олівця
+        else updateBrushPreview();                    // у заливці інструмент лишається
       });
     });
-
-    const thinBtn = document.getElementById(`${prefix}ThinBtn`);
-    const thickBtn = document.getElementById(`${prefix}ThickBtn`);
-    const eraserBtn = document.getElementById(`${prefix}EraserBtn`);
-    
-    if (thinBtn) thinBtn.addEventListener("click", () => {
-      canvasObj.setWidth(Number(thinBtn.dataset.width));
-      canvasObj.setEraser(false);
-      thinBtn.classList.add("selected"); thickBtn.classList.remove("selected"); if(eraserBtn) eraserBtn.classList.remove("selected");
-    });
-    if (thickBtn) thickBtn.addEventListener("click", () => {
-      canvasObj.setWidth(Number(thickBtn.dataset.width));
-      canvasObj.setEraser(false);
-      thickBtn.classList.add("selected"); thinBtn.classList.remove("selected"); if(eraserBtn) eraserBtn.classList.remove("selected");
-    });
-    if (eraserBtn) eraserBtn.addEventListener("click", () => {
-      canvasObj.setEraser(true);
-      eraserBtn.classList.add("selected");
-    });
+    canvasObj.setWidth(Number(brushSize.value)); // стартова товщина = положення повзунка
+    updateBrushPreview();
 
     const undoBtn = document.getElementById(`${prefix}UndoBtn`);
     if (undoBtn) undoBtn.addEventListener("click", () => {

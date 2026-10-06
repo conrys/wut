@@ -4,7 +4,8 @@
 // розміру, тому штрихи однаково лягають на будь-якому екрані незалежно від того, як CSS
 // масштабує сам canvas — це заразом усуває стару проблему "canvas 0x0 одразу після показу".
 //
-// Підтримує колір, товщину, ластик, live-трансляцію штрихів (onStroke/addStroke) та
+// Підтримує колір, товщину, ластик, заливку (setFill; за замовчуванням вимкнена),
+// live-трансляцію штрихів (onStroke/addStroke) та
 // скасування останнього штриха: кожен безперервний рух пальця (pointerdown..pointerup)
 // має свій strokeId, і "скасувати" прибирає ВЕСЬ цей штрих (усі його сегменти), а не піксель.
 function createDrawCanvas(canvas, { readOnly = false, onStroke } = {}) {
@@ -18,6 +19,7 @@ function createDrawCanvas(canvas, { readOnly = false, onStroke } = {}) {
   let currentColor = '#1a1a1a';
   let currentWidth = 6;
   let eraserOn = false;
+  let fillOn = false;
   let history = []; // усі сегменти з початку малювання (кожен позначений strokeId) — для скасування й перемальовки
 
   function clearCanvas() {
@@ -35,9 +37,112 @@ function createDrawCanvas(canvas, { readOnly = false, onStroke } = {}) {
     ctx.stroke();
   }
 
+  // ---------- заливка (flood fill) ----------
+  // Растрова, 4-зв'язна, сканлайнами. Фарбує область кольору під пальцем з допуском
+  // FILL_TOLERANCE (сума |ΔR|+|ΔG|+|ΔB|), потім "доїдає" згладжену облямівку ліній:
+  // піксель біля залитої області фарбується, лише якщо він явно світліший за найтемніший
+  // піксель поруч (тобто це край лінії, а не її серцевина) — так навколо контуру немає
+  // світлого ореолу, а тонкі/світлі лінії (жовта, бежева) не з'їдаються.
+  // Заливка — запис в history зі своїм strokeId, тому "скасувати" й перемальовка (replay)
+  // відтворюють її однаково: розмір полотна фіксований, координати нормалізовані.
+  const FILL_TOLERANCE = 60;
+  const FILL_FRINGE_PASSES = 2;
+  const FILL_FRINGE_RATIO = 0.6;
+
+  function hexToRgb(hex) {
+    let h = String(hex || '').replace('#', '');
+    if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+    const n = parseInt(h, 16);
+    if (h.length !== 6 || Number.isNaN(n)) return [0, 0, 0];
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+
+  // Повертає true, якщо щось зафарбовано (false — вже такий колір або точка поза полотном).
+  function floodFill(nx, ny, hex) {
+    const sx = Math.floor(nx * W), sy = Math.floor(ny * H);
+    if (!(sx >= 0 && sy >= 0 && sx < W && sy < H)) return false;
+    const img = ctx.getImageData(0, 0, W, H);
+    const d = img.data;
+    const N = W * H;
+    const t = (sy * W + sx) * 4;
+    const tr = d[t], tg = d[t + 1], tb = d[t + 2];
+    const [fr, fg, fb] = hexToRgb(hex);
+    if (Math.abs(tr - fr) + Math.abs(tg - fg) + Math.abs(tb - fb) <= 8) return false;
+
+    // відстань кожного пікселя до кольору під пальцем — раз на всю заливку (швидко на телефоні)
+    const dist = new Uint16Array(N);
+    for (let i = 0, p = 0; i < N; i++, p += 4) {
+      dist[i] = Math.abs(d[p] - tr) + Math.abs(d[p + 1] - tg) + Math.abs(d[p + 2] - tb);
+    }
+    const mask = new Uint8Array(N);
+
+    // 4-зв'язна сканлайн-заливка; minX/maxX/minY/maxY — рамка залитого, щоб облямівку
+    // шукати лише навколо неї, а не по всьому полотну
+    let minX = sx, maxX = sx, minY = sy, maxY = sy;
+    const stack = [sx, sy];
+    while (stack.length) {
+      const y = stack.pop();
+      let x = stack.pop();
+      let i = y * W + x;
+      if (mask[i] || dist[i] > FILL_TOLERANCE) continue;
+      while (x > 0 && !mask[i - 1] && dist[i - 1] <= FILL_TOLERANCE) { x--; i--; }
+      let up = false, down = false;
+      while (x < W && !mask[i] && dist[i] <= FILL_TOLERANCE) {
+        mask[i] = 1;
+        if (x < minX) minX = x; if (x > maxX) maxX = x;
+        if (y < minY) minY = y; if (y > maxY) maxY = y;
+        if (y > 0) {
+          const o = !mask[i - W] && dist[i - W] <= FILL_TOLERANCE;
+          if (o && !up) { stack.push(x, y - 1); up = true; } else if (!o) up = false;
+        }
+        if (y < H - 1) {
+          const o = !mask[i + W] && dist[i + W] <= FILL_TOLERANCE;
+          if (o && !down) { stack.push(x, y + 1); down = true; } else if (!o) down = false;
+        }
+        x++; i++;
+      }
+    }
+
+    // облямівка: 1-2 проходи по пікселях, що межують із залитою областю (лише в рамці ±3 px)
+    const x0 = Math.max(0, minX - 3), x1 = Math.min(W - 1, maxX + 3);
+    const y0 = Math.max(0, minY - 3), y1 = Math.min(H - 1, maxY + 3);
+    for (let pass = 0; pass < FILL_FRINGE_PASSES; pass++) {
+      const add = [];
+      for (let y = y0; y <= y1; y++) {
+        for (let x = x0; x <= x1; x++) {
+          const i = y * W + x;
+          if (mask[i]) continue;
+          const near = (x > 0 && mask[i - 1]) || (x < W - 1 && mask[i + 1]) || (y > 0 && mask[i - W]) || (y < H - 1 && mask[i + W]);
+          if (!near) continue;
+          const di = dist[i];
+          if (di <= FILL_TOLERANCE) continue; // інша ізольована область — не чіпаємо
+          let localMax = 0;
+          for (let yy = Math.max(0, y - 2); yy <= Math.min(H - 1, y + 2); yy++) {
+            for (let xx = Math.max(0, x - 2); xx <= Math.min(W - 1, x + 2); xx++) {
+              const dd = dist[yy * W + xx]; if (dd > localMax) localMax = dd;
+            }
+          }
+          if (di <= FILL_FRINGE_RATIO * localMax) add.push(i);
+        }
+      }
+      if (!add.length) break;
+      for (let k = 0; k < add.length; k++) mask[add[k]] = 1;
+    }
+
+    for (let i = 0, p = 0; i < N; i++, p += 4) {
+      if (!mask[i]) continue;
+      d[p] = fr; d[p + 1] = fg; d[p + 2] = fb; d[p + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+    return true;
+  }
+
   function redrawFromHistory() {
     clearCanvas();
-    history.forEach((s) => drawSegment(s.x0, s.y0, s.x1, s.y1, s.color, s.width));
+    history.forEach((s) => {
+      if (s.type === 'fill') floodFill(s.x, s.y, s.color);
+      else drawSegment(s.x0, s.y0, s.x1, s.y1, s.color, s.width);
+    });
   }
 
   function activeColor() { return eraserOn ? '#ffffff' : currentColor; }
@@ -62,6 +167,17 @@ function createDrawCanvas(canvas, { readOnly = false, onStroke } = {}) {
   if (!readOnly) {
     canvas.style.touchAction = 'none';
     canvas.addEventListener('pointerdown', (e) => {
+      if (fillOn) {
+        // заливка — одна дія по тапу, штрих не починається
+        const p = pointFromEvent(e);
+        if (floodFill(p.x, p.y, currentColor)) {
+          const entry = { type: 'fill', x: p.x, y: p.y, color: currentColor,
+            strokeId: 'f_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7) };
+          history.push(entry);
+          if (onStroke) onStroke(entry);
+        }
+        return;
+      }
       drawing = true;
       last = pointFromEvent(e);
       currentStrokeId = 's_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -84,7 +200,11 @@ function createDrawCanvas(canvas, { readOnly = false, onStroke } = {}) {
 
   return {
     clear: () => { history = []; clearCanvas(); },
-    addStroke: (s) => { history.push(s); drawSegment(s.x0, s.y0, s.x1, s.y1, s.color || '#1a1a1a', s.width || 6); },
+    addStroke: (s) => {
+      history.push(s);
+      if (s.type === 'fill') floodFill(s.x, s.y, s.color || '#1a1a1a');
+      else drawSegment(s.x0, s.y0, s.x1, s.y1, s.color || '#1a1a1a', s.width || 6);
+    },
     // прибирає ВЕСЬ штрих (усі сегменти одного pointerdown..pointerup) за його strokeId і перемальовує решту.
     // Використовується для застосування "скасування", яке прийшло від сервера/іншого клієнта.
     removeStroke: (strokeId) => {
@@ -131,8 +251,11 @@ function createDrawCanvas(canvas, { readOnly = false, onStroke } = {}) {
     loadStrokes: (arr) => { history = [...(arr || [])]; redrawFromHistory(); },
     setColor: (c) => { currentColor = c; eraserOn = false; },
     setWidth: (w) => { currentWidth = w; },
-    setEraser: (v) => { eraserOn = v; },
+    setEraser: (v) => { eraserOn = v; if (v) fillOn = false; },
     isEraser: () => eraserOn,
+    // режим заливки: тап по полотну заливає область поточним кольором (setColor його не вимикає)
+    setFill: (v) => { fillOn = !!v; if (fillOn) eraserOn = false; },
+    isFill: () => fillOn,
     getColor: () => currentColor,
   };
 }

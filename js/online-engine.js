@@ -66,8 +66,26 @@
     const ABANDON_MS = opts.abandonMs != null ? opts.abandonMs : 15 * 60 * 1000;
 
     let serverOffset = 0;
+    // Поки сервер не повідомив поправку часу, now() == годинник телефона. Якщо
+    // телефон спішить/відстає на хвилини, у цей момент не можна нічого вирішувати
+    // за часом (isRoomStale перестворював кімнату й викидав усіх у лобі, вибір
+    // хоста бачив усіх "неактивними"). Тому вхід в кімнату чекає offsetReady
+    // (максимум OFFSET_WAIT_MS — щоб офлайн-старт не завис назавжди).
+    const OFFSET_WAIT_MS = 4000;
+    let offsetKnown = false;
+    let offsetWaitOver = false;
+    function isOffsetWaitOver() { return offsetWaitOver || !window.rtdb; }
+    let offsetResolve = () => {};
+    const offsetReady = new Promise((resolve) => { offsetResolve = resolve; });
     if (window.rtdb) {
-      window.rtdb.ref(".info/serverTimeOffset").on("value", (snap) => { serverOffset = snap.val() || 0; });
+      window.rtdb.ref(".info/serverTimeOffset").on("value", (snap) => {
+        serverOffset = snap.val() || 0;
+        offsetKnown = true;
+        offsetResolve();
+      });
+      setTimeout(() => { offsetWaitOver = true; offsetResolve(); }, OFFSET_WAIT_MS);
+    } else {
+      offsetResolve();
     }
     function now() { return Date.now() + serverOffset; }
 
@@ -153,6 +171,7 @@
     }
 
     function heartbeatNow() {
+      if (!offsetKnown && !isOffsetWaitOver()) return; // не пишемо lastSeen за хибним годинником
       const t = now();
       if (myLobbyRef) myLobbyRef.child("lastSeen").set(t);
       if (currentRoomId && myPlayerRef && roomRef && isActivePlayer) {
@@ -230,11 +249,15 @@
     // скидання (він одразу переприєднується сам), лишаються без активного
     // listener'а — і бачать "заморожену" сторінку, поки не оновлять вручну.
     async function getOrCreateRoom(roomId, schema, buildFresh) {
+      await offsetReady; // див. коментар біля serverOffset
       const ref = window.rtdb.ref(`${ROOMS_PATH}/${roomId}`);
       const snap = await ref.get();
       let room = snap.exists() ? snap.val() : null;
 
-      if (!room || isRoomStale(room)) {
+      // Застарілість кімнати судимо за часом лише коли знаємо поправку до серверного
+      // годинника: хибне "кімната стара" перестворює її і викидає всіх у лобі, а
+      // хибне "жива" майже нічого не коштує (є кнопка скидання гри).
+      if (!room || (offsetKnown && isRoomStale(room))) {
         room = { ...schema, ...buildFresh(), createdAt: now(), lastActivityAt: now() };
         await ref.set(room);
         return { room, roomId, recreated: true, repaired: false };
@@ -255,9 +278,11 @@
     // Той самий принцип, що й вище: жодного remove() перед set() — інакше
     // ВСІ інші підключені клієнти на мить бачать null і відписуються.
     function forceResetRoom(roomId, schema, buildFresh) {
-      const ref = window.rtdb.ref(`${ROOMS_PATH}/${roomId}`);
-      const room = { ...schema, ...buildFresh(), createdAt: now(), lastActivityAt: now() };
-      return ref.set(room).then(() => ({ room, roomId, recreated: true, repaired: false }));
+      return offsetReady.then(() => {
+        const ref = window.rtdb.ref(`${ROOMS_PATH}/${roomId}`);
+        const room = { ...schema, ...buildFresh(), createdAt: now(), lastActivityAt: now() };
+        return ref.set(room).then(() => ({ room, roomId, recreated: true, repaired: false }));
+      });
     }
 
     // ------------------------- приєднання до кімнати -------------------------
@@ -314,7 +339,7 @@
       const playerRef = myPlayerRef;
       if (!playerRef) return Promise.resolve();
       isActivePlayer = true;
-      return playerRef.get().then((snap) => {
+      return offsetReady.then(() => playerRef.get()).then((snap) => {
         if (playerRef !== myPlayerRef) return;
         if (!snap.exists()) {
           return playerRef.set({ joinedAt: now(), lastSeen: now(), status: "active", ...onEmptyPlayer(), ...extra });

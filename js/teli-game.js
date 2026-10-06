@@ -18,14 +18,19 @@
   const ABANDON_MS = 15 * 60 * 1000;
   const MAX_TEXT_LEN = 140;
   const MAX_DRAWING_BYTES = 900000; // приблизна межа розміру data URL картинки
+  const DEFAULT_DRAW_SECONDS = 60;
+  const MIN_DRAW_SECONDS = 20;
+  const MAX_DRAW_SECONDS = 180;
 
   const SCHEMA = {
     phase: "lobby",
     hostUsername: null,
+    lobbySettings: { drawSeconds: DEFAULT_DRAW_SECONDS },
+    gameId: null, // унікальний id гри: відрізняє коло 2 від кола 1 у тій самій кімнаті
     playerOrder: null,
     totalRounds: 0,
     currentRound: 0,
-    books: null,
+    books: null, // books/<книга>/<номер раунду> = запис (слот за раундом, НЕ push у масив)
     assignments: null,
     submitted: null,
     players: {},
@@ -41,7 +46,20 @@
   let onStateChange = () => {};
   let advancing = false;
 
-  function buildFreshRoom() { return { players: {} }; }
+  function buildFreshRoom() { return { players: {}, lobbySettings: { drawSeconds: DEFAULT_DRAW_SECONDS } }; }
+
+  function clampDrawSeconds(v) {
+    v = Number(v) || DEFAULT_DRAW_SECONDS;
+    return Math.max(MIN_DRAW_SECONDS, Math.min(MAX_DRAW_SECONDS, Math.round(v)));
+  }
+
+  function updateLobbySettings(partial) {
+    const room = engine.latestRoom;
+    if (!room || room.phase !== "lobby") return;
+    const next = {};
+    if (partial && partial.drawSeconds !== undefined) next.drawSeconds = clampDrawSeconds(partial.drawSeconds);
+    if (Object.keys(next).length) engine.roomRef.child("lobbySettings").update(next);
+  }
 
   function unanswered(v) { return v === null || v === undefined; }
 
@@ -112,18 +130,32 @@
   function bookIndexFor(playerIdx, round, totalRounds) {
     return (playerIdx + round) % totalRounds;
   }
-  function nextEntryType(book) {
-    if (!book || !book.length) return "text"; // перший крок кожної книги — завжди фраза
-    return book[book.length - 1].type === "text" ? "drawing" : "text";
+  // Тип кроку залежить ЛИШЕ від номера раунду (0 — фраза, 1 — малюнок, 2 — фраза…),
+  // а не від того, що лежить у книзі: пропущений запис більше не збиває чергування.
+  function entryTypeForRound(round) { return round % 2 === 0 ? "text" : "drawing"; }
+
+  // Книга в RTDB — це слоти за раундом; повертає записи по порядку раундів
+  // (масив, об'єкт чи undefined; прогалини пропускає).
+  function bookEntries(book) {
+    if (!book) return [];
+    return Object.keys(book).map(Number).filter((k) => !Number.isNaN(k)).sort((a, b) => a - b)
+      .map((k) => book[k]).filter(Boolean);
+  }
+  function entryBefore(book, round) {
+    if (!book) return null;
+    for (let r = round - 1; r >= 0; r--) if (book[r]) return book[r];
+    return null;
   }
   function buildAssignments(playerOrder, round, totalRounds, books) {
     const assignments = {};
     playerOrder.forEach((name, idx) => {
       const bookIdx = bookIndexFor(idx, round, totalRounds);
-      const book = books[bookIdx] || [];
-      const type = nextEntryType(book);
-      const prompt = book.length ? book[book.length - 1] : null;
-      assignments[name] = { bookIndex: bookIdx, type, prompt };
+      assignments[name] = {
+        bookIndex: bookIdx,
+        round, // завдання знає свій раунд — застаріле ніколи не піде в чужий слот
+        type: entryTypeForRound(round),
+        prompt: entryBefore(books && books[bookIdx], round),
+      };
     });
     return assignments;
   }
@@ -136,6 +168,7 @@
     const assignments = buildAssignments(playerOrder, 0, totalRounds, books);
     await engine.roomRef.update({
       phase: "active",
+      gameId: engine.now(),
       playerOrder,
       totalRounds,
       currentRound: 0,
@@ -145,52 +178,68 @@
     });
   }
 
+  // Повертає { ok:true } або { ok:false, reason } одразу; саме записування йде
+  // асинхронно. Запис книги і submitted/<ім'я> — ОДИН атомарний update у слот
+  // books/<книга>/<раунд>: повторний виклик (подвійний тап, автовідправка на
+  // таймері) лише перезаписує той самий слот і не додає другий запис. Якщо запис
+  // упав, ключ in-flight знімається і викликається onSubmitError.
+  let inFlightKey = null;
+  let onSubmitError = () => {};
+
   function submitEntry({ text, drawing }) {
     const room = engine.latestRoom;
-    if (!room || room.phase !== "active") return;
+    if (!room || room.phase !== "active") return { ok: false, reason: "wrong-phase" };
     const assignment = room.assignments && room.assignments[username];
-    if (!assignment) return;
-    if (room.submitted && room.submitted[username]) return;
+    if (!assignment || assignment.round !== room.currentRound) return { ok: false, reason: "no-assignment" };
+    if (room.submitted && room.submitted[username]) return { ok: false, reason: "already-submitted" };
+    const round = room.currentRound;
+    const key = `${room.gameId}:${round}`;
+    if (inFlightKey === key) return { ok: false, reason: "in-flight" };
 
     let content;
     if (assignment.type === "text") {
       content = (text || "").trim().slice(0, MAX_TEXT_LEN);
-      if (!content) return;
+      if (!content) return { ok: false, reason: "empty-text" };
     } else {
-      if (!drawing || typeof drawing !== "string" || !drawing.startsWith("data:image/")) return;
-      if (drawing.length > MAX_DRAWING_BYTES) return;
+      if (!drawing || typeof drawing !== "string" || !drawing.startsWith("data:image/")) {
+        return { ok: false, reason: "no-drawing" };
+      }
+      if (drawing.length > MAX_DRAWING_BYTES) return { ok: false, reason: "drawing-too-large" };
       content = drawing;
     }
 
+    inFlightKey = key; // після успіху лишається до зміни раунду (інший key)
     const entry = { type: assignment.type, content, authorName: username };
-    // transaction на конкретну книгу — безпечно навіть якщо двоє додають
-    // записи в РІЗНІ книги одночасно (кожна книга — свій незалежний шлях)
-    engine.roomRef.child(`books/${assignment.bookIndex}`).transaction((current) => {
-      const arr = current || [];
-      arr.push(entry);
-      return arr;
-    }).then(() => {
-      engine.roomRef.child(`submitted/${username}`).set(true);
+    Promise.resolve(engine.roomRef.update({
+      [`books/${assignment.bookIndex}/${round}`]: entry,
+      [`submitted/${username}`]: round + 1, // >0, щоб лишалось truthy у UI
+    })).catch((error) => {
+      if (inFlightKey === key) inFlightKey = null; // дозволяємо повторну спробу
+      onSubmitError({ reason: "write-failed", error });
     });
+    return { ok: true };
   }
 
   function maybeAutoAdvance(room) {
     if (room.phase !== "active" || advancing) return;
-    const submittedCount = Object.keys(room.submitted || {}).length;
-    if (submittedCount >= (room.playerOrder || []).length && room.playerOrder.length > 0) {
-      advanceRound(room);
-    }
+    const order = room.playerOrder || [];
+    // лише ті, хто здав САМЕ цей раунд (submitted = раунд + 1)
+    const allIn = order.length > 0 && order.every((n) => room.submitted && room.submitted[n] === room.currentRound + 1);
+    if (allIn) advanceRound(room);
   }
 
   async function advanceRound(room) {
     advancing = true;
     try {
+      // перехід уже зробив інший клієнт/попередній виклик — нічого не робимо
+      const cur = engine.latestRoom;
+      if (!cur || cur.phase !== "active" || cur.currentRound !== room.currentRound) return;
       const nextRound = room.currentRound + 1;
       if (nextRound >= room.totalRounds) {
         await engine.roomRef.update({ phase: "reveal" });
         return;
       }
-      const assignments = buildAssignments(room.playerOrder, nextRound, room.totalRounds, room.books);
+      const assignments = buildAssignments(room.playerOrder, nextRound, room.totalRounds, cur.books);
       await engine.roomRef.update({ currentRound: nextRound, assignments, submitted: {} });
     } finally {
       advancing = false;
@@ -213,6 +262,10 @@
 
   window.TeliGame = {
     MIN_PLAYERS,
+    MAX_DRAWING_BYTES,
+    DEFAULT_DRAW_SECONDS, MIN_DRAW_SECONDS, MAX_DRAW_SECONDS,
+    updateLobbySettings,
+    bookEntries,
     connectedNames,
     computeHost: (players) => engine.computeHost(players),
     isConnected: (p) => engine.isConnected(p),
@@ -225,6 +278,8 @@
     forceAdvance,
     resetGame,
     get roomId() { return engine.currentRoomId; },
+    get roomRef() { return engine.roomRef; },
+    set onSubmitError(fn) { onSubmitError = typeof fn === "function" ? fn : () => {}; },
     set onStateChange(fn) { onStateChange = fn; },
   };
 })();
