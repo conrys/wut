@@ -57,6 +57,11 @@
   .rule-box { text-align: center; margin-bottom: 14px; }
   .rule-box .rname { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 18px; color: var(--gold); margin-bottom: 6px; }
   .rule-box .rtext { font-size: 14px; }
+  .rule-box .rdetail { font-size: 12px; color: var(--text-muted); margin-top: 8px; line-height: 1.4; }
+  .rr { margin-bottom: 10px; font-size: 13px; line-height: 1.4; }
+  .rr b { color: var(--gold); }
+  .rr-howto { margin: 0 0 12px; padding-left: 18px; font-size: 13px; line-height: 1.45; }
+  .rr-howto li { margin-bottom: 4px; }
 
   .buddy-list, .player-pick-list { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 10px; }
   .buddy-list button, .player-pick-list button { background: var(--tile-bg); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px;
@@ -99,6 +104,11 @@
     </div>
 
     <details class="card-box">
+      <summary>Правила гри</summary>
+      <div id="rulesReferenceLobby"></div>
+    </details>
+
+    <details class="card-box">
       <summary>Пул "Я ніколи не" для валета (<span id="poolCountLobby">0</span>)</summary>
       <div class="spice-row"><span>🌶️</span><input type="range" id="spiceSlider" min="1" max="5" value="3" /><span class="spice-val" id="spiceVal">3</span></div>
       <div class="fact-input-row" style="display:flex; gap:8px;">
@@ -123,6 +133,7 @@
     <div class="hidden rule-box" id="ruleBox">
       <div class="rname" id="ruleName"></div>
       <div class="rtext" id="ruleText"></div>
+      <div class="rdetail" id="ruleDetail"></div>
     </div>
 
     <div class="hidden" id="buddyPicker">
@@ -167,6 +178,7 @@
 <script src="js/login.js"></script>
 <script src="js/online-engine.js"></script>
 <script src="js/fact-pool.js"></script>
+<script src="js/fact-seed.js"></script>
 <script src="js/kingscup-game.js"></script>
 <script src="js/room-code-ui.js"></script>
 <script src="js/reactions.js"></script>
@@ -186,7 +198,17 @@
   let selectedBuddy = null;
   let reactionsMounted = false;
 
-  document.getElementById("rulesReference").innerHTML = "A Водоспад · 2 Ти · 3 Я · 4 Підлога · 7 Небо · 8 Друг · 10 Категорії · J Я ніколи не · Q Майстер питань · K Нове правило (4-й — п'єш чашу)";
+  // Довідник правил: однакова розмітка в лобі й під час гри (одне джерело — KingsCupGame.RULE_DETAILS)
+  function rankLabel(r) { return { 14: "A", 13: "K", 12: "Q", 11: "J" }[r] || String(r); }
+  function buildRulesReference() {
+    const G = window.KingsCupGame;
+    const how = '<ol class="rr-howto">' + G.HOWTO.map((t) => "<li>" + escapeHtml(t) + "</li>").join("") + "</ol>";
+    const list = G.RULE_ORDER.map((r) => `<div class="rr"><b>${rankLabel(r)} · ${escapeHtml(G.RULE_DETAILS[r].name)}</b><br>${escapeHtml(G.RULE_DETAILS[r].detail)}</div>`).join("");
+    return how + list;
+  }
+  const rulesHtml = buildRulesReference();
+  document.getElementById("rulesReference").innerHTML = rulesHtml;
+  document.getElementById("rulesReferenceLobby").innerHTML = rulesHtml;
 
   // ------------------------- лобі (спільне з пулом фактів) -------------------------
   function renderLobby(room, ctx) {
@@ -253,12 +275,17 @@
     ruleInputBox.classList.add("hidden");
     ruleBox.classList.add("hidden");
 
+    document.getElementById("ruleDetail").textContent = "";
     if (room.currentCard) {
       const rule = window.KingsCupGame.RULES[room.currentCard.rank];
+      const detail = window.KingsCupGame.RULE_DETAILS[room.currentCard.rank];
+      document.getElementById("ruleDetail").textContent = detail ? detail.detail : "";
       if (extra && extra.type === "fact") {
         ruleBox.classList.remove("hidden");
         document.getElementById("ruleName").textContent = "Я ніколи не...";
-        document.getElementById("ruleText").textContent = extra.text ? ("Хтось із присутніх ніколи не " + extra.text) : extra.text;
+        // фраза з пулу читається як «Я ніколи не …»: хто це робив — п'є (див. пояснення нижче);
+        // без факту (пул порожній) показуємо службовий текст як є
+        document.getElementById("ruleText").textContent = extra.factId ? ("Я ніколи не " + extra.text) : extra.text;
       } else if (extra && extra.type === "drink-cup") {
         ruleBox.classList.remove("hidden");
         document.getElementById("ruleName").textContent = "4-й король!";

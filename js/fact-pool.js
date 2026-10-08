@@ -103,11 +103,18 @@
     const from = fresh.length ? fresh : options;
     return from[Math.floor(Math.random() * from.length)];
   }
-  function bingoGridSize(poolCount) {
-    if (poolCount >= 25) return 5;
-    if (poolCount >= 16) return 4;
-    if (poolCount >= 9) return 3;
-    return 0; // замало фактів навіть на 3x3
+  // Розмір сітки за кількістю фактів у пулі. Якщо передано playerCount — сітка не
+  // більша, ніж комфортно для такої компанії: з готовим пулом (fact-seed.js) фактів
+  // завжди багато, і без обмеження було б 5x5 навіть на 4 людей (<=6 → 3x3,
+  // 7–12 → 4x4, 13+ → 5x5).
+  function bingoGridSize(poolCount, playerCount) {
+    let size = 0;
+    if (poolCount >= 25) size = 5;
+    else if (poolCount >= 16) size = 4;
+    else if (poolCount >= 9) size = 3;
+    if (!size || !playerCount) return size; // 0 = замало фактів навіть на 3x3
+    const cap = playerCount >= 13 ? 5 : playerCount >= 7 ? 4 : 3;
+    return Math.min(size, cap);
   }
 
   // ------------------------- (RTDB-обгортка) -------------------------
@@ -174,6 +181,28 @@
       });
     }
 
+    // Готовий пул (js/fact-seed.js → window.FactSeed) додається в кімнату ОДИН раз:
+    // прапорець factPool/seeded ставиться транзакцією, тож коли кілька клієнтів
+    // стартують одночасно, факти запише лише один. Факти без автора (isSeed:true) —
+    // їх можна прибрати/залишити так само, як і написані гравцями.
+    function seed(list, sessionId) {
+      list = list || window.FactSeed || [];
+      if (!list.length) return Promise.resolve({ seeded: false, reason: "no-list" });
+      return poolRef.child("seeded").transaction((cur) => (cur ? undefined : true)).then((res) => {
+        if (!res || !res.committed) return { seeded: false, reason: "already" };
+        const now = opts.now ? opts.now() : Date.now();
+        const updates = {};
+        list.forEach((it) => {
+          updates["facts/" + newId()] = {
+            text: it.text, level: it.level || 3, status: "approved", similarTo: null,
+            createdAt: now, sessionId: sessionId || null,
+            playCount: 0, lastPlayedAt: null, lastPlayedSession: null, isSeed: true,
+          };
+        });
+        return poolRef.update(updates).then(() => ({ seeded: true, count: list.length }));
+      });
+    }
+
     function watch(callback) {
       const onValue = (snap) => callback(snap.val() || {});
       poolRef.on("value", onValue);
@@ -181,7 +210,7 @@
     }
 
     return {
-      submit, approve, reject, removeApproved,
+      submit, approve, reject, removeApproved, seed,
       setSpiceLevel, setThresholds, setCoHost, markPlayed, watch,
     };
   }

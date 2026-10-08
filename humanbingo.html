@@ -152,7 +152,12 @@
 
     <div class="card">
       <h3>Пул (<span id="poolCount">0</span>)</h3>
+      <div class="status-line" id="seedCountLine" style="margin:0 0 8px;"></div>
       <div id="approvedList"></div>
+      <details id="seedDetails" class="hidden" style="margin-top:8px;">
+        <summary style="cursor:pointer;font-size:13px;">Готові факти (<span id="seedCount">0</span>)</summary>
+        <div id="seedList" style="margin-top:8px;"></div>
+      </details>
     </div>
 
     <button class="hidden btn btn-primary" id="startGameBtn">Роздати картки й почати</button>
@@ -196,6 +201,7 @@
 <script src="js/login.js"></script>
 <script src="js/online-engine.js"></script>
 <script src="js/fact-pool.js"></script>
+<script src="js/fact-seed.js"></script>
 <script src="js/humanbingo-game.js"></script>
 <script src="js/room-code-ui.js"></script>
 <script src="js/reactions.js"></script>
@@ -242,10 +248,20 @@
     const queue = (room.factPool && room.factPool.queue) || {};
     const approvedCount = Object.keys(facts).length;
     document.getElementById("poolCount").textContent = approvedCount;
-    document.getElementById("approvedList").innerHTML = Object.entries(facts).map(([id, f]) => `
+    // факти гравців — списком; готові (isSeed) — у згорнутому блоці, щоб не розтягувати екран
+    const renderFact = ([id, f]) => `
       <div class="approved-item"><div class="qtext">${escapeHtml(f.text)} <span style="color:var(--text-muted);">· 🌶️${f.level}</span></div>
-      ${ctx.isCoHost ? `<div class="qactions"><button class="btn btn-sm btn-danger" data-remove="${id}">Прибрати</button></div>` : ""}</div>`).join("")
-      || '<div class="status-line">Ще нічого нема</div>';
+      ${ctx.isCoHost ? `<div class="qactions"><button class="btn btn-sm btn-danger" data-remove="${id}">Прибрати</button></div>` : ""}</div>`;
+    const factEntries = Object.entries(facts);
+    const playerFacts = factEntries.filter(([, f]) => !f.isSeed);
+    const seedFacts = factEntries.filter(([, f]) => f.isSeed).sort((a, b) => (a[1].level || 1) - (b[1].level || 1));
+    document.getElementById("approvedList").innerHTML = playerFacts.map(renderFact).join("")
+      || '<div class="status-line">Ще нічого нема від гравців</div>';
+    document.getElementById("seedCountLine").textContent = seedFacts.length
+      ? `📚 Готових фактів: ${seedFacts.length} · гравці додали: ${playerFacts.length}` : "";
+    document.getElementById("seedDetails").classList.toggle("hidden", !seedFacts.length);
+    document.getElementById("seedCount").textContent = seedFacts.length;
+    document.getElementById("seedList").innerHTML = seedFacts.map(renderFact).join("");
     document.querySelectorAll("[data-remove]").forEach((btn) => btn.addEventListener("click", () => window.HumanBingoGame.removeApproved(btn.dataset.remove)));
 
     const queueEntries = Object.entries(queue);
@@ -259,7 +275,7 @@
     document.querySelectorAll("[data-approve]").forEach((btn) => btn.addEventListener("click", () => window.HumanBingoGame.approve(btn.dataset.approve)));
     document.querySelectorAll("[data-reject]").forEach((btn) => btn.addEventListener("click", () => window.HumanBingoGame.reject(btn.dataset.reject)));
 
-    const size = F.bingoGridSize(F.approvedAtOrBelow(facts, spice).length);
+    const size = F.bingoGridSize(F.approvedAtOrBelow(facts, spice).length, Object.keys(room.players || {}).length);
     document.getElementById("startGameBtn").classList.toggle("hidden", !ctx.isHost || !size);
     document.getElementById("notEnoughLine").classList.toggle("hidden", !ctx.isHost || !!size);
   }

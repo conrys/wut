@@ -68,6 +68,8 @@
     const room = engine.latestRoom;
     if (!room.hostUsername) engine.roomRef.child("hostUsername").set(username);
     pool = F.attach(engine.roomRef.child("factPool"), { now: () => engine.now() });
+    // готовий пул фактів (fact-seed.js): одноразово, безпечно при одночасному старті
+    pool.seed(null, engine.latestRoom && engine.latestRoom.createdAt).catch(() => {});
   }
   function stop() { engine.stop(); pool = null; }
 
@@ -108,9 +110,9 @@
     if (!room || room.hostUsername !== username || room.phase !== "collecting") return;
     const facts = room.factPool.facts || {};
     const spice = room.factPool.spiceLevel || 3;
-    const size = F.bingoGridSize(Object.keys(F.approvedAtOrBelow(facts, spice)).length);
-    if (!size) return; // замало фактів — UI мав би це показати заздалегідь і не дати натиснути
     const names = Object.keys(room.players || {});
+    const size = F.bingoGridSize(Object.keys(F.approvedAtOrBelow(facts, spice)).length, names.length);
+    if (!size) return; // замало фактів — UI мав би це показати заздалегідь і не дати натиснути
     const cards = {};
     names.forEach((n) => {
       const picked = F.sampleFacts(facts, spice, size * size);
