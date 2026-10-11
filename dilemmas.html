@@ -1,0 +1,440 @@
+<!-- Гра: Згоден / Не згоден (Дилеми)  |  Файл: dilemmas.html -->
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<title>Дилеми</title>
+<link rel="stylesheet" href="js/teli-style.css" />
+<style>
+  /* аватари (персонажі зі Смішліста: img/char1..8.svg) */
+  .av { position: relative; display: inline-flex; flex: none; align-items: center; justify-content: center; width: 44px; height: 44px;
+    border-radius: 50%; background: var(--c, #888); border: 2px solid rgba(255,255,255,0.35); box-sizing: border-box; overflow: visible; transition: opacity .25s; }
+  .av img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
+  .av.sm { width: 30px; height: 30px; }
+  .av.dim { opacity: 0.3; }
+  .av .tick { display: none; position: absolute; right: -4px; bottom: -4px; width: 17px; height: 17px; border-radius: 50%; background: #38cfa0; color: #06231a;
+    font-size: 11px; font-weight: 800; line-height: 17px; text-align: center; }
+  .av.voted .tick { display: block; }
+  .av-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 12px 0; }
+  .av-pulse { animation: avPulse 1s ease-in-out infinite; }
+  @keyframes avPulse { 50% { opacity: 0.65; transform: scale(1.06); } }
+
+  /* твердження і кнопки: екран поділено навпіл — ліворуч «згоден», праворуч «не згоден» */
+  .dil-stmt { text-align: center; font-size: 19px; font-weight: 800; line-height: 1.3; padding: 16px 12px; margin: 6px 0 12px;
+    background: var(--bg-tile, #20242c); border-radius: 14px; }
+  .dil-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .dil-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 16px 8px; border-radius: 14px; border: 2px solid transparent;
+    font: inherit; font-size: 16px; font-weight: 800; color: #fff; cursor: pointer; transition: transform .1s, box-shadow .2s; }
+  .dil-btn .ico { font-size: 24px; line-height: 1; }
+  .dil-btn.left { background: #2a9d6e; }
+  .dil-btn.right { background: #cf4a5c; }
+  .dil-btn.selected { border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,0.3); transform: scale(1.03); }
+  .dil-timer { text-align: center; font-weight: 700; font-size: 14px; color: #ffb454; margin: 6px 0; }
+  .dil-note { text-align: center; font-size: 13px; margin: 8px 0; }
+
+  /* шкала: 10 кроків ліворуч і праворуч від центру */
+  .dil-track { position: relative; margin: 14px 0; border-radius: 14px; overflow: hidden;
+    background: linear-gradient(90deg, rgba(42,157,110,0.35), rgba(255,255,255,0.05) 50%, rgba(207,74,92,0.35)); }
+  .dil-track .heads { display: flex; justify-content: space-between; padding: 8px 10px 0; font-size: 12px; font-weight: 700; position: relative; z-index: 1; }
+  .dil-track .heads .l { color: #6fe0b0; }
+  .dil-track .heads .r { color: #ff8a98; }
+  .dil-track .mid { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: rgba(255,255,255,0.35); }
+  .dil-track .step { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,0.09); } /* поділка шкали (не плутати з галочкою .tick на аватарі) */
+  .dil-field { position: relative; margin: 8px 0 10px; }
+  .dil-field .av { position: absolute; transition: left .8s ease, top .6s ease, opacity .25s; }
+  .av.me { outline: 2px solid #fff; outline-offset: 1px; }
+  .av.mv-l { box-shadow: 0 0 0 3px #38cfa0; }
+  .av.mv-r { box-shadow: 0 0 0 3px #ff6b6b; }
+  .zones { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; font-size: 13px; }
+  .zones h4 { margin: 0 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+  .zones .l h4 { color: #6fe0b0; } .zones .r h4 { color: #ff8a98; text-align: right; } .zones .r { text-align: right; }
+  .task-card { border-radius: 12px; padding: 12px; margin-bottom: 8px; background: var(--bg-tile, #20242c); border: 1px solid rgba(255,107,107,0.5); }
+  .task-card h4 { margin: 0 0 8px; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  .task-opt { display: block; width: 100%; text-align: left; margin-bottom: 6px; font-size: 13px; line-height: 1.35; }
+  .task-chosen { font-size: 14px; font-weight: 600; line-height: 1.4; }
+  .rules-list { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.5; }
+  .rules-list li { margin-bottom: 6px; }
+  .seg { display: flex; gap: 6px; margin-bottom: 12px; }
+  .seg .btn { flex: 1; padding: 8px 6px; font-size: 13px; }
+  .seg .btn.selected { background: var(--accent); color: #0e2419; border-color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="title-block" id="titleBlock">
+
+  </div>
+
+  <!-- НЕ ЗАЛОГІНЕНИЙ -->
+  <div class="hidden stage-center" id="view-locked">
+    <div class="empty-state"><div class="empty-icon">🔒</div><div class="status-line">Увійди в профіль, щоб грати з друзями</div></div>
+  </div>
+
+  <!-- ПРИЄДНАВСЯ ПОСЕРЕД ГРИ -->
+  <div class="hidden stage-center" id="view-waiting">
+    <div class="empty-state"><div class="empty-icon">⏳</div><div class="status-line">Гра триває — приєднаєшся до наступної</div></div>
+  </div>
+
+  <!-- ВХІД У КІМНАТУ -->
+  <div class="hidden stage" id="view-room-entry">
+    <div class="status-line">Обери активну кімнату або введи код друга</div>
+    <div class="card rooms-list" id="activeRoomsList"></div>
+    <div class="divider">або вручну</div>
+    <input class="field" id="roomCodeInput" maxlength="5" placeholder="КОД КІМНАТИ" style="text-align:center; text-transform:uppercase; letter-spacing:0.1em;" />
+    <button class="btn btn-primary btn-block" id="joinRoomBtn">Приєднатись</button>
+    <div class="divider">або</div>
+    <button class="btn btn-block" id="createRoomBtn">Створити нову кімнату</button>
+  </div>
+
+  <!-- ЛОБІ -->
+  <div class="hidden stage" id="view-lobby">
+    <div class="room-code-display" id="roomCodeDisplay"></div>
+    <div class="status-line" id="lobbyStatus"><span class="pulse-dot"></span> Очікуємо гравців...</div>
+    <div class="card">
+      <h3>Гравці</h3>
+      <div id="playersList"></div>
+    </div>
+    <div class="card hidden" id="hostPanel">
+      <label style="display:block; font-size:12px; color:var(--text-muted,#8b909c); margin-bottom:6px;">Скільки тверджень</label>
+      <div class="seg" id="roundsSeg"></div>
+      <label style="display:block; font-size:12px; color:var(--text-muted,#8b909c); margin-bottom:6px;">Гострота тверджень і завдань</label>
+      <div class="seg" id="levelSeg"></div>
+      <button class="btn btn-primary btn-block" id="startBtn">Почати гру</button>
+      <div class="err-msg" id="startHint"></div>
+    </div>
+    <div class="card">
+      <h3>Як грати</h3>
+      <ol class="rules-list">
+        <li>Читаємо твердження: «Згоден / Не згоден» або «Прийнятно / Неприйнятно». Обговорюйте й голосуйте — змінити думку можна до результату.</li>
+        <li>Згоден — твоя іконка робить крок ліворуч, не згоден — праворуч (до 10 кроків від центру).</li>
+        <li>Таймер є лише для останніх ~10% гравців: поки решта обговорює, ніхто не поспішає.</li>
+        <li>Наприкінці та сторона, де людей менше, обирає завдання.</li>
+      </ol>
+    </div>
+    <button class="btn btn-block hidden" id="resetBtn" style="opacity:0.6;">Скинути гру</button>
+  </div>
+
+  <!-- ГОЛОСУВАННЯ / РЕЗУЛЬТАТ -->
+  <div class="hidden stage" id="view-play">
+    <div class="waiting-count" id="roundLabel">Твердження 1 з 10</div>
+    <div class="dil-stmt" id="stmtText"></div>
+
+    <div class="dil-btns" id="voteButtons">
+      <button class="dil-btn left" id="btnAgree"><span class="ico" id="icoAgree">👍</span><span id="labelAgree">Згоден</span></button>
+      <button class="dil-btn right" id="btnDisagree"><span class="ico" id="icoDisagree">👎</span><span id="labelDisagree">Не згоден</span></button>
+    </div>
+    <div class="status-line" id="voteStatus" style="margin-top:10px;"></div>
+    <div class="dil-timer hidden" id="timerLine"></div>
+
+    <div class="dil-track" id="playTrack"></div>
+
+    <div class="dil-note hidden" id="revealNote"></div>
+    <button class="btn btn-block hidden" id="revealNowBtn">Показати результат зараз</button>
+    <button class="btn btn-primary btn-block hidden" id="nextBtn">Наступне твердження</button>
+    <div class="status-line hidden" id="waitHostLine">Чекаємо на ведучого...</div>
+  </div>
+
+  <!-- ФІНАЛ -->
+  <div class="hidden stage" id="view-final">
+    <div class="waiting-count">Підсумок</div>
+    <div class="dil-track" id="finalTrack"></div>
+    <div class="zones" id="zonesBox"></div>
+    <div class="status-line" id="finalNote"></div>
+    <div id="tasksBox"></div>
+    <button class="btn btn-primary btn-block hidden" id="playAgainBtn">Зіграти ще раз</button>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/app-settings.js"></script>
+<link rel="stylesheet" href="js/game-header.css">
+<link rel="stylesheet" href="js/reactions.css">
+<script src="js/game-header.js"></script>
+<script src="js/login.js"></script>
+<script src="js/online-engine.js"></script>
+<script src="js/dilemmas-seed.js"></script>
+<script src="js/dilemmas-game.js"></script>
+<script src="js/room-code-ui.js"></script>
+<script src="js/reactions.js"></script>
+<script src="js/help.js"></script>
+<script src="js/back-button.js"></script>
+<script>
+(function () {
+  const VIEWS = ["locked", "room-entry", "waiting", "lobby", "play", "final"];
+  function showView(name) {
+    VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name));
+    document.getElementById("titleBlock").classList.toggle("hidden", name === "play" || name === "final");
+  }
+  function escapeHtml(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+  const G = window.DilemmasGame;
+  const STEPS = G.STEPS;              // кроків від центру до краю шкали
+  const SPAN = 44;                    // скільки % ширини від центру займає STEPS кроків
+  const LANE_H = 34;                  // висота «смуги» для аватарів, що стоять поруч
+  const LEVEL_LABELS = { 1: "Легко", 2: "З перчинкою", 3: "Гаряче" };
+  const KINDS = {
+    agree: { l: "Згоден", r: "Не згоден", li: "👍", ri: "👎" },
+    ok: { l: "Прийнятно", r: "Неприйнятно", li: "✅", ri: "🚫" },
+  };
+  let lastRoom = null;
+  let lastCtx = null;
+  let reactionsMounted = false;
+
+  // ---------------- аватари (персонажі зі Смішліста) ----------------
+  function avatarHtml(room, name, opts) {
+    const p = (room.players && room.players[name]) || {};
+    const cls = ["av", opts && opts.small ? "sm" : ""].filter(Boolean).join(" ");
+    return `<span class="${cls}" style="--c:${escapeHtml(p.color || "#888")}" title="${escapeHtml(name)}"><img src="img/char${Number(p.character) || 1}.svg" alt="" /><span class="tick">✓</span></span>`;
+  }
+
+  // ---------------- шкала: іконки ходять ліворуч/праворуч ----------------
+  // Елементи аватарів створюються один раз і лише переставляються — тому крок
+  // анімується CSS-переходом (left/top), а не перемальовується.
+  function makeTrack(container) {
+    container.innerHTML = '<div class="heads"><span class="l"></span><span class="r"></span></div><div class="mid"></div><div class="dil-field"></div>';
+    for (let k = -STEPS; k <= STEPS; k++) {
+      const t = document.createElement("div");
+      t.className = "step";
+      t.style.left = (50 + (k / STEPS) * SPAN) + "%";
+      container.appendChild(t);
+    }
+    const field = container.querySelector(".dil-field");
+    const heads = container.querySelectorAll(".heads span");
+    const els = {};
+    let sig = "";
+    function update(room, o) {
+      const names = room.order || Object.keys(room.players || {});
+      const newSig = names.join("|");
+      if (newSig !== sig) { // склад гри змінився (нова гра) — будуємо аватари заново
+        sig = newSig;
+        field.innerHTML = "";
+        Object.keys(els).forEach((k) => delete els[k]);
+        names.forEach((n) => {
+          const tmp = document.createElement("div");
+          tmp.innerHTML = avatarHtml(room, n, { small: true });
+          els[n] = tmp.firstChild;
+          field.appendChild(els[n]);
+        });
+      }
+      heads[0].textContent = "◀ " + o.labels[0];
+      heads[1].textContent = o.labels[1] + " ▶";
+      const W = container.clientWidth || 340;
+      const pos = room.pos || {};
+      const items = names.map((n) => ({ n, x: ((50 + ((pos[n] || 0) / STEPS) * SPAN) / 100) * W }))
+        .sort((a, b) => a.x - b.x || (a.n < b.n ? -1 : 1));
+      const lanes = []; // права межа останнього аватара в кожній смузі
+      items.forEach((it) => {
+        let lane = lanes.findIndex((end) => end + 2 <= it.x - 15);
+        if (lane < 0) { lane = lanes.length; lanes.push(0); }
+        lanes[lane] = it.x + 15;
+        const el = els[it.n];
+        el.style.left = (it.x - 15) + "px";
+        el.style.top = (lane * LANE_H) + "px";
+      });
+      field.style.height = (Math.max(1, lanes.length) * LANE_H + 4) + "px";
+      names.forEach((n) => {
+        const el = els[n];
+        const mv = o.moved ? o.moved(n) : null;
+        el.classList.toggle("me", n === o.me);
+        el.classList.toggle("voted", !!(o.voted && o.voted(n)));
+        el.classList.toggle("av-pulse", !!(o.pulse && o.pulse(n)));
+        el.classList.toggle("mv-l", mv === "a");
+        el.classList.toggle("mv-r", mv === "b");
+      });
+    }
+    return { update };
+  }
+  const playTrack = makeTrack(document.getElementById("playTrack"));
+  const finalTrack = makeTrack(document.getElementById("finalTrack"));
+
+  // ---------------- лобі ----------------
+  function segButtons(containerId, items, current, onPick) {
+    const el = document.getElementById(containerId);
+    if (el.dataset.built !== "1") {
+      el.innerHTML = items.map(([val, label]) => `<button class="btn" data-val="${val}">${escapeHtml(label)}</button>`).join("");
+      el.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => onPick(Number(b.dataset.val))));
+      el.dataset.built = "1";
+    }
+    el.querySelectorAll("button").forEach((b) => b.classList.toggle("selected", Number(b.dataset.val) === Number(current)));
+  }
+
+  function renderLobby(room, ctx) {
+    const connNames = G.connectedNames(room.players);
+    const hostName = G.computeHost(room.players);
+    document.getElementById("roomCodeDisplay").textContent = G.roomId || "";
+    document.getElementById("lobbyStatus").innerHTML =
+      `<span class="pulse-dot"></span> Гравців онлайн: ${connNames.length} (потрібно мінімум ${G.MIN_PLAYERS})`;
+    const allNames = Object.keys(room.players || {});
+    document.getElementById("playersList").innerHTML = allNames.map((n) => {
+      const online = connNames.includes(n);
+      return `<div class="player-chip ${online ? "" : "offline"}"><span style="display:flex;align-items:center;gap:10px;">${avatarHtml(room, n, { small: true })}${escapeHtml(n)}</span>${n === hostName ? '<span class="badge">ВЕДУЧИЙ</span>' : ""}</div>`;
+    }).join("") || '<div class="status-line">Ще нікого немає</div>';
+
+    document.getElementById("hostPanel").classList.toggle("hidden", !ctx.host);
+    document.getElementById("resetBtn").classList.toggle("hidden", !ctx.host);
+    if (ctx.host) {
+      const s = room.lobbySettings || {};
+      segButtons("roundsSeg", G.ROUND_OPTIONS.map((n) => [n, String(n)]), s.rounds || G.DEFAULT_ROUNDS, (n) => G.updateLobbySettings({ rounds: n }));
+      segButtons("levelSeg", [1, 2, 3].map((n) => [n, "🌶️".repeat(n) + " " + LEVEL_LABELS[n]]), s.level || G.DEFAULT_LEVEL, (n) => G.updateLobbySettings({ level: n }));
+      const enough = connNames.length >= G.MIN_PLAYERS;
+      document.getElementById("startBtn").disabled = !enough;
+      document.getElementById("startHint").textContent = enough ? "" : `Потрібно ще ${G.MIN_PLAYERS - connNames.length} гравців(я)`;
+    }
+  }
+
+  // ---------------- голосування / результат ----------------
+  function renderPlay(room, ctx) {
+    const card = (room.cards && room.cards[room.currentRound]) || { text: "", kind: "agree" };
+    const k = KINDS[card.kind] || KINDS.agree;
+    const voting = room.phase === "voting";
+    document.getElementById("roundLabel").textContent = `Твердження ${room.currentRound + 1} з ${room.totalRounds}`;
+    document.getElementById("stmtText").textContent = card.text;
+    document.getElementById("labelAgree").textContent = k.l;
+    document.getElementById("labelDisagree").textContent = k.r;
+    document.getElementById("icoAgree").textContent = k.li;
+    document.getElementById("icoDisagree").textContent = k.ri;
+    document.getElementById("voteButtons").classList.toggle("hidden", !voting);
+    document.getElementById("voteStatus").classList.toggle("hidden", !voting);
+    const result = room.result || { a: 0, b: 0, voters: {} };
+    const voters = result.voters || {};
+    playTrack.update(room, {
+      labels: [k.l, k.r], me: ctx.username,
+      voted: (n) => voting && !!G.voteOf(room, n),
+      pulse: (n) => voting && !!room.timerEndsAt && !G.voteOf(room, n),
+      moved: (n) => (voting ? null : voters[n] || null),
+    });
+    const noteEl = document.getElementById("revealNote");
+    if (voting) {
+      const mine = G.voteOf(room, ctx.username);
+      document.getElementById("btnAgree").classList.toggle("selected", mine === "a");
+      document.getElementById("btnDisagree").classList.toggle("selected", mine === "b");
+      const st = G.votingState(room);
+      document.getElementById("voteStatus").textContent = `Проголосувало ${st.voted.length} з ${st.present.length}`;
+      document.getElementById("revealNowBtn").classList.toggle("hidden", !(ctx.host && st.voted.length >= 1));
+      noteEl.classList.add("hidden");
+      document.getElementById("nextBtn").classList.add("hidden");
+      document.getElementById("waitHostLine").classList.add("hidden");
+      updateTimerLine();
+    } else {
+      document.getElementById("timerLine") && document.getElementById("timerLine").classList.add("hidden");
+      document.getElementById("revealNowBtn").classList.add("hidden");
+      const my = voters[ctx.username];
+      const mine = my === "a" ? `· ти пішов(ла) ліворуч (${k.l.toLowerCase()})` : my === "b" ? `· ти пішов(ла) праворуч (${k.r.toLowerCase()})` : "· ти не голосував(ла)";
+      noteEl.textContent = `${k.l}: ${result.a || 0} · ${k.r}: ${result.b || 0} ${mine}`;
+      noteEl.classList.remove("hidden");
+      const last = room.currentRound + 1 >= room.totalRounds;
+      const nextBtn = document.getElementById("nextBtn");
+      nextBtn.textContent = last ? "Підсумок" : "Наступне твердження";
+      nextBtn.classList.toggle("hidden", !ctx.host);
+      document.getElementById("waitHostLine").classList.toggle("hidden", !!ctx.host);
+    }
+  }
+
+  // Таймер лише для останніх: клієнт тільки показує секунди (рішення приймає хост)
+  function updateTimerLine() {
+    const el = document.getElementById("timerLine");
+    const room = lastRoom;
+    if (!room || room.phase !== "voting" || !room.timerEndsAt) { el.classList.add("hidden"); return; }
+    const st = G.votingState(room);
+    const secs = Math.max(0, Math.ceil((room.timerEndsAt - G.now()) / 1000));
+    el.classList.remove("hidden");
+    el.textContent = `⏳ Чекаємо на останніх (${st.remaining}) · ${secs} с`;
+  }
+
+  // ---------------- фінал ----------------
+  function renderFinal(room, ctx) {
+    const f = room.final || {};
+    const ranking = f.ranking || [];
+    const losers = f.losers || [];
+    const tasks = f.tasks || {};
+    finalTrack.update(room, { labels: ["Згодні", "Не згодні"], me: ctx.username, moved: (n) => (losers.includes(n) ? "b" : null) });
+    const left = ranking.filter((r) => r.pos < 0), right = ranking.filter((r) => r.pos > 0), mid = ranking.filter((r) => r.pos === 0);
+    const fmt = (r) => `${escapeHtml(r.name)} ${r.pos > 0 ? "+" : ""}${r.pos}`;
+    document.getElementById("zonesBox").innerHTML =
+      `<div class="l"><h4>Ліворуч · ${left.length}</h4>${left.map(fmt).join("<br>") || "—"}</div>` +
+      `<div class="r"><h4>Праворуч · ${right.length}</h4>${right.slice().reverse().map(fmt).join("<br>") || "—"}</div>` +
+      (mid.length ? `<div style="grid-column:1/-1;text-align:center;color:var(--text-muted,#8b909c);">У центрі: ${mid.map((r) => escapeHtml(r.name)).join(", ")}</div>` : "");
+    let note;
+    if (!losers.length) {
+      note = !left.length && !right.length ? "Усі лишились у центрі — нікого не програло"
+        : (!left.length || !right.length) ? "Усі на одному боці — ніхто не програв 🎉" : "Порівну з обох боків — ніхто не програв";
+    } else {
+      const loserSide = ranking.find((r) => r.name === losers[0]).pos < 0 ? "ліворуч" : "праворуч";
+      note = `Меншість — ${loserSide} (${losers.length}): обираєте завдання`;
+    }
+    document.getElementById("finalNote").textContent = note;
+
+    document.getElementById("tasksBox").innerHTML = losers.map((n) => {
+      const t = tasks[n] || { options: [] };
+      const chosen = Number.isInteger(t.chosen) ? t.options[t.chosen] : null;
+      let body;
+      if (chosen) body = `<div class="task-chosen">${escapeHtml(chosen)}</div>`;
+      else if (n === ctx.username) body = (t.options || []).map((o, i) => `<button class="btn task-opt" data-task="${i}">${escapeHtml(o)}</button>`).join("");
+      else body = '<div class="status-line" style="text-align:left;">обирає завдання…</div>';
+      return `<div class="task-card"><h4>${avatarHtml(room, n, { small: true })} ${escapeHtml(n)}</h4>${body}</div>`;
+    }).join("");
+    document.querySelectorAll("#tasksBox [data-task]").forEach((b) =>
+      b.addEventListener("click", () => G.chooseTask(Number(b.dataset.task))));
+    document.getElementById("playAgainBtn").classList.toggle("hidden", !ctx.host);
+  }
+
+  // ---------------- стан гри ----------------
+  function onState(room, ctx) {
+    lastRoom = room; lastCtx = ctx;
+    if (!ctx.username) { showView("locked"); return; }
+    if (!reactionsMounted && window.GameReactions && G.roomRef) {
+      reactionsMounted = true;
+      window.GameReactions.mount(G.roomRef, ctx.username);
+    }
+    const iAmIn = room.players && room.players[ctx.username];
+    const inOrder = (room.order || []).includes(ctx.username);
+    if (room.phase !== "lobby" && (!iAmIn || !inOrder)) { showView("waiting"); return; }
+    if (room.phase === "lobby") { showView("lobby"); renderLobby(room, ctx); }
+    else if (room.phase === "final") { showView("final"); renderFinal(room, ctx); }
+    else { showView("play"); renderPlay(room, ctx); }
+  }
+
+  document.getElementById("startBtn").addEventListener("click", () => G.startGame(lastRoom));
+  document.getElementById("resetBtn").addEventListener("click", () => { if (confirm("Скинути гру?")) G.resetGame(); });
+  document.getElementById("btnAgree").addEventListener("click", () => G.vote("a"));
+  document.getElementById("btnDisagree").addEventListener("click", () => G.vote("b"));
+  document.getElementById("revealNowBtn").addEventListener("click", () => G.forceReveal());
+  document.getElementById("nextBtn").addEventListener("click", () => G.next());
+  document.getElementById("playAgainBtn").addEventListener("click", () => G.resetGame());
+  setInterval(updateTimerLine, 500);
+  window.addEventListener("resize", () => { if (lastRoom && lastCtx) onState(lastRoom, lastCtx); });
+
+  function beginGame(username_, roomId) {
+    G.onStateChange = onState;
+    G.start(username_, roomId);
+  }
+
+  const session = window.AppAuth && window.AppAuth.getSession();
+  if (session && window.rtdbReady) {
+    RoomCodeUI.mount({
+      containerId: "activeRoomsList",
+      codeInputId: "roomCodeInput",
+      joinBtnId: "joinRoomBtn",
+      createBtnId: "createRoomBtn",
+      watchActiveRooms: G.watchActiveRooms,
+      renderRoomItem: (r) => `
+        <div class="player-chip"><span>Кімната ${RoomCodeUI.escapeHtml(r.roomId)}</span>
+        <span class="badge">${r.phase === "lobby" ? "Лобі" : "Гра триває"}</span></div>
+        <div class="status-line" style="text-align:left; font-size:12px;">Онлайн: ${r.connectedCount} / ${r.playerCount}</div>`,
+      onEnter: (roomId) => beginGame(session.username, roomId),
+    });
+    showView("room-entry");
+  } else {
+    showView("locked");
+  }
+
+  window.addEventListener("beforeunload", () => { if (window.DilemmasGame) G.stop(); });
+})();
+</script>
+</body>
+</html>
