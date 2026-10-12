@@ -65,12 +65,10 @@
     const style = document.createElement("style");
     style.id = "game-notes-style";
     style.textContent = `
-      /* Кнопка тепер докована в #gameHeader/#top-bar (position: static),
-         той самий розмір/стиль, що й .auth-pill у login.js, аби виглядала
-         частиною тієї ж групи іконок, а не окремим стороннім елементом. */
+      /* Кнопка докована в #gameHeader/#top-bar, поруч з іншими діями. */
       .notes-header-btn {
         position: static;
-        margin: 0 8px; /* .slot-center і #top-bar не завжди мають свій gap між дітьми — без цього кнопка тулиться впритул до сусіда */
+        margin: 0;
         width: 36px; height: 36px; border-radius: 50%;
         border: 1px solid var(--line, rgba(255,255,255,0.15));
         background: rgba(255,255,255,0.08);

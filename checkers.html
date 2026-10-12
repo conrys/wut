@@ -24,9 +24,8 @@
     --z-modal: 100;
   }
 
-  /* .page/.pad — той самий контракт, що в мафії: .page БЕЗ горизонтальних
-     відступів (game-header.js вставляє #gameHeader першою дитиною .page,
-     тож хедер розтягується на всю ширину «екрана»); увесь padding — на .pad. */
+  /* Хедер закріплений на viewport і незалежний від .page. Spacer зберігає
+     його місце у потоці, а відступи ігрового вмісту лишаються на .pad. */
   .page { max-width: 480px; margin: 0 auto; min-height: 100dvh; position: relative;
       z-index: 0; overflow: hidden; display: flex; flex-direction: column; }
   .pad { flex: 1; display: flex; flex-direction: column;
@@ -117,6 +116,8 @@
   .draw-offer-bar { display: flex; align-items: center; gap: 10px; justify-content: center; background: var(--bg-tile); border-radius: var(--radius-sm); padding: 10px; margin-bottom: 10px; font-size: 13px; }
   .draw-offer-bar .btn { padding: 6px 12px; font-size: 12px; }
 </style>
+<link rel="stylesheet" href="js/game-header.css">
+<script src="js/game-header.js" defer></script>
 </head>
 <body>
 <!-- Спрайт фігур шашок (кружечки): symbol id = колір(w/b)+тип(m=проста, k=дамка) -->
@@ -301,10 +302,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
 <script src="js/firebase-config.js"></script>
 <script src="js/app-settings.js"></script>
-<link rel="stylesheet" href="js/game-header.css">
 <link rel="stylesheet" href="js/reactions.css">
 <link rel="stylesheet" href="js/reactions.css">
-<script src="js/game-header.js"></script>
 <script src="js/login.js"></script>
 <script src="js/online-engine.js"></script>
 <script src="js/checkers-rules.js"></script>

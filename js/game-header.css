@@ -8,23 +8,36 @@
    (напр. вертикальний заголовок фази гри в mafia-host.html — там свій
    .phase-header).
 
-   Верхній відступ (--app-header-margin-top) виставляє js/app-settings.js —
-   підключати game-header.css/js ПІСЛЯ app-settings.js.
+   Верхній відступ (--app-header-margin-top) виставляє js/app-settings.js.
+   CSS і defer-скрипт хедера підключати в <head> кожної ігрової сторінки.
 
-   Підключати ПЕРЕД сторінковими стилями, якщо сторінці потрібен модифікатор
-   (game-header--fixed).
+   Спеціальні модифікатори сторінок (наприклад game-header--fixed) задаються
+   на самому хедері; компонент не залежить від .page.
    ========================================================================== */
 .game-header {
-    display: flex;
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    gap: 10px;
-    margin-top: max(env(safe-area-inset-top), var(--app-header-margin-top, 24px));
+    position: fixed;
+    inset: max(env(safe-area-inset-top), var(--app-header-margin-top, 24px)) 0 auto;
+    z-index: 1000;
+    width: auto;
+    max-width: none;
+    gap: clamp(4px, 2vw, 10px);
     padding: 6px 10px;
     background: #00000050;
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
+}
+
+.game-header-spacer {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: 100%;
+  align-self: stretch;
+  margin-top: calc(max(env(safe-area-inset-top), var(--app-header-margin-top, 24px)) - var(--game-header-page-padding-top, 0px));
+  pointer-events: none;
 }
 
 .game-header .slot-left,
@@ -32,8 +45,18 @@
 .game-header .slot-right {
   display: flex;
   align-items: center;
-  flex: 1;
   min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.game-header .slot-left > *,
+.game-header .slot-center > *,
+.game-header .slot-right > * {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  max-width: 100%;
+  white-space: nowrap;
 }
 .game-header .slot-left { justify-content: flex-start; }
 .game-header .slot-center { justify-content: center; }
@@ -44,11 +67,10 @@
 /* quiplash.html: фіксований хедер поверх контенту, свій темний фон замість
    напівпрозорої "картки" (1:1 з тим, що раніше було в #gameHeader). */
 .game-header--fixed {
-  position: fixed;
   inset: 0 0 auto;
-  z-index: 20;
   max-width: none;
   margin: 0;
+  width: 100%;
   padding: max(8px, env(safe-area-inset-top)) 16px 8px;
   background: rgba(30, 30, 36, 0.96);
   border: none;
@@ -62,3 +84,22 @@
 .game-header [role="button"] {
   min-height: 36px;
 }
+
+.app-back-btn {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: #f4f5f1;
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.app-back-btn:active { opacity: 0.6; }

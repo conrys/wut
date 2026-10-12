@@ -183,6 +183,8 @@
       cursor: pointer;
     }
   </style>
+<link rel="stylesheet" href="js/game-header.css">
+<script src="js/game-header.js" defer></script>
 </head>
 <body>
 
@@ -210,7 +212,6 @@
       </div>
     </div>
   </div>
-  
 </div>
 
 <script>
@@ -276,6 +277,67 @@
       previousState = null;
       hasWonBefore = false;
       tilesLayer.innerHTML = '';
+    }
+
+    // ---- Кеш незавершеної спроби (localStorage) ----
+    // Якщо вийти з гри (назад/закрити вкладку) не на "ГРА ЗАКІНЧЕНА", прогрес
+    // раніше просто губився — наступний заход завжди починав новою партією.
+    // Зберігаємо після кожного ходу; відновлюємо при заході, якщо є що.
+    const CACHE_KEY = 'game2048State';
+
+    function saveToCache() {
+      try {
+        const plainTiles = {};
+        for (const id in tiles) {
+          const t = tiles[id];
+          plainTiles[id] = { id: t.id, r: t.r, c: t.c, value: t.value };
+        }
+        localStorage.setItem(CACHE_KEY, JSON.stringify({
+          v: 1, grid, tiles: plainTiles, nextId, score, hasWonBefore, phase,
+        }));
+      } catch (e) {}
+    }
+
+    function clearCache() {
+      try { localStorage.removeItem(CACHE_KEY); } catch (e) {}
+    }
+
+    // Повертає true, якщо реально щось відновила (і сама побудувала DOM
+    // плиток через createTileEl — без анімації "spawn", бо це не нова
+    // плитка, а продовження).
+    function loadFromCache() {
+      try {
+        const raw = localStorage.getItem(CACHE_KEY);
+        if (!raw) return false;
+        const data = JSON.parse(raw);
+        if (!data || data.v !== 1 || !data.tiles || !data.grid) return false;
+
+        resetState();
+        grid = data.grid;
+        nextId = data.nextId || 1;
+        score = data.score || 0;
+        hasWonBefore = !!data.hasWonBefore;
+        // "won" — банер уже показували минулого разу; продовжуємо як playing,
+        // щоб checkWin() не вистрибнув повторно (hasWonBefore це й так гарантує).
+        phase = data.phase === 'won' ? 'playing' : (data.phase || 'playing');
+
+        tiles = {};
+        for (const id in data.tiles) {
+          const t = data.tiles[id];
+          const tile = { id: t.id, r: t.r, c: t.c, value: t.value };
+          tiles[id] = tile;
+          createTileEl(tile);
+          if (tile.innerEl) tile.innerEl.classList.remove('spawn');
+        }
+        scoreVal.textContent = score;
+
+        if (phase === 'over') {
+          showOverlay('ГРА ЗАКІНЧЕНА', 'Нова гра', () => newGame());
+        }
+        return true;
+      } catch (e) {
+        return false;
+      }
     }
 
     try {
@@ -440,6 +502,7 @@
         checkWin();
         checkGameOver();
         sendScoreProgress();
+        saveToCache();
       }, MOVE_DURATION);
     }
 
@@ -490,6 +553,7 @@
       hideOverlay();
       spawnRandomTile();
       spawnRandomTile();
+      saveToCache(); // нова партія одразу стає тим, що кешується далі
     }
 
     let overlayAction = null;
@@ -561,17 +625,18 @@
     }
 
     measureGrid();
-    resetState();
-    spawnRandomTile();
-    spawnRandomTile();
+    if (!loadFromCache()) {
+      resetState();
+      spawnRandomTile();
+      spawnRandomTile();
+      saveToCache();
+    }
   })();
 </script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="js/firebase-config.js"></script>
 <script src="js/app-settings.js"></script>
-<link rel="stylesheet" href="js/game-header.css">
-<script src="js/game-header.js"></script>
 <script src="js/login.js"></script>
 <script src="js/score-connect.js"></script>
 <script src="js/records.js"></script>
