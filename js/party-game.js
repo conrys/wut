@@ -1,6 +1,7 @@
 // ==========================================================================
 // «Вечірка» на спільному OnlineEngine (js/online-engine.js). Кімната
-// "party_rooms": ОДНА кімната на весь вечір, режими (js/party-modes.js)
+// Separate room namespaces per fixed-mode page; legacy party.html still uses
+// the shared "party_rooms" namespace and lets the host switch modes.
 // ведучий міняє між наборами раундів, не виходячи з кімнати. Лічильники
 // ковтків і балів живуть у кімнаті й накопичуються через усі набори.
 //
@@ -17,7 +18,9 @@
 // online-engine.js, party-seed.js, party-modes.js.
 // ==========================================================================
 (function () {
-  const GAME_KEY = "party";
+  const config = window.PartyConfig || {};
+  const FIXED_MODE = config.mode || null;
+  const GAME_KEY = config.gameKey || "party";
   const PHASES = ["lobby", "round", "summary"];
   const TICK_MS = 500;
   const SET_CAP = 6;               // ковтків на гравця за один набір
@@ -31,7 +34,7 @@
   const SCHEMA = {
     phase: "lobby",
     hostUsername: null,
-    settings: { mode: "whofrom", rounds: 8, level: DEFAULT_LEVEL },
+    settings: { mode: FIXED_MODE || "whofrom", rounds: (window.PartyModes && window.PartyModes.MODES[FIXED_MODE] && window.PartyModes.MODES[FIXED_MODE].defaultRounds) || 8, level: DEFAULT_LEVEL },
     setId: null,       // унікальний id набору
     mode: null,        // режим, що зараз грається
     order: null,       // хто грає цей набір (підключені на старті)
@@ -53,7 +56,11 @@
   let busy = false;
 
   const modes = () => (window.PartyModes && window.PartyModes.MODES) || {};
-  function buildFreshRoom() { return { players: {}, settings: { mode: "whofrom", rounds: 8, level: DEFAULT_LEVEL } }; }
+  function buildFreshRoom() {
+    const modeId = FIXED_MODE || "whofrom";
+    const rounds = (modes()[modeId] && modes()[modeId].defaultRounds) || 8;
+    return { players: {}, settings: { mode: modeId, rounds, level: DEFAULT_LEVEL } };
+  }
   function connectedNames(players) {
     return Object.entries(players || {}).filter(([, p]) => engine.isConnected(p)).map(([n]) => n);
   }
@@ -248,7 +255,8 @@
     const room = engine.latestRoom;
     if (!room || room.phase === "round" || !isHostNow()) return;
     const next = {};
-    if (partial && modes()[partial.mode]) { next.mode = partial.mode; next.rounds = modes()[partial.mode].defaultRounds; }
+    if (partial && !FIXED_MODE && modes()[partial.mode]) { next.mode = partial.mode; next.rounds = modes()[partial.mode].defaultRounds; }
+    if (FIXED_MODE && modes()[FIXED_MODE] && !room.settings?.mode) next.mode = FIXED_MODE;
     if (partial && ROUND_OPTIONS.includes(Number(partial.rounds))) next.rounds = Number(partial.rounds);
     if (partial && [1, 2, 3].includes(Number(partial.level))) next.level = Number(partial.level);
     if (Object.keys(next).length) engine.roomRef.child("settings").update(next);
@@ -258,7 +266,7 @@
     room = room || engine.latestRoom;
     if (!room || room.phase === "round" || !isHostNow()) return { ok: false, reason: "not-allowed" };
     const settings = room.settings || {};
-    const mode = modes()[settings.mode];
+    const mode = modes()[FIXED_MODE || settings.mode];
     if (!mode) return { ok: false, reason: "no-mode" };
     const names = connectedNames(room.players);
     if (names.length < mode.minPlayers) return { ok: false, reason: "not-enough-players" };

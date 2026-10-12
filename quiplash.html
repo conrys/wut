@@ -11,10 +11,6 @@ body {
   margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
   font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   overscroll-behavior: none; -webkit-user-select: none; user-select: none;
-  /* #gameHeader тут position:fixed (game-header--fixed) — виходить із потоку,
-     тому контент під ним сам не відсувається. Компенсуємо тим самим
-     відступом, що й сам хедер резервує собі зверху (safe-area + висота). */
-  padding-top: calc(60px + env(safe-area-inset-top));
 }
 h1, h2 { margin: 0 0 8px; }
 .hint { color: #9a9aa5; font-size: 14px; margin: 4px 0 16px; }

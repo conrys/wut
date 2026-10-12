@@ -1,0 +1,362 @@
+<!-- Гра: Суд Лінча -->
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<title>Суд Лінча</title>
+<link rel="stylesheet" href="js/teli-style.css" />
+<style>
+  /* аватари (персонажі зі Смішліста: img/char1..8.svg) */
+  .av { position: relative; display: inline-flex; flex: none; align-items: center; justify-content: center; width: 44px; height: 44px;
+    border-radius: 50%; background: var(--c, #888); border: 2px solid rgba(255,255,255,0.35); box-sizing: border-box; overflow: visible; transition: opacity .25s; }
+  .av img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
+  .av.sm { width: 30px; height: 30px; }
+  .av.dim { opacity: 0.3; }
+  .av .tick { display: none; position: absolute; right: -4px; bottom: -4px; width: 17px; height: 17px; border-radius: 50%; background: #38cfa0; color: #06231a;
+    font-size: 11px; font-weight: 800; line-height: 17px; text-align: center; }
+  .av.voted .tick { display: block; }
+  .av-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 12px 0; }
+  .av-pulse { animation: avPulse 1s ease-in-out infinite; }
+  @keyframes avPulse { 50% { opacity: 0.65; transform: scale(1.06); } }
+
+  /* етап раунду */
+  .pt-head { text-align: center; margin-bottom: 8px; }
+  .pt-head .mode { font-weight: 800; font-size: 15px; }
+  .pt-head .rn { font-size: 12px; color: var(--text-muted, #8b909c); }
+  .pt-text { text-align: center; font-size: 19px; font-weight: 800; line-height: 1.3; padding: 16px 12px; margin: 8px 0 12px; background: var(--bg-tile, #20242c); border-radius: 14px; }
+  .pt-hint { text-align: center; font-size: 14px; margin: 6px 0 10px; }
+  .pt-roles { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 8px 0; }
+  .pt-role { display: flex; align-items: center; gap: 8px; background: var(--bg-tile, #20242c); padding: 6px 10px; border-radius: 12px; font-size: 13px; }
+  .pt-role small { display: block; font-size: 10px; color: var(--text-muted, #8b909c); text-transform: uppercase; letter-spacing: .05em; }
+  .pt-names { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .pt-name { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px; border-radius: 12px; border: 2px solid transparent; background: var(--bg-tile, #20242c);
+    color: inherit; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; word-break: break-word; }
+  .pt-name.selected { border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,0.25); }
+  .pt-name.self { opacity: 0.85; }
+  .pt-choices { display: grid; gap: 8px; }
+  .pt-choice { padding: 18px 10px; border-radius: 14px; border: 2px solid transparent; font: inherit; font-size: 17px; font-weight: 800; color: #fff; background: #3a4a7a; cursor: pointer; }
+  .pt-choice:nth-child(1) { background: #2a9d6e; } .pt-choice:nth-child(2) { background: #cf4a5c; }
+  .pt-choice.selected { border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,0.3); }
+  .pt-timer { text-align: center; font-weight: 700; font-size: 14px; color: #ffb454; margin: 8px 0; }
+  .pt-wait { text-align: center; margin: 10px 0; font-size: 13px; }
+  .pt-headline { text-align: center; font-size: 21px; font-weight: 800; margin: 10px 0; }
+  .pt-bar { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: 13px; }
+  .pt-bar .lbl { width: 92px; flex: none; display: flex; align-items: center; gap: 6px; font-weight: 700; overflow: hidden; }
+  .pt-bar .track { flex: 1; height: 14px; border-radius: 7px; background: rgba(255,255,255,0.1); overflow: hidden; }
+  .pt-bar .track i { display: block; height: 100%; background: #4a86e8; border-radius: 7px; transition: width .6s; }
+  .pt-bar .val { width: 24px; text-align: right; font-weight: 800; }
+  .pt-lines { text-align: center; font-size: 13px; line-height: 1.5; margin: 8px 0; }
+  .pt-drink { text-align: center; border-radius: 16px; padding: 18px 10px; margin: 12px 0; font-size: 24px; font-weight: 900; background: linear-gradient(135deg, #e0503c, #f08a3c); color: #fff; animation: ptPop .5s ease; }
+  .pt-drink small { display: block; font-size: 12px; font-weight: 600; margin-top: 4px; opacity: .9; }
+  @keyframes ptPop { 0% { transform: scale(.6); opacity: 0; } 70% { transform: scale(1.08); } 100% { transform: scale(1); opacity: 1; } }
+  .pt-others { text-align: center; font-size: 13px; margin: 8px 0; color: var(--text-muted, #8b909c); }
+  .pt-modes { display: grid; gap: 8px; margin-bottom: 12px; }
+  .pt-mode { text-align: left; padding: 10px 12px; border-radius: 12px; border: 2px solid transparent; background: var(--bg-tile, #20242c); color: inherit; font: inherit; cursor: pointer; }
+  .pt-mode b { display: block; font-size: 15px; margin-bottom: 2px; }
+  .pt-mode span { font-size: 12px; color: var(--text-muted, #8b909c); line-height: 1.35; }
+  .pt-mode.selected { border-color: var(--accent); }
+  .pt-rank { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 10px; margin-bottom: 4px; background: var(--bg-tile, #20242c); font-size: 14px; }
+  .pt-rank .n { flex: 1; font-weight: 700; } .pt-rank .v { font-weight: 800; }
+  .pt-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .pt-cols h4 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted, #8b909c); }
+  .seg { display: flex; gap: 6px; margin-bottom: 12px; }
+  .seg .btn { flex: 1; padding: 8px 6px; font-size: 13px; }
+  .seg .btn.selected { background: var(--accent); color: #0e2419; border-color: var(--accent); }
+  .rules-list { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.5; }
+  .rules-list li { margin-bottom: 6px; }
+  .seg { display: flex; gap: 6px; margin-bottom: 12px; }
+  .seg .btn { flex: 1; padding: 8px 6px; font-size: 13px; }
+  .seg .btn.selected { background: var(--accent); color: #0e2419; border-color: var(--accent); }
+</style>
+<link rel="stylesheet" href="js/game-header.css">
+<script src="js/game-header.js" defer></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="title-block" id="titleBlock"><h1>⚖️ Суд Лінча</h1></div>
+
+  <div class="hidden stage-center" id="view-locked">
+    <div class="empty-state"><div class="empty-icon">🔒</div><div class="status-line">Увійди в профіль, щоб грати з друзями</div></div>
+  </div>
+
+  <div class="hidden stage-center" id="view-waiting">
+    <div class="empty-state"><div class="empty-icon">⏳</div><div class="status-line">Раунд іде — приєднаєшся до наступного набору</div></div>
+  </div>
+
+  <div class="hidden stage" id="view-room-entry">
+    <div class="status-line">Обери активну кімнату або введи код друга</div>
+    <div class="card rooms-list" id="activeRoomsList"></div>
+    <div class="divider">або вручну</div>
+    <input class="field" id="roomCodeInput" maxlength="5" placeholder="КОД КІМНАТИ" style="text-align:center; text-transform:uppercase; letter-spacing:0.1em;" />
+    <button class="btn btn-primary btn-block" id="joinRoomBtn">Приєднатись</button>
+    <div class="divider">або</div>
+    <button class="btn btn-block" id="createRoomBtn">Створити нову кімнату</button>
+  </div>
+
+  <!-- ЛОБІ: вибір режиму -->
+  <div class="hidden stage" id="view-lobby">
+    <div class="room-code-display" id="roomCodeDisplay"></div>
+    <div class="status-line" id="lobbyStatus"></div>
+    <div class="card">
+      <h3>Гравці</h3>
+      <div id="playersList"></div>
+    </div>
+    <div class="card hidden" id="eveningBox"><h3>Вечір</h3><div id="eveningTally"></div></div>
+    <div class="card hidden" id="hostPanel">
+      <label style="display:block; font-size:12px; color:var(--text-muted,#8b909c); margin-bottom:6px;">Режим</label>
+      <div class="pt-modes" id="modeList"></div>
+      <label style="display:block; font-size:12px; color:var(--text-muted,#8b909c); margin-bottom:6px;">Раундів</label>
+      <div class="seg" id="roundsSeg"></div>
+      <label style="display:block; font-size:12px; color:var(--text-muted,#8b909c); margin-bottom:6px;">Гострота</label>
+      <div class="seg" id="levelSeg"></div>
+      <button class="btn btn-primary btn-block" id="startBtn">Почати</button>
+      <div class="err-msg" id="startHint"></div>
+    </div>
+    <div class="status-line hidden" id="waitHostLobby">Очікуємо, поки ведучий налаштує гру...</div>
+    <div class="card">
+      <h3>Як це працює</h3>
+      <ol class="rules-list">
+        <li>Кімната присвячена режиму «Суд Лінча», а рахунок ковтків і балів зберігається на весь вечір.</li>
+        <li>«Ковток» — це будь-який напій, у своєму темпі. За один набір більше 6 ковтків на людину не нараховується.</li>
+        <li>Усе на телефонах: питання, голосування й результат.</li>
+      </ol>
+    </div>
+    <button class="btn btn-block hidden" id="resetBtn" style="opacity:0.6;">Скинути вечір</button>
+  </div>
+
+  <!-- РАУНД -->
+  <div class="hidden stage" id="view-round">
+    <div class="pt-head"><div class="mode" id="modeTitle"></div><div class="rn" id="roundLabel"></div></div>
+    <div class="pt-text" id="stageText"></div>
+    <div class="pt-roles" id="stageRoles"></div>
+    <div class="pt-hint" id="stageHint"></div>
+    <div id="inputArea"></div>
+    <div class="pt-timer hidden" id="stageTimer"></div>
+    <div class="pt-wait" id="waitInfo"></div>
+    <div id="revealArea"></div>
+    <button class="btn btn-primary btn-block hidden" id="hostNextBtn">Далі</button>
+    <button class="btn btn-block hidden" id="endSetBtn" style="opacity:0.6; margin-top:8px;">Завершити набір</button>
+  </div>
+
+  <!-- ПІДСУМОК -->
+  <div class="hidden stage" id="view-summary">
+    <div class="waiting-count">Підсумок набору</div>
+    <div class="pt-cols">
+      <div><h4>🥃 Ковтки (вечір)</h4><div id="sumDrinks"></div></div>
+      <div><h4>⭐ Бали (вечір)</h4><div id="sumPoints"></div></div>
+    </div>
+    <button class="btn btn-primary btn-block hidden" id="toLobbyBtn" style="margin-top:12px;">Повернутись у лобі</button>
+        <div class="status-line hidden" id="waitHostSummary">Очікуємо ведучого в лобі...</div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/app-settings.js"></script>
+<link rel="stylesheet" href="js/reactions.css">
+<script src="js/login.js"></script>
+<script src="js/online-engine.js"></script>
+<script src="js/party-seed.js"></script>
+<script src="js/party-modes.js"></script>
+<script>window.PartyConfig = { mode: "court", gameKey: "party_court" };</script>
+<script src="js/party-game.js"></script>
+<script src="js/room-code-ui.js"></script>
+<script src="js/reactions.js"></script>
+<script src="js/help.js"></script>
+<script src="js/back-button.js"></script>
+<script>
+(function () {
+  const VIEWS = ["locked", "room-entry", "waiting", "lobby", "round", "summary"];
+  function showView(name) {
+    VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name));
+    document.getElementById("titleBlock").classList.toggle("hidden", name === "round" || name === "summary");
+  }
+  function escapeHtml(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+  const G = window.PartyGame;
+  const MODES = window.PartyModes.MODES;
+  if (window.PartyConfig && window.PartyConfig.mode) {
+    document.getElementById("modeList").classList.add("hidden");
+    document.getElementById("modeList").previousElementSibling.textContent = `${MODES[window.PartyConfig.mode].icon} ${MODES[window.PartyConfig.mode].title}`;
+  }
+  const LEVEL_LABELS = { 1: "Легко", 2: "З перчинкою", 3: "Гаряче" };
+  let lastRoom = null, lastCtx = null, reactionsMounted = false;
+  let builtStageId = null;   // id етапу, для якого вже збудовано кнопки введення (щоб не збивати виділення)
+
+  function avatarHtml(room, name, opts) {
+    const p = (room.players && room.players[name]) || {};
+    const cls = ["av", opts && opts.small ? "sm" : ""].filter(Boolean).join(" ");
+    return `<span class="${cls}" style="--c:${escapeHtml(p.color || "#888")}" title="${escapeHtml(name)}"><img src="img/char${Number(p.character) || 1}.svg" alt="" /></span>`;
+  }
+
+  // ---------------- лобі ----------------
+  function segButtons(containerId, items, current, onPick) {
+    const el = document.getElementById(containerId);
+    if (el.dataset.built !== "1") {
+      el.innerHTML = items.map(([val, label]) => `<button class="btn" data-val="${val}">${escapeHtml(label)}</button>`).join("");
+      el.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => onPick(Number(b.dataset.val))));
+      el.dataset.built = "1";
+    }
+    el.querySelectorAll("button").forEach((b) => b.classList.toggle("selected", Number(b.dataset.val) === Number(current)));
+  }
+  function renderTallyList(room, which) {
+    const t = (room.tally && room.tally[which]) || {};
+    return Object.entries(t).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).map(([n, v]) =>
+      `<div class="pt-rank">${avatarHtml(room, n, { small: true })}<span class="n">${escapeHtml(n)}</span><span class="v">${v}</span></div>`).join("") ||
+      '<div class="status-line" style="text-align:left;">поки порожньо</div>';
+  }
+  function renderLobby(room, ctx) {
+    const conn = G.connectedNames(room.players), hostName = G.computeHost(room.players);
+    document.getElementById("roomCodeDisplay").textContent = G.roomId || "";
+    document.getElementById("lobbyStatus").innerHTML = `<span class="pulse-dot"></span> Гравців онлайн: ${conn.length}`;
+    document.getElementById("playersList").innerHTML = Object.keys(room.players || {}).map((n) =>
+      `<div class="player-chip ${conn.includes(n) ? "" : "offline"}"><span style="display:flex;align-items:center;gap:10px;">${avatarHtml(room, n, { small: true })}${escapeHtml(n)}</span>${n === hostName ? '<span class="badge">ВЕДУЧИЙ</span>' : ""}</div>`).join("") || '<div class="status-line">Ще нікого немає</div>';
+    const hasTally = room.tally && (room.tally.drinks || room.tally.points);
+    document.getElementById("eveningBox").classList.toggle("hidden", !hasTally);
+    if (hasTally) document.getElementById("eveningTally").innerHTML = `<div class="pt-cols"><div><h4>🥃 Ковтки</h4>${renderTallyList(room, "drinks")}</div><div><h4>⭐ Бали</h4>${renderTallyList(room, "points")}</div></div>`;
+    document.getElementById("hostPanel").classList.toggle("hidden", !ctx.host);
+    document.getElementById("resetBtn").classList.toggle("hidden", !ctx.host);
+    document.getElementById("waitHostLobby").classList.toggle("hidden", !!ctx.host);
+    if (!ctx.host) return;
+    const s = room.settings || {};
+    const list = document.getElementById("modeList");
+    list.innerHTML = window.PartyModes.ORDER.map((id) => {
+      const m = MODES[id];
+      return `<button class="pt-mode ${s.mode === id ? "selected" : ""}" data-mode="${id}"><b>${m.icon} ${escapeHtml(m.title)}</b><span>${escapeHtml(m.desc)}</span></button>`;
+    }).join("");
+    list.querySelectorAll("[data-mode]").forEach((b) => b.addEventListener("click", () => G.updateSettings({ mode: b.dataset.mode })));
+    segButtons("roundsSeg", G.ROUND_OPTIONS.map((n) => [n, String(n)]), s.rounds, (n) => G.updateSettings({ rounds: n }));
+    segButtons("levelSeg", [1, 2, 3].map((n) => [n, "🌶️".repeat(n) + " " + LEVEL_LABELS[n]]), s.level || G.DEFAULT_LEVEL, (n) => G.updateSettings({ level: n }));
+    const mode = MODES[s.mode], enough = mode && conn.length >= mode.minPlayers;
+    document.getElementById("startBtn").disabled = !enough;
+    document.getElementById("startHint").textContent = !mode ? "Обери режим" : enough ? "" : `Потрібно мінімум ${mode.minPlayers} гравців онлайн`;
+  }
+
+  // ---------------- раунд ----------------
+  function waitingAvatars(room, names) { return names.map((n) => avatarHtml(room, n, { small: true })).join(" "); }
+
+  function renderRound(room, ctx) {
+    const st = room.stage, mode = MODES[room.mode] || { title: "", icon: "" };
+    document.getElementById("modeTitle").textContent = `${mode.icon} ${mode.title}`;
+    document.getElementById("roundLabel").textContent = `Раунд ${room.roundNo + 1} з ${room.totalRounds}`;
+    document.getElementById("stageText").textContent = st.text || "";
+    document.getElementById("stageText").classList.toggle("hidden", !st.text);
+    document.getElementById("stageRoles").innerHTML = (st.roles || []).map((r) =>
+      `<div class="pt-role">${avatarHtml(room, r.name)}<span><small>${escapeHtml(r.label)}</small>${escapeHtml(r.name)}</span></div>`).join("");
+    document.getElementById("stageHint").textContent = st.hint || "";
+    const isReveal = st.kind === "reveal";
+    const inputArea = document.getElementById("inputArea"), revealArea = document.getElementById("revealArea");
+    revealArea.classList.toggle("hidden", !isReveal);
+    inputArea.classList.toggle("hidden", isReveal);
+    const waiting = G.waitingNames(room);
+    const expect = st.expect || [];
+    const mine = G.inputOf(room, ctx.username);
+    const iExpected = expect.includes(ctx.username);
+
+    if (isReveal) {
+      document.getElementById("stageHint").textContent = "";
+      const bars = st.bars || [], maxV = Math.max(1, ...bars.map((b) => b.value));
+      const pen = st.penalties || {};
+      const drinkBanner = pen[ctx.username]
+        ? `<div class="pt-drink">🥃 Ковток!${pen[ctx.username] > 1 ? " ×" + pen[ctx.username] : ""}<small>або будь-який напій — у своєму темпі</small></div>` : "";
+      const drinkers = Object.keys(pen).filter((n) => n !== ctx.username);
+      revealArea.innerHTML = `<div class="pt-headline">${escapeHtml(st.headline || "")}</div>` +
+        bars.map((b) => `<div class="pt-bar"><span class="lbl">${b.name ? avatarHtml(room, b.name, { small: true }) + escapeHtml(b.name) : escapeHtml(b.label)}</span><span class="track"><i style="width:${Math.round((b.value / maxV) * 100)}%"></i></span><span class="val">${b.value}</span></div>`).join("") +
+        `<div class="pt-lines">${(st.lines || []).map((l) => `<div>${escapeHtml(l)}</div>`).join("")}</div>` + drinkBanner +
+        (drinkers.length ? `<div class="pt-others">🥃 П'ють: ${drinkers.map(escapeHtml).join(", ")}</div>` : "") +
+        ((st.capped || []).length ? `<div class="pt-others">Ліміт набору (${G.SET_CAP}): ${(st.capped).map(escapeHtml).join(", ")} без доданого ковтка</div>` : "");
+      document.getElementById("waitInfo").textContent = "";
+      document.getElementById("stageTimer").classList.add("hidden");
+    } else if (st.kind === "pick-name" && iExpected) {
+      if (builtStageId !== st.id) {
+        builtStageId = st.id;
+        inputArea.innerHTML = '<div class="pt-names">' + st.names.map((n) =>
+          `<button class="pt-name ${n === ctx.username ? "self" : ""}" data-name="${escapeHtml(n)}">${avatarHtml(room, n)}${escapeHtml(n)}</button>`).join("") + "</div>";
+        inputArea.querySelectorAll("[data-name]").forEach((b) => b.addEventListener("click", () => G.answer(b.dataset.name)));
+      }
+      inputArea.querySelectorAll("[data-name]").forEach((b) => b.classList.toggle("selected", b.dataset.name === mine));
+    } else if (st.kind === "choice" && iExpected) {
+      if (builtStageId !== st.id) {
+        builtStageId = st.id;
+        inputArea.innerHTML = '<div class="pt-choices">' + st.options.map((o) => `<button class="pt-choice" data-opt="${escapeHtml(o.id)}">${escapeHtml(o.label)}</button>`).join("") + "</div>";
+        inputArea.querySelectorAll("[data-opt]").forEach((b) => b.addEventListener("click", () => G.answer(b.dataset.opt)));
+      }
+      inputArea.querySelectorAll("[data-opt]").forEach((b) => b.classList.toggle("selected", b.dataset.opt === mine));
+    } else {
+      builtStageId = null;
+      inputArea.innerHTML = "";
+    }
+    if (!isReveal) {
+      let info = "";
+      if (expect.length) {
+        const answered = expect.length - waiting.length;
+        info = iExpected ? `Відповіли ${answered} з ${expect.length}` : `Відповідають: ${answered} з ${expect.length}`;
+        if (waiting.length && waiting.length <= 4) info += `<br>${waitingAvatars(room, waiting)}`;
+      }
+      document.getElementById("waitInfo").innerHTML = info;
+      updateTimer();
+    }
+    const showHost = ctx.host;
+    const nextBtn = document.getElementById("hostNextBtn");
+    nextBtn.classList.toggle("hidden", !showHost);
+    nextBtn.textContent = isReveal ? (room.roundNo + 1 >= room.totalRounds ? "Підсумок" : "Далі") : (st.kind === "show" ? "Далі" : "Показати результат зараз");
+    document.getElementById("endSetBtn").classList.toggle("hidden", !showHost);
+  }
+
+  function updateTimer() {
+    const el = document.getElementById("stageTimer"), room = lastRoom;
+    if (!room || room.phase !== "round" || !room.stage || room.stage.kind === "reveal" || !room.stage.endsAt) { el.classList.add("hidden"); return; }
+    el.classList.remove("hidden");
+    el.textContent = `⏳ ${Math.max(0, Math.ceil((room.stage.endsAt - G.now()) / 1000))} с`;
+  }
+
+  // ---------------- підсумок ----------------
+  function renderSummary(room, ctx) {
+    document.getElementById("sumDrinks").innerHTML = renderTallyList(room, "drinks");
+    document.getElementById("sumPoints").innerHTML = renderTallyList(room, "points");
+    document.getElementById("toLobbyBtn").classList.toggle("hidden", !ctx.host);
+    document.getElementById("waitHostSummary").classList.toggle("hidden", !!ctx.host);
+  }
+
+  function onState(room, ctx) {
+    lastRoom = room; lastCtx = ctx;
+    if (!ctx.username) { showView("locked"); return; }
+    if (!reactionsMounted && window.GameReactions && G.roomRef) { reactionsMounted = true; window.GameReactions.mount(G.roomRef, ctx.username); }
+    const iAmIn = room.players && room.players[ctx.username];
+    if (room.phase === "round") {
+      if (!iAmIn || !(room.order || []).includes(ctx.username)) { showView("waiting"); return; }
+      showView("round"); renderRound(room, ctx);
+    } else if (room.phase === "summary") { showView("summary"); renderSummary(room, ctx); }
+    else { builtStageId = null; showView("lobby"); renderLobby(room, ctx); }
+  }
+
+  document.getElementById("startBtn").addEventListener("click", () => G.startSet(lastRoom));
+  document.getElementById("resetBtn").addEventListener("click", () => { if (confirm("Скинути вечір (рахунок теж)?")) G.resetAll(); });
+  document.getElementById("hostNextBtn").addEventListener("click", () => G.skip());
+  document.getElementById("endSetBtn").addEventListener("click", () => { if (confirm("Завершити набір?")) G.endSet(); });
+  document.getElementById("toLobbyBtn").addEventListener("click", () => G.toLobby());
+  setInterval(updateTimer, 500);
+
+  function beginGame(username_, roomId) { G.onStateChange = onState; G.start(username_, roomId); }
+  const session = window.AppAuth && window.AppAuth.getSession();
+  if (session && window.rtdbReady) {
+    RoomCodeUI.mount({
+      containerId: "activeRoomsList", codeInputId: "roomCodeInput", joinBtnId: "joinRoomBtn", createBtnId: "createRoomBtn",
+      watchActiveRooms: G.watchActiveRooms,
+      renderRoomItem: (r) => `
+        <div class="player-chip"><span>Кімната ${RoomCodeUI.escapeHtml(r.roomId)}</span>
+        <span class="badge">${r.phase === "lobby" ? "Лобі" : r.phase === "summary" ? "Підсумок" : "Гра триває"}</span></div>
+        <div class="status-line" style="text-align:left; font-size:12px;">Онлайн: ${r.connectedCount} / ${r.playerCount}</div>`,
+      onEnter: (roomId) => beginGame(session.username, roomId),
+    });
+    showView("room-entry");
+  } else { showView("locked"); }
+  window.addEventListener("beforeunload", () => { if (window.PartyGame) G.stop(); });
+})();
+</script>
+</body>
+</html>

@@ -35,29 +35,29 @@
       }
     }
 
-    if (!header.classList.contains("game-header--fixed")) {
-      const page = header.closest(".page") || document.querySelector(".page") || document.body;
-      if (!spacer) {
-        spacer = document.createElement("div");
-        spacer.className = "game-header-spacer";
-        page.insertBefore(spacer, page === header.parentElement ? header : page.firstChild);
-      }
-      if (header.parentElement !== document.body) document.body.appendChild(header);
+    const fixedHeader = header.classList.contains("game-header--fixed");
+    const page = header.closest(".page") || document.querySelector(".page") || document.body;
+    if (!spacer) {
+      spacer = document.createElement("div");
+      spacer.className = "game-header-spacer";
+      page.insertBefore(spacer, page.firstChild);
+    }
+    spacer.classList.toggle("game-header-spacer--fixed", fixedHeader);
+    if (header.parentElement !== document.body) document.body.appendChild(header);
 
-      const syncSpacer = () => {
-        spacer.style.setProperty("--game-header-page-padding-top", getComputedStyle(page).paddingTop);
-        spacer.style.height = `${header.getBoundingClientRect().height}px`;
-      };
-      syncSpacer();
-      if (!resizeObserver && window.ResizeObserver) {
-        resizeObserver = new ResizeObserver(syncSpacer);
-        resizeObserver.observe(header);
-      }
-      if (!header.dataset.spacerSync) {
-        window.addEventListener("resize", syncSpacer, { passive: true });
-        document.addEventListener("appsettingschange", syncSpacer);
-        header.dataset.spacerSync = "true";
-      }
+    const syncSpacer = () => {
+      spacer.style.setProperty("--game-header-page-padding-top", fixedHeader ? "0px" : getComputedStyle(page).paddingTop);
+      spacer.style.height = `${header.getBoundingClientRect().height + 12}px`;
+    };
+    syncSpacer();
+    if (!resizeObserver && window.ResizeObserver) {
+      resizeObserver = new ResizeObserver(syncSpacer);
+      resizeObserver.observe(header);
+    }
+    if (!header.dataset.spacerSync) {
+      window.addEventListener("resize", syncSpacer, { passive: true });
+      document.addEventListener("appsettingschange", syncSpacer);
+      header.dataset.spacerSync = "true";
     }
 
     if (!isIndex && !header.querySelector("#backBtn")) {

@@ -145,6 +145,7 @@
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   }
   window.addEventListener('resize', resize);
+  if (window.ResizeObserver) new ResizeObserver(resize).observe(gameAreaEl);
   resize();
 
   // ---- фізичні константи ----

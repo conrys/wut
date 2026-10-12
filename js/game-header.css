@@ -40,6 +40,10 @@
   pointer-events: none;
 }
 
+.game-header-spacer--fixed {
+  margin-top: 0;
+}
+
 .game-header .slot-left,
 .game-header .slot-center,
 .game-header .slot-right {
