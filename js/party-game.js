@@ -26,8 +26,10 @@
   const SET_CAP = 6;               // ковтків на гравця за один набір
   const ROUND_OPTIONS = [4, 6, 8, 12];
   const DEFAULT_LEVEL = 2;
-  const DEFAULT_COURT_SPEAK_SECONDS = 15;
-  const COURT_SPEAK_SECONDS_RANGE = [5, 300];
+  const MIN_TIMER_SECONDS = 20, MAX_TIMER_SECONDS = 120;
+  const DEFAULT_TIMER_SECONDS = 60;
+  const DEFAULT_COURT_SPEAK_SECONDS = DEFAULT_TIMER_SECONDS;
+  const COURT_SPEAK_SECONDS_RANGE = [MIN_TIMER_SECONDS, MAX_TIMER_SECONDS];
   const ABANDON_MS = 15 * 60 * 1000;
   const AVATAR_STORAGE_PREFIX = "games41_quiplash_avatar_";
   const AVATAR_COLORS = ["#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#9b59b6", "#1abc9c", "#e67e22", "#ff6fa5"];
@@ -36,7 +38,7 @@
   const SCHEMA = {
     phase: "lobby",
     hostUsername: null,
-    settings: { mode: FIXED_MODE || "whofrom", rounds: (window.PartyModes && window.PartyModes.MODES[FIXED_MODE] && window.PartyModes.MODES[FIXED_MODE].defaultRounds) || 8, level: DEFAULT_LEVEL, courtSpeakSeconds: DEFAULT_COURT_SPEAK_SECONDS, courtAutoAdvance: true },
+    settings: { mode: FIXED_MODE || "whofrom", rounds: (window.PartyModes && window.PartyModes.MODES[FIXED_MODE] && window.PartyModes.MODES[FIXED_MODE].defaultRounds) || 8, level: DEFAULT_LEVEL, courtSpeakSeconds: DEFAULT_COURT_SPEAK_SECONDS, voteSeconds: DEFAULT_TIMER_SECONDS, betSeconds: DEFAULT_TIMER_SECONDS, decideSeconds: DEFAULT_TIMER_SECONDS, courtAutoAdvance: true },
     setId: null,       // унікальний id набору
     mode: null,        // режим, що зараз грається
     order: null,       // хто грає цей набір (підключені на старті)
@@ -61,7 +63,7 @@
   function buildFreshRoom() {
     const modeId = FIXED_MODE || "whofrom";
     const rounds = (modes()[modeId] && modes()[modeId].defaultRounds) || 8;
-    return { players: {}, settings: { mode: modeId, rounds, level: DEFAULT_LEVEL, courtSpeakSeconds: DEFAULT_COURT_SPEAK_SECONDS, courtAutoAdvance: true } };
+    return { players: {}, settings: { mode: modeId, rounds, level: DEFAULT_LEVEL, courtSpeakSeconds: DEFAULT_COURT_SPEAK_SECONDS, voteSeconds: DEFAULT_TIMER_SECONDS, betSeconds: DEFAULT_TIMER_SECONDS, decideSeconds: DEFAULT_TIMER_SECONDS, courtAutoAdvance: true } };
   }
   function connectedNames(players) {
     return Object.entries(players || {}).filter(([, p]) => engine.isConnected(p)).map(([n]) => n);
@@ -267,6 +269,10 @@
     if (Number.isInteger(courtSpeakSeconds) && courtSpeakSeconds >= COURT_SPEAK_SECONDS_RANGE[0] && courtSpeakSeconds <= COURT_SPEAK_SECONDS_RANGE[1]) {
       next.courtSpeakSeconds = courtSpeakSeconds;
     }
+    for (const key of ["voteSeconds", "betSeconds", "decideSeconds"]) {
+      const seconds = Number(partial && partial[key]);
+      if (Number.isInteger(seconds) && seconds >= MIN_TIMER_SECONDS && seconds <= MAX_TIMER_SECONDS) next[key] = seconds;
+    }
     if (partial && typeof partial.courtAutoAdvance === "boolean") next.courtAutoAdvance = partial.courtAutoAdvance;
     if (Object.keys(next).length) engine.roomRef.child("settings").update(next);
   }
@@ -313,7 +319,7 @@
 
   window.PartyGame = {
     SET_CAP, ROUND_OPTIONS, DEFAULT_LEVEL,
-    DEFAULT_COURT_SPEAK_SECONDS, COURT_SPEAK_SECONDS_RANGE,
+    DEFAULT_COURT_SPEAK_SECONDS, COURT_SPEAK_SECONDS_RANGE, MIN_TIMER_SECONDS, MAX_TIMER_SECONDS, DEFAULT_TIMER_SECONDS,
     connectedNames,
     computeHost: (players) => engine.computeHost(players),
     isConnected: (p) => engine.isConnected(p),

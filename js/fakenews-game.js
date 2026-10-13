@@ -17,9 +17,10 @@
   const SET_CAP = 6;
   const MIN_PLAYERS = 3;
   const ROUND_OPTIONS = [4, 6, 8, 12], DEFAULT_ROUNDS = 6;
-  const WRITE_OPTIONS = [30, 40, 60], DEFAULT_WRITE_SEC = 40;
-  const SHOW_OPTIONS = [5, 7, 10], DEFAULT_SHOW_SEC = 7;
-  const VOTE_OPTIONS = [15, 20, 30], DEFAULT_VOTE_SEC = 20;
+  const MIN_TIMER_SEC = 20, MAX_TIMER_SEC = 120;
+  const DEFAULT_WRITE_SEC = 60;
+  const DEFAULT_SHOW_SEC = 20;
+  const DEFAULT_VOTE_SEC = 60;
   const MAX_PHOTOS = 2;          // фото на гравця: обрані з пулу + власні разом; щойно набрано — гравець «готовий»
   const POOL_CHOICES = 6;
   const HEADLINE_MAX = 90;
@@ -68,7 +69,10 @@
     for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
     return a;
   }
-  function sec(room, key, def) { return (((room.settings || {})[key]) || def) * 1000; }
+  function sec(room, key, def) {
+    const seconds = Number((room.settings || {})[key]) || def;
+    return Math.min(MAX_TIMER_SEC, Math.max(MIN_TIMER_SEC, seconds)) * 1000;
+  }
   function poolOf() { return Array.isArray(window.FakeNewsPhotos) ? window.FakeNewsPhotos : []; }
 
   // ------------------------- аватари (як у Смішлісті) -------------------------
@@ -464,9 +468,10 @@
     if (!room || room.phase === "round" || !isHostNow() || !partial) return;
     const next = {};
     if (ROUND_OPTIONS.includes(Number(partial.rounds))) next.rounds = Number(partial.rounds);
-    if (WRITE_OPTIONS.includes(Number(partial.writeSec))) next.writeSec = Number(partial.writeSec);
-    if (SHOW_OPTIONS.includes(Number(partial.showSec))) next.showSec = Number(partial.showSec);
-    if (VOTE_OPTIONS.includes(Number(partial.voteSec))) next.voteSec = Number(partial.voteSec);
+    for (const key of ["writeSec", "showSec", "voteSec"]) {
+      const seconds = Number(partial[key]);
+      if (Number.isInteger(seconds) && seconds >= MIN_TIMER_SEC && seconds <= MAX_TIMER_SEC) next[key] = seconds;
+    }
     if (Object.keys(next).length) engine.roomRef.child("settings").update(next);
   }
 
@@ -530,7 +535,7 @@
   }
 
   window.FakeNewsGame = {
-    SET_CAP, MIN_PLAYERS, MAX_PHOTOS, POOL_CHOICES, HEADLINE_MAX, ROUND_OPTIONS, WRITE_OPTIONS, SHOW_OPTIONS, VOTE_OPTIONS,
+    SET_CAP, MIN_PLAYERS, MAX_PHOTOS, POOL_CHOICES, HEADLINE_MAX, ROUND_OPTIONS, MIN_TIMER_SEC, MAX_TIMER_SEC,
     DEFAULT_ROUNDS, DEFAULT_WRITE_SEC, DEFAULT_SHOW_SEC, DEFAULT_VOTE_SEC,
     connectedNames, availablePhotos, photoCount, readyNames, poolChoices, togglePoolPick,
     computeHost: (players) => engine.computeHost(players),

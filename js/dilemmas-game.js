@@ -13,9 +13,10 @@
 // ТАЙМЕР ЛИШЕ ДЛЯ ОСТАННІХ ~10% ГРАВЦІВ. Поки голосує більшість — нічого не
 // тікає: люди обговорюють у своєму темпі. Щойно без голосу лишилось не більше
 // ніж max(1, ceil(10% гравців)) (і хоча б двоє вже проголосували) — для них
-// стартує STRAGGLER_MS (12 гравців: 10 проголосували → таймер для двох, що
-// лишились; вони могли вже вийти з гри). Усі проголосували раніше — результат
-// одразу. Для двох гравців таймера нема: чекаємо обох (або «Показати зараз»).
+// стартує налаштований хостом таймер (20–120 секунд; 12 гравців: 10
+// проголосували → таймер для двох, що лишились; вони могли вже вийти з гри).
+// Усі проголосували раніше — результат одразу. Для двох гравців таймера нема:
+// чекаємо обох (або «Показати зараз»).
 //
 // Рішення (таймер, результат, наступний раунд) приймає ОДИН клієнт — хост
 // (lockedHost:true дає міграцію хоста, якщо його телефон заснув). Тік раз на
@@ -31,7 +32,9 @@
   const MIN_PLAYERS = 2;            // шкала працює вже на двох
   const STEPS = 10;                 // скільки кроків від центру до краю шкали
   const STRAGGLER_SHARE = 0.1;      // таймер — для останніх 10% гравців
-  const STRAGGLER_MS = 20 * 1000;   // скільки секунд у цих останніх
+  const MIN_TIMER_SECONDS = 20, MAX_TIMER_SECONDS = 120;
+  const DEFAULT_STRAGGLER_SECONDS = 60;
+  const STRAGGLER_MS = DEFAULT_STRAGGLER_SECONDS * 1000;
   const REVEAL_MAX_MS = 120 * 1000; // після результату чекаємо «Далі» від хоста не довше 2 хв
   const TICK_MS = 500;
   const ROUND_OPTIONS = [6, 10, 14];
@@ -46,7 +49,7 @@
   const SCHEMA = {
     phase: "lobby",
     hostUsername: null,
-    lobbySettings: { rounds: DEFAULT_ROUNDS, level: DEFAULT_LEVEL },
+    lobbySettings: { rounds: DEFAULT_ROUNDS, level: DEFAULT_LEVEL, stragglerSeconds: DEFAULT_STRAGGLER_SECONDS },
     gameId: null,       // унікальний id гри (коло 2 у тій самій кімнаті ≠ коло 1)
     order: null,        // хто грає: підключені на момент старту
     cards: null,        // [{text, kind}] — тексти лежать у кімнаті (не залежать від версії файлу на телефоні); kind: "agree" | "ok"
@@ -73,7 +76,7 @@
   let busy = false;
 
   function buildFreshRoom() {
-    return { players: {}, lobbySettings: { rounds: DEFAULT_ROUNDS, level: DEFAULT_LEVEL } };
+    return { players: {}, lobbySettings: { rounds: DEFAULT_ROUNDS, level: DEFAULT_LEVEL, stragglerSeconds: DEFAULT_STRAGGLER_SECONDS } };
   }
 
   function connectedNames(players) {
@@ -186,6 +189,10 @@
   function stragglerLimit(n) {
     return Math.max(1, Math.ceil(n * STRAGGLER_SHARE));
   }
+  function stragglerMs(room) {
+    const seconds = Number(room.lobbySettings && room.lobbySettings.stragglerSeconds) || DEFAULT_STRAGGLER_SECONDS;
+    return Math.min(MAX_TIMER_SECONDS, Math.max(MIN_TIMER_SECONDS, seconds)) * 1000;
+  }
 
   // ------------------------- рішення хоста -------------------------
   function progress(room) {
@@ -209,7 +216,7 @@
     try {
       const cur = engine.latestRoom;
       if (!cur || cur.phase !== "voting" || cur.currentRound !== room.currentRound || cur.timerEndsAt) return;
-      await engine.roomRef.update({ timerEndsAt: engine.now() + STRAGGLER_MS });
+      await engine.roomRef.update({ timerEndsAt: engine.now() + stragglerMs(cur) });
     } finally { busy = false; }
   }
 
@@ -314,6 +321,10 @@
     const next = {};
     if (partial && ROUND_OPTIONS.includes(Number(partial.rounds))) next.rounds = Number(partial.rounds);
     if (partial && [1, 2, 3].includes(Number(partial.level))) next.level = Number(partial.level);
+    const stragglerSeconds = Number(partial && partial.stragglerSeconds);
+    if (Number.isInteger(stragglerSeconds) && stragglerSeconds >= MIN_TIMER_SECONDS && stragglerSeconds <= MAX_TIMER_SECONDS) {
+      next.stragglerSeconds = stragglerSeconds;
+    }
     if (Object.keys(next).length) engine.roomRef.child("lobbySettings").update(next);
   }
 
@@ -356,7 +367,8 @@
   }
 
   window.DilemmasGame = {
-    MIN_PLAYERS, STEPS, STRAGGLER_MS, STRAGGLER_SHARE, ROUND_OPTIONS, DEFAULT_ROUNDS, DEFAULT_LEVEL,
+    MIN_PLAYERS, STEPS, STRAGGLER_MS, STRAGGLER_SHARE, MIN_TIMER_SECONDS, MAX_TIMER_SECONDS,
+    DEFAULT_STRAGGLER_SECONDS, ROUND_OPTIONS, DEFAULT_ROUNDS, DEFAULT_LEVEL,
     connectedNames,
     computeHost: (players) => engine.computeHost(players),
     isConnected: (p) => engine.isConnected(p),

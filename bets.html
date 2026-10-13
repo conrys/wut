@@ -7,6 +7,7 @@
 <title>Ставки</title>
 <link rel="stylesheet" href="js/styles/teli-style.css" />
 <style>
+  .timer-range { display: block; width: 100%; accent-color: var(--accent); margin-bottom: 12px; }
   /* аватари (персонажі зі Смішліста: img/char1..8.svg) */
   .av { position: relative; display: inline-flex; flex: none; align-items: center; justify-content: center; width: 44px; height: 44px;
     border-radius: 50%; background: var(--c, #888); border: 2px solid rgba(255,255,255,0.35); box-sizing: border-box; overflow: visible; transition: opacity .25s; }
@@ -108,6 +109,10 @@
       <div class="pt-modes" id="modeList"></div>
       <label style="display:block; font-size:12px; color:var(--text-muted,#8b909c); margin-bottom:6px;">Раундів</label>
       <div class="seg" id="roundsSeg"></div>
+      <label for="betSecondsSlider" style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted,#8b909c); margin:12px 0 6px;">Час на ставки <output id="betSecondsValue">60 с</output></label>
+      <input class="timer-range" id="betSecondsSlider" type="range" min="20" max="120" step="1" value="60" aria-label="Час на ставки" />
+      <label for="decideSecondsSlider" style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted,#8b909c); margin:12px 0 6px;">Час на рішення <output id="decideSecondsValue">60 с</output></label>
+      <input class="timer-range" id="decideSecondsSlider" type="range" min="20" max="120" step="1" value="60" aria-label="Час на рішення" />
       <label style="display:block; font-size:12px; color:var(--text-muted,#8b909c); margin-bottom:6px;">Гострота</label>
       <div class="seg" id="levelSeg"></div>
       <button class="btn btn-primary btn-block" id="startBtn">Почати</button>
@@ -203,6 +208,11 @@
     }
     el.querySelectorAll("button").forEach((b) => b.classList.toggle("selected", Number(b.dataset.val) === Number(current)));
   }
+  function renderTimerSlider(inputId, outputId, current, fallback) {
+    const value = Math.min(G.MAX_TIMER_SECONDS, Math.max(G.MIN_TIMER_SECONDS, Number(current) || fallback));
+    document.getElementById(inputId).value = value;
+    document.getElementById(outputId).textContent = `${value} с`;
+  }
   function renderTallyList(room, which) {
     const t = (room.tally && room.tally[which]) || {};
     return Object.entries(t).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).map(([n, v]) =>
@@ -230,6 +240,8 @@
     }).join("");
     list.querySelectorAll("[data-mode]").forEach((b) => b.addEventListener("click", () => G.updateSettings({ mode: b.dataset.mode })));
     segButtons("roundsSeg", G.ROUND_OPTIONS.map((n) => [n, String(n)]), s.rounds, (n) => G.updateSettings({ rounds: n }));
+    renderTimerSlider("betSecondsSlider", "betSecondsValue", s.betSeconds, G.DEFAULT_TIMER_SECONDS);
+    renderTimerSlider("decideSecondsSlider", "decideSecondsValue", s.decideSeconds, G.DEFAULT_TIMER_SECONDS);
     segButtons("levelSeg", [1, 2, 3].map((n) => [n, "🌶️".repeat(n) + " " + LEVEL_LABELS[n]]), s.level || G.DEFAULT_LEVEL, (n) => G.updateSettings({ level: n }));
     const mode = MODES[s.mode], enough = mode && conn.length >= mode.minPlayers;
     document.getElementById("startBtn").disabled = !enough;
@@ -335,6 +347,14 @@
   }
 
   document.getElementById("startBtn").addEventListener("click", () => G.startSet(lastRoom));
+  for (const [inputId, outputId, key] of [
+    ["betSecondsSlider", "betSecondsValue", "betSeconds"],
+    ["decideSecondsSlider", "decideSecondsValue", "decideSeconds"],
+  ]) {
+    const input = document.getElementById(inputId);
+    input.addEventListener("input", () => { document.getElementById(outputId).textContent = `${input.value} с`; });
+    input.addEventListener("change", () => G.updateSettings({ [key]: Number(input.value) }));
+  }
   document.getElementById("resetBtn").addEventListener("click", () => { if (confirm("Скинути вечір (рахунок теж)?")) G.resetAll(); });
   document.getElementById("hostNextBtn").addEventListener("click", () => G.skip());
   document.getElementById("endSetBtn").addEventListener("click", () => { if (confirm("Завершити набір?")) G.endSet(); });

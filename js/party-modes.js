@@ -19,7 +19,14 @@
 // ==========================================================================
 (function () {
   const SEED = window.PartySeed || {};
-  const MS = { vote: 15000, bet: 15000, decide: 20000, reveal: 45000 };
+  const MIN_TIMER_SECONDS = 20, MAX_TIMER_SECONDS = 120, DEFAULT_TIMER_SECONDS = 60;
+  const MS = { reveal: 45000 };
+
+  function timerMs(ctx, key) {
+    const value = Number(ctx.settings && ctx.settings[key]);
+    const seconds = Number.isInteger(value) ? value : DEFAULT_TIMER_SECONDS;
+    return Math.min(MAX_TIMER_SECONDS, Math.max(MIN_TIMER_SECONDS, seconds)) * 1000;
+  }
 
   function texts(list, ctx, count) {
     return ctx.shuffle((list || []).filter((x) => x.level <= ctx.level)).slice(0, count).map((x) => x.text);
@@ -28,8 +35,7 @@
     return Object.entries(counts).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1));
   }
   function courtSpeakDuration(ctx) {
-    const seconds = Number(ctx.settings && ctx.settings.courtSpeakSeconds);
-    return (Number.isInteger(seconds) && seconds >= 5 && seconds <= 300 ? seconds : 15) * 1000;
+    return timerMs(ctx, "courtSpeakSeconds");
   }
   function reveal(stage, fields) { // stage — етап, що закінчився: з нього беремо питання/ситуацію й ролі
     return Object.assign({ kind: "reveal", title: "Результат", text: stage.text, roles: stage.roles || [], durationMs: MS.reveal, bars: [], lines: [], penalties: {}, points: {} }, fields);
@@ -40,10 +46,10 @@
   // ------------------------------------------------------------------
   const whofrom = {
     id: "whofrom", title: "Хто з нас?", icon: "🗳️", minPlayers: 3, defaultRounds: 8,
-    desc: "Питання, усі за 15 секунд обирають одне ім'я. Найпопулярніший п'є, а ще ті, хто проголосував самотньо.",
+    desc: "Питання, усі обирають одне ім'я за таймером. Найпопулярніший п'є, а ще ті, хто проголосував самотньо.",
     startSet(ctx) { return { items: texts(SEED.WHOFROM, ctx, ctx.totalRounds) }; },
     startRound(ctx) {
-      return { kind: "pick-name", title: "Хто з нас?", text: ctx.state.items[ctx.roundNo], names: ctx.order.slice(), expect: ctx.order.slice(), durationMs: MS.vote };
+      return { kind: "pick-name", title: "Хто з нас?", text: ctx.state.items[ctx.roundNo], names: ctx.order.slice(), expect: ctx.order.slice(), durationMs: timerMs(ctx, "voteSeconds") };
     },
     onEnd(ctx, stage, inputs) {
       const counts = {};
@@ -93,7 +99,7 @@
       }
       if (d.step === "lawyer") {
         const jurors = ctx.order.filter((n) => n !== d.accused && n !== d.lawyer);
-        return { kind: "choice", title: "Вердикт", text: stage.text, roles: stage.roles, hint: "Ваш вирок?", options: VERDICT, expect: jurors, durationMs: MS.vote, data: Object.assign({}, d, { step: "verdict", jurors }) };
+        return {         kind: "choice", title: "Вердикт", text: stage.text, roles: stage.roles, hint: "Ваш вирок?", options: VERDICT, expect: jurors, durationMs: timerMs(ctx, "voteSeconds"), data: Object.assign({}, d, { step: "verdict", jurors }) };
       }
       // вердикт → результат
       const jurors = d.jurors;
@@ -122,14 +128,14 @@
       const victim = ctx.state.seat[ctx.roundNo % ctx.state.seat.length];
       return {
         kind: "choice", title: "Ставки", text: ctx.state.items[ctx.roundNo], roles: [{ label: "Жертва", name: victim }],
-        hint: "Ваша ставка: виконає чи здасться?", options: BET, expect: ctx.order.filter((n) => n !== victim), durationMs: MS.bet,
+        hint: "Ваша ставка: виконає чи здасться?", options: BET, expect: ctx.order.filter((n) => n !== victim), durationMs: timerMs(ctx, "betSeconds"),
         data: { step: "bet", victim },
       };
     },
     onEnd(ctx, stage, inputs) {
       const d = stage.data;
       if (d.step === "bet") {
-        return { kind: "choice", title: "Рішення", text: stage.text, roles: stage.roles, hint: "Виконуєш чи здаєшся?", options: DECIDE, expect: [d.victim], durationMs: MS.decide, data: { step: "decide", victim: d.victim, bets: inputs } };
+        return { kind: "choice", title: "Рішення", text: stage.text, roles: stage.roles, hint: "Виконуєш чи здаєшся?", options: DECIDE, expect: [d.victim], durationMs: timerMs(ctx, "decideSeconds"), data: { step: "decide", victim: d.victim, bets: inputs } };
       }
       const decision = inputs[d.victim] === "do" ? "do" : "quit";
       const penalties = {}, points = {};

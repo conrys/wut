@@ -21,8 +21,8 @@
   const ROUND_OPTIONS = [4, 6, 8, 12];
   const DEFAULT_ROUNDS = 6;
   const DEFAULT_LEVEL = 2;
-  const VOTE_OPTIONS = [10, 15, 20, 30];
-  const DEFAULT_VOTE_SEC = 15;
+  const MIN_TIMER_SEC = 20, MAX_TIMER_SEC = 120;
+  const DEFAULT_VOTE_SEC = 60;
   const MAX_FACTS = 3, FACT_MAX_LEN = 120;
   const SPARE = 6;                 // запасні факти для «Пропустити факт»
   const REVEAL_MS = 45000;
@@ -65,7 +65,10 @@
     for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
     return a;
   }
-  function voteMsOf(room) { return (((room.settings || {}).voteSec) || DEFAULT_VOTE_SEC) * 1000; }
+  function voteMsOf(room) {
+    const seconds = Number((room.settings || {}).voteSec) || DEFAULT_VOTE_SEC;
+    return Math.min(MAX_TIMER_SEC, Math.max(MIN_TIMER_SEC, seconds)) * 1000;
+  }
 
   // ------------------------- аватари (як у Смішлісті) -------------------------
   function avatarFor(room) {
@@ -334,7 +337,8 @@
     const next = {};
     if (partial && ROUND_OPTIONS.includes(Number(partial.rounds))) next.rounds = Number(partial.rounds);
     if (partial && [1, 2, 3].includes(Number(partial.level))) next.level = Number(partial.level);
-    if (partial && VOTE_OPTIONS.includes(Number(partial.voteSec))) next.voteSec = Number(partial.voteSec);
+    const voteSec = Number(partial && partial.voteSec);
+    if (Number.isInteger(voteSec) && voteSec >= MIN_TIMER_SEC && voteSec <= MAX_TIMER_SEC) next.voteSec = voteSec;
     if (Object.keys(next).length) engine.roomRef.child("settings").update(next);
   }
 
@@ -390,7 +394,7 @@
   }
 
   window.NaklepGame = {
-    SET_CAP, MIN_PLAYERS, ROUND_OPTIONS, DEFAULT_ROUNDS, DEFAULT_LEVEL, VOTE_OPTIONS, DEFAULT_VOTE_SEC, MAX_FACTS,
+    SET_CAP, MIN_PLAYERS, ROUND_OPTIONS, DEFAULT_ROUNDS, DEFAULT_LEVEL, MIN_TIMER_SEC, MAX_TIMER_SEC, DEFAULT_VOTE_SEC, MAX_FACTS,
     connectedNames,
     computeHost: (players) => engine.computeHost(players),
     isConnected: (p) => engine.isConnected(p),

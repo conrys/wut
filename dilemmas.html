@@ -7,6 +7,7 @@
 <title>Дилеми</title>
 <link rel="stylesheet" href="js/styles/teli-style.css" />
 <style>
+  .timer-range { display: block; width: 100%; accent-color: var(--accent); margin-bottom: 12px; }
   /* аватари (персонажі зі Смішліста: img/char1..8.svg) */
   .av { position: relative; display: inline-flex; flex: none; align-items: center; justify-content: center; width: 44px; height: 44px;
     border-radius: 50%; background: var(--c, #888); border: 2px solid rgba(255,255,255,0.35); box-sizing: border-box; overflow: visible; transition: opacity .25s; }
@@ -102,6 +103,8 @@
       <div class="seg" id="roundsSeg"></div>
       <label style="display:block; font-size:12px; color:var(--text-muted,#8b909c); margin-bottom:6px;">Гострота тверджень і завдань</label>
       <div class="seg" id="levelSeg"></div>
+      <label for="stragglerSecondsSlider" style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted,#8b909c); margin:12px 0 6px;">Час для останніх голосів <output id="stragglerSecondsValue">60 с</output></label>
+      <input class="timer-range" id="stragglerSecondsSlider" type="range" min="20" max="120" step="1" value="60" aria-label="Час для останніх голосів" />
       <button class="btn btn-primary btn-block" id="startBtn">Почати гру</button>
       <div class="err-msg" id="startHint"></div>
     </div>
@@ -262,6 +265,11 @@
     }
     el.querySelectorAll("button").forEach((b) => b.classList.toggle("selected", Number(b.dataset.val) === Number(current)));
   }
+  function renderTimerSlider(inputId, outputId, current, fallback) {
+    const value = Math.min(G.MAX_TIMER_SECONDS, Math.max(G.MIN_TIMER_SECONDS, Number(current) || fallback));
+    document.getElementById(inputId).value = value;
+    document.getElementById(outputId).textContent = `${value} с`;
+  }
 
   function renderLobby(room, ctx) {
     const connNames = G.connectedNames(room.players);
@@ -281,6 +289,7 @@
       const s = room.lobbySettings || {};
       segButtons("roundsSeg", G.ROUND_OPTIONS.map((n) => [n, String(n)]), s.rounds || G.DEFAULT_ROUNDS, (n) => G.updateLobbySettings({ rounds: n }));
       segButtons("levelSeg", [1, 2, 3].map((n) => [n, "🌶️".repeat(n) + " " + LEVEL_LABELS[n]]), s.level || G.DEFAULT_LEVEL, (n) => G.updateLobbySettings({ level: n }));
+      renderTimerSlider("stragglerSecondsSlider", "stragglerSecondsValue", s.stragglerSeconds, G.DEFAULT_STRAGGLER_SECONDS);
       const enough = connNames.length >= G.MIN_PLAYERS;
       document.getElementById("startBtn").disabled = !enough;
       document.getElementById("startHint").textContent = enough ? "" : `Потрібно ще ${G.MIN_PLAYERS - connNames.length} гравців(я)`;
@@ -400,6 +409,9 @@
   }
 
   document.getElementById("startBtn").addEventListener("click", () => G.startGame(lastRoom));
+  const stragglerSlider = document.getElementById("stragglerSecondsSlider");
+  stragglerSlider.addEventListener("input", () => { document.getElementById("stragglerSecondsValue").textContent = `${stragglerSlider.value} с`; });
+  stragglerSlider.addEventListener("change", () => G.updateLobbySettings({ stragglerSeconds: Number(stragglerSlider.value) }));
   document.getElementById("resetBtn").addEventListener("click", () => { if (confirm("Скинути гру?")) G.resetGame(); });
   document.getElementById("btnAgree").addEventListener("click", () => G.vote("a"));
   document.getElementById("btnDisagree").addEventListener("click", () => G.vote("b"));

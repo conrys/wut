@@ -7,6 +7,7 @@
 <title>Наклеп</title>
 <link rel="stylesheet" href="js/styles/teli-style.css" />
 <style>
+  .timer-range { display: block; width: 100%; accent-color: var(--accent); margin-bottom: 12px; }
   /* аватари (персонажі зі Смішліста: img/char1..8.svg) */
   .av { position: relative; display: inline-flex; flex: none; align-items: center; justify-content: center; width: 44px; height: 44px;
     border-radius: 50%; background: var(--c, #888); border: 2px solid rgba(255,255,255,0.35); box-sizing: border-box; overflow: visible; transition: opacity .25s; }
@@ -116,8 +117,8 @@
       <div class="seg" id="roundsSeg"></div>
       <label style="display:block; font-size:12px; color:var(--text-muted,#8b909c); margin-bottom:6px;">Гострота</label>
       <div class="seg" id="levelSeg"></div>
-      <label style="display:block; font-size:12px; color:var(--text-muted,#8b909c); margin-bottom:6px;">Секунд на голос</label>
-      <div class="seg" id="voteSeg"></div>
+      <label for="voteSecSlider" style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted,#8b909c); margin-bottom:6px;">Секунд на голос <output id="voteSecValue">60 с</output></label>
+      <input class="timer-range" id="voteSecSlider" type="range" min="20" max="120" step="1" value="60" aria-label="Секунд на голос" />
       <button class="btn btn-primary btn-block" id="startBtn">Почати</button>
       <div class="err-msg" id="startHint"></div>
     </div>
@@ -205,6 +206,11 @@
     }
     el.querySelectorAll("button").forEach((b) => b.classList.toggle("selected", Number(b.dataset.val) === Number(current)));
   }
+  function renderTimerSlider(inputId, outputId, current, fallback) {
+    const value = Math.min(G.MAX_TIMER_SEC, Math.max(G.MIN_TIMER_SEC, Number(current) || fallback));
+    document.getElementById(inputId).value = value;
+    document.getElementById(outputId).textContent = `${value} с`;
+  }
   function renderTallyList(room, which) {
     const t = (room.tally && room.tally[which]) || {};
     return Object.entries(t).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).map(([n, v]) =>
@@ -243,7 +249,7 @@
     const s = room.settings || {};
     segButtons("roundsSeg", G.ROUND_OPTIONS.map((n) => [n, String(n)]), s.rounds, (n) => G.updateSettings({ rounds: n }));
     segButtons("levelSeg", [1, 2, 3].map((n) => [n, "🌶️".repeat(n) + " " + LEVEL_LABELS[n]]), s.level || G.DEFAULT_LEVEL, (n) => G.updateSettings({ level: n }));
-    segButtons("voteSeg", G.VOTE_OPTIONS.map((n) => [n, n + " с"]), s.voteSec || G.DEFAULT_VOTE_SEC, (n) => G.updateSettings({ voteSec: n }));
+    renderTimerSlider("voteSecSlider", "voteSecValue", s.voteSec, G.DEFAULT_VOTE_SEC);
     const enough = conn.length >= G.MIN_PLAYERS;
     document.getElementById("startBtn").disabled = !enough;
     document.getElementById("startHint").textContent = enough ? "" : `Потрібно мінімум ${G.MIN_PLAYERS} гравців онлайн`;
@@ -353,6 +359,9 @@
   }
 
   document.getElementById("startBtn").addEventListener("click", () => G.startSet(lastRoom));
+  const voteSlider = document.getElementById("voteSecSlider");
+  voteSlider.addEventListener("input", () => { document.getElementById("voteSecValue").textContent = `${voteSlider.value} с`; });
+  voteSlider.addEventListener("change", () => G.updateSettings({ voteSec: Number(voteSlider.value) }));
   document.getElementById("resetBtn").addEventListener("click", () => { if (confirm("Скинути вечір (рахунок теж)?")) G.resetAll(); });
   document.getElementById("hostNextBtn").addEventListener("click", () => G.skip());
   document.getElementById("skipFactBtn").addEventListener("click", () => G.skipItem());

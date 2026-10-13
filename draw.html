@@ -59,14 +59,8 @@
       </div>
 
       <div id="gallerySettingsBlock" class="hidden">
-        <label style="font-size: 0.9rem; color: #aaa;">Час на малювання:</label>
-        <select class="text-entry-input" id="galleryTimeSelect" style="margin-top: 4px; margin-bottom: 12px;">
-          <option value="45">45 секунд</option>
-          <option value="60">60 секунд</option>
-          <option value="90" selected>90 секунд</option>
-          <option value="120">120 секунд</option>
-          <option value="180">180 секунд</option>
-        </select>
+        <label for="galleryTimeSelect" style="display:flex; justify-content:space-between; font-size: 0.9rem; color: #aaa;">Час на малювання: <output id="galleryTimeValue">60 с</output></label>
+        <input type="range" id="galleryTimeSelect" min="20" max="120" step="1" value="60" aria-label="Час на малювання" style="width:100%; margin-top:4px; margin-bottom:12px;" />
       </div>
 
       <label style="font-size: 0.9rem; color: #aaa;">Складність слів:</label>
@@ -375,9 +369,9 @@
     document.getElementById("modeGalBtn").classList.toggle("active", room.mode === "gallery");
     document.getElementById("gallerySettingsBlock").classList.toggle("hidden", room.mode !== "gallery");
 
-    if (room.gallerySettings && room.gallerySettings.drawSeconds) {
-      document.getElementById("galleryTimeSelect").value = room.gallerySettings.drawSeconds;
-    }
+    const gallerySeconds = Math.min(120, Math.max(20, Number(room.gallerySettings && room.gallerySettings.drawSeconds) || DrawGame.DEFAULT_GALLERY_SECONDS));
+    document.getElementById("galleryTimeSelect").value = gallerySeconds;
+    document.getElementById("galleryTimeValue").textContent = `${gallerySeconds} с`;
     document.getElementById("difficultySelect").value = room.difficulty || DrawGame.DEFAULT_DIFFICULTY;
 
     if (isHost) {
@@ -558,6 +552,9 @@
   // ---------------- Event Listeners ----------------
   document.getElementById("modeCrocBtn").addEventListener("click", () => DrawGame.setMode("crocodile"));
   document.getElementById("modeGalBtn").addEventListener("click", () => DrawGame.setMode("gallery"));
+  document.getElementById("galleryTimeSelect").addEventListener("input", (e) => {
+    document.getElementById("galleryTimeValue").textContent = `${e.target.value} с`;
+  });
   document.getElementById("galleryTimeSelect").addEventListener("change", (e) => DrawGame.setGalleryTimer(Number(e.target.value)));
   document.getElementById("difficultySelect").addEventListener("change", (e) => DrawGame.setDifficulty(e.target.value));
 

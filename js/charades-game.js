@@ -7,7 +7,6 @@
 //   encode — шифрувальник бачить слово й шифрує його ЛИШЕ емодзі (панель або клавіатура);
 //            може один раз замінити слово («r»);
 //   guess  — решта друкують відповідь; перший правильний +3, другий +2, далі +1;
-//            після першого правильного лишається CUT_MS, щоб не чекати весь таймер;
 //   reveal — результат. Шифрувальник: +1 за кожного, хто вгадав; якщо ніхто — п'є.
 // Правильність відповіді перевіряє клієнт відгадувача (допуск на 1–2 одруківки);
 // в кімнату пишеться лише факт вгадування з серверним часом (для порядку).
@@ -20,10 +19,10 @@
   const SET_CAP = 6;
   const MIN_PLAYERS = 3;
   const LAPS_OPTIONS = [1, 2], DEFAULT_LAPS = 1;          // кіл: кожен шифрує по разу за коло
-  const ENCODE_OPTIONS = [20, 30, 45], DEFAULT_ENCODE_SEC = 30;
-  const GUESS_OPTIONS = [30, 45, 60], DEFAULT_GUESS_SEC = 45;
+  const MIN_TIMER_SEC = 20, MAX_TIMER_SEC = 120;
+  const DEFAULT_ENCODE_SEC = 60;
+  const DEFAULT_GUESS_SEC = 60;
   const DEFAULT_LEVEL = 2;
-  const CUT_MS = 15000;          // скільки лишається після першої правильної відповіді
   const SPARE = 4;               // запасні слова для «Інше слово»
   const EMOJI_MAX = 40;          // символів у шифрі
   const GUESS_COOLDOWN_MS = 1000;
@@ -67,7 +66,10 @@
     for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
     return a;
   }
-  function ms(room, key, defSec) { return (((room.settings || {})[key]) || defSec) * 1000; }
+  function ms(room, key, defSec) {
+    const seconds = Number((room.settings || {})[key]) || defSec;
+    return Math.min(MAX_TIMER_SEC, Math.max(MIN_TIMER_SEC, seconds)) * 1000;
+  }
 
   // ------------------------- аватари (як у Смішлісті) -------------------------
   function avatarFor(room) {
@@ -245,7 +247,7 @@
         const hint = d.cat ? `${d.cat} · ${d.words} ${d.words === 1 ? "слово" : d.words < 5 ? "слова" : "слів"}` : "";
         return {
           kind: "guess", title: "Відгадай", hint, emoji, expect: order.filter((n) => n !== d.encoder), durationMs: ms(room, "guessSec", DEFAULT_GUESS_SEC),
-          data: Object.assign({}, d, { step: "guess", cut: false }),
+          data: Object.assign({}, d, { step: "guess" }),
         };
       }
       return reveal(stage, { headline: "😴 Шифрувальник не встиг", lines: [`Слово було: «${d.text}»`], durationMs: 8000, data: d, encoder: d.encoder });
@@ -276,12 +278,6 @@
     const st = room.stage, now = engine.now(), d = st.data || {};
     if (st.kind === "reveal") { if (st.endsAt && now >= st.endsAt) nextRound(); return; }
     if (st.kind === "encode" && validInputs(room)[d.encoder] === "r" && !d.rerolled) { reroll(room); return; }
-    if (st.kind === "guess" && !d.cut && Object.keys(validInputs(room)).length > 0 && st.endsAt && st.endsAt - now > CUT_MS) {
-      // перший правильний є: решті лишаємо CUT_MS
-      busy = true;
-      engine.roomRef.update({ "stage/endsAt": now + CUT_MS, "stage/data/cut": true }).finally(() => { busy = false; });
-      return;
-    }
     const expect = st.expect || [];
     const allIn = expect.length > 0 && waitingNames(room).length === 0;
     if (allIn || (st.endsAt && now >= st.endsAt)) endStage(room);
@@ -355,8 +351,9 @@
     const next = {};
     if (LAPS_OPTIONS.includes(Number(partial.laps))) next.laps = Number(partial.laps);
     if ([1, 2, 3].includes(Number(partial.level))) next.level = Number(partial.level);
-    if (ENCODE_OPTIONS.includes(Number(partial.encodeSec))) next.encodeSec = Number(partial.encodeSec);
-    if (GUESS_OPTIONS.includes(Number(partial.guessSec))) next.guessSec = Number(partial.guessSec);
+    const encodeSec = Number(partial.encodeSec), guessSec = Number(partial.guessSec);
+    if (Number.isInteger(encodeSec) && encodeSec >= MIN_TIMER_SEC && encodeSec <= MAX_TIMER_SEC) next.encodeSec = encodeSec;
+    if (Number.isInteger(guessSec) && guessSec >= MIN_TIMER_SEC && guessSec <= MAX_TIMER_SEC) next.guessSec = guessSec;
     if (Object.keys(next).length) engine.roomRef.child("settings").update(next);
   }
   function startSet(room) {
@@ -397,7 +394,7 @@
   }
 
   window.CharadesGame = {
-    SET_CAP, MIN_PLAYERS, EMOJI_MAX, LAPS_OPTIONS, ENCODE_OPTIONS, GUESS_OPTIONS,
+    SET_CAP, MIN_PLAYERS, EMOJI_MAX, LAPS_OPTIONS, MIN_TIMER_SEC, MAX_TIMER_SEC,
     DEFAULT_LAPS, DEFAULT_LEVEL, DEFAULT_ENCODE_SEC, DEFAULT_GUESS_SEC,
     connectedNames,
     computeHost: (players) => engine.computeHost(players),

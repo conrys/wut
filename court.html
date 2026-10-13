@@ -7,6 +7,7 @@
 <title>Суд Лінча</title>
 <link rel="stylesheet" href="js/styles/teli-style.css" />
 <style>
+  .timer-range { display: block; width: 100%; accent-color: var(--accent); margin-bottom: 12px; }
   /* аватари (персонажі зі Смішліста: img/char1..8.svg) */
   .av { position: relative; display: inline-flex; flex: none; align-items: center; justify-content: center; width: 44px; height: 44px;
     border-radius: 50%; background: var(--c, #888); border: 2px solid rgba(255,255,255,0.35); box-sizing: border-box; overflow: visible; transition: opacity .25s; }
@@ -109,11 +110,15 @@
       <label style="display:block; font-size:12px; color:var(--text-muted,#8b909c); margin-bottom:6px;">Раундів</label>
       <div class="seg" id="roundsSeg"></div>
       <div id="courtSettings">
-        <label for="courtSpeakSeconds" style="display:block; font-size:12px; color:var(--text-muted,#8b909c); margin:12px 0 6px;">Час на кожен виступ (секунд)</label>
-        <input class="field" id="courtSpeakSeconds" type="number" min="5" max="300" step="1" inputmode="numeric" />
+        <label for="courtSpeakSeconds" style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted,#8b909c); margin:12px 0 6px;">Час на кожен виступ <output id="courtSpeakSecondsValue">60 с</output></label>
+        <input class="timer-range" id="courtSpeakSeconds" type="range" min="20" max="120" step="1" value="60" aria-label="Час на кожен виступ" />
         <label style="display:block; font-size:12px; color:var(--text-muted,#8b909c); margin:12px 0 6px;">Передавання слова</label>
         <div class="seg" id="courtAdvanceSeg"></div>
         <div class="status-line" style="text-align:left; font-size:12px;">У ручному режимі ведучий передає слово кнопкою «Далі».</div>
+      </div>
+      <div id="voteTimerSettings">
+        <label for="voteSecondsSlider" style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted,#8b909c); margin:12px 0 6px;">Час на голосування <output id="voteSecondsValue">60 с</output></label>
+        <input class="timer-range" id="voteSecondsSlider" type="range" min="20" max="120" step="1" value="60" aria-label="Час на голосування" />
       </div>
       <label style="display:block; font-size:12px; color:var(--text-muted,#8b909c); margin-bottom:6px;">Гострота</label>
       <div class="seg" id="levelSeg"></div>
@@ -210,6 +215,11 @@
     }
     el.querySelectorAll("button").forEach((b) => b.classList.toggle("selected", Number(b.dataset.val) === Number(current)));
   }
+  function renderTimerSlider(inputId, outputId, current, fallback) {
+    const value = Math.min(G.MAX_TIMER_SECONDS, Math.max(G.MIN_TIMER_SECONDS, Number(current) || fallback));
+    document.getElementById(inputId).value = value;
+    document.getElementById(outputId).textContent = `${value} с`;
+  }
   function renderTallyList(room, which) {
     const t = (room.tally && room.tally[which]) || {};
     return Object.entries(t).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).map(([n, v]) =>
@@ -238,7 +248,9 @@
     list.querySelectorAll("[data-mode]").forEach((b) => b.addEventListener("click", () => G.updateSettings({ mode: b.dataset.mode })));
     segButtons("roundsSeg", G.ROUND_OPTIONS.map((n) => [n, String(n)]), s.rounds, (n) => G.updateSettings({ rounds: n }));
     document.getElementById("courtSettings").classList.toggle("hidden", s.mode !== "court");
-    document.getElementById("courtSpeakSeconds").value = s.courtSpeakSeconds || G.DEFAULT_COURT_SPEAK_SECONDS;
+    document.getElementById("voteTimerSettings").classList.toggle("hidden", s.mode !== "court");
+    renderTimerSlider("courtSpeakSeconds", "courtSpeakSecondsValue", s.courtSpeakSeconds, G.DEFAULT_COURT_SPEAK_SECONDS);
+    renderTimerSlider("voteSecondsSlider", "voteSecondsValue", s.voteSeconds, G.DEFAULT_TIMER_SECONDS);
     segButtons("courtAdvanceSeg", [[1, "Автоматично"], [0, "Вручну"]], s.courtAutoAdvance === false ? 0 : 1,
       (value) => G.updateSettings({ courtAutoAdvance: value === 1 }));
     segButtons("levelSeg", [1, 2, 3].map((n) => [n, "🌶️".repeat(n) + " " + LEVEL_LABELS[n]]), s.level || G.DEFAULT_LEVEL, (n) => G.updateSettings({ level: n }));
@@ -352,11 +364,14 @@
   }
 
   document.getElementById("startBtn").addEventListener("click", () => G.startSet(lastRoom));
-  document.getElementById("courtSpeakSeconds").addEventListener("change", (event) => {
-    const input = event.currentTarget;
-    if (input.checkValidity()) G.updateSettings({ courtSpeakSeconds: Number(input.value) });
-    else input.reportValidity();
-  });
+  for (const [inputId, outputId, key] of [
+    ["courtSpeakSeconds", "courtSpeakSecondsValue", "courtSpeakSeconds"],
+    ["voteSecondsSlider", "voteSecondsValue", "voteSeconds"],
+  ]) {
+    const input = document.getElementById(inputId);
+    input.addEventListener("input", () => { document.getElementById(outputId).textContent = `${input.value} с`; });
+    input.addEventListener("change", () => G.updateSettings({ [key]: Number(input.value) }));
+  }
   document.getElementById("resetBtn").addEventListener("click", () => { if (confirm("Скинути вечір (рахунок теж)?")) G.resetAll(); });
   document.getElementById("hostNextBtn").addEventListener("click", () => G.skip());
   document.getElementById("endSetBtn").addEventListener("click", () => { if (confirm("Завершити набір?")) G.endSet(); });

@@ -19,8 +19,8 @@
   const MIN_PLAYERS = 2;
   const ABANDON_MS = 15 * 60 * 1000;
   const TICK_MS = 500;
-  const ALLOWED_GALLERY_SECONDS = [45, 60, 90, 120, 180];
-  const DEFAULT_GALLERY_SECONDS = 90;
+  const MIN_GALLERY_SECONDS = 20, MAX_GALLERY_SECONDS = 120;
+  const DEFAULT_GALLERY_SECONDS = 60;
   const ALLOWED_DIFFICULTIES = ["easy", "medium", "hard"];
   const DEFAULT_DIFFICULTY = "medium";
   const REVEAL_AUTO_ADVANCE_MS = 4500;
@@ -136,7 +136,7 @@
     engine.roomRef.child("mode").set(mode);
   }
   function setGalleryTimer(seconds) {
-    if (!ALLOWED_GALLERY_SECONDS.includes(seconds)) return;
+    if (!Number.isInteger(seconds) || seconds < MIN_GALLERY_SECONDS || seconds > MAX_GALLERY_SECONDS) return;
     engine.roomRef.child("gallerySettings/drawSeconds").set(seconds);
   }
   function setDifficulty(difficulty) {
@@ -227,7 +227,8 @@
     room = room || engine.latestRoom;
     names = names || connectedNames(room.players);
     const difficulty = room.difficulty || DEFAULT_DIFFICULTY;
-    const drawMs = (room.gallerySettings.drawSeconds || DEFAULT_GALLERY_SECONDS) * 1000;
+    const drawSeconds = Number(room.gallerySettings.drawSeconds) || DEFAULT_GALLERY_SECONDS;
+    const drawMs = Math.min(MAX_GALLERY_SECONDS, Math.max(MIN_GALLERY_SECONDS, drawSeconds)) * 1000;
     const usedPrompts = room.usedPrompts || usedPromptsCache;
     const prompts = {};
     const usedUpdates = {};
@@ -335,7 +336,9 @@
     // Локальний Date.now() у клієнта може йти наперед/назад і ламати дедлайни, які ставить хост.
     now: () => engine.now(),
     MIN_PLAYERS,
-    ALLOWED_GALLERY_SECONDS,
+    MIN_GALLERY_SECONDS,
+    MAX_GALLERY_SECONDS,
+    DEFAULT_GALLERY_SECONDS,
     ALLOWED_DIFFICULTIES,
     DEFAULT_DIFFICULTY,
     connectedNames,

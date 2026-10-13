@@ -7,6 +7,7 @@
 <title>Зіпсовані шаради</title>
 <link rel="stylesheet" href="js/styles/teli-style.css" />
 <style>
+  .timer-range { display: block; width: 100%; accent-color: var(--accent); margin-bottom: 12px; }
   /* аватари (персонажі зі Смішліста: img/char1..8.svg) */
   .av { position: relative; display: inline-flex; flex: none; align-items: center; justify-content: center; width: 44px; height: 44px;
     border-radius: 50%; background: var(--c, #888); border: 2px solid rgba(255,255,255,0.35); box-sizing: border-box; overflow: visible; transition: opacity .25s; }
@@ -77,6 +78,11 @@
   .ch-emoji-picker { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin: 4px 0 10px; }
   .ch-emoji-picker button { min-height: 44px; padding: 4px; border: 1px solid var(--border-soft); border-radius: 10px; background: var(--bg-tile, #20242c); color: inherit; font-size: 25px; touch-action: manipulation; }
   .ch-emoji-picker button:active { background: var(--accent); }
+  .ch-suggestions { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; margin: 4px 0 10px; }
+  .ch-suggestions button { min-height: 44px; padding: 4px; border: 1px solid var(--accent); border-radius: 10px; background: var(--bg-tile, #20242c); color: inherit; font-size: 25px; touch-action: manipulation; }
+  .ch-suggestions-title { margin: 8px 0 4px; font-size: 12px; color: var(--text-muted, #8b909c); }
+  .ch-picker-toggle { display: block; margin: 4px 0 8px; font-size: 13px; color: var(--text-muted, #8b909c); }
+  .ch-picker-toggle summary { cursor: pointer; }
   .ch-emoji-tools { display: flex; gap: 8px; margin-bottom: 8px; }
   .ch-emoji-tools button { flex: 1; padding: 8px; }
   .ch-feedback { text-align: center; min-height: 20px; font-size: 14px; font-weight: 700; margin: 4px 0; }
@@ -125,10 +131,10 @@
       <div class="seg" id="lapsSeg"></div>
       <label style="display:block; font-size:12px; color:var(--text-muted,#8b909c); margin-bottom:6px;">Складність слів</label>
       <div class="seg" id="levelSeg"></div>
-      <label style="display:block; font-size:12px; color:var(--text-muted,#8b909c); margin-bottom:6px;">Секунд на шифрування</label>
-      <div class="seg" id="encodeSeg"></div>
-      <label style="display:block; font-size:12px; color:var(--text-muted,#8b909c); margin-bottom:6px;">Секунд на відгадування</label>
-      <div class="seg" id="guessSeg"></div>
+      <label for="encodeSecSlider" style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted,#8b909c); margin-bottom:6px;">Секунд на шифрування <output id="encodeSecValue">60 с</output></label>
+      <input class="timer-range" id="encodeSecSlider" type="range" min="20" max="120" step="1" value="60" aria-label="Секунд на шифрування" />
+      <label for="guessSecSlider" style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted,#8b909c); margin:12px 0 6px;">Секунд на відгадування <output id="guessSecValue">60 с</output></label>
+      <input class="timer-range" id="guessSecSlider" type="range" min="20" max="120" step="1" value="60" aria-label="Секунд на відгадування" />
       <button class="btn btn-primary btn-block" id="startBtn">Почати</button>
       <div class="err-msg" id="startHint"></div>
     </div>
@@ -198,6 +204,207 @@
   const G = window.CharadesGame;
   const LEVEL_LABELS = { 1: "Легко", 2: "Середньо", 3: "Складно" };
   const EMOJI_CHOICES = ["😀", "😂", "🥲", "😍", "😎", "🤔", "😱", "😭", "😴", "😡", "🥳", "🤫", "👻", "💀", "🤖", "👽", "🐶", "🐱", "🦊", "🐻", "🐸", "🐵", "🦁", "🐮", "🐷", "🐔", "🦄", "🐍", "🐢", "🦋", "🐝", "🐙", "🦈", "🐳", "🌈", "☀️", "🌙", "⭐", "🔥", "💧", "❄️", "⚡", "🍎", "🍕", "🍔", "🍟", "🍦", "🎂", "⚽", "🏀", "🎸", "🎤", "🎬", "🚗", "🚀", "✈️", "🏠", "💎", "❤️", "💔", "💰", "🎁", "👑", "💪", "🙏", "👍", "👎", "👏", "🙈", "💃", "🏃", "🛌", "📱", "💻", "🔑", "☂️", "⏰", "💡", "📚"];
+  EMOJI_CHOICES.push(
+    "🧌", "🧙", "🧛", "🧟", "🧚", "🦸", "🦹", "👸", "🤴", "🤠", "🥷", "👮",
+    "🦖", "🦕", "🐉", "🦁", "🐺", "🦝", "🐼", "🐧", "🦆", "🦅", "🦉", "🦇", "🐬", "🐘", "🦒", "🐎", "🐴", "🦓", "🐄", "🐑", "🐗", "🐀", "🐈",
+    "🌹", "🌻", "🌳", "🌲", "🍀", "🌵", "🍄", "🌾", "🌍", "🌎", "🌏", "🌋", "🏔️", "⛰️", "🏝️", "🏜️", "🌊", "🌪️", "🌧️", "⛈️", "🌨️", "🌫️", "🌤️", "🌑", "🌕", "🌠", "🪐", "☄️",
+    "🍌", "🍉", "🍓", "🍇", "🍒", "🍑", "🥑", "🥕", "🌽", "🍞", "🧀", "🍳", "🍰", "🍩", "🍪", "🍫", "🍿", "🥤", "☕", "🍺", "🍷",
+    "🎹", "🥁", "🎻", "🎺", "🎷", "🪕", "🎧", "🎼", "🎵", "🎶", "🎟️", "🎭", "🎨", "📸", "🎥", "📺", "🎮", "🧩", "🧸", "🪄", "🪞",
+    "🚲", "🏍️", "🚌", "🚆", "🚂", "🚢", "⛵", "🚁", "🛸", "🛶", "🚦", "🛣️", "🗼", "🏰", "🏯", "🗽", "⛲", "🏟️", "🏨", "🏥", "🏫", "🏭",
+    "⚽", "🏈", "🎾", "🏐", "🏓", "🏸", "🥊", "🥋", "🏆", "🥇", "🎯", "🎲", "🃏", "♟️", "🛹", "⛷️", "🏄", "🧗",
+    "🪥", "🧹", "🧽", "🪣", "🧲", "🔭", "🔬", "🧪", "⚗️", "🧬", "🧠", "🦷", "🫀", "🩺", "💊", "🩹", "🔒", "🔓", "🗝️", "🪜", "🪑", "🛏️", "🛁", "🚪",
+    "💬", "🗯️", "💭", "❓", "❗", "‼️", "💤", "💥", "💫", "✨", "🎉", "🎊", "🎈", "🕯️", "⏳", "⌛", "🔔", "📖", "✂️", "🪢", "🪶", "🪵"
+  );
+  EMOJI_CHOICES.splice(0, EMOJI_CHOICES.length, ...new Set(EMOJI_CHOICES));
+  const EMOJI_HINTS = [
+    { terms: ["титанік", "titanic"], emoji: ["🚢", "🧊", "🌊", "💔"] },
+    { terms: ["шрек", "shrek"], emoji: ["🧌", "🧅", "🏰", "🐴"] },
+    { terms: ["один вдома", "home alone"], emoji: ["🏠", "🧒", "🎄", "🪤"] },
+    { terms: ["король лев", "lion king"], emoji: ["🦁", "👑", "🌅", "🐗"] },
+    { terms: ["гаррі поттер", "гарі поттер", "harry potter"], emoji: ["🧙", "⚡", "🪄", "🦉"] },
+    { terms: ["термінатор", "terminator"], emoji: ["🤖", "💪", "🔫", "⏳"] },
+    { terms: ["аватар", "avatar"], emoji: ["👽", "🌌", "🌿", "🔵"] },
+    { terms: ["русал", "mermaid"], emoji: ["🧜", "🧜‍♀️", "🌊", "🐚"] },
+    { terms: ["мадагаскар", "madagascar"], emoji: ["🦁", "🦓", "🦛", "🌴"] },
+    { terms: ["льодовиковий період", "ice age"], emoji: ["🦣", "🧊", "🐿️", "❄️"] },
+    { terms: ["сутінки", "twilight"], emoji: ["🧛", "🌙", "🧑", "🩸"] },
+    { terms: ["барбі", "barbie"], emoji: ["💅", "👠", "💖", "🛼"] },
+    { terms: ["мулан", "mulan"], emoji: ["⚔️", "🐉", "🌸", "👩"] },
+    { terms: ["попелюшка", "cinderella"], emoji: ["👠", "🎃", "🕛", "👸"] },
+    { terms: ["володар перснів", "lord of the rings"], emoji: ["💍", "🧙", "🧝", "🌋"] },
+    { terms: ["матриця", "matrix"], emoji: ["🕶️", "💊", "💻", "🔴"] },
+    { terms: ["форрест гамп", "forrest gump"], emoji: ["🏃", "🍫", "🪶", "🚌"] },
+    { terms: ["початок", "inception"], emoji: ["🌀", "💤", "🧠", "🏙️"] },
+    { terms: ["інтерстеллар", "interstellar"], emoji: ["🚀", "🪐", "🌌", "⏳"] },
+    { terms: ["хрещений батько", "godfather"], emoji: ["🤵", "🌹", "👑", "🎩"] },
+    { terms: ["шоушенк", "shawshank"], emoji: ["🔒", "🧱", "🌧️", "🕊️"] },
+    { terms: ["кримінальне чтиво", "pulp fiction"], emoji: ["📖", "💼", "🕺", "💥"] },
+    { terms: ["зозулі", "cuckoo"], emoji: ["🪺", "🐦", "🧠", "🏥"] },
+    { terms: ["блейдраннер", "blade runner"], emoji: ["🤖", "🌃", "🌧️", "🕵️"] },
+    { terms: ["зоряні війни", "star wars"], emoji: ["🚀", "🌌", "⚔️", "🤖"] },
+    { terms: ["пірати карибського моря", "pirates of the caribbean"], emoji: ["🏴‍☠️", "🚢", "💀", "🦜"] },
+    { terms: ["парк юрського періоду", "jurassic park"], emoji: ["🦖", "🦕", "🧬", "🌴"] },
+    { terms: ["назад у майбутнє", "back to the future"], emoji: ["⏳", "🚗", "⚡", "🛸"] },
+    { terms: ["бійцівський клуб", "fight club"], emoji: ["🥊", "👊", "🧼", "💥"] },
+    { terms: ["темний лицар", "dark knight"], emoji: ["🦇", "🦸", "🌃", "🃏"] },
+    { terms: ["гра престолів", "game of thrones"], emoji: ["🐉", "👑", "⚔️", "❄️"] },
+    { terms: ["дивні дива", "stranger things"], emoji: ["🚲", "👾", "🔦", "🌌"] },
+    { terms: ["волл-стріт", "wall street"], emoji: ["🐺", "💰", "📈", "🏙️"] },
+    { terms: ["чорне дзеркало", "black mirror"], emoji: ["🪞", "📱", "🤖", "👁️"] },
+    { terms: ["гострі капелюхи", "peaky blinders"], emoji: ["🎩", "🕴️", "🚬", "🏙️"] },
+    { terms: ["друзі", "friends"], emoji: ["🛋️", "☕", "👫", "📺"] },
+    { terms: ["офіс", "the office"], emoji: ["🖇️", "💼", "📎", "😂"] },
+    { terms: ["пуститися берега", "breaking bad"], emoji: ["🧪", "🧑‍🔬", "💰", "☠️"] },
+    { terms: ["westworld", "дикий захід"], emoji: ["🤠", "🐎", "🤖", "🌵"] },
+    { terms: ["пуху", "пера"], emoji: ["🪶", "🐦", "🤞", "🍀"] },
+    { terms: ["байдики"], emoji: ["🛋️", "😴", "🦥", "☕"] },
+    { terms: ["кулаки", "кулак"], emoji: ["✊", "🤞", "💪", "❤️"] },
+    { terms: ["руки", "руку"], emoji: ["🤲", "👐", "✋", "🫴"] },
+    { terms: ["сонце", "соняч"], emoji: ["☀️", "🌞", "🌻", "🔥"] },
+    { terms: ["парасоль", "umbrella"], emoji: ["☂️", "🌧️", "💧", "🛡️"] },
+    { terms: ["мікрохвиль", "microwave"], emoji: ["🍲", "📡", "⏲️", "🔥"] },
+    { terms: ["сант", "дід мороз", "santa"], emoji: ["🎅", "🎄", "🎁", "🦌"] },
+    { terms: ["сайтама", "one punch", "ванпанч"], emoji: ["👊", "🦸", "💥", "🥊"] },
+    { terms: ["капітан америка", "captain america"], emoji: ["🛡️", "⭐", "🇺🇸", "🦸"] },
+    { terms: ["пікачу", "pikachu"], emoji: ["⚡", "🐭", "🟡"] },
+    { terms: ["джек горобець", "jack sparrow"], emoji: ["🏴‍☠️", "🦜", "⚓", "🍾"] },
+    { terms: ["губка боб", "spongebob"], emoji: ["🧽", "🌊", "🦀", "🍍"] },
+    { terms: ["дон кіхот", "don quixote"], emoji: ["🤺", "🐴", "💨", "🛡️"] },
+    { terms: ["грінч", "grinch"], emoji: ["💚", "🎄", "🎁", "😈"] },
+    { terms: ["береж", "бермуд"], emoji: ["🔺", "🌊", "🛳️", "🧭"] },
+    { terms: ["теорія струн", "струн"], emoji: ["🎻", "🧵", "🧠", "🌌"] },
+    { terms: ["колайдер", "адрон"], emoji: ["⚛️", "🔬", "🧪", "💥"] },
+    { terms: ["машина часу"], emoji: ["⏳", "🚗", "🌀", "⚡"] },
+    { terms: ["маятник"], emoji: ["⏰", "🕰️", "🔄", "⚖️"] },
+    { terms: ["кришталева куля"], emoji: ["🔮", "✨", "👁️", "🌌"] },
+    { terms: ["ефект метелика"], emoji: ["🦋", "🌪️", "🔄", "✨"] },
+    { terms: ["новим роком", "новий рік"], emoji: ["🎄", "🎆", "🥂", "🎁"] },
+    { terms: ["майстра", "майстер"], emoji: ["🛠️", "🔨", "🧰", "✨"] },
+    { terms: ["червона рута", "рута"], emoji: ["🌹", "❤️", "🎵", "🌿"] },
+    { terms: ["imagine", "імейджин"], emoji: ["🌍", "🕊️", "🎹", "🎵"] },
+    { terms: ["щедрик", "shchedryk"], emoji: ["🐦", "🔔", "❄️", "🎵"] },
+    { terms: ["деспасито", "despacito"], emoji: ["💃", "🌴", "🔥", "🎵"] },
+    { terms: ["gangnam", "гангнам"], emoji: ["🐎", "🕺", "🎩", "🎵"] },
+    { terms: ["macarena", "макарена"], emoji: ["💃", "🕺", "🪩", "🎵"] },
+    { terms: ["jingle bells", "джингл белс"], emoji: ["🔔", "🦌", "🎄", "❄️"] },
+    { terms: ["happy birthday", "з днем народження"], emoji: ["🎂", "🎈", "🎁", "🎉"] },
+    { terms: ["плакала", "kazka"], emoji: ["😭", "💔", "🌧️", "🎤"] },
+    { terms: ["стефанія", "стефан"], emoji: ["👩", "🇺🇦", "🌻", "🎤"] },
+    { terms: ["калина", "рушник"], emoji: ["🌺", "🇺🇦", "🌿", "🎵"] },
+    { terms: ["bohemian", "rhapsody"], emoji: ["🎭", "👑", "🎤", "🎸"] },
+    { terms: ["hotel california"], emoji: ["🏨", "🌴", "🌅", "🎸"] },
+    { terms: ["shape of you"], emoji: ["💃", "❤️", "🎵", "🕺"] },
+    { terms: ["highway", "шосе"], emoji: ["🛣️", "🚗", "🎸", "🔥"] },
+    { terms: ["take on me"], emoji: ["🎤", "🎨", "💌", "🎵"] },
+    { terms: ["wonderwall"], emoji: ["🧱", "🎸", "🌟", "🎵"] },
+    { terms: ["полонез", "огінськ"], emoji: ["🎹", "🎼", "🎩", "🇵🇱"] },
+    { terms: ["дика", "танці"], emoji: ["💃", "🕺", "🔥", "🎵"] },
+    { terms: ["yesterday"], emoji: ["⏪", "🕰️", "🎸", "🎵"] },
+    { terms: ["скрип", "violin"], emoji: ["🎻", "🎼", "🎵", "🎭"] },
+    { terms: ["smells like teen spirit"], emoji: ["🎸", "🎤", "🧑", "🔥"] },
+    { terms: ["billie jean"], emoji: ["🕺", "🧢", "🌙", "🎤"] },
+    { terms: ["sweet child", "чайлд о майн"], emoji: ["👶", "🎸", "🌹", "🎵"] },
+    { terms: ["stairway", "сходи до неба"], emoji: ["🪜", "☁️", "🎸", "🌌"] },
+    { terms: ["losing my religion"], emoji: ["🙏", "⛪", "💔", "🎵"] },
+    { terms: ["enjoy the silence"], emoji: ["🤫", "🔇", "🎧", "🌙"] },
+    { terms: ["take me to church"], emoji: ["⛪", "🙏", "🎤", "✨"] },
+    { terms: ["1944"], emoji: ["🇺🇦", "🕊️", "🕰️", "🎤"] },
+    { terms: ["мелодія", "скори"], emoji: ["🎼", "🎹", "🎻", "✨"] },
+    { terms: ["старі фотографії"], emoji: ["📸", "🖼️", "🕰️", "👵"] },
+    { terms: ["бабуся"], emoji: ["👵", "🔮", "🤔", "🧶"] },
+    { terms: ["нос"], emoji: ["👃", "⬆️", "😤", "👑"] },
+    { terms: ["сніг", "snow"], emoji: ["❄️", "☃️", "🌨️", "🧊"] },
+    { terms: ["вмивати", "умивати"], emoji: ["🧼", "👐", "💧", "🚿"] },
+    { terms: ["титан", "кораб", "моря", "пірат", "океан", "sea"], emoji: ["🚢", "🌊", "⚓", "🏴‍☠️"] },
+    { terms: ["лев", "lion"], emoji: ["🦁", "🐾", "👑", "🌞"] },
+    { terms: ["дракон", "dragon"], emoji: ["🐉", "🔥", "🪽", "🏰"] },
+    { terms: ["поттер", "магі", "чарів", "wizard", "магія"], emoji: ["🧙", "🪄", "✨", "📚"] },
+    { terms: ["акул", "shark"], emoji: ["🦈", "🌊", "🩸", "🐟"] },
+    { terms: ["зуб", "стомат", "щітк"], emoji: ["🦷", "🪥", "😁", "🧼"] },
+    { terms: ["футбол", "football", "soccer"], emoji: ["⚽", "🥅", "🏟️", "🏆"] },
+    { terms: ["фото", "фотограф", "camera"], emoji: ["📸", "🖼️", "🕰️", "👵"] },
+    { terms: ["день народження", "birthday"], emoji: ["🎂", "🎈", "🎁", "🎉"] },
+    { terms: ["соняч", "sun"], emoji: ["☀️", "🌞", "🌻", "🔥"] },
+    { terms: ["затемнен", "eclipse"], emoji: ["🌑", "☀️", "🌕", "🌌"] },
+    { terms: ["сяйво", "aurora"], emoji: ["🌌", "🌈", "✨", "🌠"] },
+    { terms: ["метелик", "butterfly"], emoji: ["🦋", "🐛", "🌸", "🌼"] },
+    { terms: ["літак", "авіац", "парашут", "parachute"], emoji: ["✈️", "🪂", "☁️", "🪂"] },
+    { terms: ["робот", "штучн", "інтелект", "ai", "android"], emoji: ["🤖", "🧠", "💻", "⚙️"] },
+    { terms: ["телефон", "смартфон", "навушник", "phone"], emoji: ["📱", "🎧", "📞", "🔋"] },
+    { terms: ["пилосос", "прибиран", "прибира", "vacuum"], emoji: ["🧹", "🧽", "🤖", "🏠"] },
+    { terms: ["сонячна батарея", "батаре", "енергі", "solar"], emoji: ["☀️", "🔋", "⚡", "🌱"] },
+    { terms: ["ліфт", "застряг", "elevator"], emoji: ["🛗", "🚪", "😱", "⬆️"] },
+    { terms: ["кубик рубіка", "рубік", "rubik"], emoji: ["🧩", "🎨", "🔄", "🤔"] },
+    { terms: ["маршмел", "смажити", "багаття"], emoji: ["🔥", "🍡", "🏕️", "🪵"] },
+    { terms: ["караоке", "спів", "пісн", "sing"], emoji: ["🎤", "🎵", "🎶", "🎧"] },
+    { terms: ["танц", "dance", "макарена"], emoji: ["💃", "🕺", "🎵", "🪩"] },
+    { terms: ["готел", "hotel"], emoji: ["🏨", "🛎️", "🧳", "🛏️"] },
+    { terms: ["каліфорні", "california"], emoji: ["🌴", "☀️", "🌊", "🏄"] },
+    { terms: ["королев", "queen"], emoji: ["👸", "👑", "💎", "🏰"] },
+    { terms: ["зірк", "неб", "космос", "зорян", "space"], emoji: ["🌌", "🪐", "🚀", "🌠"] },
+    { terms: ["веж", "ейфел", "tower"], emoji: ["🗼", "🇫🇷", "🏙️", "🌃"] },
+    { terms: ["сніг", "льодов", "крижан", "ice"], emoji: ["❄️", "🧊", "☃️", "🌨️"] },
+    { terms: ["гора", "гір", "mountain"], emoji: ["🏔️", "⛰️", "🧗", "🥾"] },
+    { terms: ["ліс", "дерев", "лісн", "forest"], emoji: ["🌲", "🌳", "🍄", "🧭"] },
+    { terms: ["вода", "водян", "річк", "озер", "water"], emoji: ["💧", "🌊", "🐟", "⛵"] },
+    { terms: ["вогон", "вогн", "пожеж", "fire"], emoji: ["🔥", "🚒", "💨", "🧯"] },
+    { terms: ["любов", "серц", "love"], emoji: ["❤️", "💔", "💘", "🥰"] },
+    { terms: ["втеч", "тікати", "біг", "бігти", "run"], emoji: ["🏃", "💨", "👟", "🏁"] },
+    { terms: ["час", "годин", "маятник", "time"], emoji: ["⏰", "⏳", "⌛", "🕰️"] },
+    { terms: ["прац", "робот", "сифіз", "sisyphus"], emoji: ["🪨", "💪", "🔁", "😮‍💨"] },
+    { terms: ["вело", "велосипед", "bike"], emoji: ["🚲", "🛠️", "🛞", "🏁"] },
+    { terms: ["риба", "риб", "ловити", "fishing"], emoji: ["🎣", "🐟", "🌊", "🪱"] },
+    { terms: ["собак", "пес", "dog"], emoji: ["🐕", "🐶", "🦴", "🛣️"] },
+    { terms: ["хліб", "цегл", "brick"], emoji: ["🍞", "🧱", "🏠"] },
+    { terms: ["меч", "дамокл", "війна", "war"], emoji: ["⚔️", "🛡️", "👑", "😬"] },
+    { terms: ["франкенштейн", "монстр"], emoji: ["🧟", "⚡", "🧪", "🧟‍♂️"] },
+    { terms: ["будин", "дім", "квартира", "home"], emoji: ["🏠", "🚪", "🛋️", "🪟"] },
+    { terms: ["дощ", "потоп", "rain", "flood"], emoji: ["🌧️", "☔", "🌊", "⛈️"] },
+    { terms: ["пад", "падати", "яблук", "apple"], emoji: ["🍎", "🌳", "⬇️", "💥"] },
+    { terms: ["сім", "сьом", "seven"], emoji: ["🍀", "🌈", "🎰", "✨"] },
+    { terms: ["золото", "золот", "gold"], emoji: ["🥇", "💰", "👑", "✨"] },
+    { terms: ["сніг", "зима", "зимов"], emoji: ["❄️", "☃️", "🧣", "🧤"] },
+    { terms: ["їж", "їсти", "їжа", "кух", "готув"], emoji: ["🍽️", "🍳", "🥄", "👨‍🍳"] },
+    { terms: ["лікар", "хаус", "doctor"], emoji: ["🩺", "💊", "🧠", "🏥"] },
+    { terms: ["детектив", "холмс", "шукати", "голк", "розсліду"], emoji: ["🔎", "🕵️", "🧩", "❓"] },
+    { terms: ["фраза", "приказ", "прислів"], emoji: ["💬", "🧩", "🤔", "🗯️"] },
+    { terms: ["пісн", "мелод", "музик", "symphony", "song"], emoji: ["🎵", "🎤", "🎧", "🎼"] },
+    { terms: ["фільм", "серіал", "кіно", "movie"], emoji: ["🎬", "🍿", "🎭", "📺"] },
+    { terms: ["персонаж", "герой", "король", "корол"], emoji: ["👤", "🎭", "🦸", "👑"] },
+    { terms: ["предмет", "штука", "річ"], emoji: ["📦", "🔎", "🧰", "🤔"] },
+    { terms: ["поняття", "ефект", "теорія", "ідея"], emoji: ["💡", "🧠", "🔬", "❓"] },
+    { terms: ["дія", "робити", "зробити", "грати"], emoji: ["🏃", "✋", "🔄", "💥"] }
+  ];
+
+  function promptEmojiSuggestions(text, category) {
+    const lowerText = String(text || "").toLocaleLowerCase("uk");
+    const words = lowerText.match(/[\p{L}\p{N}]+/gu) || [];
+    const scores = new Map();
+    for (const hint of EMOJI_HINTS) {
+      const matches = hint.terms.reduce((count, term) => {
+        const found = term.includes(" ")
+          ? lowerText.includes(term)
+          : words.some((word) => word.startsWith(term));
+        return count + Number(found);
+      }, 0);
+      if (!matches) continue;
+      hint.emoji.forEach((emoji, index) => scores.set(emoji, (scores.get(emoji) || 0) + matches * (index === 0 ? 3 : 2)));
+    }
+    const categorySuggestions = {
+      "Фільм": ["🎬", "🍿", "🎭", "⭐", "📽️"],
+      "Серіал": ["📺", "🎬", "🍿", "🎭", "⭐"],
+      "Пісня": ["🎵", "🎤", "🎧", "🎼", "🎸"],
+      "Фраза": ["💬", "🧩", "🤔", "🗯️", "👀"],
+      "Персонаж": ["👤", "🎭", "🦸", "👑", "✨"],
+      "Предмет": ["📦", "🔎", "🧰", "🤔", "✨"],
+      "Поняття": ["💡", "🧠", "🔬", "❓", "🌌"],
+      "Дія": ["🏃", "✋", "🔄", "💥", "😅"]
+    };
+    (categorySuggestions[category] || ["🤔", "💡", "🧩", "❓", "✨"]).forEach((emoji, index) => {
+      if (!scores.has(emoji)) scores.set(emoji, 2 - Math.floor(index / 2));
+    });
+    return [...scores].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([emoji]) => emoji);
+  }
   let lastRoom = null, lastCtx = null, reactionsMounted = false;
   let builtStageId = null;   // id етапу, для якого вже збудовано кнопки введення (щоб не збивати виділення)
 
@@ -216,6 +423,11 @@
       el.dataset.built = "1";
     }
     el.querySelectorAll("button").forEach((b) => b.classList.toggle("selected", Number(b.dataset.val) === Number(current)));
+  }
+  function renderTimerSlider(inputId, outputId, current, fallback) {
+    const value = Math.min(G.MAX_TIMER_SEC, Math.max(G.MIN_TIMER_SEC, Number(current) || fallback));
+    document.getElementById(inputId).value = value;
+    document.getElementById(outputId).textContent = `${value} с`;
   }
   function renderTallyList(room, which) {
     const t = (room.tally && room.tally[which]) || {};
@@ -239,8 +451,8 @@
     const s = room.settings || {};
     segButtons("lapsSeg", G.LAPS_OPTIONS.map((n) => [n, String(n)]), s.laps || G.DEFAULT_LAPS, (n) => G.updateSettings({ laps: n }));
     segButtons("levelSeg", [1, 2, 3].map((n) => [n, "⭐".repeat(n) + " " + LEVEL_LABELS[n]]), s.level || G.DEFAULT_LEVEL, (n) => G.updateSettings({ level: n }));
-    segButtons("encodeSeg", G.ENCODE_OPTIONS.map((n) => [n, n + " с"]), s.encodeSec || G.DEFAULT_ENCODE_SEC, (n) => G.updateSettings({ encodeSec: n }));
-    segButtons("guessSeg", G.GUESS_OPTIONS.map((n) => [n, n + " с"]), s.guessSec || G.DEFAULT_GUESS_SEC, (n) => G.updateSettings({ guessSec: n }));
+    renderTimerSlider("encodeSecSlider", "encodeSecValue", s.encodeSec, G.DEFAULT_ENCODE_SEC);
+    renderTimerSlider("guessSecSlider", "guessSecValue", s.guessSec, G.DEFAULT_GUESS_SEC);
     const enough = conn.length >= G.MIN_PLAYERS;
     document.getElementById("startBtn").disabled = !enough;
     document.getElementById("startHint").textContent = enough ? "" : `Потрібно мінімум ${G.MIN_PLAYERS} гравців онлайн`;
@@ -301,18 +513,25 @@
           <div class="ch-emoji-tools">
             <button class="btn" id="chEmojiClear" type="button">Очистити</button>
           </div>
-          <div class="ch-emoji-picker" aria-label="Панель вибору емодзі">${EMOJI_CHOICES.map((emoji) =>
-            `<button type="button" data-emoji="${emoji}" aria-label="${emoji}">${emoji}</button>`).join("")}</div>
+          <div class="ch-suggestions-title">💡 Ідеї до слова — торкнись, щоб додати</div>
+          <div class="ch-suggestions" aria-label="Рекомендовані емодзі">${promptEmojiSuggestions(d.text, d.cat).map((emoji) =>
+            `<button type="button" data-emoji="${emoji}" aria-label="Додати ${emoji}">${emoji}</button>`).join("")}</div>
+          <details class="ch-picker-toggle"><summary>Усі емодзі (${EMOJI_CHOICES.length})</summary>
+            <div class="ch-emoji-picker" aria-label="Повна панель емодзі">${EMOJI_CHOICES.map((emoji) =>
+              `<button type="button" data-emoji="${emoji}" aria-label="Додати ${emoji}">${emoji}</button>`).join("")}</div>
+          </details>
           <div class="ch-feedback" id="chFeedback"></div>
           <button class="btn btn-primary btn-block" id="chSend">Відправити шифр</button>
           ${d.rerolled ? "" : '<button class="btn btn-block" id="chReroll" style="margin-top:8px; opacity:.85;">🔄 Інше слово (один раз)</button>'}`;
         const inp = document.getElementById("chEmoji");
         inputArea.querySelectorAll("[data-emoji]").forEach((button) => button.addEventListener("click", () => {
-          if (Array.from(inp.value + button.dataset.emoji).length > G.EMOJI_MAX) {
+          const value = inp.value + button.dataset.emoji;
+          if (Array.from(value).length > G.EMOJI_MAX) {
             setFeedback(EMOJI_ERRORS["too-long"], "bad");
             return;
           }
-          inp.value += button.dataset.emoji;
+          inp.value = value;
+          inp.focus();
           setFeedback("", "");
         }));
         document.getElementById("chEmojiClear").addEventListener("click", () => {
@@ -395,6 +614,14 @@
   }
 
   document.getElementById("startBtn").addEventListener("click", () => G.startSet(lastRoom));
+  for (const [inputId, outputId, key] of [
+    ["encodeSecSlider", "encodeSecValue", "encodeSec"],
+    ["guessSecSlider", "guessSecValue", "guessSec"],
+  ]) {
+    const input = document.getElementById(inputId);
+    input.addEventListener("input", () => { document.getElementById(outputId).textContent = `${input.value} с`; });
+    input.addEventListener("change", () => G.updateSettings({ [key]: Number(input.value) }));
+  }
   document.getElementById("resetBtn").addEventListener("click", () => { if (confirm("Скинути вечір (рахунок теж)?")) G.resetAll(); });
   document.getElementById("hostNextBtn").addEventListener("click", () => G.skip());
 
