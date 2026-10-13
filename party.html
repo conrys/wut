@@ -5,7 +5,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
 <title>Вечірка</title>
-<link rel="stylesheet" href="js/teli-style.css" />
+<link rel="stylesheet" href="js/styles/teli-style.css" />
 <style>
   /* аватари (персонажі зі Смішліста: img/char1..8.svg) */
   .av { position: relative; display: inline-flex; flex: none; align-items: center; justify-content: center; width: 44px; height: 44px;
@@ -69,8 +69,8 @@
   .seg .btn { flex: 1; padding: 8px 6px; font-size: 13px; }
   .seg .btn.selected { background: var(--accent); color: #0e2419; border-color: var(--accent); }
 </style>
-<link rel="stylesheet" href="js/game-header.css">
-<script src="js/game-header.js" defer></script>
+<link rel="stylesheet" href="js/styles/game-header.css">
+<script src="js/core/game-header.js" defer></script>
 </head>
 <body>
 <div class="wrap">
@@ -110,6 +110,13 @@
       <div class="pt-modes" id="modeList"></div>
       <label style="display:block; font-size:12px; color:var(--text-muted,#8b909c); margin-bottom:6px;">Раундів</label>
       <div class="seg" id="roundsSeg"></div>
+      <div id="courtSettings">
+        <label for="courtSpeakSeconds" style="display:block; font-size:12px; color:var(--text-muted,#8b909c); margin:12px 0 6px;">Час на кожен виступ (секунд)</label>
+        <input class="field" id="courtSpeakSeconds" type="number" min="5" max="300" step="1" inputmode="numeric" />
+        <label style="display:block; font-size:12px; color:var(--text-muted,#8b909c); margin:12px 0 6px;">Передавання слова</label>
+        <div class="seg" id="courtAdvanceSeg"></div>
+        <div class="status-line" style="text-align:left; font-size:12px;">У ручному режимі ведучий передає слово кнопкою «Далі».</div>
+      </div>
       <label style="display:block; font-size:12px; color:var(--text-muted,#8b909c); margin-bottom:6px;">Гострота</label>
       <div class="seg" id="levelSeg"></div>
       <button class="btn btn-primary btn-block" id="startBtn">Почати</button>
@@ -156,18 +163,18 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
-<script src="js/firebase-config.js"></script>
-<script src="js/app-settings.js"></script>
-<link rel="stylesheet" href="js/reactions.css">
-<script src="js/login.js"></script>
-<script src="js/online-engine.js"></script>
-<script src="js/party-seed.js"></script>
+<script src="js/core/firebase-config.js"></script>
+<script src="js/core/app-settings.js"></script>
+<link rel="stylesheet" href="js/styles/reactions.css">
+<script src="js/core/login.js"></script>
+<script src="js/core/online-engine.js"></script>
+<script src="js/promts/party-seed.js"></script>
 <script src="js/party-modes.js"></script>
 <script src="js/party-game.js"></script>
-<script src="js/room-code-ui.js"></script>
-<script src="js/reactions.js"></script>
-<script src="js/help.js"></script>
-<script src="js/back-button.js"></script>
+<script src="js/core/room-code-ui.js"></script>
+<script src="js/core/reactions.js"></script>
+<script src="js/core/help.js"></script>
+<script src="js/core/back-button.js"></script>
 <script>
 (function () {
   const VIEWS = ["locked", "room-entry", "waiting", "lobby", "round", "summary"];
@@ -227,6 +234,10 @@
     }).join("");
     list.querySelectorAll("[data-mode]").forEach((b) => b.addEventListener("click", () => G.updateSettings({ mode: b.dataset.mode })));
     segButtons("roundsSeg", G.ROUND_OPTIONS.map((n) => [n, String(n)]), s.rounds, (n) => G.updateSettings({ rounds: n }));
+    document.getElementById("courtSettings").classList.toggle("hidden", s.mode !== "court");
+    document.getElementById("courtSpeakSeconds").value = s.courtSpeakSeconds || G.DEFAULT_COURT_SPEAK_SECONDS;
+    segButtons("courtAdvanceSeg", [[1, "Автоматично"], [0, "Вручну"]], s.courtAutoAdvance === false ? 0 : 1,
+      (value) => G.updateSettings({ courtAutoAdvance: value === 1 }));
     segButtons("levelSeg", [1, 2, 3].map((n) => [n, "🌶️".repeat(n) + " " + LEVEL_LABELS[n]]), s.level || G.DEFAULT_LEVEL, (n) => G.updateSettings({ level: n }));
     const mode = MODES[s.mode], enough = mode && conn.length >= mode.minPlayers;
     document.getElementById("startBtn").disabled = !enough;
@@ -244,7 +255,9 @@
     document.getElementById("stageText").classList.toggle("hidden", !st.text);
     document.getElementById("stageRoles").innerHTML = (st.roles || []).map((r) =>
       `<div class="pt-role">${avatarHtml(room, r.name)}<span><small>${escapeHtml(r.label)}</small>${escapeHtml(r.name)}</span></div>`).join("");
-    document.getElementById("stageHint").textContent = st.hint || "";
+    const manualCourtSpeech = room.mode === "court" && st.kind === "show" && room.settings?.courtAutoAdvance === false;
+    document.getElementById("stageHint").textContent = (st.hint || "") +
+      (manualCourtSpeech ? " Після таймера ведучий передає слово кнопкою «Далі»." : "");
     const isReveal = st.kind === "reveal";
     const inputArea = document.getElementById("inputArea"), revealArea = document.getElementById("revealArea");
     revealArea.classList.toggle("hidden", !isReveal);
@@ -308,7 +321,11 @@
     const el = document.getElementById("stageTimer"), room = lastRoom;
     if (!room || room.phase !== "round" || !room.stage || room.stage.kind === "reveal" || !room.stage.endsAt) { el.classList.add("hidden"); return; }
     el.classList.remove("hidden");
-    el.textContent = `⏳ ${Math.max(0, Math.ceil((room.stage.endsAt - G.now()) / 1000))} с`;
+    const seconds = Math.max(0, Math.ceil((room.stage.endsAt - G.now()) / 1000));
+    const manualCourtSpeech = room.mode === "court" && room.stage.kind === "show" && room.settings?.courtAutoAdvance === false;
+    el.textContent = manualCourtSpeech && seconds === 0
+      ? "⏳ Час вийшов — ведучий передає слово вручну"
+      : `⏳ ${seconds} с`;
   }
 
   // ---------------- підсумок ----------------
@@ -332,6 +349,11 @@
   }
 
   document.getElementById("startBtn").addEventListener("click", () => G.startSet(lastRoom));
+  document.getElementById("courtSpeakSeconds").addEventListener("change", (event) => {
+    const input = event.currentTarget;
+    if (input.checkValidity()) G.updateSettings({ courtSpeakSeconds: Number(input.value) });
+    else input.reportValidity();
+  });
   document.getElementById("resetBtn").addEventListener("click", () => { if (confirm("Скинути вечір (рахунок теж)?")) G.resetAll(); });
   document.getElementById("hostNextBtn").addEventListener("click", () => G.skip());
   document.getElementById("endSetBtn").addEventListener("click", () => { if (confirm("Завершити набір?")) G.endSet(); });

@@ -1,6 +1,6 @@
 /**
  * Робочий бот для Firebase RTDB (REST API)
- * Запуск: node bots.js SMM22
+ * Запуск: node bots/mafia.js SMM22
  */
 
 const DB_URL = "https://kzl-crm-default-rtdb.europe-west1.firebasedatabase.app"; 

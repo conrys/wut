@@ -53,15 +53,15 @@
 firebase-app-compat.js
 firebase-firestore-compat.js       <!-- якщо використовується Firestore -->
 firebase-database-compat.js        <!-- якщо використовується RTDB -->
-js/firebase-config.js
-js/login.js                         <!-- якщо потрібен login -->
-js/words-or-prompts.js
-js/online-engine.js                 <!-- перед game wrapper -->
+js/core/firebase-config.js
+js/core/login.js                    <!-- якщо потрібен login -->
+js/promts/words-or-prompts.js
+js/core/online-engine.js            <!-- перед game wrapper -->
 js/game.js
-js/score-connect.js
-js/records.js
-js/help.js
-js/back-button.js
+js/core/score-connect.js
+js/core/records.js
+js/core/help.js
+js/core/back-button.js
 ```
 
 Особливо важливо:
@@ -296,6 +296,8 @@ TV rules:
 ## 11. File/path conventions
 
 - Web paths використовують `/`, наприклад `img/char1.svg`.
+- Спільні скрипти лежать у `js/core/`, набори слів і промптів — у `js/promts/`, CSS — у `js/styles/`; ігрові скрипти залишаються в `js/`.
+- Markdown-документація лежить у `md/`.
 - Не вигадуй `img/quiplash/chars/...`, якщо файли реально лежать у `img/`.
 - JSON, який завантажується через `fetch`, не тестуй через `file://`; використовуй HTTP/Firebase Hosting.
 - Для image assets перевіряй, що кожен файл із `image-prompts.json` реально існує.

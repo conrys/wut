@@ -4,8 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Смішліст — великий екран</title>
-<link rel="stylesheet" href="js/quiplash-shared.css">
-<link rel="stylesheet" href="js/reactions.css">
+<link rel="stylesheet" href="js/styles/quiplash-shared.css">
+<link rel="stylesheet" href="js/styles/reactions.css">
 <style>
 * { box-sizing: border-box; }
 body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
@@ -259,11 +259,11 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
-<script src="js/firebase-config.js"></script>
-<script src="js/quiplash-prompts.js"></script>
-<script src="js/online-engine.js"></script>
+<script src="js/core/firebase-config.js"></script>
+<script src="js/promts/quiplash-prompts.js"></script>
+<script src="js/core/online-engine.js"></script>
 <script src="js/quiplash-game.js"></script>
-<script src="js/reactions.js"></script>
+<script src="js/core/reactions.js"></script>
 <script>
 (function () {
   function escapeHtml(s) { const d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML; }

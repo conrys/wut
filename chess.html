@@ -5,7 +5,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
 <title>Шахи</title>
-<link rel="stylesheet" href="js/teli-style.css" />
+<link rel="stylesheet" href="js/styles/teli-style.css" />
 <style>
   :root {
     --board-light: #e9d8b4;
@@ -123,8 +123,8 @@
   .draw-offer-bar { display: flex; align-items: center; gap: 10px; justify-content: center; background: var(--bg-tile); border-radius: var(--radius-sm); padding: 10px; margin-bottom: 10px; font-size: 13px; }
   .draw-offer-bar .btn { padding: 6px 12px; font-size: 12px; }
 </style>
-<link rel="stylesheet" href="js/game-header.css">
-<script src="js/game-header.js" defer></script>
+<link rel="stylesheet" href="js/styles/game-header.css">
+<script src="js/core/game-header.js" defer></script>
 </head>
 <body>
 <div class="page">
@@ -265,20 +265,20 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
-<script src="js/firebase-config.js"></script>
-<script src="js/app-settings.js"></script>
-<link rel="stylesheet" href="js/reactions.css">
-<script src="js/login.js"></script>
-<script src="js/online-engine.js"></script>
+<script src="js/core/firebase-config.js"></script>
+<script src="js/core/app-settings.js"></script>
+<link rel="stylesheet" href="js/styles/reactions.css">
+<script src="js/core/login.js"></script>
+<script src="js/core/online-engine.js"></script>
 <script src="js/chess-rules.js"></script>
 <script src="js/chess-bot.js"></script>
 <script src="js/chess-game.js"></script>
-<script src="js/room-code-ui.js"></script>
-<script src="js/reactions.js"></script>
-<script src="js/score-connect.js"></script>
-<script src="js/records.js"></script>
-<script src="js/help.js"></script>
-<script src="js/back-button.js"></script>
+<script src="js/core/room-code-ui.js"></script>
+<script src="js/core/reactions.js"></script>
+<script src="js/core/score-connect.js"></script>
+<script src="js/core/records.js"></script>
+<script src="js/core/help.js"></script>
+<script src="js/core/back-button.js"></script>
 <script>
 (function () {
   const R = window.ChessRules;

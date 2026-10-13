@@ -6,7 +6,7 @@
 <title>Quiz — Табло</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="js/reactions.css">
+<link rel="stylesheet" href="js/styles/reactions.css">
 <style>
   :root {
     --bg-void: #0a0e2e; --bg-panel: #131a4d; --bg-panel-2: #1c2566; --bg-tile: #202a70;
@@ -167,11 +167,11 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
-<script src="js/firebase-config.js"></script>
-<script src="js/quiz-topics.js"></script>
-<script src="js/online-engine.js"></script>
+<script src="js/core/firebase-config.js"></script>
+<script src="js/promts/quiz-topics.js"></script>
+<script src="js/core/online-engine.js"></script>
 <script src="js/quiz-game.js"></script>
-<script src="js/reactions.js"></script>
+<script src="js/core/reactions.js"></script>
 <script>
 (function () {
   const VIEWS = ["waiting", "countdown", "board", "question", "result", "end"];

@@ -19,7 +19,7 @@
 // ==========================================================================
 (function () {
   const SEED = window.PartySeed || {};
-  const MS = { vote: 15000, speak: 15000, bet: 15000, decide: 20000, reveal: 45000 };
+  const MS = { vote: 15000, bet: 15000, decide: 20000, reveal: 45000 };
 
   function texts(list, ctx, count) {
     return ctx.shuffle((list || []).filter((x) => x.level <= ctx.level)).slice(0, count).map((x) => x.text);
@@ -27,8 +27,12 @@
   function sortedCounts(counts) { // [[ім'я, голосів]] за спаданням, далі за алфавітом
     return Object.entries(counts).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1));
   }
+  function courtSpeakDuration(ctx) {
+    const seconds = Number(ctx.settings && ctx.settings.courtSpeakSeconds);
+    return (Number.isInteger(seconds) && seconds >= 5 && seconds <= 300 ? seconds : 15) * 1000;
+  }
   function reveal(stage, fields) { // stage — етап, що закінчився: з нього беремо питання/ситуацію й ролі
-    return Object.assign({ kind: "reveal", title: "Результат", text: stage.text, roles: stage.roles, durationMs: MS.reveal, bars: [], lines: [], penalties: {}, points: {} }, fields);
+    return Object.assign({ kind: "reveal", title: "Результат", text: stage.text, roles: stage.roles || [], durationMs: MS.reveal, bars: [], lines: [], penalties: {}, points: {} }, fields);
   }
 
   // ------------------------------------------------------------------
@@ -79,13 +83,13 @@
       return {
         kind: "show", title: "Суд Лінча", text: "Звинувачений " + ctx.state.items[n],
         roles: [{ label: "Звинувачений", name: accused }, { label: "Адвокат", name: lawyer }],
-        hint: "🎤 Слово має звинувачений: виправдовується вголос", durationMs: MS.speak, data: { step: "accused", accused, lawyer },
+        hint: "🎤 Слово має звинувачений: виправдовується вголос", durationMs: courtSpeakDuration(ctx), data: { step: "accused", accused, lawyer },
       };
     },
     onEnd(ctx, stage, inputs) {
       const d = stage.data;
       if (d.step === "accused") {
-        return { kind: "show", title: "Суд Лінча", text: stage.text, roles: stage.roles, hint: "🎤 Слово має адвокат: захищає будь-яким абсурдом", durationMs: MS.speak, data: Object.assign({}, d, { step: "lawyer" }) };
+        return { kind: "show", title: "Суд Лінча", text: stage.text, roles: stage.roles, hint: "🎤 Слово має адвокат: захищає будь-яким абсурдом", durationMs: courtSpeakDuration(ctx), data: Object.assign({}, d, { step: "lawyer" }) };
       }
       if (d.step === "lawyer") {
         const jurors = ctx.order.filter((n) => n !== d.accused && n !== d.lawyer);
@@ -136,7 +140,7 @@
       return reveal(stage, {
         headline: decision === "do" ? `💪 ${d.victim} зробив(ла)!` : `🥤 ${d.victim} здався(лась) і п'є`,
         bars: [{ label: "💪 Зробить", value: doBets }, { label: "🥤 Здасться", value: quitBets }],
-        lines: [right.length ? `Вгадали (+1 бал): ${right.join(", ")}` : "Ніхто не вгадав", Object.keys(penalties).filter((n) => n !== d.victim).length ? `Схибили й п'ють: ${Object.keys(penalties).filter((n) => n !== d.victim).join(", ")}` : ""].filter(Boolean),
+        lines: [right.length ? `Вгадали: ${right.length} (+1 бал кожному)` : "Ніхто не вгадав"],
         penalties, points,
       });
     },

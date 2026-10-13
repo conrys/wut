@@ -5,7 +5,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
 <title>Ставки</title>
-<link rel="stylesheet" href="js/teli-style.css" />
+<link rel="stylesheet" href="js/styles/teli-style.css" />
 <style>
   /* аватари (персонажі зі Смішліста: img/char1..8.svg) */
   .av { position: relative; display: inline-flex; flex: none; align-items: center; justify-content: center; width: 44px; height: 44px;
@@ -69,8 +69,8 @@
   .seg .btn { flex: 1; padding: 8px 6px; font-size: 13px; }
   .seg .btn.selected { background: var(--accent); color: #0e2419; border-color: var(--accent); }
 </style>
-<link rel="stylesheet" href="js/game-header.css">
-<script src="js/game-header.js" defer></script>
+<link rel="stylesheet" href="js/styles/game-header.css">
+<script src="js/core/game-header.js" defer></script>
 </head>
 <body>
 <div class="wrap">
@@ -154,19 +154,19 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
-<script src="js/firebase-config.js"></script>
-<script src="js/app-settings.js"></script>
-<link rel="stylesheet" href="js/reactions.css">
-<script src="js/login.js"></script>
-<script src="js/online-engine.js"></script>
-<script src="js/party-seed.js"></script>
+<script src="js/core/firebase-config.js"></script>
+<script src="js/core/app-settings.js"></script>
+<link rel="stylesheet" href="js/styles/reactions.css">
+<script src="js/core/login.js"></script>
+<script src="js/core/online-engine.js"></script>
+<script src="js/promts/party-seed.js"></script>
 <script src="js/party-modes.js"></script>
 <script>window.PartyConfig = { mode: "bets", gameKey: "party_bets" };</script>
 <script src="js/party-game.js"></script>
-<script src="js/room-code-ui.js"></script>
-<script src="js/reactions.js"></script>
-<script src="js/help.js"></script>
-<script src="js/back-button.js"></script>
+<script src="js/core/room-code-ui.js"></script>
+<script src="js/core/reactions.js"></script>
+<script src="js/core/help.js"></script>
+<script src="js/core/back-button.js"></script>
 <script>
 (function () {
   const VIEWS = ["locked", "room-entry", "waiting", "lobby", "round", "summary"];
