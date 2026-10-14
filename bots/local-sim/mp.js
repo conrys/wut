@@ -10,7 +10,7 @@ const KILL_HOST_AT = Number(process.env.KILL_HOST_AT || 0);
 const ROOM = "TEST" + Math.floor(Math.random() * 90 + 10);
 fs.mkdirSync(OUT, { recursive: true });
 
-const NAMES = ["vlad", "olena", "andrii", "marta", "taras", "iryna", "bohdan", "sofiia", "dmytro", "kateryna",
+const NAMES = ["Влад", "Олена К", "Марʼяна", "marta", "taras", "iryna", "bohdan", "sofiia", "dmytro", "kateryna",
   "maksym", "yuliia", "oleh", "nataliia", "serhii", "anastasiia", "roman", "viktoriia", "petro", "khrystyna", "ivan", "daria"];
 
 // Runs inside the page: one "turn" of a naive human.

@@ -16,6 +16,7 @@ const MIN_PLAYERS = {
   charades: 3,
   fakenews: 3,
   naklep: 4,
+  mafia: 4,
 };
 const GAME_KEYS = {
   humanbingo: "humanbingo",
@@ -26,6 +27,7 @@ const GAME_KEYS = {
   charades: "charades",
   fakenews: "fakenews",
   naklep: "naklep",
+  mafia: "mafia",
 };
 const BOT_FACTS = [
   "засинав(ла) під час фільму в кінотеатрі",
@@ -59,7 +61,7 @@ const AVATAR_COLORS = ["#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#9b59b6", "#
 
 function usage() {
   console.log("Usage: node bots/run-tests.js <game> <room-code> [bot-count]");
-  console.log("Games: humanbingo, dilemmas, whofrom, court, bets, charades, fakenews, naklep");
+  console.log("Games: humanbingo, dilemmas, whofrom, court, bets, charades, fakenews, naklep, mafia");
   console.log("Example: node bots/run-tests.js charades ROOM42 3");
 }
 
@@ -99,6 +101,7 @@ async function prepareBot(game, roomId, bot, currentPlayers, photoFiles) {
     status: "active",
     character: (avatarNumber % 8) + 1,
     color: AVATAR_COLORS[avatarNumber],
+    ...(game === "mafia" ? { role: null, isDon: false, alive: true, ready: false } : {}),
   };
   await request(`${GAME_KEYS[game]}_rooms/${roomId}/players/${bot.name}`, "PUT", player);
   bot.cleanup.push(`players/${bot.name}`);

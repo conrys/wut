@@ -6,7 +6,7 @@ Run the command from the project root after opening the target room in the game:
 node bots/run-tests.js <game> <room-code> [bot-count]
 ```
 
-Supported games: `humanbingo`, `dilemmas`, `whofrom`, `court`, `bets`, `charades`, `fakenews`, and `naklep`. The default is three bots; for example:
+Supported games: `humanbingo`, `dilemmas`, `whofrom`, `court`, `bets`, `charades`, `fakenews`, `naklep`, and `mafia`. The default is three bots; for example:
 
 ```text
 node bots/run-tests.js naklep ROOM42 3

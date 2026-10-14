@@ -109,6 +109,37 @@ function gameActions(game, room, bots, now) {
     return { updates, actions };
   }
 
+  if (game === "mafia") {
+    const alive = Object.entries(players).filter(([, p]) => p && p.alive !== false).map(([n]) => n);
+    const moves = room.moves || {}, votes = room.votes || {}, dayReady = room.dayReady || {};
+    for (const bot of bots) {
+      const me = players[bot.name];
+      if (!me) continue;
+      if ((room.phase || "lobby") === "lobby") {
+        if (!me.ready) set(`players/${bot.name}/ready`, true, `${bot.name}: ready`);
+        continue;
+      }
+      if (me.alive === false) continue;
+      const others = alive.filter((n) => n !== bot.name);
+      const offset = bot.index + (room.nightNumber || 0);
+      if (room.phase === "mafia_move" && me.role === "mafia" && !moves[bot.name]) {
+        const target = pick(others.filter((n) => players[n].role !== "mafia"), offset);
+        set(`moves/${bot.name}`, target ? { choice: "target", target } : { choice: "skip", target: null }, `${bot.name}: mafia move`);
+      } else if (room.phase === "doctor_move" && me.role === "doctor" && !moves[bot.name]) {
+        set(`moves/${bot.name}`, { choice: "target", target: bot.name }, `${bot.name}: doctor saves self`);
+      } else if (room.phase === "sheriff_move" && me.role === "sheriff" && !moves[bot.name]) {
+        const target = pick(others, offset);
+        if (target) set(`moves/${bot.name}`, { choice: "target", target }, `${bot.name}: sheriff checks`);
+      } else if (room.phase === "day_discussion" && !dayReady[bot.name]) {
+        set(`dayReady/${bot.name}`, true, `${bot.name}: ready to vote`);
+      } else if (room.phase === "voting" && !votes[bot.name]) {
+        const target = pick(others, offset);
+        if (target) set(`votes/${bot.name}`, target, `${bot.name}: voted`);
+      }
+    }
+    return { updates, actions };
+  }
+
   throw new Error(`Unsupported game action handler: ${game}`);
 }
 
