@@ -1,0 +1,115 @@
+// УВАГА: це повна копія правил Firestore проєкту kzl-crm, включно з чужими
+// для Ігротеки колекціями (writeoffs, homes). Справжній _auth_key для
+// writeoffs у репо НЕ зберігаємо — у консолі він лишається свій.
+// Тому НЕ деплоїти цей файл командою firebase deploy: у консолі заміни лише
+// блок "Ігротека / 41 Games" між позначками ▼ і ▲.
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /writeoffs/{doc} {
+      allow create: if request.resource.data._auth_key == "*****";
+      allow read, update, delete: if false;
+    }
+
+    // ▼▼▼ Ігротека / 41 Games ▼▼▼
+    function signedIn() { return request.auth != null; }
+    function anonymous() { return request.auth.token.firebase.sign_in_provider == 'anonymous'; }
+    function namePath(n) { return /databases/$(database)/documents/games41_names/$(n.lower()); }
+    function ownsName(n) {
+      return signedIn() && n is string && exists(namePath(n)) && get(namePath(n)).data.uid == request.auth.uid;
+    }
+    // Рекорди, стрік Wordle — лише справжній акаунт (не гість).
+    function ownsAccountName(n) { return ownsName(n) && get(namePath(n)).data.guest == false; }
+
+    // Бронювання імен: { uid, name, guest, expiresAt, createdAt, updatedAt }.
+    // Ключ документа = ім'я в нижньому регістрі. Гостьове ім'я після
+    // expiresAt може забрати хтось інший.
+    function validClaim(norm) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['uid', 'name', 'guest', 'expiresAt', 'createdAt', 'updatedAt'])
+        && d.uid == request.auth.uid
+        && d.name is string && d.name.lower() == norm
+        && norm.size() >= 2 && norm.size() <= 20
+        && d.guest is bool
+        && (d.guest == true || !anonymous())
+        && (d.guest == false || (d.expiresAt is number && d.expiresAt <= request.time.toMillis() + 90000000));
+    }
+    match /games41_names/{norm} {
+      allow read: if true;
+      allow create: if signedIn() && validClaim(norm);
+      allow update: if signedIn() && validClaim(norm)
+        && (resource.data.uid == request.auth.uid
+            || (resource.data.guest == true && resource.data.expiresAt < request.time.toMillis()));
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    // Старі акаунти (SHA-256). Нових не створюємо; документ видаляє сам
+    // власник після переносу в Firebase Auth. Коли всі перейдуть — read: false.
+    match /games41_users/{userId} {
+      allow read: if true;
+      allow create, update: if false;
+      allow delete: if ownsName(userId);
+    }
+
+    match /games41_scores/{scoreId} {
+      allow read: if true;
+      allow create, update: if ownsAccountName(request.resource.data.player)
+        && request.resource.data.keys().hasOnly(['gameName', 'player', 'score', 'ts'])
+        && scoreId == request.resource.data.player + '__' + request.resource.data.gameName
+        && request.resource.data.score is number;
+      allow delete: if false;
+    }
+
+    match /games41_wordle_users/{userId} {
+      allow read: if true;
+      allow create, update: if ownsAccountName(userId)
+        && request.resource.data.keys().hasOnly(['streak', 'lastWinDate', 'updatedAt']);
+      allow delete: if false;
+    }
+
+    match /games41_wordle_results/{resultId} {
+      allow read: if true;
+      allow create, update: if ownsAccountName(request.resource.data.username)
+        && request.resource.data.keys().hasOnly(['username', 'date', 'lang', 'attempts', 'won', 'shareText', 'ts'])
+        && resultId == request.resource.data.date + '_' + request.resource.data.lang + '_' + request.resource.data.username;
+      // прибирання старих результатів (wordle.js тримає тільки сьогодні/вчора)
+      allow delete: if signedIn() && resource.data.ts < request.time.toMillis() - 129600000;
+    }
+
+    match /games41_quiplash_prompt_history/{promptId} {
+      allow read: if true;
+      allow create, update: if signedIn() && request.resource.data.keys().hasOnly(['lastUsedAt'])
+        && request.resource.data.lastUsedAt is number;
+      allow delete: if false;
+    }
+
+    // раніше правила не було — запис кулдауну картинок Сміхлиста мовчки падав
+    match /games41_quiplash_image_history/{imageId} {
+      allow read: if true;
+      allow create, update: if signedIn() && request.resource.data.keys().hasOnly(['lastUsedAt'])
+        && request.resource.data.lastUsedAt is number;
+      allow delete: if false;
+    }
+
+    match /games41_notes/{noteId} {
+      allow read: if true;
+      allow create: if ownsName(request.resource.data.author)
+        && request.resource.data.keys().hasOnly(['gameName', 'text', 'author', 'createdAt'])
+        && request.resource.data.text is string && request.resource.data.text.size() <= 1000;
+      allow update: if false;
+      allow delete: if signedIn();
+    }
+    // ▲▲▲ Ігротека / 41 Games ▲▲▲
+
+    // ───────── Домашній кошик ─────────
+    match /homes/{homeId} {
+      allow read, delete: if true;
+      allow create: if request.resource.data.keys().hasOnly(['createdAt']);
+
+      match /{collection}/{id} {
+        allow read, write: if collection in ['items', 'barcodes', 'receipts'];
+      }
+    }
+  }
+}

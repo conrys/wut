@@ -3,7 +3,7 @@
  * Запуск: node bots/mafia.js SMM22
  */
 
-const DB_URL = "https://kzl-crm-default-rtdb.europe-west1.firebasedatabase.app"; 
+const { DB_URL, getAuthToken } = require("./common");
 // Беремо ID з аргументу (node bots.js КОД) або за замовчуванням SMM22
 const ROOM_ID = process.argv[2] || "2"; 
 
@@ -11,7 +11,8 @@ const delay = (ms = 1000) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function firebaseRequest(path, data, method = 'PATCH') {
     try {
-        const res = await fetch(`${DB_URL}/${path}.json`, {
+        const token = await getAuthToken();
+        const res = await fetch(`${DB_URL}/${path}.json${token ? `?auth=${encodeURIComponent(token)}` : ""}`, {
             method: method,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)

@@ -4,191 +4,140 @@
       ".read": true,
       "$roomId": {
         ".read": true,
-        ".write": true
-      }
-    },
-    "snake_lobby": {
-      ".read": true,
-      "$username": {
-        ".write": true
+        ".write": "auth != null"
       }
     },
     "snake_rooms": {
       ".read": true,
       "$roomId": {
         ".read": true,
-        ".write": true,
-        "$child": {
-          ".write": true
-        }
-      }
-    },
-    "spy_game": {
-      ".read": true,
-      ".write": true
-    },
-    "spy_lobby": {
-      ".read": true,
-      "$username": {
-        ".write": true
+        ".write": "auth != null"
       }
     },
     "spy_rooms": {
       ".read": true,
       "$roomId": {
         ".read": true,
-        ".write": true,
-        "$child": {
-          ".write": true
-        }
+        ".write": "auth != null"
       }
-    },
-    "quiplash_game": {
-      ".read": true,
-      ".write": true
     },
     "quiplash_rooms": {
       ".read": true,
-      ".write": true,
       "$roomId": {
         ".read": true,
-        ".write": true,
-        "$child": {
-          ".read": true,
-          ".write": true
-        }
+        ".write": "auth != null"
       }
     },
     "whoami_rooms": {
       ".read": true,
       "$roomId": {
         ".read": true,
-        ".write": true
+        ".write": "auth != null"
       }
     },
     "memology_rooms": {
       ".read": true,
       "$roomId": {
         ".read": true,
-        ".write": true
+        ".write": "auth != null"
       }
     },
     "poker_rooms": {
       ".read": true,
       "$roomId": {
         ".read": true,
-        ".write": true
+        ".write": "auth != null"
       }
     },
     "teli_rooms": {
       ".read": true,
       "$roomId": {
         ".read": true,
-        ".write": true
-      }
-    },
-    "mafia_lobby": {
-      ".read": true,
-      "$username": {
-        ".write": true
+        ".write": "auth != null"
       }
     },
     "mafia_rooms": {
       ".read": true,
-      ".write": true,
       "$roomId": {
         ".read": true,
-        ".write": true
-      }
-    },
-    "quiz_lobby": {
-      ".read": true,
-      "$username": {
-        ".write": true
+        ".write": "auth != null"
       }
     },
     "quiz_rooms": {
       ".read": true,
       "$roomId": {
         ".read": true,
-        ".write": true
+        ".write": "auth != null"
       }
     },
     "checkers_rooms": {
       ".read": true,
       "$roomId": {
         ".read": true,
-        ".write": true
+        ".write": "auth != null"
       }
     },
     "chess_rooms": {
       ".read": true,
       "$roomId": {
         ".read": true,
-        ".write": true
+        ".write": "auth != null"
       }
     },
     "durak_rooms": {
       ".read": true,
       "$roomId": {
         ".read": true,
-        ".write": true
+        ".write": "auth != null"
       }
     },
     "humanbingo_rooms": {
       ".read": true,
       "$roomId": {
         ".read": true,
-        ".write": true
-      }
-    },
-    "kingscup_rooms": {
-      ".read": true,
-      "$roomId": {
-        ".read": true,
-        ".write": true
+        ".write": "auth != null"
       }
     },
     "dilemmas_rooms": {
       ".read": true,
       "$roomId": {
         ".read": true,
-        ".write": true
+        ".write": "auth != null"
       }
     },
     "party_rooms": {
       ".read": true,
       "$roomId": {
         ".read": true,
-        ".write": true
+        ".write": "auth != null"
       }
     },
     "party_whofrom_rooms": {
       ".read": true,
       "$roomId": {
         ".read": true,
-        ".write": true
+        ".write": "auth != null"
       }
     },
     "party_court_rooms": {
       ".read": true,
       "$roomId": {
         ".read": true,
-        ".write": true
+        ".write": "auth != null"
       }
     },
     "party_bets_rooms": {
       ".read": true,
       "$roomId": {
         ".read": true,
-        ".write": true
+        ".write": "auth != null"
       }
     },
     "naklep_rooms": {
       ".read": true,
       "$roomId": {
         ".read": true,
-        ".write": true,
+        ".write": "auth != null",
         "facts": {
           "$user": {
             "$factId": {
@@ -202,25 +151,25 @@
       ".read": true,
       "$roomId": {
         ".read": true,
-        ".write": true
-      }
-    },
-    "fakenews_photos": {
-      "$roomId": {
-        ".read": true,
-        ".write": true,
-        "$user": {
-          "$photoId": {
-            ".validate": "newData.isString() && newData.val().length < 150000 && newData.val().matches(/^data:image\\/jpeg;base64,/)"
-          }
-        }
+        ".write": "auth != null"
       }
     },
     "charades_rooms": {
       ".read": true,
       "$roomId": {
         ".read": true,
-        ".write": true
+        ".write": "auth != null"
+      }
+    },
+    "fakenews_photos": {
+      "$roomId": {
+        ".read": true,
+        ".write": "auth != null",
+        "$user": {
+          "$photoId": {
+            ".validate": "newData.isString() && newData.val().length < 150000 && newData.val().matches(/^data:image\\/jpeg;base64,/)"
+          }
+        }
       }
     }
   }

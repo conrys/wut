@@ -168,6 +168,7 @@
       if (user && user.isAnonymous) {
         // гість зберігає профіль: той самий uid, нічого не губиться
         user = (await user.linkWithCredential(credential)).user;
+        await user.getIdToken(true); // свіжий токен: правила мають бачити, що це вже не анонім
       } else {
         user = (await auth.createUserWithEmailAndPassword(emailFor(norm), authPassword(password))).user;
       }
