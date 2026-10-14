@@ -1,0 +1,6 @@
+{
+  "name": "games41-local-sim",
+  "private": true,
+  "description": "Local stand-in for Firebase RTDB/Firestore plus phone-browser test runners",
+  "dependencies": { "playwright": "^1.47.0", "ws": "^8.18.0" }
+}

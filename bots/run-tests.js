@@ -6,6 +6,7 @@ const { gameActions } = require("./game-actions");
 
 const POLL_MS = 750;
 const HEARTBEAT_MS = 2000;
+const MAX_ROOM_PLAYERS = 20;
 const MIN_PLAYERS = {
   humanbingo: 2,
   dilemmas: 2,
@@ -76,16 +77,17 @@ async function findTestPhotos() {
   const names = await fs.readdir(dir);
   const photos = [];
   for (const name of names.sort()) {
-    if (!/\.(?:jpe?g|png)$/i.test(name)) continue;
+    // RTDB rules for fakenews_photos accept only data:image/jpeg under 150000 chars.
+    if (!/\.jpe?g$/i.test(name)) continue;
     const filePath = path.join(dir, name);
     const data = await fs.readFile(filePath);
     if (data.length > 100_000) continue;
     photos.push({
-      dataUri: `data:${/\.png$/i.test(name) ? "image/png" : "image/jpeg"};base64,${data.toString("base64")}`,
+      dataUri: `data:image/jpeg;base64,${data.toString("base64")}`,
     });
     if (photos.length === 2) return photos;
   }
-  throw new Error("Fake News needs two local test images smaller than 100 KB in memes/.");
+  throw new Error("Fake News needs two local JPEG test images smaller than 100 KB in memes/.");
 }
 
 async function prepareBot(game, roomId, bot, currentPlayers, photoFiles) {
@@ -201,8 +203,8 @@ async function run(game, roomId, count) {
     if (existingPlayers.length + bots.length < required) {
       throw new Error(`${game} needs ${required} connected players; room has ${existingPlayers.length + bots.length}. Run with more bots.`);
     }
-    if (existingPlayers.length + bots.length > 12) {
-      throw new Error(`This test runner supports up to 12 connected players; room would have ${existingPlayers.length + bots.length}.`);
+    if (existingPlayers.length + bots.length > MAX_ROOM_PLAYERS) {
+      throw new Error(`This test runner supports up to ${MAX_ROOM_PLAYERS} connected players; room would have ${existingPlayers.length + bots.length}.`);
     }
 
     console.log(`Ready. Start the game manually in the browser. Press Ctrl+C to remove these bots.`);
@@ -249,7 +251,7 @@ async function main() {
     usage();
     throw new Error(`Unsupported test game: ${gameArg}`);
   }
-  if (count > 12) throw new Error("Bot count cannot exceed 12.");
+  if (count > MAX_ROOM_PLAYERS) throw new Error(`Bot count cannot exceed ${MAX_ROOM_PLAYERS}.`);
   await run(game, roomId, count);
 }
 

@@ -761,7 +761,7 @@
     start, stop, cleanupIfAbandoned,
     updateSettings, startGame, 
     submitAnswer, submitVote, submitGalleryVote,
-    setPause, resetGame, continueGame, finishGame, setAvatar,
+    setPause, resetGame, continueGame, finishGame, setAvatar, now,
     get roomId() { return Engine.currentRoomId; },
     get roomRef() { return Engine.roomRef; },
     set onStateChange(fn) { onStateChange = fn; },

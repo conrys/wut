@@ -1,0 +1,227 @@
+{
+  "rules": {
+    "draw_rooms": {
+      ".read": true,
+      "$roomId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "snake_lobby": {
+      ".read": true,
+      "$username": {
+        ".write": true
+      }
+    },
+    "snake_rooms": {
+      ".read": true,
+      "$roomId": {
+        ".read": true,
+        ".write": true,
+        "$child": {
+          ".write": true
+        }
+      }
+    },
+    "spy_game": {
+      ".read": true,
+      ".write": true
+    },
+    "spy_lobby": {
+      ".read": true,
+      "$username": {
+        ".write": true
+      }
+    },
+    "spy_rooms": {
+      ".read": true,
+      "$roomId": {
+        ".read": true,
+        ".write": true,
+        "$child": {
+          ".write": true
+        }
+      }
+    },
+    "quiplash_game": {
+      ".read": true,
+      ".write": true
+    },
+    "quiplash_rooms": {
+      ".read": true,
+      ".write": true,
+      "$roomId": {
+        ".read": true,
+        ".write": true,
+        "$child": {
+          ".read": true,
+          ".write": true
+        }
+      }
+    },
+    "whoami_rooms": {
+      ".read": true,
+      "$roomId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "memology_rooms": {
+      ".read": true,
+      "$roomId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "poker_rooms": {
+      ".read": true,
+      "$roomId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "teli_rooms": {
+      ".read": true,
+      "$roomId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "mafia_lobby": {
+      ".read": true,
+      "$username": {
+        ".write": true
+      }
+    },
+    "mafia_rooms": {
+      ".read": true,
+      ".write": true,
+      "$roomId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "quiz_lobby": {
+      ".read": true,
+      "$username": {
+        ".write": true
+      }
+    },
+    "quiz_rooms": {
+      ".read": true,
+      "$roomId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "checkers_rooms": {
+      ".read": true,
+      "$roomId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "chess_rooms": {
+      ".read": true,
+      "$roomId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "durak_rooms": {
+      ".read": true,
+      "$roomId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "humanbingo_rooms": {
+      ".read": true,
+      "$roomId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "kingscup_rooms": {
+      ".read": true,
+      "$roomId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "dilemmas_rooms": {
+      ".read": true,
+      "$roomId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "party_rooms": {
+      ".read": true,
+      "$roomId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "party_whofrom_rooms": {
+      ".read": true,
+      "$roomId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "party_court_rooms": {
+      ".read": true,
+      "$roomId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "party_bets_rooms": {
+      ".read": true,
+      "$roomId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "naklep_rooms": {
+      ".read": true,
+      "$roomId": {
+        ".read": true,
+        ".write": true,
+        "facts": {
+          "$user": {
+            "$factId": {
+              ".validate": "newData.isString() && newData.val().length <= 140"
+            }
+          }
+        }
+      }
+    },
+    "fakenews_rooms": {
+      ".read": true,
+      "$roomId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "fakenews_photos": {
+      "$roomId": {
+        ".read": true,
+        ".write": true,
+        "$user": {
+          "$photoId": {
+            ".validate": "newData.isString() && newData.val().length < 150000 && newData.val().matches(/^data:image\\/jpeg;base64,/)"
+          }
+        }
+      }
+    },
+    "charades_rooms": {
+      ".read": true,
+      "$roomId": {
+        ".read": true,
+        ".write": true
+      }
+    }
+  }
+}
