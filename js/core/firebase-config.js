@@ -89,3 +89,15 @@ try {
 } catch (e) {
   console.warn("Firebase init error:", e);
 }
+
+// Екрани ТВ (quiplash-tv, quiz-tv) не мають кнопки входу, але пишуть у базу,
+// а правила RTDB пускають лише з входом. Тому там — тихий анонімний вхід.
+try {
+  if (window.FIREBASE_SILENT_GUEST && typeof firebase !== "undefined" && typeof firebase.auth === "function") {
+    firebase.auth().onAuthStateChanged((user) => {
+      if (!user) firebase.auth().signInAnonymously().catch((e) => console.warn("Silent guest sign-in failed:", e));
+    });
+  }
+} catch (e) {
+  console.warn("Auth init error:", e);
+}

@@ -363,9 +363,62 @@
     }),
   };
 
+  // ---------------- Auth API (anonymous + email/password) ----------------
+  const AUTH_KEY = "__mockAuthUser";
+  const authListeners = [];
+  function authError(code, message) { const e = new Error(message || code); e.code = code; return e; }
+  function makeUser(u) {
+    if (!u) return null;
+    const user = {
+      uid: u.uid, email: u.email || null, isAnonymous: !!u.isAnonymous, displayName: u.displayName || null,
+      getIdToken: () => Promise.resolve("mock-token-" + u.uid),
+      async linkWithCredential(cred) {
+        const r = await request({ op: "authLink", uid: u.uid, email: cred.email, password: cred.password });
+        if (r.authError) throw authError(r.authError);
+        setUser({ uid: u.uid, email: cred.email, isAnonymous: false });
+        return { user: auth.currentUser };
+      },
+      async updateProfile(p) { u.displayName = p.displayName; persist(u); },
+      async delete() { await request({ op: "authDelete", uid: u.uid }); setUser(null); },
+    };
+    return user;
+  }
+  function persist(u) { try { u ? localStorage.setItem(AUTH_KEY, JSON.stringify(u)) : localStorage.removeItem(AUTH_KEY); } catch (e) {} }
+  function setUser(u) { persist(u); auth.currentUser = makeUser(u); authListeners.forEach((cb) => safe(() => cb(auth.currentUser))); }
+  let restored = null;
+  try { restored = JSON.parse(localStorage.getItem(AUTH_KEY) || "null"); } catch (e) {}
+  const auth = {
+    currentUser: makeUser(restored),
+    onAuthStateChanged(cb) { authListeners.push(cb); setTimeout(() => cb(auth.currentUser), 30); return () => authListeners.splice(authListeners.indexOf(cb), 1); },
+    authStateReady() { return new Promise((r) => setTimeout(r, 30)); },
+    async signInAnonymously() {
+      const r = await request({ op: "authAnon" });
+      setUser({ uid: r.uid, isAnonymous: true });
+      return { user: auth.currentUser };
+    },
+    async createUserWithEmailAndPassword(email, password) {
+      if (String(password).length < 6) throw authError("auth/weak-password");
+      const r = await request({ op: "authSignUp", email, password });
+      if (r.authError) throw authError(r.authError);
+      setUser({ uid: r.uid, email, isAnonymous: false });
+      return { user: auth.currentUser };
+    },
+    async signInWithEmailAndPassword(email, password) {
+      const r = await request({ op: "authSignIn", email, password });
+      if (r.authError) throw authError(r.authError);
+      setUser({ uid: r.uid, email, isAnonymous: false });
+      return { user: auth.currentUser };
+    },
+    async signOut() { setUser(null); },
+    setPersistence: () => Promise.resolve(),
+  };
+  const authFn = () => auth;
+  authFn.EmailAuthProvider = { credential: (email, password) => ({ email, password, providerId: "password" }) };
+  authFn.Auth = { Persistence: { LOCAL: "local", SESSION: "session", NONE: "none" } };
+
   const apps = [];
   const firestoreFn = () => firestore;
-  firestoreFn.FieldValue = { serverTimestamp: () => Date.now(), delete: () => null };
+  firestoreFn.FieldValue = { serverTimestamp: () => Date.now(), delete: () => ({ __mockDelete: true }) };
   const databaseFn = () => database;
   databaseFn.ServerValue = { TIMESTAMP: SERVER_TS, increment: (n) => ({ ".sv": { increment: n } }) };
   window.firebase = {
@@ -374,6 +427,7 @@
     app: () => apps[0],
     firestore: firestoreFn,
     database: databaseFn,
+    auth: authFn,
   };
   connect();
 })();

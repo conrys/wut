@@ -28,7 +28,13 @@ async function phone(browser, username, opts = {}) {
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, (route) => route.fulfill({ status: 200, contentType: "text/css", body: "" }));
   if (username) {
     await ctx.addInitScript((u) => {
-      try { localStorage.setItem("games41_session", JSON.stringify({ username: u, loginAt: Date.now() })); } catch (e) {}
+      try {
+        if (!localStorage.getItem("games41_session")) {
+          // тестовий гравець = гість із готовою сесією й анонімним Auth-користувачем
+          localStorage.setItem("__mockAuthUser", JSON.stringify({ uid: "t_" + u, isAnonymous: true }));
+          localStorage.setItem("games41_session", JSON.stringify({ username: u, uid: "t_" + u, guest: true, loginAt: Date.now() }));
+        }
+      } catch (e) {}
     }, username);
   }
   if (opts.lite) {

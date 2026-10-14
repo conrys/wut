@@ -138,7 +138,7 @@ async function cleanupOldResults() {
 // ------------------------- Firestore: стрік і фід -------------------------
 async function submitWordleResult({ lang, dateStr, won, rows, maxAttempts }) {
   const session = window.AppAuth && window.AppAuth.getSession();
-  if (!session || !window.firebaseReady || !db) return { saved: false };
+  if (!session || session.guest || !window.firebaseReady || !db) return { saved: false };
 
   const shareText = buildShareText(lang, dateStr, rows, won, maxAttempts);
   const docId = `${dateStr}_${lang}_${session.username}`;

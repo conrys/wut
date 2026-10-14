@@ -11,6 +11,7 @@ const MOCK_JS = fs.readFileSync(path.join(__dirname, "firebase-mock.js"), "utf8"
 
 let tree = null;
 const fsdb = {}; // col -> { id: data }
+const authUsers = {}; // uid -> { email, password } | { anon }
 const stats = { writes: 0, bytesOut: 0, cas: 0, casFail: 0 };
 
 function split(p) { return String(p || "").split("/").filter(Boolean); }
@@ -118,11 +119,27 @@ function handle(ws, m) {
       else ws.od.push({ path: m.path, kind: m.kind, value: m.value });
       return ack({ ok: true });
     }
+    case "authAnon": { const uid = "anon_" + Math.random().toString(36).slice(2, 12); authUsers[uid] = { anon: true }; return ack({ uid }); }
+    case "authSignUp": {
+      if (Object.values(authUsers).some((u) => u.email === m.email)) return ack({ authError: "auth/email-already-in-use" });
+      const uid = "u_" + Math.random().toString(36).slice(2, 12); authUsers[uid] = { email: m.email, password: m.password }; return ack({ uid });
+    }
+    case "authSignIn": {
+      const e = Object.entries(authUsers).find(([, u]) => u.email === m.email && u.password === m.password);
+      return e ? ack({ uid: e[0] }) : ack({ authError: "auth/invalid-credential" });
+    }
+    case "authLink": {
+      if (Object.values(authUsers).some((u) => u.email === m.email)) return ack({ authError: "auth/email-already-in-use" });
+      authUsers[m.uid] = { email: m.email, password: m.password }; return ack({ ok: true });
+    }
+    case "authDelete": { delete authUsers[m.uid]; return ack({ ok: true }); }
     case "fsGet": { const c = fsdb[m.col] || {}; return ack({ data: c[m.docId] == null ? null : c[m.docId] }); }
     case "fsSet": {
       const c = (fsdb[m.col] = fsdb[m.col] || {});
       if (m.mustExist && !c[m.docId]) return ack({ error: "not-found: No document to update" });
-      c[m.docId] = m.merge ? Object.assign({}, c[m.docId] || {}, m.data) : m.data;
+      const merged = m.merge ? Object.assign({}, c[m.docId] || {}, m.data) : Object.assign({}, m.data);
+      for (const k of Object.keys(merged)) if (merged[k] && merged[k].__mockDelete) delete merged[k];
+      c[m.docId] = merged;
       fsNotify(m.col); return ack({ ok: true });
     }
     case "fsDelete": { const c = fsdb[m.col] || {}; delete c[m.docId]; fsNotify(m.col); return ack({ ok: true }); }
@@ -144,7 +161,7 @@ const server = http.createServer((req, res) => {
   const url = new URL(req.url, "http://x");
   if (url.pathname === "/__mock/firebase.js") { res.writeHead(200, { "Content-Type": TYPES[".js"] }); return res.end(MOCK_JS); }
   if (url.pathname === "/__mock/stats") { res.writeHead(200, { "Content-Type": "application/json" }); return res.end(JSON.stringify(Object.assign({ clients: clients.size, treeBytes: JSON.stringify(tree || {}).length }, stats))); }
-  if (url.pathname === "/__mock/reset") { tree = null; stats.writes = 0; stats.bytesOut = 0; stats.byPath = {}; stats.cas = 0; stats.casFail = 0; for (const k in fsdb) delete fsdb[k]; res.writeHead(200); return res.end("ok"); }
+  if (url.pathname === "/__mock/reset") { tree = null; stats.writes = 0; stats.bytesOut = 0; stats.byPath = {}; stats.cas = 0; stats.casFail = 0; for (const k in authUsers) delete authUsers[k]; for (const k in fsdb) delete fsdb[k]; res.writeHead(200); return res.end("ok"); }
   if (url.pathname === "/__mock/fs") {
     if (req.method === "POST") { let b = ""; req.on("data", (c) => (b += c)); req.on("end", () => { const { col, id, data } = JSON.parse(b); (fsdb[col] = fsdb[col] || {})[id] = data; res.end("ok"); }); return; }
     res.writeHead(200, { "Content-Type": "application/json" }); return res.end(JSON.stringify(fsdb));

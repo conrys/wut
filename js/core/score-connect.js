@@ -15,6 +15,7 @@
   async function sendScore(gameName, score) {
     const session = window.AppAuth && window.AppAuth.getSession();
     if (!session) return { saved: false, reason: "not-logged-in" };
+    if (session.guest) return { saved: false, reason: "guest" }; // гості не потрапляють у рекорди
     if (!window.firebaseReady || !db) return { saved: false, reason: "no-connection" };
 
     try {
@@ -79,7 +80,7 @@
       // той скрипт підключений лише на wordle.html, тут його може не бути.
       const [scoresSnap, userSnap, wordleSnap] = await Promise.all([
         db.collection(SCORES_COLLECTION).get(),
-        db.collection(USERS_COLLECTION).doc(username).get().catch(() => null),
+        db.collection("games41_names").doc(window.AppAuth && window.AppAuth.normName ? window.AppAuth.normName(username) : username).get().catch(() => null),
         db.collection("games41_wordle_users").doc(username).get().catch(() => null),
       ]);
 
@@ -124,6 +125,7 @@
   async function incrementScore(gameName, delta) {
     const session = window.AppAuth && window.AppAuth.getSession();
     if (!session) return { saved: false, reason: "not-logged-in" };
+    if (session.guest) return { saved: false, reason: "guest" }; // гості не потрапляють у рекорди
     if (!window.firebaseReady || !db) return { saved: false, reason: "no-connection" };
 
     try {

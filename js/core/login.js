@@ -1,91 +1,267 @@
 // ==========================================================================
-// Проста реєстрація/логін без Firebase Auth: SHA-256(логін+пароль) звіряється
-// з хешем у Firestore (games41_users/{login}). Без відновлення пароля,
-// без токенів — сесія тримається просто в localStorage. "Все для своїх".
+// Акаунти 41 Games на Firebase Auth.
 //
-// ОНОВЛЕННЯ:
-// - GAME_LABELS тепер єдине джерело правди й публікується як window.GameLabels
-//   (раніше той самий список був продубльований у game-notes.js — легко
-//   було забути оновити переклад в одній з двох копій). game-notes.js
-//   довантажується нижче ПІСЛЯ визначення GAME_LABELS, тож на момент його
-//   виконання window.GameLabels уже готовий.
-// - "quiz"/"doodle" перекладені (були "Quiz"/"Doodle Jump").
-// - Екран "Мій профіль" переписаний: кольоровий аватар за іменем, зведений
-//   "рейтинг" одним числом, "#місце з N гравців" замість голого "#N",
-//   "N днів тому" для кожного рекорду, підсвічування медальних рядків і
-//   секція "Ще не грав" зі списком ігор без жодного рахунку.
+// - Гість: лише ім'я (кирилиця ок), без пароля → signInAnonymously(). Ім'я
+//   бронюється в games41_names на GUEST_TTL_MS і продовжується, поки гість
+//   заходить. Гостя можна перетворити на акаунт ("Зберегти профіль") —
+//   linkWithCredential зберігає той самий uid.
+// - Акаунт: ім'я + пароль. Під капотом Email/Password: пошта синтетична
+//   (hex імені @ EMAIL_DOMAIN), людина її не бачить і не вводить.
+// - Старі акаунти (SHA-256 у games41_users) переносяться при першому вході:
+//   хеш звіряється востаннє, створюється Auth-акаунт, старий документ
+//   видаляється — після цього хеш більше ніде не лежить.
+// - Сесія в localStorage тепер лише кеш { username, uid, guest }: при кожному
+//   завантаженні звіряється з firebase.auth().currentUser. Не збіглося —
+//   сесію скинуто (підробити username у localStorage більше не вийде).
+//
+// API для сторінок не змінився: AppAuth.getSession() синхронний і
+// повертає { username } як і раніше (+ uid, guest).
 // ==========================================================================
 (function () {
   const STORAGE_KEY = "games41_session";
+  const NAMES_COLLECTION = "games41_names";
+  const LEGACY_USERS_COLLECTION = "games41_users";
+  const EMAIL_DOMAIN = "u.games41.app";
+  const PASSWORD_PREFIX = "41g:"; // старі паролі бувають по 4 символи, Firebase вимагає ≥ 6
+  const GUEST_TTL_MS = 24 * 60 * 60 * 1000;
+  const GUEST_REFRESH_MS = 60 * 60 * 1000;
+  const NAME_MIN = 2, NAME_MAX = 16, NAME_MAX_BYTES = 32, PASSWORD_MIN = 6;
+
+  // Сторінка, відкрита без сесії, показує "🔒 Увійди…". Після входу її
+  // простіше й надійніше перезавантажити, ніж вчити кожну гру стартувати
+  // посеред життя сторінки.
+  const pageStartedWithSession = !!readSession();
 
   async function sha256Hex(text) {
     const enc = new TextEncoder().encode(text);
     const buf = await crypto.subtle.digest("SHA-256", enc);
-    return Array.from(new Uint8Array(buf))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
+    return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
   }
 
-  function normalizeUsername(name) {
-    return (name || "").trim().toLowerCase();
+  // ---------------------------- імена ----------------------------
+  // Літери будь-якої абетки, цифри, пробіл, _ і -, апостроф. Усі апострофи
+  // зводимо до ʼ (U+02BC — це "літера", безпечна в HTML-атрибутах).
+  function cleanName(raw) {
+    return String(raw || "")
+      .normalize("NFC")
+      .replace(/['’`´]/g, "ʼ")
+      .replace(/\s+/g, " ")
+      .trim();
   }
+  function normName(raw) { return cleanName(raw).toLowerCase(); }
+  function validateName(name) {
+    if (name.length < NAME_MIN) return `Ім'я: щонайменше ${NAME_MIN} символи`;
+    if (name.length > NAME_MAX) return `Ім'я: не довше ${NAME_MAX} символів`;
+    if (!/^[\p{L}\p{N}](?:[\p{L}\p{N}ʼ _-]*[\p{L}\p{N}])?$/u.test(name)) return "Ім'я: лише літери, цифри, пробіл, - і _";
+    if (new TextEncoder().encode(name.toLowerCase()).length > NAME_MAX_BYTES) return "Ім'я задовге";
+    return null;
+  }
+  function emailFor(norm) {
+    const hex = Array.from(new TextEncoder().encode(norm)).map((b) => b.toString(16).padStart(2, "0")).join("");
+    return `${hex}@${EMAIL_DOMAIN}`;
+  }
+  function authPassword(pw) { return PASSWORD_PREFIX + pw; }
 
-  function getSession() {
+  // ---------------------------- сесія ----------------------------
+  function readSession() {
     try {
-      return JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+      const s = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+      return s && s.username ? s : null;
     } catch {
       return null;
     }
   }
-
-  function setSession(username) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ username, loginAt: Date.now() }));
+  function getSession() { return readSession(); }
+  function setSession(username, uid, guest) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ username, uid, guest: !!guest, loginAt: Date.now() }));
+    } catch {}
   }
-
   function clearSession() {
-    localStorage.removeItem(STORAGE_KEY);
+    try { localStorage.removeItem(STORAGE_KEY); } catch {}
   }
 
-  function requireFirebase() {
-    if (!window.firebaseReady || !db) {
+  function fbAuth() {
+    if (!window.firebaseReady || !db || typeof firebase === "undefined" || typeof firebase.auth !== "function") {
       throw new Error("Немає з'єднання з сервером. Спробуй пізніше.");
     }
+    return firebase.auth();
   }
 
-  async function register(username, password) {
-    requireFirebase();
-    const uid = normalizeUsername(username);
-    if (!uid || !/^[a-z0-9_\-]{3,20}$/.test(uid)) {
-      throw new Error("Логін: 3-20 символів, латиниця/цифри/_/-");
+  const AUTH_ERRORS = {
+    "auth/network-request-failed": "Немає інтернету. Спробуй ще раз.",
+    "auth/too-many-requests": "Забагато спроб. Зачекай хвилину.",
+    "auth/operation-not-allowed": "Цей спосіб входу вимкнений у Firebase (Authentication → Sign-in method).",
+    "auth/admin-restricted-operation": "Гостьовий вхід вимкнений у Firebase (Authentication → Sign-in method → Anonymous).",
+    "auth/weak-password": `Пароль: щонайменше ${PASSWORD_MIN} символів`,
+  };
+  function friendly(e) {
+    if (e && AUTH_ERRORS[e.code]) return new Error(AUTH_ERRORS[e.code]);
+    if (e && e.code === "permission-denied") return new Error("Сервер відхилив запит. Онови сторінку й спробуй ще раз.");
+    return e instanceof Error ? e : new Error(String(e));
+  }
+  const BAD_CREDENTIALS = new Set(["auth/invalid-credential", "auth/invalid-login-credentials", "auth/user-not-found", "auth/wrong-password", "auth/invalid-email"]);
+
+  // Бронювання імені. Вільне, моє, або протерміноване гостьове — беремо.
+  async function claimName(name, uid, guest, createdAtHint) {
+    const norm = normName(name);
+    const ref = db.collection(NAMES_COLLECTION).doc(norm);
+    const legacy = await db.collection(LEGACY_USERS_COLLECTION).doc(norm).get().catch(() => null);
+    const now = Date.now();
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const d = snap.exists ? snap.data() : null;
+      const expiredGuest = d && d.guest && d.expiresAt && d.expiresAt < now;
+      if (d && d.uid !== uid && !expiredGuest) throw new Error("Це ім'я вже зайняте");
+      if (!d && legacy && legacy.exists && !createdAtHint) throw new Error("Це ім'я вже зайняте");
+      tx.set(ref, {
+        uid,
+        name,
+        guest: !!guest,
+        expiresAt: guest ? now + GUEST_TTL_MS : null,
+        createdAt: d && d.uid === uid && d.createdAt ? d.createdAt : (createdAtHint || now),
+        updatedAt: now,
+      });
+    });
+  }
+  async function releaseName(name, uid) {
+    const ref = db.collection(NAMES_COLLECTION).doc(normName(name));
+    const snap = await ref.get().catch(() => null);
+    if (snap && snap.exists && snap.data().uid === uid) await ref.delete().catch(() => {});
+  }
+
+  // ---------------------------- входи ----------------------------
+  async function guestLogin(rawName) {
+    const auth = fbAuth();
+    const name = cleanName(rawName);
+    const err = validateName(name);
+    if (err) throw new Error(err);
+    try {
+      let user = auth.currentUser;
+      if (!user || !user.isAnonymous) user = (await auth.signInAnonymously()).user;
+      const prev = readSession();
+      await claimName(name, user.uid, true);
+      if (prev && prev.guest && prev.uid === user.uid && normName(prev.username) !== normName(name)) await releaseName(prev.username, user.uid);
+      setSession(name, user.uid, true);
+      return name;
+    } catch (e) {
+      throw friendly(e);
     }
-    if (!password || password.length < 4) {
-      throw new Error("Пароль має бути мін. 4 символи");
+  }
+
+  async function register(rawName, password) {
+    const auth = fbAuth();
+    const name = cleanName(rawName);
+    const err = validateName(name);
+    if (err) throw new Error(err);
+    if (!password || password.length < PASSWORD_MIN) throw new Error(`Пароль: щонайменше ${PASSWORD_MIN} символів`);
+    const norm = normName(name);
+    try {
+      const taken = await db.collection(NAMES_COLLECTION).doc(norm).get();
+      const prev = readSession();
+      const mine = auth.currentUser && taken.exists && taken.data().uid === auth.currentUser.uid;
+      if (taken.exists && !mine && !(taken.data().guest && taken.data().expiresAt < Date.now())) throw new Error("Це ім'я вже зайняте");
+      const legacy = await db.collection(LEGACY_USERS_COLLECTION).doc(norm).get();
+      if (legacy.exists) throw new Error("Це ім'я вже зайняте");
+      let user = auth.currentUser;
+      const credential = firebase.auth.EmailAuthProvider.credential(emailFor(norm), authPassword(password));
+      if (user && user.isAnonymous) {
+        // гість зберігає профіль: той самий uid, нічого не губиться
+        user = (await user.linkWithCredential(credential)).user;
+      } else {
+        user = (await auth.createUserWithEmailAndPassword(emailFor(norm), authPassword(password))).user;
+      }
+      await claimName(name, user.uid, false);
+      if (prev && prev.guest && prev.uid === user.uid && normName(prev.username) !== norm) await releaseName(prev.username, user.uid);
+      setSession(name, user.uid, false);
+      return name;
+    } catch (e) {
+      if (e && (e.code === "auth/email-already-in-use" || e.code === "auth/credential-already-in-use")) throw new Error("Це ім'я вже зайняте");
+      throw friendly(e);
     }
-    const ref = db.collection(USERS_COLLECTION).doc(uid);
-    const snap = await ref.get();
-    if (snap.exists) throw new Error("Такий логін вже зайнятий");
-    const passwordHash = await sha256Hex(uid + ":" + password);
-    await ref.set({ passwordHash, createdAt: Date.now() });
-    setSession(uid);
-    return uid;
   }
 
-  async function login(username, password) {
-    requireFirebase();
-    const uid = normalizeUsername(username);
-    if (!uid || !password) throw new Error("Введи логін і пароль");
-    const ref = db.collection(USERS_COLLECTION).doc(uid);
-    const snap = await ref.get();
-    if (!snap.exists) throw new Error("Користувача не знайдено");
-    const passwordHash = await sha256Hex(uid + ":" + password);
-    if (snap.data().passwordHash !== passwordHash) throw new Error("Невірний пароль");
-    setSession(uid);
-    return uid;
+  async function login(rawName, password) {
+    const auth = fbAuth();
+    const norm = normName(rawName);
+    if (!norm || !password) throw new Error("Введи ім'я і пароль");
+    try {
+      const cred = await auth.signInWithEmailAndPassword(emailFor(norm), authPassword(password));
+      const snap = await db.collection(NAMES_COLLECTION).doc(norm).get().catch(() => null);
+      const name = snap && snap.exists && snap.data().uid === cred.user.uid ? snap.data().name : norm;
+      setSession(name, cred.user.uid, false);
+      return name;
+    } catch (e) {
+      if (!e || !BAD_CREDENTIALS.has(e.code)) throw friendly(e);
+    }
+    return migrateLegacy(norm, password);
   }
 
-  function logout() {
+  // Старий акаунт: звіряємо SHA-256 востаннє, створюємо Auth-акаунт,
+  // бронюємо ім'я і видаляємо старий документ із хешем.
+  async function migrateLegacy(norm, password) {
+    const auth = fbAuth();
+    const ref = db.collection(LEGACY_USERS_COLLECTION).doc(norm);
+    const snap = await ref.get().catch(() => null);
+    if (!snap || !snap.exists || !snap.data().passwordHash) throw new Error("Невірне ім'я або пароль");
+    const hash = await sha256Hex(norm + ":" + password);
+    if (snap.data().passwordHash !== hash) throw new Error("Невірне ім'я або пароль");
+    try {
+      const user = (await auth.createUserWithEmailAndPassword(emailFor(norm), authPassword(password))).user;
+      await claimName(norm, user.uid, false, snap.data().createdAt || Date.now());
+      await ref.delete().catch((e) => console.warn("legacy cleanup:", e));
+      setSession(norm, user.uid, false);
+      return norm;
+    } catch (e) {
+      if (e && e.code === "auth/email-already-in-use") throw new Error("Невірне ім'я або пароль");
+      throw friendly(e);
+    }
+  }
+
+  async function logout() {
+    const s = readSession();
     clearSession();
-    updatePill();
+    try {
+      const auth = fbAuth();
+      if (s && s.guest && auth.currentUser) await releaseName(s.username, auth.currentUser.uid);
+      await auth.signOut();
+    } catch {}
+    if (pageStartedWithSession) location.reload();
+    else updatePill();
+  }
+
+  // Звірка кешу з реальним станом Auth при кожному завантаженні сторінки.
+  let legacySessionDropped = false;
+  function watchAuthState() {
+    let auth;
+    try { auth = fbAuth(); } catch { return; }
+    let first = true;
+    auth.onAuthStateChanged((user) => {
+      const s = readSession();
+      if (s && (!user || user.uid !== s.uid)) {
+        legacySessionDropped = !s.uid;
+        clearSession();
+        if (legacySessionDropped) { try { sessionStorage.setItem("games41_relogin", "1"); } catch {} }
+        if (pageStartedWithSession) { location.reload(); return; }
+        updatePill();
+      } else if (s && s.guest && user && first) {
+        refreshGuestClaim(s, user.uid);
+      }
+      first = false;
+    });
+  }
+  async function refreshGuestClaim(s, uid) {
+    try {
+      const snap = await db.collection(NAMES_COLLECTION).doc(normName(s.username)).get();
+      const d = snap.exists ? snap.data() : null;
+      if (d && d.uid === uid && d.expiresAt - Date.now() > GUEST_TTL_MS - GUEST_REFRESH_MS) return;
+      await claimName(s.username, uid, true);
+    } catch (e) {
+      if (/зайняте/.test(e.message)) {
+        clearSession();
+        if (pageStartedWithSession) location.reload();
+      }
+    }
   }
 
   // Українські назви ігор — ЄДИНА копія на весь застосунок (game-notes.js
@@ -112,9 +288,16 @@
     "teli": "Зіпсований телефон",
     "quiz": "Квіз",
     "draw": "Малювалка",
-    "durak": "Дурак",
-    "humanbingo": "Human Bingo",
-    "kingscup": "King's Cup",
+    "durak": "Дурень",
+    "humanbingo": "Людське бінго",
+    "dilemmas": "Дилеми",
+    "whofrom": "Хто з нас?",
+    "court": "Суд Лінча",
+    "bets": "Ставки",
+    "charades": "Зіпсовані шаради",
+    "fakenews": "Fake News",
+    "naklep": "Наклеп",
+    "party": "Вечірка 3-в-1",
   };
   // Невеличкі емодзі-іконки для секції "Ще не грав" у профілі — суто
   // декоративні, щоб список не був голим текстом. Гра без запису тут
@@ -374,6 +557,25 @@
         color: var(--text, #f4f5f1); text-decoration: none; touch-action: manipulation;
       }
       .profile-unplayed a:active { opacity: 0.6; }
+
+      .auth-hint { color: var(--text-muted, #8b909c); font-size: 12px; line-height: 1.4; margin: -2px 0 10px; }
+      .auth-notice {
+        background: rgba(255,184,77,0.12); border: 1px solid rgba(255,184,77,0.35); color: var(--text, #f4f5f1);
+        border-radius: var(--radius-sm, 8px); padding: 8px 10px; font-size: 12px; margin-bottom: 10px; display: none;
+      }
+      .auth-notice.show { display: block; }
+      .auth-modal input { font-size: 16px; } /* ≥16px — iOS не зумить сторінку при фокусі */
+      .auth-cta {
+        display: block; margin: 14px auto 0; padding: 12px 18px; border: none; border-radius: var(--radius-sm, 8px);
+        background: var(--accent, #38cfa0); color: #0e2318; font-weight: 700; font-size: 15px;
+        cursor: pointer; touch-action: manipulation;
+      }
+      .auth-cta:active { opacity: 0.7; }
+      .guest-badge {
+        display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; font-size: 10px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: .04em; background: rgba(255,255,255,0.1); color: var(--text-muted, #8b909c);
+        vertical-align: middle;
+      }
     `;
     document.head.appendChild(style);
 
@@ -383,65 +585,84 @@
     const topBar = document.querySelector("#top-bar");
     if (topBar) {
       topBar.appendChild(pillEl);
-    } else {
+    } else if (window.GameHeader && GameHeader.slot) {
       GameHeader.slot("right").appendChild(pillEl);
+    } else {
+      // сторінка без шапки (notes.html): кнопка в правому верхньому куті
+      pillEl.style.cssText = "position:fixed !important;top:10px;right:10px;z-index:9000;";
+      document.body.appendChild(pillEl);
     }
 
     pillEl.addEventListener("click", () => {
-      const session = getSession();
-      if (session) {
-        openMenu();
-      } else {
-        openModal();
-      }
+      if (readSession()) openMenu();
+      else openModal();
     });
 
     modalEl = document.createElement("div");
     modalEl.className = "auth-overlay";
     modalEl.innerHTML = `
-      <div class="auth-modal">
+      <div class="auth-modal" role="dialog" aria-modal="true">
         <div class="auth-tabs">
-          <div class="auth-tab active" data-tab="login">Вхід</div>
+          <div class="auth-tab" data-tab="guest">Гість</div>
+          <div class="auth-tab" data-tab="login">Вхід</div>
           <div class="auth-tab" data-tab="register">Реєстрація</div>
         </div>
-        <h3 id="authTitle">Вхід</h3>
+        <h3 id="authTitle">Грати як гість</h3>
+        <div class="auth-notice" id="authNotice">Ми оновили вхід: увійди ще раз своїм логіном і паролем — акаунт і рекорди на місці.</div>
+        <div class="auth-hint" id="authHint"></div>
         <div class="auth-error" id="authError"></div>
-        <input id="authUser" type="text" placeholder="Логін" autocomplete="username" />
+        <input id="authUser" type="text" placeholder="Ім'я" autocomplete="username" maxlength="20" autocapitalize="words" />
         <input id="authPass" type="password" placeholder="Пароль" autocomplete="current-password" />
-        <div class="row"><button class="auth-primary" id="authSubmit">Увійти</button></div>
+        <div class="row"><button class="auth-primary" id="authSubmit">Грати</button></div>
         <div class="auth-close" id="authCloseBtn">Закрити</div>
       </div>
     `;
     document.body.appendChild(modalEl);
 
-    let mode = "login";
     const errEl = modalEl.querySelector("#authError");
     const titleEl = modalEl.querySelector("#authTitle");
+    const hintEl = modalEl.querySelector("#authHint");
     const submitBtn = modalEl.querySelector("#authSubmit");
     const userInput = modalEl.querySelector("#authUser");
     const passInput = modalEl.querySelector("#authPass");
 
-    modalEl.querySelectorAll(".auth-tab").forEach((tab) => {
-      tab.addEventListener("click", () => {
-        mode = tab.dataset.tab;
-        modalEl.querySelectorAll(".auth-tab").forEach((t) => t.classList.toggle("active", t === tab));
-        titleEl.textContent = mode === "login" ? "Вхід" : "Реєстрація";
-        submitBtn.textContent = mode === "login" ? "Увійти" : "Зареєструватись";
-        errEl.textContent = "";
-      });
-    });
+    const MODES = {
+      guest: { title: "Грати як гість", button: "Грати", hint: "Без пароля. Гостьовий профіль живе на цьому телефоні, рекорди не зберігаються. Пізніше його можна зберегти як акаунт.", password: false },
+      login: { title: "Вхід", button: "Увійти", hint: "", password: true },
+      register: { title: "Реєстрація", button: "Зареєструватись", hint: `Ім'я бачать інші гравці (можна кирилицею). Пароль — від ${PASSWORD_MIN} символів.`, password: true },
+      save: { title: "Зберегти профіль", button: "Зберегти", hint: `Гостьовий профіль стане акаунтом: вигадай пароль від ${PASSWORD_MIN} символів, щоб заходити з будь-якого пристрою.`, password: true },
+    };
+    setAuthMode = (mode) => {
+      authMode = mode;
+      const m = MODES[mode];
+      const tab = mode === "save" ? "register" : mode;
+      modalEl.querySelectorAll(".auth-tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === tab));
+      modalEl.querySelector(".auth-tabs").style.display = mode === "save" ? "none" : "";
+      titleEl.textContent = m.title;
+      submitBtn.textContent = m.button;
+      hintEl.textContent = m.hint;
+      hintEl.style.display = m.hint ? "" : "none";
+      passInput.style.display = m.password ? "" : "none";
+      passInput.autocomplete = mode === "login" ? "current-password" : "new-password";
+      errEl.textContent = "";
+    };
+    modalEl.querySelectorAll(".auth-tab").forEach((tab) => tab.addEventListener("click", () => setAuthMode(tab.dataset.tab)));
+    setAuthMode("guest");
 
     modalEl.querySelector("#authCloseBtn").addEventListener("click", closeModal);
     modalEl.addEventListener("click", (e) => { if (e.target === modalEl) closeModal(); });
+    [userInput, passInput].forEach((el) => el.addEventListener("keydown", (e) => { if (e.key === "Enter") submitBtn.click(); }));
 
     submitBtn.addEventListener("click", async () => {
       errEl.textContent = "";
       submitBtn.disabled = true;
       try {
-        if (mode === "login") await login(userInput.value, passInput.value);
+        if (authMode === "guest") await guestLogin(userInput.value);
+        else if (authMode === "login") await login(userInput.value, passInput.value);
         else await register(userInput.value, passInput.value);
         userInput.value = "";
         passInput.value = "";
+        if (!pageStartedWithSession) { location.reload(); return; }
         closeModal();
         updatePill();
       } catch (e) {
@@ -458,6 +679,7 @@
       <div class="menu-card">
         <div class="menu-user"><span id="menuAvatar">👤</span> <span id="menuUsername"></span></div>
         <button type="button" class="menu-item" data-action="profile">🏆 Мій профіль</button>
+        <button type="button" class="menu-item" data-action="save">💾 Зберегти профіль</button>
         <button type="button" class="menu-item" data-action="settings">⚙ Налаштування</button>
         <button type="button" class="menu-item menu-item-danger" data-action="logout">🚪 Вихід</button>
         <div class="menu-close" id="menuCloseBtn">Закрити</div>
@@ -471,11 +693,16 @@
         const action = btn.dataset.action;
         closeMenu();
         if (action === "profile") openProfile();
-        else if (action === "settings") {
+        else if (action === "save") {
+          const s = readSession();
+          openModal("save");
+          if (s) userInput.value = s.username;
+        } else if (action === "settings") {
           if (window.AppSettings && window.AppSettings.openPanel) window.AppSettings.openPanel();
         } else if (action === "logout") {
-          const session = getSession();
-          if (session && confirm(`Вийти з ${session.username}?`)) logout();
+          const s = readSession();
+          const warn = s && s.guest ? `Вийти з гостьового профілю ${s.username}? Ім'я звільниться для інших.` : `Вийти з ${s && s.username}?`;
+          if (s && confirm(warn)) logout();
         }
       });
     });
@@ -517,15 +744,50 @@
     profileEl.querySelector("#profileCloseBtn").addEventListener("click", closeProfile);
 
     updatePill();
+    addLoginButtons();
+    if (sessionStorage.getItem("games41_relogin")) {
+      try { sessionStorage.removeItem("games41_relogin"); } catch {}
+      openModal("login");
+      modalEl.querySelector("#authNotice").classList.add("show");
+    } else if (!readSession() && new URLSearchParams(location.search).get("room")) {
+      // зайшли за посиланням на кімнату — одразу пропонуємо гостьовий вхід
+      openModal("guest");
+    }
   }
 
-  function openModal() { modalEl.classList.add("open"); }
+  // На кожному екрані "🔒 Увійди в профіль…" додаємо справжню кнопку.
+  function addLoginButtons() {
+    if (readSession()) return;
+    const re = /Увійди в профіль/;
+    const els = Array.from(document.querySelectorAll("body *")).filter((el) =>
+      el.children.length === 0 && re.test(el.textContent || "") && !el.closest(".auth-overlay, .menu-overlay, .profile-overlay"));
+    els.forEach((el) => {
+      if (el.parentElement && el.parentElement.querySelector(".auth-cta")) return;
+      el.textContent = el.textContent.replace(/\s*\(кнопка зверху\)/, "");
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "auth-cta";
+      b.textContent = "Увійти або грати як гість";
+      b.addEventListener("click", () => openModal("guest"));
+      el.insertAdjacentElement("afterend", b);
+    });
+  }
+
+  let authMode = "guest";
+  let setAuthMode = () => {};
+  function openModal(mode) {
+    setAuthMode(mode || (authMode === "save" ? "guest" : authMode));
+    modalEl.classList.add("open");
+    const input = modalEl.querySelector("#authUser");
+    setTimeout(() => input && input.focus(), 50);
+  }
   function closeModal() { modalEl.classList.remove("open"); }
 
   function openMenu() {
-    const session = getSession();
+    const session = readSession();
     if (!session) return;
-    menuEl.querySelector("#menuUsername").textContent = session.username;
+    menuEl.querySelector("#menuUsername").innerHTML = escapeHtml(session.username) + (session.guest ? '<span class="guest-badge">гість</span>' : "");
+    menuEl.querySelector('[data-action="save"]').style.display = session.guest ? "" : "none";
     const av = menuEl.querySelector("#menuAvatar");
     av.textContent = session.username.charAt(0).toUpperCase();
     av.style.background = colorForName(session.username);
@@ -541,15 +803,32 @@
   }
   function closeMenu() { menuEl.classList.remove("open"); }
 
+  // Профіль однаковий на всіх сторінках: модуль рахунків довантажується сам,
+  // навіть якщо гра його не підключала.
+  let scoreModulePromise = null;
+  function ensureScoreModule() {
+    if (window.AppScore && window.AppScore.getUserProfile) return Promise.resolve(true);
+    if (!scoreModulePromise) {
+      scoreModulePromise = new Promise((resolve) => {
+        const s = document.createElement("script");
+        s.src = "js/core/score-connect.js";
+        s.onload = () => resolve(!!window.AppScore);
+        s.onerror = () => resolve(false);
+        document.head.appendChild(s);
+      });
+    }
+    return scoreModulePromise;
+  }
+
   async function openProfile() {
-    const session = getSession();
+    const session = readSession();
     if (!session) return;
 
     const avatarEl = profileEl.querySelector("#profileAvatar");
     avatarEl.textContent = session.username.charAt(0).toUpperCase();
     avatarEl.style.background = colorForName(session.username);
 
-    profileEl.querySelector("#profileUsername").textContent = session.username;
+    profileEl.querySelector("#profileUsername").innerHTML = escapeHtml(session.username) + (session.guest ? '<span class="guest-badge">гість</span>' : "");
     profileEl.querySelector("#profileJoined").textContent = "";
     profileEl.querySelector("#profileRating").textContent = "0";
     profileEl.querySelector("#goldCount").textContent = "0";
@@ -565,8 +844,20 @@
     wordleRowEl.style.display = "none";
     profileEl.classList.add("open");
 
-    if (!window.AppScore || !window.AppScore.getUserProfile) {
-      listEl.innerHTML = '<div class="profile-empty">Недоступно</div>';
+    if (session.guest) {
+      listEl.innerHTML = '<div class="profile-empty">Гостьовий профіль не зберігає рекорди.<br>Збережи його як акаунт — і рахунки почнуть записуватись.</div>' +
+        '<button type="button" class="auth-cta" id="profileSaveBtn">💾 Зберегти профіль</button>';
+      listEl.querySelector("#profileSaveBtn").addEventListener("click", () => {
+        closeProfile();
+        openModal("save");
+        modalEl.querySelector("#authUser").value = session.username;
+      });
+      return;
+    }
+
+    const ok = await ensureScoreModule();
+    if (!ok || !window.firebaseReady || !db) {
+      listEl.innerHTML = '<div class="profile-empty">Немає з\'єднання з сервером — профіль недоступний.</div>';
       return;
     }
     const { trophies, games, joinedAt, wordleStreak } = await window.AppScore.getUserProfile(session.username, SCORABLE_GAMES);
@@ -576,9 +867,6 @@
     profileEl.querySelector("#bronzeCount").textContent = trophies.bronze;
     profileEl.querySelector("#profileRating").textContent = computeRating(trophies);
 
-    // Wordle — не рекорд і не місце в топі, а стрік. Показуємо рядок лише
-    // якщо він реально є (>0); немає стріку — немає й рядка, щоб не плутати
-    // з "не грав" (могли грати вчора і саме сьогодні перервати стрік).
     if (wordleStreak > 0) {
       wordleRowEl.style.display = "";
       profileEl.querySelector("#wordleStreakValue").textContent = wordleStreak;
@@ -609,7 +897,6 @@
         .join("");
     }
 
-    // "Ще не грав" — усі відомі ігри мінус ті, де вже є рахунок.
     const playedKeys = new Set(games.map((g) => g.gameName));
     const unplayed = SCORABLE_GAMES.filter((key) => !playedKeys.has(key));
     if (unplayed.length) {
@@ -629,10 +916,10 @@
 
   function updatePill() {
     if (!pillEl) return;
-    const session = getSession();
+    const session = readSession();
     if (session) {
       pillEl.textContent = session.username.charAt(0).toUpperCase();
-      pillEl.title = session.username;
+      pillEl.title = session.guest ? `${session.username} (гість)` : session.username;
       pillEl.style.background = colorForName(session.username);
       pillEl.style.color = "#0e1013";
     } else {
@@ -644,8 +931,9 @@
   }
 
   document.addEventListener("DOMContentLoaded", buildUI);
+  watchAuthState();
 
-  window.AppAuth = { getSession, login, register, logout };
+  window.AppAuth = { getSession, login, register, guestLogin, logout, normName, cleanName, validateName, openLogin: (mode) => openModal(mode || "guest") };
   // Спільний словник назв/іконок ігор — game-notes.js (і будь-що інше)
   // читає звідси, замість тримати власну копію GAME_LABELS.
   window.GameLabels = { GAME_LABELS, GAME_ORDER, gameLabel, gameIcon };
