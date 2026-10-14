@@ -187,8 +187,8 @@ button:disabled { opacity: 0.5; cursor: default; }
   <p class="hint" id="answer-progress"></p>
   <div id="answer-cards"></div>
   <div id="answer-ready" class="hidden">
-    <p class="ready-icon">✅</p>
-    <p class="hint">Відповідь(-і) надіслано! Чекаємо решту гравців…</p>
+    <p class="ready-icon" id="answer-ready-icon">✅</p>
+    <p class="hint" id="answer-ready-text">Відповідь(-і) надіслано! Чекаємо решту гравців…</p>
   </div>
   <p class="hint hidden" id="answer-countdown">Всі відповіли. Готуємось до голосування…</p>
   <div id="answer-readiness" class="readiness-bar"></div>
@@ -467,7 +467,26 @@ button:disabled { opacity: 0.5; cursor: default; }
 
   function renderAnswering(state) {
     answerCountdown.classList.add("hidden");
-    const players = Object.entries(state.players || {}).map(([n, p]) => ({ name: n, ...p }));
+    const players = Object.entries(state.players || {}).map(([n, p]) => ({ name: n, ...p }))
+      .filter((p) => QuiplashGame.isAnswerer(state, p.name));
+    const readyIcon = document.getElementById("answer-ready-icon");
+    const readyText = document.getElementById("answer-ready-text");
+    if (!QuiplashGame.isAnswerer(state, session)) {
+      // гравців більше 8: цей раунд відповідають інші, ти голосуєш
+      answerTitle.classList.add("hidden");
+      answerProgress.classList.add("hidden");
+      answerExplainer.classList.add("hidden");
+      answerCards.classList.add("hidden");
+      answerCards.dataset.answerKey = "";
+      answerReady.classList.remove("hidden");
+      readyIcon.textContent = "🍿";
+      readyText.textContent = `Цей раунд відповідають ${state.roundAnswerers.length} гравців, ти голосуєш. Наступного раунду — твоя черга.`;
+      renderReadinessBar(answerReadiness, players, state.gallery ? Object.keys(state.gallery.answers || {}) : players.filter((p) =>
+        Object.values(state.matchups || {}).every((m) => (m.playerAId !== p.name || m.answerA != null) && (m.playerBId !== p.name || m.answerB != null))).map((p) => p.name));
+      return;
+    }
+    readyIcon.textContent = "✅";
+    readyText.textContent = "Відповідь(-і) надіслано! Чекаємо решту гравців…";
 
     if (state.gallery) {
       answerTitle.classList.add("hidden");
@@ -601,7 +620,7 @@ button:disabled { opacity: 0.5; cursor: default; }
       }
       const haveAnswered = g.answers && g.answers[session] !== undefined;
       const myVote = g.votes && g.votes[session];
-      if (haveAnswered && !myVote) {
+      if ((haveAnswered || !QuiplashGame.isAnswerer(state, session)) && !myVote) {
         galleryChoices.classList.remove("hidden");
         galleryChoices.innerHTML = "";
         Object.entries(g.answers || {}).filter(([n]) => n !== session).forEach(([n, text]) => {

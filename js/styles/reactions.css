@@ -45,3 +45,12 @@
 }
 .reactions-wrap.open .reactions-row { max-height: 260px; opacity: 1; }
 .reaction-btn:active { transform: scale(1.25); }
+
+/* Кнопка реакцій у шапці гри: ряд емодзі випадає вниз під шапку. */
+.reactions-wrap.in-header {
+  position: relative; right: auto; bottom: auto; display: inline-flex; vertical-align: middle;
+}
+.reactions-wrap.in-header .reactions-toggle { width: 36px; height: 36px; min-width: 36px; min-height: 36px; max-width: 36px; max-height: 36px; font-size: 18px; }
+.reactions-wrap.in-header .reactions-row {
+  position: absolute; top: 44px; right: 0; z-index: var(--z-sticky, 999);
+}

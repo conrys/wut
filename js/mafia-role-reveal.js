@@ -234,7 +234,7 @@
         <g class="rr-sheet-face" id="rrSheetFront">
           <rect x="820" y="107" class="card_back-st1" width="535" height="749" />
           <rect x="856" y="444" class="card_back-st4" width="463" height="74" />
-          <text transform="matrix(1 0 0 1 859.9043 505.4922)" class="card_back-st5 card_back-st6 card_back-st7">CONFIDENTIAL</text>
+          <text transform="matrix(1 0 0 1 859.9043 505.4922)" class="card_back-st5 card_back-st6 card_back-st7" textLength="450" lengthAdjust="spacingAndGlyphs">ЦІЛКОМ ТАЄМНО</text>
           <rect x="856.5" y="444.5" class="card_back-st8" width="462" height="74" />
         </g>
         <g class="rr-sheet-face" id="rrSheetBack"></g>

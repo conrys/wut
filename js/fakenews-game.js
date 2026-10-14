@@ -27,6 +27,10 @@
   const SPARE = 3;               // запасні фото для «Інше фото»
   const WIN_BONUS = 2;
   const REVEAL_MS = 45000;
+  // Великі компанії: в ефір і на голосування йде не більше MAX_AIRED заголовків
+  // до фото (першими — автори, яких показували найрідше). 20 заголовків × 20 с
+  // ефіру = майже 7 хвилин на одне фото.
+  const MAX_AIRED = 6;
   const ABANDON_MS = 15 * 60 * 1000;
   const PHOTO_MAX_SIDE = 720, PHOTO_QUALITY = 0.72, PHOTO_MAX_CHARS = 140000;
   const AVATAR_STORAGE_PREFIX = "games41_quiplash_avatar_";
@@ -45,6 +49,7 @@
     stage: null,
     stageSeq: 0,
     show: null,        // { idx, at } — який заголовок зараз в ефірі (веде хост)
+    airCounts: null,   // airCounts/<ім'я> — скільки разів заголовок гравця йшов в ефір за набір
     inputs: null,      // inputs/<ім'я> = "<id етапу>:<значення>"
     photoMeta: null,   // photoMeta/<ім'я>/<ключ> = { title } (у старих фото могло бути true)
     picks: null,       // picks/<ім'я>/p<індекс> = true (фото, обрані гравцем з готового пулу)
@@ -232,7 +237,7 @@
       const meta = engine.latestRoom && engine.latestRoom.photoMeta &&
         engine.latestRoom.photoMeta[p.n] && engine.latestRoom.photoMeta[p.n][p.id];
       if (meta && typeof meta.title === "string" && meta.title.trim()) return meta.title.trim();
-      return "Назва файла не збережена — завантаж фото знову";
+      return `Фото від ${p.n}`; // підпис для фото гравця без назви (раніше тут була технічна фраза про файл)
     }
     return "";
   }
@@ -350,8 +355,16 @@
       const heads = order.filter((n) => typeof inputs[n] === "string" && inputs[n].trim()).map((n) => ({ n, t: inputs[n] }));
       if (!heads.length) return reveal(stage, { headline: "📭 Ніхто нічого не написав", lines: ["Редакція в шоці"], durationMs: 8000, data: d });
       if (heads.length < 2) return reveal(stage, { headline: "📰 Єдиний заголовок", results: [{ n: heads[0].n, t: heads[0].t, v: 0 }], lines: ["Для голосування потрібно щонайменше два заголовки"], durationMs: 12000, data: d });
-      const shuf = shuffle(heads);
-      return { kind: "show", title: "Ефір", hint: "Дивимось, що вийшло", photo: stage.photo, expect: [], data: { step: "show", idx: d.idx, photo: d.photo, texts: shuf.map((h) => h.t), authors: shuf.map((h) => h.n) } };
+      let aired = heads, airCounts = null;
+      if (heads.length > MAX_AIRED) {
+        const counts = room.airCounts || {};
+        aired = shuffle(heads).sort((a, b) => (counts[a.n] || 0) - (counts[b.n] || 0)).slice(0, MAX_AIRED);
+        airCounts = Object.assign({}, counts);
+        aired.forEach((h) => { airCounts[h.n] = (airCounts[h.n] || 0) + 1; });
+      }
+      const shuf = shuffle(aired);
+      const hint = aired.length < heads.length ? `В ефірі ${aired.length} з ${heads.length} заголовків — решта вийде з наступними фото` : "Дивимось, що вийшло";
+      return { kind: "show", title: "Ефір", hint, photo: stage.photo, expect: [], data: { step: "show", idx: d.idx, photo: d.photo, texts: shuf.map((h) => h.t), authors: shuf.map((h) => h.n), airCounts } };
     }
     if (d.step === "show") {
       return { kind: "vote", title: "Голосування", hint: "Який заголовок найкращий? За свій голосувати не можна", photo: stage.photo, options: d.texts.map((t, i) => ({ id: String(i), label: t })), expect: order.slice(), durationMs: sec(room, "voteSec", DEFAULT_VOTE_SEC), data: Object.assign({}, d, { step: "vote" }) };
@@ -428,7 +441,10 @@
     try {
       const cur = engine.latestRoom;
       if (!cur || cur.phase !== "round" || !cur.stage || cur.stage.id !== room.stage.id) return;
-      await engine.roomRef.update(commitStage(cur, nextStage(cur, cur.stage, validInputs(cur))));
+      const next = nextStage(cur, cur.stage, validInputs(cur));
+      const extra = next.data && next.data.airCounts ? { airCounts: next.data.airCounts } : null;
+      if (next.data) delete next.data.airCounts;
+      await engine.roomRef.update(commitStage(cur, next, extra));
     } finally { busy = false; }
   }
 
@@ -488,7 +504,7 @@
     const draft = Object.assign({}, room, { stageSeq: 0, order: names, deck: { items } });
     engine.roomRef.update(commitStage(draft, stageFor(draft, 0), {
       phase: "round", setId: engine.now(), order: names, deck: { items },
-      roundNo: 0, totalRounds: total, "tally/set": null,
+      roundNo: 0, totalRounds: total, "tally/set": null, airCounts: null,
     }));
     return { ok: true, rounds: total };
   }

@@ -17,7 +17,10 @@
   const PRESENCE_TIMEOUT_MS = 5000;
   const TICK_MS = 500;
   const MIN_PLAYERS = 2;
-  const MAX_PLAYERS = 8;
+  const MAX_PLAYERS = 20;
+  // Більше 8 людей — у раунді відповідають 8 (хто відповідав найменше),
+  // решта цей раунд лише голосує. Інакше 20 дуелей ≈ 8–10 хв на раунд.
+  const MAX_ANSWERERS = 8;
   const ROUND_PLAN = ["classic", "classic", "image"];
   const TOTAL_ROUNDS = ROUND_PLAN.length;
 
@@ -191,16 +194,22 @@
       .filter(([playerName, player]) => playerName !== name && Number.isInteger(player.character))
       .map(([, player]) => player.character));
     const current = players && players[name];
+    const usedCombos = new Set(ordered.filter(([playerName]) => playerName !== name).map(([, p]) => `${p.character}|${p.color}`));
+    if (current && Number.isInteger(current.character) && current.character >= 1 && current.character <= 8 && used.size >= 8 && current.color && !usedCombos.has(`${current.character}|${current.color}`)) {
+      return { character: current.character, color: current.color };
+    }
     if (current && Number.isInteger(current.character) && current.character >= 1 && current.character <= 8 && !used.has(current.character)) {
       return { character: current.character, color: current.color || QUIPLASH_AVATAR_COLORS[(current.character - 1) % QUIPLASH_AVATAR_COLORS.length] };
     }
     const saved = storedProfile(name);
     if (saved && !used.has(saved.character)) return saved;
-    const character = Array.from({ length: 8 }, (_, i) => i + 1).find((value) => !used.has(value)) || ((index % 8) + 1);
-    return {
-      color: QUIPLASH_AVATAR_COLORS[(character - 1) % QUIPLASH_AVATAR_COLORS.length],
-      character,
-    };
+    const free = Array.from({ length: 8 }, (_, i) => i + 1).find((value) => !used.has(value));
+    if (free) return { color: QUIPLASH_AVATAR_COLORS[(free - 1) % QUIPLASH_AVATAR_COLORS.length], character: free };
+    // Усі 8 персонажів зайняті (9+ гравців): той самий персонаж, але інший колір,
+    // щоб не було двох однакових аватарок.
+    const character = (index % 8) + 1;
+    const shift = Math.floor(index / 8) * 3;
+    return { color: QUIPLASH_AVATAR_COLORS[(character - 1 + shift) % QUIPLASH_AVATAR_COLORS.length], character };
   }
 
   function syncPlayerProfiles(state) {
@@ -232,6 +241,8 @@
       awaitingContinuation: false,
       superSmihlystokUsername: null,
       superSmihlystokAt: null,
+      roundAnswerers: null,
+      answerCounts: null,
     };
   }
 
@@ -383,7 +394,7 @@
     if (!state || state.phase !== "lobby" || computeHost(state.players) !== username) return;
     const conn = connectedEntries(state.players);
     if (conn.length < MIN_PLAYERS) return;
-    await startRound(state, 1);
+    await startRound(Object.assign({}, state, { answerCounts: null }), 1);
   }
 
   async function startRound(state, roundNumber) {
@@ -391,6 +402,13 @@
     const conn = connectedEntries(state.players).map(([n]) => n);
     if (conn.length < 2) return;
     const tvFact = pickFact(roundNumber, state.createdAt);
+    const answerers = pickAnswerers(state, conn);
+    const answerCounts = Object.assign({}, state.answerCounts || {});
+    if (answerers.length < conn.length) answerers.forEach((n) => { answerCounts[n] = (answerCounts[n] || 0) + 1; });
+    const rotation = {
+      roundAnswerers: answerers.length < conn.length ? answerers : null,
+      answerCounts: answerers.length < conn.length ? answerCounts : (state.answerCounts || null),
+    };
 
     if (roundType === "image") {
       const p = await pickImagePrompt();
@@ -404,13 +422,14 @@
           tvFact,
           phaseDeadline: null,
           awaitingContinuation: false,
+          ...rotation,
         });
         return;
       }
       // немає картинок у списку — тихо їдемо класикою, як в оригіналі
     }
 
-    const order = shuffle(conn);
+    const order = shuffle(answerers);
     const n = order.length;
     const matchups = {};
     for (let i = 0; i < n; i++) {
@@ -430,6 +449,7 @@
       tvFact,
       phaseDeadline: null,
       awaitingContinuation: false,
+      ...rotation,
     });
   }
 
@@ -440,6 +460,7 @@
       const state = snap.val();
       if (!state || state.phase !== "answering" || state.paused) return;
       if (state.gallery) {
+        if (!isAnswerer(state, username)) return;
         if (state.gallery.answers && state.gallery.answers[username] !== undefined) return;
         ref.child(`gallery/answers/${username}`).set(clean);
         return;
@@ -534,8 +555,18 @@
     );
   }
 
+  function pickAnswerers(state, conn) {
+    if (conn.length <= MAX_ANSWERERS) return conn.slice();
+    const counts = state.answerCounts || {};
+    return shuffle(conn).sort((a, b) => (counts[a] || 0) - (counts[b] || 0)).slice(0, MAX_ANSWERERS);
+  }
+  // null roundAnswerers = відповідають усі (≤ 8 гравців)
+  function isAnswerer(state, name) {
+    return !state || !Array.isArray(state.roundAnswerers) || state.roundAnswerers.includes(name);
+  }
+
   function compactClassicMatchups(state) {
-    const active = connectedEntries(state.players).map(([name]) => name);
+    const active = connectedEntries(state.players).map(([name]) => name).filter((name) => isAnswerer(state, name));
     if (active.length < 2) return null;
     const old = Object.values(state.matchups || {});
     const order = [];
@@ -578,7 +609,7 @@
 
   function allAnswered(state) {
     if (state.gallery) {
-      const conn = connectedEntries(state.players).map(([n]) => n);
+      const conn = connectedEntries(state.players).map(([n]) => n).filter((n) => isAnswerer(state, n));
       return conn.every((n) => state.gallery.answers && state.gallery.answers[n] !== undefined);
     }
     const conn = connectedEntries(state.players).map(([name]) => name);
@@ -594,7 +625,8 @@
     return Object.keys(m.votes || {}).length >= eligibleVoterCount(state, m);
   }
   function galleryVotesComplete(state) {
-    const eligible = connectedEntries(state.players).filter(([name]) => state.gallery.answers && state.gallery.answers[name]).length;
+    const eligible = connectedEntries(state.players).filter(([name]) =>
+      (state.gallery.answers && state.gallery.answers[name]) || !isAnswerer(state, name)).length;
     return Object.keys((state.gallery && state.gallery.votes) || {}).length >= eligible;
   }
 
@@ -753,7 +785,7 @@
   }
 
   window.QuiplashGame = {
-    MIN_PLAYERS, MAX_PLAYERS, TOTAL_ROUNDS,
+    MIN_PLAYERS, MAX_PLAYERS, MAX_ANSWERERS, TOTAL_ROUNDS, isAnswerer,
     MIN_VOTE_SECONDS, MAX_VOTE_SECONDS, DEFAULT_VOTE_SECONDS, VOTE_INTRO_MS,
     GALLERY_VOTE_BONUS_SECONDS, classicVoteMs, galleryVoteMs,
     connectedEntries, computeHost,

@@ -24,7 +24,8 @@
   const DISPATCH_DEBOUNCE_MS = 150;
 
   const MIN_PLAYERS = 4;
-  const MAX_PLAYERS = 12;
+  const MAX_PLAYERS = 20;
+  const MAX_MAFIA = 5; // 20 гравців → 5 мафій (≈ n/4)
 
   const DEFAULT_SETTINGS = {
     doctorEnabled: true,
@@ -144,8 +145,8 @@
 
   function resolveMafiaCount(n, settings) {
     const cap = Math.max(1, n - (settings.doctorEnabled ? 1 : 0) - (settings.sheriffEnabled ? 1 : 0) - 1);
-    if (settings.mafiaCount) return Math.min(settings.mafiaCount, 3, cap);
-    return Math.max(1, Math.min(3, Math.floor(n / 4), cap));
+    if (settings.mafiaCount) return Math.min(settings.mafiaCount, MAX_MAFIA, cap);
+    return Math.max(1, Math.min(MAX_MAFIA, Math.floor(n / 4), cap));
   }
 
   function checkWinCondition(players) {
@@ -639,7 +640,7 @@
 
   // ------------------------- публічний API -------------------------
   window.MafiaGame = {
-    ROLE_META, DEFAULT_SETTINGS, MIN_PLAYERS, MAX_PLAYERS,
+    ROLE_META, DEFAULT_SETTINGS, MIN_PLAYERS, MAX_PLAYERS, MAX_MAFIA,
     now: () => engine.now(),
     get me() { const r = engine.latestRoom; return r && myUsername ? (r.players || {})[myUsername] : null; },
     get room() { return engine.latestRoom; },

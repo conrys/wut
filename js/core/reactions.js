@@ -86,7 +86,16 @@
       <div class="reactions-row" id="reactionsRow"></div>
       <button type="button" class="reactions-toggle" id="reactionsToggle">😀</button>
     `;
-    document.body.appendChild(wrap);
+    // У шапці (поруч із профілем) кнопка нічого не перекриває; плаваюча
+    // знизу-справа раніше лягала на «Почати гру» і праві краї кнопок.
+    const headerSlot = window.GameHeader && GameHeader.slot ? (() => { try { return GameHeader.slot("right"); } catch (e) { return null; } })() : null;
+    if (headerSlot) {
+      wrap.classList.add("in-header");
+      headerSlot.insertBefore(wrap, headerSlot.firstChild);
+      document.addEventListener("click", (e) => { if (!wrap.contains(e.target)) wrap.classList.remove("open"); });
+    } else {
+      document.body.appendChild(wrap);
+    }
 
     const row = wrap.querySelector("#reactionsRow");
     row.innerHTML = EMOJIS.map((e) => `<button type="button" class="reaction-btn">${e}</button>`).join("");

@@ -491,7 +491,7 @@
     document.getElementById("mafiaConsensusSelect").value = settings.mafiaConsensus;
     document.getElementById("introRoundToggle").checked = !!settings.introRoundEnabled;
     if (!mafiaCountBuilt) {
-      document.getElementById("mafiaCountSelect").innerHTML = `<option value="">авто</option>` + [1, 2, 3].map((n) => `<option value="${n}">${n}</option>`).join("");
+      document.getElementById("mafiaCountSelect").innerHTML = `<option value="">авто</option>` + Array.from({ length: window.MafiaGame.MAX_MAFIA }, (_, i) => i + 1).map((n) => `<option value="${n}">${n}</option>`).join("");
       mafiaCountBuilt = true;
     }
     document.getElementById("mafiaCountSelect").value = settings.mafiaCount == null ? "" : String(settings.mafiaCount);

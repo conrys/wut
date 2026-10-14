@@ -498,7 +498,9 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
           (m.playerAId !== p.id || m.answerA != null) && (m.playerBId !== p.id || m.answerB != null)
         )).map((p) => p.id);
       }
-      renderReadinessBar(document.getElementById("host-answer-progress"), players, answeredNames);
+      const answeringPlayers = players.filter((p) => QuiplashGame.isAnswerer(state, p.id));
+      if (state.roundAnswerers) title.textContent += ` (відповідають ${state.roundAnswerers.length} з ${players.length})`;
+      renderReadinessBar(document.getElementById("host-answer-progress"), answeringPlayers, answeredNames);
       return;
     }
 
