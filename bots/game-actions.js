@@ -149,12 +149,29 @@ function gameActions(game, room, bots, now) {
       if (!(expected.includes(bot.name)) || currentInput(bot.name) !== null) continue;
 
       if (game === "charades") {
-        if (stage.kind === "encode" && stage.data && stage.data.encoder === bot.name) {
-          set(`inputs/${bot.name}`, `${stage.id}:e:🐱🎩`, `${bot.name}: encoded the word`);
-        } else if (stage.kind === "guess" && stage.data && stage.data.encoder === bot.name) {
-          // відповіді звучать уголос; бот-шифрувальник «чує» двох і тисне «Готово»
-          const heard = (room.order || []).filter((name) => name !== bot.name).slice(0, 2);
-          set(`inputs/${bot.name}`, `${stage.id}:d:${heard.join("|")}`, `${bot.name}: marked ${heard.length} guessers`);
+        if (!stage.data || stage.data.encoder !== bot.name) continue; // відгадують уголос — ботам-глядачам нічого тиснути
+        const seenKey = `ch:${stage.id}`;
+        if (!memoSeen[seenKey]) memoSeen[seenKey] = now;
+        const since = now - memoSeen[seenKey];
+        const seed = stage.id * 7 + bot.index * 3;
+        const mine = room.inputs && room.inputs[bot.name];
+        if (stage.kind === "encode") {
+          // «думає» 6–20 с, потім шле 2–4 випадкові емодзі (бот не розуміє слова — так і задумано, людям смішніше)
+          if (mine || since < 6000 + (seed * 1300) % 14000) continue;
+          const n = 2 + (seed % 3);
+          const code = Array.from({ length: n }, (_, i) => pick(CHARADES_EMOJI, seed + i * 5)).join("");
+          set(`inputs/${bot.name}`, `${stage.id}:e:${code}`, `${bot.name}: зашифрував ${code}`);
+        } else if (stage.kind === "guess") {
+          // слухає 12–25 с; найчастіше «чує» одного-двох людей, інколи — нікого
+          if ((typeof mine === "string" && mine.indexOf(`${stage.id}:d:`) === 0) || since < 12000 + (seed * 1700) % 13000) continue;
+          const others = (room.order || []).filter((name) => name !== bot.name);
+          const humans = others.filter((name) => !bots.some((b) => b.name === name));
+          const pool = humans.length ? humans : others;
+          const count = seed % 4 === 0 ? 0 : 1 + (seed % 2);
+          const heard = [];
+          for (let i = 0; i < count && i < pool.length; i++) heard.push(pick(pool, seed + i));
+          const uniq = [...new Set(heard)];
+          set(`inputs/${bot.name}`, `${stage.id}:d:${uniq.join("|")}`, `${bot.name}: вгадали — ${uniq.join(", ") || "ніхто"}`);
         }
         continue;
       }
@@ -312,5 +329,6 @@ function gameActions(game, room, bots, now) {
   throw new Error(`Unsupported game action handler: ${game}`);
 }
 const memoSeen = {};
+const CHARADES_EMOJI = ["🐱", "🎩", "🚀", "🌊", "🔥", "🍕", "👑", "🦁", "🎸", "💔", "🌙", "⚡", "🧙", "🏠", "🚗", "🐉", "🍎", "🎬", "❄️", "🌈", "💰", "🤖", "🦈", "⏰", "🎂", "🧠", "👻", "🌻"];
 
 module.exports = { gameActions };
