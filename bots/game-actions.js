@@ -278,7 +278,39 @@ function gameActions(game, room, bots, now) {
     return { updates, actions };
   }
 
+  // Шпигун: гра вголос — ботам нічого натискати, вони просто «сидять» у колі
+  if (game === "spy") return { updates, actions };
+
+  // Мемологія: бот кидає мем через 3–15 с і голосує за чужий через 2–10 с
+  if (game === "memology") {
+    const r = room.round;
+    if (room.phase !== "active" || !r) return { updates, actions };
+    const key = `${room.roundNumber}:${r.subPhase}`;
+    if (!memoSeen[key]) memoSeen[key] = now;
+    const since = now - memoSeen[key];
+    const subs = r.submissions || {}, votes = r.votes || {};
+    const deck = room.deck || {};
+    const pool = [].concat(Object.values(deck.new || {}), Object.values(deck.played || {})).filter((c) => typeof c === "string");
+    for (const bot of bots) {
+      if (!players[bot.name]) continue;
+      const offset = bot.index * 7 + (room.roundNumber || 0) * 3;
+      if (r.subPhase === "submitting" && subs[bot.name] === undefined && pool.length) {
+        if (since < 3000 + ((bot.index * 4100 + (room.roundNumber || 0) * 1300) % 12000)) continue;
+        const taken = new Set(Object.values(subs));
+        const card = pool.filter((c) => !taken.has(c))[offset % Math.max(1, pool.length - taken.size)] || pick(pool, offset);
+        set(`round/submissions/${bot.name}`, card, `${bot.name}: кинув мем`);
+      } else if (r.subPhase === "voting" && !votes[bot.name]) {
+        if (since < 2000 + ((bot.index * 2900) % 8000)) continue;
+        const others = Object.keys(subs).filter((n) => n !== bot.name).sort();
+        const target = pick(others, offset);
+        if (target) set(`round/votes/${bot.name}`, target, `${bot.name}: проголосував`);
+      }
+    }
+    return { updates, actions };
+  }
+
   throw new Error(`Unsupported game action handler: ${game}`);
 }
+const memoSeen = {};
 
 module.exports = { gameActions };

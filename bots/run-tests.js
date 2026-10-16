@@ -18,6 +18,8 @@ const MIN_PLAYERS = {
   mafia: 4,
   teli: 2,
   quiplash: 2,
+  spy: 2,
+  memology: 2,
 };
 const GAME_KEYS = {
   dilemmas: "dilemmas",
@@ -29,12 +31,14 @@ const GAME_KEYS = {
   mafia: "mafia",
   teli: "teli",
   quiplash: "quiplash",
+  spy: "spy",
+  memology: "memology",
 };
 const AVATAR_COLORS = ["#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#9b59b6", "#1abc9c", "#e67e22", "#ff6fa5"];
 
 function usage() {
   console.log("Usage: node bots/run-tests.js <game> <room-code> [bot-count]");
-  console.log("Games: dilemmas, whofrom, court, bets, charades, fakenews, mafia, teli, quiplash");
+  console.log("Games: dilemmas, whofrom, court, bets, charades, fakenews, mafia, teli, quiplash, spy, memology");
   console.log("Example: node bots/run-tests.js charades ROOM42 3");
   console.log("Resume bots already in a running game: node bots/run-tests.js fakenews 1 2 --resume a4679ffc");
 }
@@ -74,10 +78,11 @@ async function prepareBot(game, roomId, bot, currentPlayers, photoFiles) {
     joinedAt: now,
     lastSeen: now,
     status: "active",
-    character: game === "quiplash" ? ((currentPlayers.length + bot.index) % 20) + 1 : (avatarNumber % 8) + 1,
+    character: ["quiplash", "spy", "memology", "dilemmas", "charades", "teli"].includes(game) ? ((currentPlayers.length + bot.index + 7) % 20) + 1 : (avatarNumber % 8) + 1,
     color: AVATAR_COLORS[avatarNumber],
     ...(game === "mafia" ? { role: null, isDon: false, alive: true, ready: false } : {}),
     ...(game === "quiplash" ? { score: 0 } : {}),
+    ...(game === "memology" ? { score: 0, hand: [] } : {}),
   };
   await request(`${GAME_KEYS[game]}_rooms/${roomId}/players/${bot.name}`, "PUT", player);
   bot.cleanup.push(`players/${bot.name}`);
@@ -127,6 +132,7 @@ async function run(game, roomId, count, resumeId) {
   let cleaned = false;
   let lastHeartbeat = 0;
   let lastActionSignature = "";
+  let lastSpyRound = null;
 
   async function cleanup() {
     if (cleaned) return;
@@ -193,6 +199,18 @@ async function run(game, roomId, count, resumeId) {
 
       const room = await request(`${key}_rooms/${roomId}`);
       if (!room) throw new Error("The room was removed while test bots were running.");
+      // Шпигун: ботам нема що натискати — показуємо в консолі їхні картки, щоб грати проти них
+      if (game === "spy" && room.phase === "active" && room.round && room.round.number !== lastSpyRound) {
+        lastSpyRound = room.round.number;
+        const cards = room.cards || {};
+        console.log(`
+=== Коло ${room.round.number}: тема «${room.round.themeName}» ===`);
+        for (const bot of bots) {
+          const c = cards[bot.name];
+          if (c) console.log(`  ${bot.name}: ${c.isSpy ? "ШПИГУН" : "свій (слово: " + c.word + ")"}`);
+        }
+        console.log("  (не підглядай, якщо граєш чесно)");
+      }
       const result = gameActions(game, room, bots, now);
       // малюнки (Телефон) — спершу в окремий вузол, потім посилання в кімнату
       for (const d of result.drawings || []) {

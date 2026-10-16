@@ -6,7 +6,9 @@ Run the command from the project root after opening the target room in the game:
 node bots/run-tests.js <game> <room-code> [bot-count]
 ```
 
-Supported games: `dilemmas`, `whofrom`, `court`, `bets`, `charades`, `fakenews`, `mafia`, `teli`, and `quiplash`. The default is three bots; for example:
+Supported games: `dilemmas`, `whofrom`, `court`, `bets`, `charades`, `fakenews`, `mafia`, `teli`, `quiplash`, `spy`, and `memology`.
+
+Spy bots just sit in the circle (the game is spoken aloud); each round the console prints which bots are spies and the word the others got. Memology bots throw a meme 3–15 s into the round and vote for someone else's meme. The default is three bots; for example:
 
 ```text
 node bots/run-tests.js whofrom ROOM42 3
