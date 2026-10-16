@@ -30,7 +30,10 @@
   const ABANDON_MS = 15 * 60 * 1000;
   const AVATAR_STORAGE_PREFIX = "games41_quiplash_avatar_";
   const AVATAR_COLORS = ["#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#9b59b6", "#1abc9c", "#e67e22", "#ff6fa5"];
-  const CHARACTERS = 8;
+  // монстрики Сміхлиста (js/quiplash-avatars.js), якщо підключені; інакше 8 img/char*.svg
+  const QA = () => window.QuiplashAvatars;
+  const CHARACTERS = QA() ? QA().COUNT : 8;
+  const charColor = (c) => (QA() ? QA().color(c) : AVATAR_COLORS[(c - 1) % AVATAR_COLORS.length]);
 
   const SCHEMA = {
     phase: "lobby",
@@ -71,16 +74,38 @@
   }
 
   // ------------------------- аватари (як у Смішлісті) -------------------------
+  function takenChars(room) {
+    return new Set(Object.entries((room && room.players) || {}).filter(([n]) => n !== username).map(([, p]) => Number(p && p.character)));
+  }
   function avatarFor(room) {
+    const taken = takenChars(room);
+    let want = null;
     try {
       const raw = window.localStorage && window.localStorage.getItem(AVATAR_STORAGE_PREFIX + username);
       const profile = raw ? JSON.parse(raw) : null;
-      if (profile && profile.character >= 1 && profile.character <= CHARACTERS) {
-        return { character: profile.character, color: profile.color || AVATAR_COLORS[(profile.character - 1) % AVATAR_COLORS.length] };
-      }
+      if (profile && profile.character >= 1 && profile.character <= CHARACTERS) want = Number(profile.character);
     } catch (e) { /* немає localStorage */ }
+    if (want && !taken.has(want)) return { character: want, color: charColor(want) };
     const idx = Object.keys((room && room.players) || {}).length;
-    return { character: (idx % CHARACTERS) + 1, color: AVATAR_COLORS[(idx + Math.floor(idx / CHARACTERS)) % AVATAR_COLORS.length] };
+    for (let i = 0; i < CHARACTERS; i++) {
+      const c = ((want || idx) + i) % CHARACTERS + 1;
+      if (!taken.has(c)) return { character: c, color: charColor(c) };
+    }
+    const c = (idx % CHARACTERS) + 1;
+    return { character: c, color: charColor(c) };
+  }
+  // Тап по своїй аватарці в лобі — наступний вільний персонаж (без дублів).
+  function cycleAvatar() {
+    const room = engine.latestRoom, me = room && room.players && room.players[username];
+    if (!me || room.phase !== "lobby") return;
+    const taken = takenChars(room), cur = Number(me.character) || 1;
+    for (let i = 1; i <= CHARACTERS; i++) {
+      const c = (cur - 1 + i) % CHARACTERS + 1;
+      if (taken.has(c)) continue;
+      engine.roomRef.child("players/" + username).update({ character: c, color: charColor(c) });
+      try { localStorage.setItem(AVATAR_STORAGE_PREFIX + username, JSON.stringify({ character: c, color: charColor(c) })); } catch (e) {}
+      return;
+    }
   }
 
   function watchActiveRooms(callback) {
@@ -237,7 +262,7 @@
           data: Object.assign({}, d, { step: "guess" }),
         };
       }
-      return reveal(stage, { headline: "😴 Шифрувальник не встиг", lines: [`Слово було: «${d.text}»`], durationMs: 8000, data: d, encoder: d.encoder });
+      return reveal(stage, { headline: "Шифрувальник не встиг", missed: true, lines: [`Слово було: «${d.text}»`], durationMs: 8000, data: d, encoder: d.encoder });
     }
     // guess → результат (порядок — як тапав шифрувальник)
     const solves = picksOf(Object.assign({}, room, { stage })).names;
@@ -252,7 +277,7 @@
       lines.push(`Ніхто не вгадав: ${d.encoder} п'є за надто складний ребус`);
     }
     return reveal(stage, {
-      headline: `✅ Це було: «${d.text}»`, emoji: stage.emoji, results, lines, penalties, points, data: d, encoder: d.encoder,
+      headline: `Це було: «${d.text}»`, emoji: stage.emoji, results, lines, penalties, points, data: d, encoder: d.encoder,
     });
   }
 
@@ -386,6 +411,7 @@
     computeHost: (players) => engine.computeHost(players),
     isConnected: (p) => engine.isConnected(p),
     now: () => engine.now(),
+    cycleAvatar,
     inputOf, waitingNames, checkEmoji, picksOf,
     watchActiveRooms,
     start, stop, startSet, updateSettings, submitEmoji, rerollWord, togglePick, finishPicks, skip, endSet, toLobby, resetAll,

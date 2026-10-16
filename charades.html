@@ -1,186 +1,162 @@
-<!-- Гра: Зіпсовані шаради  |  Файл: charades.html -->
+<!-- Гра: Зіпсовані шаради — шифруй слово лише емодзі, решта вгадує вголос. Тема: нічний емодзі-ребус. -->
 <!DOCTYPE html>
 <html lang="uk">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<meta name="theme-color" content="#1b1035" />
 <title>Зіпсовані шаради</title>
-<link rel="stylesheet" href="js/styles/teli-style.css" />
-<style>
-  .timer-range { display: block; width: 100%; accent-color: var(--accent); margin-bottom: 12px; }
-  /* аватари (персонажі зі Смішліста: img/char1..8.svg) */
-  .av { position: relative; display: inline-flex; flex: none; align-items: center; justify-content: center; width: 44px; height: 44px;
-    border-radius: 50%; background: var(--c, #888); border: 2px solid rgba(255,255,255,0.35); box-sizing: border-box; overflow: visible; transition: opacity .25s; }
-  .av img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
-  .av.sm { width: 30px; height: 30px; }
-  .av.dim { opacity: 0.3; }
-  .av .tick { display: none; position: absolute; right: -4px; bottom: -4px; width: 17px; height: 17px; border-radius: 50%; background: #38cfa0; color: #06231a;
-    font-size: 11px; font-weight: 800; line-height: 17px; text-align: center; }
-  .av.voted .tick { display: block; }
-  .av-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 12px 0; }
-  .av-pulse { animation: avPulse 1s ease-in-out infinite; }
-  @keyframes avPulse { 50% { opacity: 0.65; transform: scale(1.06); } }
-
-  /* етап раунду */
-  .pt-head { text-align: center; margin-bottom: 8px; }
-  .pt-head .mode { font-weight: 800; font-size: 15px; }
-  .pt-head .rn { font-size: 12px; color: var(--text-muted, #8b909c); }
-  .pt-text { text-align: center; font-size: 19px; font-weight: 800; line-height: 1.3; padding: 16px 12px; margin: 8px 0 12px; background: var(--bg-tile, #20242c); border-radius: 14px; }
-  .pt-hint { text-align: center; font-size: 14px; margin: 6px 0 10px; }
-  .pt-roles { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 8px 0; }
-  .pt-role { display: flex; align-items: center; gap: 8px; background: var(--bg-tile, #20242c); padding: 6px 10px; border-radius: 12px; font-size: 13px; }
-  .pt-role small { display: block; font-size: 10px; color: var(--text-muted, #8b909c); text-transform: uppercase; letter-spacing: .05em; }
-  .pt-names { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-  .pt-name { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px; border-radius: 12px; border: 2px solid transparent; background: var(--bg-tile, #20242c);
-    color: inherit; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; word-break: break-word; }
-  .pt-name.selected { border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,0.25); }
-  .pt-name.self { opacity: 0.85; }
-  .pt-choices { display: grid; gap: 8px; }
-  .pt-choice { padding: 18px 10px; border-radius: 14px; border: 2px solid transparent; font: inherit; font-size: 17px; font-weight: 800; color: #fff; background: #3a4a7a; cursor: pointer; }
-  .pt-choice:nth-child(1) { background: #2a9d6e; } .pt-choice:nth-child(2) { background: #cf4a5c; }
-  .pt-choice.selected { border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,0.3); }
-  .pt-timer { text-align: center; font-weight: 700; font-size: 14px; color: #ffb454; margin: 8px 0; }
-  .pt-wait { text-align: center; margin: 10px 0; font-size: 13px; }
-  .pt-headline { text-align: center; font-size: 21px; font-weight: 800; margin: 10px 0; }
-  .pt-bar { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: 13px; }
-  .pt-bar .lbl { width: 92px; flex: none; display: flex; align-items: center; gap: 6px; font-weight: 700; overflow: hidden; }
-  .pt-bar .track { flex: 1; height: 14px; border-radius: 7px; background: rgba(255,255,255,0.1); overflow: hidden; }
-  .pt-bar .track i { display: block; height: 100%; background: #4a86e8; border-radius: 7px; transition: width .6s; }
-  .pt-bar .val { width: 24px; text-align: right; font-weight: 800; }
-  .pt-lines { text-align: center; font-size: 13px; line-height: 1.5; margin: 8px 0; }
-  .pt-drink { text-align: center; border-radius: 16px; padding: 18px 10px; margin: 12px 0; font-size: 24px; font-weight: 900; background: linear-gradient(135deg, #e0503c, #f08a3c); color: #fff; animation: ptPop .5s ease; }
-  .pt-drink small { display: block; font-size: 12px; font-weight: 600; margin-top: 4px; opacity: .9; }
-  @keyframes ptPop { 0% { transform: scale(.6); opacity: 0; } 70% { transform: scale(1.08); } 100% { transform: scale(1); opacity: 1; } }
-  .pt-others { text-align: center; font-size: 13px; margin: 8px 0; color: var(--text-muted, #8b909c); }
-  .pt-modes { display: grid; gap: 8px; margin-bottom: 12px; }
-  .pt-mode { text-align: left; padding: 10px 12px; border-radius: 12px; border: 2px solid transparent; background: var(--bg-tile, #20242c); color: inherit; font: inherit; cursor: pointer; }
-  .pt-mode b { display: block; font-size: 15px; margin-bottom: 2px; }
-  .pt-mode span { font-size: 12px; color: var(--text-muted, #8b909c); line-height: 1.35; }
-  .pt-mode.selected { border-color: var(--accent); }
-  .pt-rank { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 10px; margin-bottom: 4px; background: var(--bg-tile, #20242c); font-size: 14px; }
-  .pt-rank .n { flex: 1; font-weight: 700; } .pt-rank .v { font-weight: 800; }
-  .pt-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .pt-cols h4 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted, #8b909c); }
-  .seg { display: flex; gap: 6px; margin-bottom: 12px; }
-  .seg .btn { flex: 1; padding: 8px 6px; font-size: 13px; }
-  .seg .btn.selected { background: var(--accent); color: #0e2419; border-color: var(--accent); }
-  .rules-list { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.5; }
-  .rules-list li { margin-bottom: 6px; }
-  .seg { display: flex; gap: 6px; margin-bottom: 12px; }
-  .seg .btn { flex: 1; padding: 8px 6px; font-size: 13px; }
-  .seg .btn.selected { background: var(--accent); color: #0e2419; border-color: var(--accent); }
-  .ch-emoji { text-align: center; font-size: 44px; line-height: 1.25; padding: 18px 10px; margin: 8px 0 12px; background: var(--bg-tile, #20242c); border-radius: 14px; word-break: break-all; min-height: 64px; }
-  .ch-secret { text-align: center; padding: 14px 10px; margin: 8px 0 10px; border-radius: 14px; background: linear-gradient(135deg, #3a4a7a, #5a3a7a); color: #fff; }
-  .ch-secret small { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; opacity: .8; margin-bottom: 4px; }
-  .ch-secret b { font-size: 22px; line-height: 1.25; display: block; }
-  .ch-input { width: 100%; box-sizing: border-box; padding: 12px; border-radius: 12px; border: 2px solid transparent; background: var(--bg-tile, #20242c); color: inherit; font: inherit; font-size: 18px; margin-bottom: 8px; }
-  .ch-input:focus { outline: none; border-color: var(--accent); }
-  .ch-emoji-picker { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin: 4px 0 10px; }
-  .ch-emoji-picker button { min-height: 44px; padding: 4px; border: 1px solid var(--border-soft); border-radius: 10px; background: var(--bg-tile, #20242c); color: inherit; font-size: 25px; touch-action: manipulation; }
-  .ch-emoji-picker button:active { background: var(--accent); }
-  .ch-suggestions { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; margin: 4px 0 10px; }
-  .ch-suggestions button { min-height: 44px; padding: 4px; border: 1px solid var(--accent); border-radius: 10px; background: var(--bg-tile, #20242c); color: inherit; font-size: 25px; touch-action: manipulation; }
-  .ch-suggestions-title { margin: 8px 0 4px; font-size: 12px; color: var(--text-muted, #8b909c); }
-  .ch-picker-toggle { display: block; margin: 4px 0 8px; font-size: 13px; color: var(--text-muted, #8b909c); }
-  .ch-picker-toggle summary { cursor: pointer; }
-  .ch-emoji-tools { display: flex; gap: 8px; margin-bottom: 8px; }
-  .ch-emoji-tools button { flex: 1; padding: 8px; }
-  .ch-feedback { text-align: center; min-height: 20px; font-size: 14px; font-weight: 700; margin: 4px 0; }
-  .ch-feedback.bad { color: #ff7b72; animation: chShake .35s; }
-  .ch-feedback.good { color: #38cfa0; }
-  @keyframes chShake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
-  .ch-res { display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 12px; margin-bottom: 6px; background: var(--bg-tile, #20242c); font-size: 14px; font-weight: 700; }
-  .ch-res .n { flex: 1; } .ch-res .v { font-weight: 900; font-size: 16px; }
-  .ch-picks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin: 4px 0 10px; }
-  .ch-pick { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 6px 8px; border: 2px solid var(--border-soft); border-radius: 12px; background: var(--bg-tile, #20242c); color: inherit; font: inherit; font-size: 14px; font-weight: 700; text-align: left; touch-action: manipulation; }
-  .ch-pick .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .ch-pick .rank { flex: none; min-width: 26px; height: 26px; border-radius: 13px; display: none; align-items: center; justify-content: center; background: #38cfa0; color: #06231a; font-size: 13px; font-weight: 900; }
-  .ch-pick.on { border-color: #38cfa0; }
-  .ch-pick.on .rank { display: inline-flex; }
-  .ch-say { text-align: center; font-size: 17px; font-weight: 800; margin: 8px 0 4px; }
-  .ch-search-empty { grid-column: 1 / -1; text-align: center; font-size: 13px; color: var(--text-muted, #8b909c); padding: 6px 0; }
-</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@600;700;800;900&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="js/styles/party-shared.css">
 <link rel="stylesheet" href="js/styles/game-header.css">
 <script src="js/core/game-header.js" defer></script>
+<style>
+:root {
+  --bg: #1b1035; --panel: rgba(255,255,255,.06); --panel-2: rgba(255,255,255,.11); --ink: #fbf5ff; --muted: rgba(240,228,255,.62); --line: rgba(255,255,255,.14);
+  --accent: #ffd23f; --accent-ink: #2a1600; --pink: #ff5fa2; --cyan: #4be3e0; --good: #4be39a; --bad: #ff6b7d;
+  --font-d: 'Rubik', 'Manrope', sans-serif; --font-b: 'Manrope', sans-serif;
+  --hdr-bg: rgba(27,16,53,.82);
+}
+/* тло: пазли-контури рожевим і жовтим + світіння */
+body { background:
+  radial-gradient(60% 40% at 10% 0%, rgba(255,95,162,.22), transparent 70%),
+  radial-gradient(60% 40% at 100% 100%, rgba(75,227,224,.16), transparent 70%),
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' fill='none' stroke-width='2' stroke-linejoin='round'%3E%3Cpath stroke='%23ff5fa2' opacity='.16' d='M20 20h18a7 7 0 1 1 12 0h18v18a7 7 0 1 0 0 12v18H50a7 7 0 1 1-12 0H20V50a7 7 0 1 0 0-12z'/%3E%3Cpath stroke='%23ffd23f' opacity='.14' d='M96 96h18a7 7 0 1 1 12 0h18v18a7 7 0 1 0 0 12v18h-18a7 7 0 1 1-12 0H96v-18a7 7 0 1 0 0-12z'/%3E%3Ccircle cx='124' cy='34' r='3' fill='%234be3e0' stroke='none' opacity='.35'/%3E%3Ccircle cx='34' cy='126' r='2.5' fill='%23ffd23f' stroke='none' opacity='.35'/%3E%3C/svg%3E"),
+  #1b1035 fixed; background-size: auto, auto, 160px 160px; }
+.pp-hero h1, .pp-lobby-head .t b { letter-spacing: -.01em; }
+.pp-hero h1 span, .pp-lobby-head .t b span { color: var(--pink); }
+.pp-primary { box-shadow: 0 6px 22px rgba(255,210,63,.3); }
+.pp-code b { color: var(--accent); }
+.pp-seg button.selected { background: var(--accent); color: var(--accent-ink); }
+
+/* шифрувальник */
+.ch-role { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); }
+.ch-role small { display: block; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.ch-role b { font: 800 18px var(--font-d); }
+.ch-role .me { margin-left: auto; padding: 3px 10px; border-radius: 999px; background: var(--pink); color: #fff; font: 800 11px var(--font-b); letter-spacing: .06em; text-transform: uppercase; }
+
+/* ребус */
+.ch-emoji { position: relative; text-align: center; font-size: 46px; line-height: 1.25; padding: 22px 12px; border-radius: 22px; word-break: break-all; min-height: 92px;
+  background: linear-gradient(135deg, rgba(255,95,162,.18), rgba(75,227,224,.12)); border: 2px solid rgba(255,255,255,.18); box-shadow: 0 14px 40px rgba(0,0,0,.35); }
+.ch-emoji.in { animation: chIn .6s cubic-bezier(.2,1.4,.4,1) both; }
+@keyframes chIn { from { opacity: 0; transform: scale(.7) rotate(-4deg); } }
+.ch-hint { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; }
+.ch-hint span { padding: 4px 12px; border-radius: 999px; background: var(--panel-2); font: 800 12px var(--font-b); color: var(--ink); }
+.ch-say { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 16px; border-radius: 18px; background: var(--panel); border: 1px dashed var(--line); text-align: center; }
+.ch-say b { display: flex; align-items: center; gap: 8px; font: 900 22px var(--font-d); color: var(--accent); }
+.ch-say .ic { font-size: 26px; }
+.ch-say .pp-note { margin: 0; }
+.ch-wait-encode { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 18px 0; text-align: center; }
+.ch-wait-encode .pav { animation: ppWait 1.4s ease-in-out infinite; }
+.ch-wait-encode b { font: 800 17px var(--font-d); }
+
+.ch-secret { text-align: center; padding: 14px 12px; border-radius: 18px; background: linear-gradient(135deg, var(--pink), #8a4dff); color: #fff; box-shadow: 0 10px 30px rgba(255,95,162,.25); }
+.ch-secret small { display: block; font: 800 11px var(--font-b); text-transform: uppercase; letter-spacing: .1em; opacity: .85; margin-bottom: 4px; }
+.ch-secret b { display: block; font: 900 24px/1.2 var(--font-d); }
+.ch-input { width: 100%; box-sizing: border-box; min-height: 56px; padding: 12px 14px; border-radius: 14px; border: 2px solid var(--line); background: rgba(0,0,0,.28); color: var(--ink); font: 600 20px var(--font-b); }
+.ch-input:focus { outline: none; border-color: var(--accent); }
+.ch-emoji-picker { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin: 8px 0 4px; }
+.ch-emoji-picker button, .ch-suggestions button { min-height: 44px; padding: 4px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: inherit; font-size: 25px; touch-action: manipulation; transition: transform .12s; }
+.ch-emoji-picker button:active, .ch-suggestions button:active { transform: scale(.88); background: var(--accent); }
+.ch-suggestions { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.ch-suggestions button { border-color: rgba(255,210,63,.5); }
+.ch-suggestions-title { display: flex; align-items: center; gap: 6px; font: 800 12px var(--font-b); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.ch-suggestions-title .ic { color: var(--accent); }
+.ch-picker-toggle { border-radius: 14px; border: 1px solid var(--line); padding: 10px 12px; }
+.ch-picker-toggle summary { cursor: pointer; list-style: none; font: 800 13px var(--font-b); color: var(--muted); }
+.ch-picker-toggle summary::-webkit-details-marker { display: none; }
+.ch-emoji-tools { display: flex; gap: 8px; }
+.ch-emoji-tools .pp-btn { flex: 1; min-height: 40px; font-size: 13px; }
+.ch-feedback { text-align: center; min-height: 20px; font-size: 14px; font-weight: 800; }
+.ch-feedback.bad { color: var(--bad); animation: chShake .35s; }
+.ch-feedback.good { color: var(--good); }
+@keyframes chShake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+.ch-search-empty { grid-column: 1 / -1; text-align: center; font-size: 13px; color: var(--muted); padding: 6px 0; }
+.ch-encode { display: flex; flex-direction: column; gap: 10px; }
+
+.ch-picks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.ch-pick { position: relative; display: flex; align-items: center; gap: 8px; min-height: 56px; padding: 6px 10px; border: 2px solid var(--line); border-radius: 14px; background: var(--panel); color: inherit;
+  font: 800 14px var(--font-b); text-align: left; touch-action: manipulation; transition: border-color .2s, background .2s, transform .12s; }
+.ch-pick:active { transform: scale(.97); }
+.ch-pick .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ch-pick .ok { flex: none; width: 26px; height: 26px; border-radius: 50%; display: none; place-items: center; background: var(--good); color: #062417; font-size: 15px; }
+.ch-pick.on { border-color: var(--good); background: rgba(75,227,154,.12); }
+.ch-pick.on .ok { display: grid; }
+
+/* результат */
+.ch-answer { text-align: center; }
+.ch-answer small { display: block; font: 800 11px var(--font-b); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.ch-answer b { display: block; margin-top: 4px; font: 900 26px/1.2 var(--font-d); color: var(--accent); animation: ppPop .5s cubic-bezier(.2,1.4,.4,1) both .3s; }
+.ch-answer.miss b { color: var(--bad); font-size: 20px; }
+.ch-solvers { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+.ch-solver { display: flex; flex-direction: column; align-items: center; gap: 4px; animation: ppIn .45s cubic-bezier(.2,.9,.3,1.2) both; }
+.ch-solver:nth-child(2) { animation-delay: .08s; } .ch-solver:nth-child(3) { animation-delay: .16s; } .ch-solver:nth-child(n+4) { animation-delay: .24s; }
+.ch-solver span { font-size: 12px; font-weight: 800; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ch-solver i { font-style: normal; padding: 1px 8px; border-radius: 999px; background: var(--good); color: #062417; font: 900 13px var(--font-d); }
+</style>
 </head>
 <body>
-<div class="wrap">
-  <div class="title-block" id="titleBlock"><h1>🧩 Зіпсовані шаради</h1></div>
+<div id="app"><div class="pp-wrap">
+  <section class="pp-view pp-center hidden" id="v-locked"><span class="pp-big-ic" data-ic="lock"></span><div class="pp-note" style="font-size:16px">Увійди в профіль, щоб грати з друзями</div></section>
+  <section class="pp-view pp-center hidden" id="v-waiting"><span class="pp-big-ic" data-ic="hourglass"></span><div class="pp-note" style="font-size:16px">Набір уже йде — приєднаєшся до наступного</div></section>
 
-  <div class="hidden stage-center" id="view-locked">
-    <div class="empty-state"><div class="empty-icon">🔒</div><div class="status-line">Увійди в профіль, щоб грати з друзями</div></div>
-  </div>
+  <section class="pp-view hidden" id="v-entry">
+    <div class="pp-hero"><span data-emblem></span><h1>Зіпсовані <span>шаради</span></h1><p>Зашифруй фільм, пісню чи фразу лише емодзі. Друзі вгадують уголос.</p></div>
+    <div class="pp-card"><div class="pp-h"><span data-ic="users"></span> Активні кімнати</div><div class="rooms-list" id="activeRoomsList"></div></div>
+    <div class="pp-or">або за кодом</div>
+    <div class="pp-join"><input class="pp-field" id="roomCodeInput" maxlength="5" placeholder="КОД" autocomplete="off" /><button class="pp-btn" id="joinRoomBtn">Увійти</button></div>
+    <button class="pp-btn pp-primary pp-block pp-big" id="createRoomBtn">Створити кімнату</button>
+  </section>
 
-  <div class="hidden stage-center" id="view-waiting">
-    <div class="empty-state"><div class="empty-icon">⏳</div><div class="status-line">Раунд іде — приєднаєшся до наступного набору</div></div>
-  </div>
+  <section class="pp-view hidden" id="v-lobby">
+    <div class="pp-lobby-head"><span data-emblem></span><div class="t"><b>Зіпсовані <span>шаради</span></b><small id="lobbyStatus"></small></div>
+      <div class="pp-code"><small>Код кімнати</small><b id="roomCodeDisplay"></b></div></div>
+    <div class="pp-card"><div class="pp-h"><span data-ic="users"></span> Гравці <span class="cnt" id="lobbyCount"></span></div>
+      <div class="pp-players" id="playersList"></div>
+      <div class="pp-note" style="margin-top:10px">Торкнись своєї аватарки, щоб змінити персонажа</div></div>
+    <div class="pp-card hidden" id="hostPanel"><div class="pp-h">Налаштування</div>
+      <div class="pp-label">Складність слів</div><div class="pp-seg pp-level" id="levelSeg"></div>
+      <label class="pp-label" for="encodeSecSlider">Час на шифрування <output id="encodeSecValue">60 с</output></label>
+      <input class="pp-range" id="encodeSecSlider" type="range" min="20" max="120" step="5" value="60" />
+      <label class="pp-label" for="guessSecSlider">Час на відгадування <output id="guessSecValue">60 с</output></label>
+      <input class="pp-range" id="guessSecSlider" type="range" min="20" max="120" step="5" value="60" />
+      <button class="pp-btn pp-primary pp-block pp-big" id="startBtn" style="margin-top:18px"><span data-ic="play"></span> Почати</button>
+      <div class="pp-err" id="startHint"></div></div>
+    <div class="pp-card pp-waithost hidden" id="waitHostLobby"></div>
+    <details class="pp-card pp-rules"><summary>Як грати</summary><ol>
+      <li>По черзі один гравець — шифрувальник: бачить слово (фільм, пісню чи фразу) і описує його лише емодзі. Емодзі можна шукати словами: «білка», «посмішка».</li>
+      <li>Решта кажуть відповідь уголос, а шифрувальник позначає всіх, хто вгадав. Кожен із них отримує +3, шифрувальник +1.</li>
+      <li>Якщо ніхто не вгадав, шифрувальник п'є за надто складний ребус. Ковток — будь-який напій, у своєму темпі; до 6 за набір.</li></ol></details>
+    <button class="pp-btn pp-ghost pp-block hidden" id="resetBtn"><span data-ic="refresh"></span> Скинути вечір</button>
+  </section>
 
-  <div class="hidden stage" id="view-room-entry">
-    <div class="status-line">Обери активну кімнату або введи код друга</div>
-    <div class="card rooms-list" id="activeRoomsList"></div>
-    <div class="divider">або вручну</div>
-    <input class="field" id="roomCodeInput" maxlength="5" placeholder="КОД КІМНАТИ" style="text-align:center; text-transform:uppercase; letter-spacing:0.1em;" />
-    <button class="btn btn-primary btn-block" id="joinRoomBtn">Приєднатись</button>
-    <div class="divider">або</div>
-    <button class="btn btn-block" id="createRoomBtn">Створити нову кімнату</button>
-  </div>
-
-  <!-- ЛОБІ: вибір режиму -->
-  <div class="hidden stage" id="view-lobby">
-    <div class="room-code-display" id="roomCodeDisplay"></div>
-    <div class="status-line" id="lobbyStatus"></div>
-    <div class="card">
-      <h3>Гравці</h3>
-      <div id="playersList"></div>
+  <section class="pp-view hidden" id="v-round">
+    <div class="pp-topbar">
+      <div class="pp-round"><small>Раунд</small><b id="roundNo"></b></div>
+      <div class="pp-stagetitle" id="stageTitle"></div>
+      <div class="pp-timer off" id="timer"><svg viewBox="0 0 44 44"><circle class="trk" cx="22" cy="22" r="19"/><circle class="bar" cx="22" cy="22" r="19"/></svg><span></span></div>
     </div>
-    <div class="card hidden" id="hostPanel">
-      <label style="display:block; font-size:12px; color:var(--text-muted,#8b909c); margin-bottom:6px;">Складність слів</label>
-      <div class="seg" id="levelSeg"></div>
-      <label for="encodeSecSlider" style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted,#8b909c); margin-bottom:6px;">Секунд на шифрування <output id="encodeSecValue">60 с</output></label>
-      <input class="timer-range" id="encodeSecSlider" type="range" min="20" max="120" step="1" value="60" aria-label="Секунд на шифрування" />
-      <label for="guessSecSlider" style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted,#8b909c); margin:12px 0 6px;">Секунд на відгадування <output id="guessSecValue">60 с</output></label>
-      <input class="timer-range" id="guessSecSlider" type="range" min="20" max="120" step="1" value="60" aria-label="Секунд на відгадування" />
-      <button class="btn btn-primary btn-block" id="startBtn">Почати</button>
-      <div class="err-msg" id="startHint"></div>
-    </div>
-    <div class="status-line hidden" id="waitHostLobby">Очікуємо, поки ведучий налаштує гру...</div>
-    <div class="card">
-      <h3>Як це працює</h3>
-      <ol class="rules-list">
-        <li>По черзі один гравець шифрувальник: бачить слово (фільм, пісню чи фразу) і описує його лише емодзі. Емодзі можна шукати словами: «білка», «посмішка».</li>
-        <li>Решта кажуть відповідь уголос, а шифрувальник позначає всіх, хто вгадав. Кожен із них отримує +3 бали, шифрувальник +1.</li>
-        <li>Якщо ніхто не вгадав, шифрувальник п'є за надто складний ребус. Ковток: будь-який напій, у своєму темпі; до 6 за набір.</li>
-      </ol>
-    </div>
-    <button class="btn btn-block hidden" id="resetBtn" style="opacity:0.6;">Скинути вечір</button>
-  </div>
-
-  <!-- РАУНД -->
-  <div class="hidden stage" id="view-round">
-    <div class="pt-head"><div class="mode" id="modeTitle"></div><div class="rn" id="roundLabel"></div></div>
-    <div class="pt-text hidden" id="stageText"></div>
-    <div class="pt-roles" id="stageRoles"></div>
+    <div class="ch-role" id="roleBox"></div>
     <div class="ch-emoji hidden" id="emojiBox"></div>
-    <div class="pt-hint" id="stageHint"></div>
-    <div id="inputArea"></div>
-    <div class="pt-timer hidden" id="stageTimer"></div>
-    <div class="pt-wait" id="waitInfo"></div>
-    <div id="revealArea"></div>
-    <button class="btn btn-primary btn-block hidden" id="hostNextBtn">Далі</button>
-    <button class="btn btn-block hidden" id="endSetBtn" style="opacity:0.6; margin-top:8px;">Завершити набір</button>
-  </div>
+    <div class="ch-hint hidden" id="hintBox"></div>
+    <div id="inputArea" class="pp-stage"></div>
+    <div class="pp-wait" id="waitInfo"></div>
+    <div class="pp-stage" id="revealArea"></div>
+    <div class="pp-hostbar hidden" id="hostBar">
+      <button class="pp-btn pp-ghost" id="endSetBtn"><span data-ic="flag"></span> Завершити</button>
+      <button class="pp-btn pp-primary" id="hostNextBtn">Далі</button></div>
+  </section>
 
-  <!-- ПІДСУМОК -->
-  <div class="hidden stage" id="view-summary">
-    <div class="waiting-count">Підсумок набору</div>
-    <div class="pt-cols">
-      <div><h4>🥃 Ковтки (вечір)</h4><div id="sumDrinks"></div></div>
-      <div><h4>⭐ Бали (вечір)</h4><div id="sumPoints"></div></div>
-    </div>
-    <button class="btn btn-primary btn-block hidden" id="toLobbyBtn" style="margin-top:12px;">Повернутись у лобі</button>
-    <div class="status-line hidden" id="waitHostSummary">Очікуємо ведучого в лобі...</div>
-  </div>
-</div>
+  <section class="pp-view hidden" id="v-summary">
+    <h2 class="pp-sumtitle">Підсумок набору</h2>
+    <div class="pp-card"><div class="pp-h"><span data-ic="star"></span> Бали за вечір</div><div id="sumPoints"></div></div>
+    <div class="pp-card"><div class="pp-h"><span data-ic="glass"></span> Ковтки за вечір</div><div id="sumDrinks"></div></div>
+    <button class="pp-btn pp-primary pp-block pp-big hidden" id="toLobbyBtn">Повернутись у лобі</button>
+    <div class="pp-note hidden" id="waitHostSummary">Очікуємо ведучого в лобі…</div>
+  </section>
+</div></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
@@ -191,23 +167,33 @@
 <link rel="stylesheet" href="js/styles/reactions.css">
 <script src="js/core/login.js"></script>
 <script src="js/core/online-engine.js"></script>
+<script src="js/quiplash-avatars.js"></script>
+<script src="js/quiplash-sounds.js"></script>
 <script src="js/promts/charades-prompts.js"></script>
 <script src="js/charades-game.js"></script>
 <script src="js/core/room-code-ui.js"></script>
+<script src="js/party-ui.js"></script>
 <script src="js/core/reactions.js"></script>
 <script src="js/core/help.js"></script>
 <script src="js/core/back-button.js"></script>
 <script>
 (function () {
-  const VIEWS = ["locked", "room-entry", "waiting", "lobby", "round", "summary"];
-  function showView(name) {
-    VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name));
-    document.getElementById("titleBlock").classList.toggle("hidden", name === "round" || name === "summary");
-  }
-  function escapeHtml(s) {
-    return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  }
   const G = window.CharadesGame;
+  const { esc, icon } = window.PartyUI;
+  const escapeHtml = esc;
+  const $ = (id) => document.getElementById(id);
+  const sfx = (n) => { try { window.QuiplashSfx && QuiplashSfx.play(n); } catch (e) {} };
+  const buzz = (p) => { try { window.QuiplashSfx && QuiplashSfx.vibrate(p); } catch (e) {} };
+  const EMBLEM = `<svg class="pp-emblem" viewBox="0 0 120 120" aria-hidden="true">
+    <path d="M18 22h28a9 9 0 1 1 16 0h28v28a9 9 0 1 0 0 16v28H62a9 9 0 1 1-16 0H18V66a9 9 0 1 0 0-16z" fill="#ff5fa2" transform="rotate(-6 60 60)"/>
+    <circle cx="54" cy="58" r="20" fill="#ffd23f"/><circle cx="47" cy="53" r="3" fill="#2a1600"/><circle cx="61" cy="53" r="3" fill="#2a1600"/>
+    <path d="M45 63q9 9 18 0" fill="none" stroke="#2a1600" stroke-width="3.6" stroke-linecap="round"/>
+    <path d="M90 84l4 8 9 1-6.5 6 1.6 9-8.1-4.4-8.1 4.4 1.6-9-6.5-6 9-1z" fill="#4be3e0"/></svg>`;
+  document.querySelectorAll("[data-ic]").forEach((el) => { el.outerHTML = icon(el.dataset.ic); });
+  document.querySelectorAll("[data-emblem]").forEach((el) => { el.outerHTML = EMBLEM; });
+  const avatar = (room, name, opts) => window.PartyUI.avatar(room, name, opts);
+  const sig = {};
+  function paint(id, key, html) { if (sig[id] === key) return false; sig[id] = key; $(id).innerHTML = html; return true; }
   const EMOJI_CHOICES = ["😀", "😂", "🥲", "😍", "😎", "🤔", "😱", "😭", "😴", "😡", "🥳", "🤫", "👻", "💀", "🤖", "👽", "🐶", "🐱", "🦊", "🐻", "🐸", "🐵", "🦁", "🐮", "🐷", "🐔", "🦄", "🐍", "🐢", "🦋", "🐝", "🐙", "🦈", "🐳", "🌈", "☀️", "🌙", "⭐", "🔥", "💧", "❄️", "⚡", "🍎", "🍕", "🍔", "🍟", "🍦", "🎂", "⚽", "🏀", "🎸", "🎤", "🎬", "🚗", "🚀", "✈️", "🏠", "💎", "❤️", "💔", "💰", "🎁", "👑", "💪", "🙏", "👍", "👎", "👏", "🙈", "💃", "🏃", "🛌", "📱", "💻", "🔑", "☂️", "⏰", "💡", "📚"];
   EMOJI_CHOICES.push(
     "🧌", "🧙", "🧛", "🧟", "🧚", "🦸", "🦹", "👸", "🤴", "🤠", "🥷", "👮",
@@ -465,261 +451,273 @@
     const all = scored.filter((x) => x.hits === qs.length);
     return (all.length ? all : scored).sort((a, b) => b.hits - a.hits || b.total - a.total || a.order - b.order).slice(0, limit || 48).map((x) => x.emoji);
   }
-  let lastRoom = null, lastCtx = null, reactionsMounted = false;
-  let builtStageId = null;   // id етапу, для якого вже збудовано кнопки введення (щоб не збивати виділення)
 
-  function avatarHtml(room, name, opts) {
-    const p = (room.players && room.players[name]) || {};
-    const cls = ["av", opts && opts.small ? "sm" : ""].filter(Boolean).join(" ");
-    return `<span class="${cls}" style="--c:${escapeHtml(p.color || "#888")}" title="${escapeHtml(name)}"><img src="img/char${Number(p.character) || 1}.svg" alt="" /></span>`;
+  let lastRoom = null, lastCtx = null, reactionsMounted = false;
+  let builtStageId = null;   // id етапу, для якого вже збудовано панель шифрування (щоб не збивати введення)
+  let lastStageId = null, lastKind = null;
+
+  const VIEWS = ["locked", "entry", "waiting", "lobby", "round", "summary"];
+  let curView = null;
+  function showView(name) {
+    if (curView === name) return;
+    curView = name;
+    VIEWS.forEach((v) => $("v-" + v).classList.toggle("hidden", v !== name));
+    document.body.dataset.view = name === "round" ? "round" : name;
+    window.scrollTo(0, 0);
   }
 
   // ---------------- лобі ----------------
-  function segButtons(containerId, items, current, onPick) {
-    const el = document.getElementById(containerId);
-    if (el.dataset.built !== "1") {
-      el.innerHTML = items.map(([val, label]) => `<button class="btn" data-val="${val}">${escapeHtml(label)}</button>`).join("");
-      el.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => onPick(Number(b.dataset.val))));
-      el.dataset.built = "1";
-    }
-    el.querySelectorAll("button").forEach((b) => b.classList.toggle("selected", Number(b.dataset.val) === Number(current)));
-  }
+  $("levelSeg").innerHTML = [1, 2, 3].map((n) => `<button data-v="${n}">${"🌶️".repeat(n)}</button>`).join("");
+  $("levelSeg").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => { G.updateSettings({ level: Number(b.dataset.v) }); sfx("pop"); }));
   function renderTimerSlider(inputId, outputId, current, fallback) {
+    const el = $(inputId);
+    if (document.activeElement === el) return;
     const value = Math.min(G.MAX_TIMER_SEC, Math.max(G.MIN_TIMER_SEC, Number(current) || fallback));
-    document.getElementById(inputId).value = value;
-    document.getElementById(outputId).textContent = `${value} с`;
-  }
-  function renderTallyList(room, which) {
-    const t = (room.tally && room.tally[which]) || {};
-    return Object.entries(t).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).map(([n, v]) =>
-      `<div class="pt-rank">${avatarHtml(room, n, { small: true })}<span class="n">${escapeHtml(n)}</span><span class="v">${v}</span></div>`).join("") ||
-      '<div class="status-line" style="text-align:left;">поки порожньо</div>';
+    el.value = value; $(outputId).textContent = `${value} с`;
   }
   function renderLobby(room, ctx) {
-    const conn = G.connectedNames(room.players), hostName = G.computeHost(room.players);
-    document.getElementById("roomCodeDisplay").textContent = G.roomId || "";
-    document.getElementById("lobbyStatus").innerHTML = `<span class="pulse-dot"></span> Гравців онлайн: ${conn.length}`;
-    document.getElementById("playersList").innerHTML = Object.keys(room.players || {}).map((n) =>
-      `<div class="player-chip ${conn.includes(n) ? "" : "offline"}"><span style="display:flex;align-items:center;gap:10px;">${avatarHtml(room, n, { small: true })}${escapeHtml(n)}</span>${n === hostName ? '<span class="badge">ВЕДУЧИЙ</span>' : ""}</div>`).join("") || '<div class="status-line">Ще нікого немає</div>';
-    document.getElementById("hostPanel").classList.toggle("hidden", !ctx.host);
-    document.getElementById("resetBtn").classList.toggle("hidden", !ctx.host);
-    document.getElementById("waitHostLobby").classList.toggle("hidden", !!ctx.host);
-    if (!ctx.host) return;
+    const conn = G.connectedNames(room.players), hostName = G.computeHost(room.players), me = ctx.username, players = room.players || {};
+    $("roomCodeDisplay").textContent = G.roomId || "";
+    $("lobbyStatus").textContent = `Онлайн: ${conn.length} · мінімум ${G.MIN_PLAYERS}`;
+    $("lobbyCount").textContent = conn.length;
+    const names = Object.keys(players).sort((a, b) => conn.includes(b) - conn.includes(a));
+    const key = names.map((n) => [n, players[n].character, conn.includes(n), n === hostName].join(":")).join("|") + "#" + me;
+    if (paint("playersList", key, names.map((n) => {
+      const mine = n === me;
+      return `<button class="pp-pl ${mine ? "me" : ""} ${conn.includes(n) ? "" : "off"}" ${mine ? 'data-me="1"' : "disabled"}>${avatar(room, n, { size: "lg", mood: mine ? "happy" : "idle" })}
+        <span class="nm">${esc(n)}</span>${n === hostName ? `<span class="tag">${icon("crown")}</span>` : ""}${mine ? `<span class="swap">${icon("swap")}</span>` : ""}</button>`;
+    }).join("") || '<div class="pp-note">Ще нікого немає</div>')) {
+      const mine = $("playersList").querySelector("[data-me]");
+      if (mine) mine.addEventListener("click", () => { G.cycleAvatar(); sfx("pop"); });
+    }
+    $("hostPanel").classList.toggle("hidden", !ctx.host);
+    $("resetBtn").classList.toggle("hidden", !ctx.host);
+    $("waitHostLobby").classList.toggle("hidden", !!ctx.host);
+    if (!ctx.host) {
+      paint("waitHostLobby", "w" + hostName + (players[hostName] || {}).character,
+        `${hostName ? avatar(room, hostName, { size: "md", mood: "write" }) : ""}<div class="pp-note"><b style="color:var(--ink)">${esc(hostName || "Ведучий")}</b> налаштовує гру.<br>Почнемо, щойно ведучий натисне «Почати».</div>`);
+      return;
+    }
     const s = room.settings || {};
-    segButtons("levelSeg", [1, 2, 3].map((n) => [n, Array(n).fill("🌶️").join(" ")]), s.level || G.DEFAULT_LEVEL, (n) => G.updateSettings({ level: n }));
+    $("levelSeg").querySelectorAll("button").forEach((b) => b.classList.toggle("selected", Number(b.dataset.v) === (s.level || G.DEFAULT_LEVEL)));
     renderTimerSlider("encodeSecSlider", "encodeSecValue", s.encodeSec, G.DEFAULT_ENCODE_SEC);
     renderTimerSlider("guessSecSlider", "guessSecValue", s.guessSec, G.DEFAULT_GUESS_SEC);
     const enough = conn.length >= G.MIN_PLAYERS;
-    document.getElementById("startBtn").disabled = !enough;
-    document.getElementById("startHint").textContent = enough ? "" : `Потрібно мінімум ${G.MIN_PLAYERS} гравців онлайн`;
+    $("startBtn").disabled = !enough;
+    $("startHint").textContent = enough ? "" : `Потрібно мінімум ${G.MIN_PLAYERS} гравців онлайн`;
   }
 
   // ---------------- раунд ----------------
-
   const EMOJI_ERRORS = { empty: "Напиши щось емодзі", letters: "Заміни слова на емодзі: торкнись підказки під полем", "too-long": "Задовго, скороти шифр", "too-few": "Потрібно щонайменше два емодзі" };
   let feedbackTimer = null;
   function setFeedback(text, cls) {
-    const el = document.getElementById("chFeedback");
+    const el = $("chFeedback");
     if (!el) return;
     el.textContent = text; el.className = "ch-feedback " + (cls || "");
     void el.offsetWidth;
     clearTimeout(feedbackTimer);
     if (cls === "bad") feedbackTimer = setTimeout(() => { if (el.className.indexOf("bad") >= 0) { el.textContent = ""; el.className = "ch-feedback"; } }, 1500);
   }
+  const emojiBtns = (list) => list.map((emoji) => `<button type="button" data-emoji="${emoji}" aria-label="Додати ${emoji}">${emoji}</button>`).join("");
+
+  function buildEncodePanel(st, d) {
+    const inputArea = $("inputArea");
+    inputArea.innerHTML = `<div class="ch-encode">
+      <div class="ch-secret"><small>${esc(d.cat || "Слово")} · твоє слово</small><b>${esc(d.text)}</b></div>
+      <input class="ch-input" id="chEmoji" placeholder="Пиши: білка, посмішка… або емодзі" autocomplete="off" aria-label="Емодзі-шифр" />
+      <div class="ch-suggestions hidden" id="chSearchResults" aria-label="Емодзі до написаного слова"></div>
+      <div class="ch-suggestions-title">${icon("bolt")} Ідеї до слова</div>
+      <div class="ch-suggestions" aria-label="Рекомендовані емодзі">${emojiBtns(promptEmojiSuggestions(d.text, d.cat))}</div>
+      <details class="ch-picker-toggle"><summary>Усі емодзі (${EMOJI_CHOICES.length})</summary>
+        <div class="ch-emoji-picker" aria-label="Повна панель емодзі">${emojiBtns(EMOJI_CHOICES)}</div></details>
+      <div class="ch-emoji-tools">
+        <button class="pp-btn" id="chEmojiClear" type="button">${icon("x")} Очистити</button>
+        ${d.rerolled ? "" : `<button class="pp-btn" id="chReroll" type="button">${icon("refresh")} Інше слово</button>`}
+      </div>
+      <div class="ch-feedback" id="chFeedback"></div>
+      <button class="pp-btn pp-primary pp-block pp-big" id="chSend">Відправити шифр</button></div>`;
+    // Один рядок, як у Telegram: слово, написане в кінці поля, — це пошук;
+    // тап по емодзі замінює це слово на емодзі.
+    const inp = $("chEmoji"), results = $("chSearchResults");
+    const typedWord = () => { const m = inp.value.match(/[\p{L}\p{N}ʼ'’\- ]+$/u); return m ? m[0] : ""; };
+    const runSearch = () => {
+      const q = typedWord().trim();
+      results.classList.toggle("hidden", !q);
+      if (!q) { results.innerHTML = ""; return; }
+      loadEmojiIndex().then(() => {
+        if (typedWord().trim() !== q) return;   // поки вантажилось, слово змінилось
+        const found = searchEmoji(q, 48);
+        results.innerHTML = found.length ? emojiBtns(found) : '<div class="ch-search-empty">Нічого не знайшлось — спробуй інше слово</div>';
+      }).catch(() => { results.innerHTML = '<div class="ch-search-empty">Пошук недоступний без інтернету</div>'; });
+    };
+    const addEmoji = (emoji) => {
+      const typed = typedWord();
+      const value = inp.value.slice(0, inp.value.length - typed.length) + emoji;
+      if (Array.from(value).length > G.EMOJI_MAX) { setFeedback(EMOJI_ERRORS["too-long"], "bad"); return; }
+      inp.value = value;
+      inp.focus();   // клавіатура лишається — можна писати наступне слово
+      setFeedback("", "");
+      runSearch();
+      buzz(8);
+    };
+    inputArea.querySelectorAll(".ch-encode > .ch-suggestions:not(#chSearchResults) [data-emoji], .ch-emoji-picker [data-emoji]")
+      .forEach((button) => button.addEventListener("click", () => addEmoji(button.dataset.emoji)));
+    // результати пошуку перебудовуються — делегуємо; pointerdown не забирає фокус у поля
+    results.addEventListener("pointerdown", (e) => { if (e.target.closest("[data-emoji]")) e.preventDefault(); });
+    results.addEventListener("click", (e) => { const b = e.target.closest("[data-emoji]"); if (b) addEmoji(b.dataset.emoji); });
+    inp.addEventListener("input", runSearch);
+    inp.addEventListener("focus", () => { loadEmojiIndex().catch(() => {}); }, { once: true });
+    $("chEmojiClear").addEventListener("click", () => { inp.value = ""; setFeedback("", ""); runSearch(); });
+    const send = () => {
+      const r = G.submitEmoji(inp.value);
+      if (!r.ok) { setFeedback(EMOJI_ERRORS[r.reason] || "Не вийшло відправити", "bad"); buzz([20, 40, 20]); }
+      else { setFeedback("Відправлено", "good"); sfx("whoosh"); }
+    };
+    $("chSend").addEventListener("click", send);
+    inp.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
+    const rr = $("chReroll");
+    if (rr) rr.addEventListener("click", () => { rr.disabled = true; G.rerollWord(); sfx("pop"); });
+  }
 
   function renderRound(room, ctx) {
-    const st = room.stage, d = st.data || {};
-    document.getElementById("modeTitle").textContent = "🧩 Зіпсовані шаради";
-    document.getElementById("roundLabel").textContent = `Раунд ${room.roundNo + 1} з ${room.totalRounds}`;
-    document.getElementById("stageText").classList.add("hidden");
-    const isReveal = st.kind === "reveal", iAmEncoder = d.encoder === ctx.username;
-    document.getElementById("stageRoles").innerHTML = d.encoder
-      ? `<div class="pt-role">${avatarHtml(room, d.encoder)}<span><small>Шифрувальник</small>${escapeHtml(d.encoder)}</span></div>` : "";
-    const emojiBox = document.getElementById("emojiBox");
-    const showEmoji = (st.kind === "guess" || isReveal) && st.emoji;
+    const st = room.stage, d = st.data || {}, me = ctx.username;
+    const isReveal = st.kind === "reveal", iAmEncoder = d.encoder === me;
+    if (st.id !== lastStageId) {
+      if (lastStageId != null) {
+        if (st.kind === "guess") { sfx("ding"); buzz(20); }
+        else if (isReveal) sfx(st.missed || !(st.results || []).length ? "wah" : "fanfare");
+        else sfx("whoosh");
+      }
+      lastStageId = st.id;
+    }
+    $("roundNo").innerHTML = `${room.roundNo + 1}<i>/${room.totalRounds}</i>`;
+    $("stageTitle").textContent = isReveal ? "Результат" : st.kind === "encode" ? "Шифрування" : "Відгадуємо";
+    paint("roleBox", "r" + d.encoder + ((room.players || {})[d.encoder] || {}).character + iAmEncoder + st.kind,
+      d.encoder ? `${avatar(room, d.encoder, { size: "md", mood: st.kind === "encode" ? "write" : isReveal ? "happy" : "idle" })}<div><small>Шифрувальник</small><b>${esc(d.encoder)}</b></div>${iAmEncoder ? '<span class="me">це ти</span>' : ""}` : "");
+
+    const emojiBox = $("emojiBox"), showEmoji = (st.kind === "guess" || isReveal) && st.emoji;
     emojiBox.classList.toggle("hidden", !showEmoji);
-    emojiBox.textContent = showEmoji ? st.emoji : "";
-    const hintEl = document.getElementById("stageHint");
-    const inputArea = document.getElementById("inputArea"), revealArea = document.getElementById("revealArea");
+    if (showEmoji && emojiBox.dataset.k !== String(st.id)) {
+      emojiBox.dataset.k = st.id; emojiBox.textContent = st.emoji;
+      if (st.kind === "guess") { emojiBox.classList.remove("in"); void emojiBox.offsetWidth; emojiBox.classList.add("in"); }
+    }
+    const hint = st.kind === "guess" && !iAmEncoder ? st.hint : "";
+    $("hintBox").classList.toggle("hidden", !hint);
+    paint("hintBox", "h" + hint, hint ? hint.split(" · ").map((x) => `<span>${esc(x)}</span>`).join("") : "");
+
+    const inputArea = $("inputArea"), revealArea = $("revealArea");
     revealArea.classList.toggle("hidden", !isReveal);
     inputArea.classList.toggle("hidden", isReveal);
 
     if (isReveal) {
-      hintEl.textContent = "";
-      const pen = st.penalties || {}, results = st.results || [];
-      const drinkBanner = pen[ctx.username]
-        ? `<div class="pt-drink">🥃 Ковток!${pen[ctx.username] > 1 ? " ×" + pen[ctx.username] : ""}<small>або будь-який напій — у своєму темпі</small></div>` : "";
-      const drinkers = Object.keys(pen).filter((n) => n !== ctx.username);
-      revealArea.innerHTML = `<div class="pt-headline">${escapeHtml(st.headline || "")}</div>` +
-        results.map((r) => `<div class="ch-res">${avatarHtml(room, r.n, { small: true })}<span class="n">${escapeHtml(r.n)}</span><span class="v">+${r.pts}</span></div>`).join("") +
-        `<div class="pt-lines">${(st.lines || []).map((l) => `<div>${escapeHtml(l)}</div>`).join("")}</div>` + drinkBanner +
-        (drinkers.length ? `<div class="pt-others">🥃 П'ють: ${drinkers.map(escapeHtml).join(", ")}</div>` : "") +
-        ((st.capped || []).length ? `<div class="pt-others">Ліміт набору (${G.SET_CAP}): ${(st.capped).map(escapeHtml).join(", ")} без доданого ковтка</div>` : "");
-      document.getElementById("waitInfo").textContent = "";
-      document.getElementById("stageTimer").classList.add("hidden");
+      builtStageId = null;
+      const results = st.results || [];
+      paint("revealArea", "rv" + st.id + "#" + me,
+        `<div class="ch-answer ${st.missed ? "miss" : ""}"><small>${st.missed ? "Час вийшов" : "Відповідь"}</small><b>${esc(st.missed ? st.headline : (d.text || st.headline))}</b></div>` +
+        (st.missed ? `<div class="pp-lines">${esc(`Слово було: «${d.text || ""}»`)}</div>` : "") +
+        (results.length ? `<div class="ch-solvers">${results.map((r) => `<div class="ch-solver">${avatar(room, r.n, { size: "lg", mood: "happy" })}<span>${esc(r.n)}</span><i>+${r.pts}</i></div>`).join("")}</div>` : "") +
+        (!st.missed ? `<div class="pp-lines">${(st.lines || []).map((l) => `<div>${esc(l)}</div>`).join("")}</div>` : "") +
+        window.PartyUI.drinkHtml(room, st, me, G.SET_CAP));
+      paint("waitInfo", "none", "");
     } else if (st.kind === "encode" && iAmEncoder) {
-      hintEl.textContent = "";
-      if (builtStageId !== st.id) {
-        builtStageId = st.id;
-        inputArea.innerHTML = `<div class="ch-secret"><small>${escapeHtml(d.cat || "Слово")} · загадане слово</small><b>${escapeHtml(d.text)}</b></div>
-          <input class="ch-input" id="chEmoji" placeholder="Пиши слово: білка, посмішка… — або емодзі" autocomplete="off" aria-label="Емодзі-шифр" />
-          <div class="ch-suggestions hidden" id="chSearchResults" aria-label="Емодзі до написаного слова"></div>
-          <div class="ch-emoji-tools">
-            <button class="btn" id="chEmojiClear" type="button">Очистити</button>
-          </div>
-          <div class="ch-suggestions-title">💡 Ідеї до слова — торкнись, щоб додати</div>
-          <div class="ch-suggestions" aria-label="Рекомендовані емодзі">${promptEmojiSuggestions(d.text, d.cat).map((emoji) =>
-            `<button type="button" data-emoji="${emoji}" aria-label="Додати ${emoji}">${emoji}</button>`).join("")}</div>
-          <details class="ch-picker-toggle"><summary>Усі емодзі (${EMOJI_CHOICES.length})</summary>
-            <div class="ch-emoji-picker" aria-label="Повна панель емодзі">${EMOJI_CHOICES.map((emoji) =>
-              `<button type="button" data-emoji="${emoji}" aria-label="Додати ${emoji}">${emoji}</button>`).join("")}</div>
-          </details>
-          <div class="ch-feedback" id="chFeedback"></div>
-          <button class="btn btn-primary btn-block" id="chSend">Відправити шифр</button>
-          ${d.rerolled ? "" : '<button class="btn btn-block" id="chReroll" style="margin-top:8px; opacity:.85;">🔄 Інше слово (один раз)</button>'}`;
-        // Один рядок, як у Telegram: слово, написане в кінці поля, — це пошук;
-        // тап по емодзі замінює це слово на емодзі.
-        const inp = document.getElementById("chEmoji"), results = document.getElementById("chSearchResults");
-        const typedWord = () => { const m = inp.value.match(/[\p{L}\p{N}ʼ'’\- ]+$/u); return m ? m[0] : ""; };
-        const runSearch = () => {
-          const q = typedWord().trim();
-          results.classList.toggle("hidden", !q);
-          if (!q) { results.innerHTML = ""; return; }
-          loadEmojiIndex().then(() => {
-            if (typedWord().trim() !== q) return;   // поки вантажилось, слово змінилось
-            const found = searchEmoji(q, 48);
-            results.innerHTML = found.length
-              ? found.map((emoji) => `<button type="button" data-emoji="${emoji}" aria-label="Додати ${emoji}">${emoji}</button>`).join("")
-              : '<div class="ch-search-empty">Нічого не знайшлось — спробуй інше слово</div>';
-          }).catch(() => { results.innerHTML = '<div class="ch-search-empty">Пошук недоступний без інтернету</div>'; });
-        };
-        const addEmoji = (emoji) => {
-          const typed = typedWord();
-          const value = inp.value.slice(0, inp.value.length - typed.length) + emoji;
-          if (Array.from(value).length > G.EMOJI_MAX) {
-            setFeedback(EMOJI_ERRORS["too-long"], "bad");
-            return;
-          }
-          inp.value = value;
-          inp.focus();   // клавіатура лишається — можна писати наступне слово
-          setFeedback("", "");
-          runSearch();
-        };
-        // кнопки статичних панелей
-        inputArea.querySelectorAll("[data-emoji]").forEach((button) => button.addEventListener("click", () => addEmoji(button.dataset.emoji)));
-        // результати пошуку перебудовуються — делегуємо; pointerdown не забирає фокус у поля
-        results.addEventListener("pointerdown", (e) => { if (e.target.closest("[data-emoji]")) e.preventDefault(); });
-        results.addEventListener("click", (e) => { const b = e.target.closest("[data-emoji]"); if (b) addEmoji(b.dataset.emoji); });
-        inp.addEventListener("input", runSearch);
-        inp.addEventListener("focus", () => { loadEmojiIndex().catch(() => {}); }, { once: true });
-        document.getElementById("chEmojiClear").addEventListener("click", () => {
-          inp.value = "";
-          setFeedback("", "");
-          runSearch();
-        });
-        const send = () => { const r = G.submitEmoji(inp.value); if (!r.ok) setFeedback(EMOJI_ERRORS[r.reason] || "Не вийшло відправити", "bad"); else setFeedback("✅ Відправлено", "good"); };
-        document.getElementById("chSend").addEventListener("click", send);
-        inp.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
-        const rr = document.getElementById("chReroll");
-        if (rr) rr.addEventListener("click", () => { rr.disabled = true; G.rerollWord(); });
-      }
+      if (builtStageId !== st.id) { builtStageId = st.id; buildEncodePanel(st, d); }
+      paint("waitInfo", "none", "");
     } else if (st.kind === "guess" && iAmEncoder) {
-      // Шифрувальник слухає відповіді й тапає тих, хто вгадав, по черзі.
-      hintEl.textContent = "Тапни всіх, хто вгадав. Помилився — тапни ще раз.";
+      // Шифрувальник слухає відповіді й тапає всіх, хто вгадав.
+      builtStageId = null;
       const picks = G.picksOf(room);
       const guessers = (room.order || []).filter((n) => n !== d.encoder);
-      inputArea.innerHTML = `<div class="ch-secret"><small>${escapeHtml(d.cat || "Слово")} · загадане слово</small><b>${escapeHtml(d.text)}</b></div>
-        <div class="ch-picks">${guessers.map((n) => {
-          const rank = picks.names.indexOf(n) + 1;
-          return `<button type="button" class="ch-pick ${rank ? "on" : ""}" data-pick="${escapeHtml(n)}" ${picks.done ? "disabled" : ""}>${avatarHtml(room, n, { small: true })}<span class="n">${escapeHtml(n)}</span><span class="rank">✓</span></button>`;
-        }).join("")}</div>
-        <button class="btn btn-primary btn-block" id="chDone" ${picks.done ? "disabled" : ""}>${picks.names.length ? `✅ Готово — вгадали: ${picks.names.length}` : "Ніхто не вгадав"}</button>`;
-      inputArea.querySelectorAll("[data-pick]").forEach((b) => b.addEventListener("click", () => G.togglePick(b.dataset.pick)));
-      document.getElementById("chDone").addEventListener("click", () => G.finishPicks());
-      builtStageId = null;
+      paint("inputArea", "pk" + st.id + "|" + picks.names.join(",") + picks.done,
+        `<div class="ch-secret"><small>${esc(d.cat || "Слово")} · твоє слово</small><b>${esc(d.text)}</b></div>
+        <div class="pp-note">Тапни всіх, хто вгадав. Помилився — тапни ще раз.</div>
+        <div class="ch-picks">${guessers.map((n) => `<button type="button" class="ch-pick ${picks.names.includes(n) ? "on" : ""}" data-pick="${esc(n)}" ${picks.done ? "disabled" : ""}>${avatar(room, n, { size: "sm", still: true })}<span class="n">${esc(n)}</span><span class="ok">${icon("check")}</span></button>`).join("")}</div>
+        <button class="pp-btn ${picks.names.length ? "pp-primary" : ""} pp-block pp-big" id="chDone" ${picks.done ? "disabled" : ""}>${picks.names.length ? `Готово — вгадали: ${picks.names.length}` : "Ніхто не вгадав"}</button>`);
+      paint("waitInfo", "none", "");
     } else if (st.kind === "guess") {
-      hintEl.textContent = st.hint || "";
       builtStageId = null;
-      inputArea.innerHTML = `<div class="ch-say">🗣️ Кажи відповідь уголос!</div><div class="status-line">${escapeHtml(d.encoder)} позначить, хто вгадав</div>`;
+      const picked = G.picksOf(room).names;
+      paint("inputArea", "say" + st.id, `<div class="ch-say"><b>${icon("mic")} Кажи вголос!</b><div class="pp-note">${esc(d.encoder)} позначить усіх, хто вгадав</div></div>`);
+      paint("waitInfo", "g" + picked.join(","), picked.length
+        ? `<div class="who">${picked.map((n) => avatar(room, n, { size: "sm", mood: "happy", still: true })).join("")}</div><div>Вже вгадали: ${picked.map(esc).join(", ")}</div>`
+        : "<div>Поки ніхто не вгадав</div>");
     } else {
       builtStageId = null;
-      inputArea.innerHTML = "";
-      hintEl.textContent = st.kind === "encode" ? `🕵️ ${d.encoder} шифрує слово емодзі…` : (st.hint || "");
+      paint("inputArea", "enc" + st.id + d.encoder, `<div class="ch-wait-encode">${avatar(room, d.encoder, { size: "xl", mood: "write" })}<b>${esc(d.encoder)} шифрує слово емодзі…</b><div class="pp-note">Готуйся вгадувати — відповіді кажи вголос</div></div>`);
+      paint("waitInfo", "none", "");
     }
-    if (!isReveal) {
-      let info = "";
-      if (st.kind === "guess") {
-        const picked = G.picksOf(room).names;
-        info = picked.length ? `Вгадали: ${picked.map(escapeHtml).join(", ")}` : "Поки ніхто не вгадав";
-      }
-      document.getElementById("waitInfo").innerHTML = info;
-      updateTimer();
-    }
-    const showHost = ctx.host;
-    const nextBtn = document.getElementById("hostNextBtn");
-    nextBtn.classList.toggle("hidden", !showHost);
-    nextBtn.textContent = isReveal ? (room.roundNo + 1 >= room.totalRounds ? "Підсумок" : "Далі") : st.kind === "encode" ? "Пропустити шифрування" : "Показати результат зараз";
-    document.getElementById("endSetBtn").classList.toggle("hidden", !showHost);
+    $("hostBar").classList.toggle("hidden", !ctx.host);
+    $("hostNextBtn").textContent = isReveal ? (room.roundNo + 1 >= room.totalRounds ? "Підсумок" : "Далі") : st.kind === "encode" ? "Пропустити" : "Результат";
+    updateTimer();
   }
 
+  // клік по кандидатах (делегування — панель перебудовується)
+  $("inputArea").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-pick]");
+    if (b) { G.togglePick(b.dataset.pick); sfx("pop"); buzz(12); return; }
+    if (e.target.closest("#chDone")) G.finishPicks();
+  });
+
+  const RING = 2 * Math.PI * 19;
+  let lastTick = null;
   function updateTimer() {
-    const el = document.getElementById("stageTimer"), room = lastRoom;
-    if (!room || room.phase !== "round" || !room.stage || room.stage.kind === "reveal" || !room.stage.endsAt) { el.classList.add("hidden"); return; }
-    el.classList.remove("hidden");
-    el.textContent = `⏳ ${Math.max(0, Math.ceil((room.stage.endsAt - G.now()) / 1000))} с`;
+    const el = $("timer"), room = lastRoom;
+    if (!room || room.phase !== "round" || !room.stage || room.stage.kind === "reveal" || !room.stage.endsAt) { el.className = "pp-timer off"; return; }
+    const st = room.stage, total = Math.max(1000, st.endsAt - (st.startedAt || st.endsAt - 60000));
+    const left = Math.max(0, st.endsAt - G.now()), sec = Math.ceil(left / 1000);
+    const bar = el.querySelector(".bar");
+    bar.style.strokeDasharray = RING; bar.style.strokeDashoffset = RING * (1 - left / total);
+    el.querySelector("span").textContent = sec;
+    el.className = "pp-timer" + (sec <= 5 ? " urgent" : "");
+    if (sec <= 5 && sec > 0 && sec !== lastTick) { lastTick = sec; sfx("tick"); }
   }
 
   // ---------------- підсумок ----------------
   function renderSummary(room, ctx) {
-    document.getElementById("sumDrinks").innerHTML = renderTallyList(room, "drinks");
-    document.getElementById("sumPoints").innerHTML = renderTallyList(room, "points");
-    document.getElementById("toLobbyBtn").classList.toggle("hidden", !ctx.host);
-    document.getElementById("waitHostSummary").classList.toggle("hidden", !!ctx.host);
+    paint("sumPoints", JSON.stringify((room.tally || {}).points || {}) + "p", window.PartyUI.podium(room, "points", "happy"));
+    paint("sumDrinks", JSON.stringify((room.tally || {}).drinks || {}) + "d", window.PartyUI.podium(room, "drinks", "shock"));
+    $("toLobbyBtn").classList.toggle("hidden", !ctx.host);
+    $("waitHostSummary").classList.toggle("hidden", !!ctx.host);
   }
 
   function onState(room, ctx) {
+    const prev = lastRoom && lastRoom.phase;
     lastRoom = room; lastCtx = ctx;
     if (!ctx.username) { showView("locked"); return; }
     if (!reactionsMounted && window.GameReactions && G.roomRef) { reactionsMounted = true; window.GameReactions.mount(G.roomRef, ctx.username); }
     const iAmIn = room.players && room.players[ctx.username];
-    if (room.phase === "round") {
+    if (room.phase === "round" && room.stage) {
       if (!iAmIn || !(room.order || []).includes(ctx.username)) { showView("waiting"); return; }
       showView("round"); renderRound(room, ctx);
-    } else if (room.phase === "summary") { showView("summary"); renderSummary(room, ctx); }
-    else { builtStageId = null; showView("lobby"); renderLobby(room, ctx); }
+    } else if (room.phase === "summary") { if (prev === "round") sfx("fanfare"); showView("summary"); renderSummary(room, ctx); }
+    else { builtStageId = null; lastStageId = null; showView("lobby"); renderLobby(room, ctx); }
   }
 
-  document.getElementById("startBtn").addEventListener("click", () => G.startSet(lastRoom));
-  for (const [inputId, outputId, key] of [
-    ["encodeSecSlider", "encodeSecValue", "encodeSec"],
-    ["guessSecSlider", "guessSecValue", "guessSec"],
-  ]) {
-    const input = document.getElementById(inputId);
-    input.addEventListener("input", () => { document.getElementById(outputId).textContent = `${input.value} с`; });
+  $("startBtn").addEventListener("click", () => { G.startSet(lastRoom); sfx("whoosh"); });
+  for (const [inputId, outputId, key] of [["encodeSecSlider", "encodeSecValue", "encodeSec"], ["guessSecSlider", "guessSecValue", "guessSec"]]) {
+    const input = $(inputId);
+    input.addEventListener("input", () => { $(outputId).textContent = `${input.value} с`; });
     input.addEventListener("change", () => G.updateSettings({ [key]: Number(input.value) }));
   }
-  document.getElementById("resetBtn").addEventListener("click", () => { if (confirm("Скинути вечір (рахунок теж)?")) G.resetAll(); });
-  document.getElementById("hostNextBtn").addEventListener("click", () => G.skip());
+  $("resetBtn").addEventListener("click", () => { if (confirm("Скинути вечір (рахунок теж)?")) G.resetAll(); });
+  $("hostNextBtn").addEventListener("click", () => G.skip());
+  $("endSetBtn").addEventListener("click", () => { if (confirm("Завершити набір?")) G.endSet(); });
+  $("toLobbyBtn").addEventListener("click", () => G.toLobby());
+  setInterval(updateTimer, 250);
 
-  document.getElementById("endSetBtn").addEventListener("click", () => { if (confirm("Завершити набір?")) G.endSet(); });
-  document.getElementById("toLobbyBtn").addEventListener("click", () => G.toLobby());
-  setInterval(updateTimer, 500);
-
-  function beginGame(username_, roomId) { G.onStateChange = onState; G.start(username_, roomId); }
+  function beginGame(user, roomId) { G.onStateChange = onState; G.start(user, roomId); }
   const session = window.AppAuth && window.AppAuth.getSession();
   if (session && window.rtdbReady) {
     RoomCodeUI.mount({
       containerId: "activeRoomsList", codeInputId: "roomCodeInput", joinBtnId: "joinRoomBtn", createBtnId: "createRoomBtn",
       watchActiveRooms: G.watchActiveRooms,
-      renderRoomItem: (r) => `
-        <div class="player-chip"><span>Кімната ${RoomCodeUI.escapeHtml(r.roomId)}</span>
-        <span class="badge">${r.phase === "lobby" ? "Лобі" : r.phase === "summary" ? "Підсумок" : "Гра триває"}</span></div>
-        <div class="status-line" style="text-align:left; font-size:12px;">Онлайн: ${r.connectedCount} / ${r.playerCount}</div>`,
+      emptyListHtml: '<div class="hint-text">Активних кімнат поки нема — створи нову</div>',
+      renderRoomItem: (r) => `<div class="pp-room"><b>${esc(r.roomId)}</b><small>${icon("users")} ${r.connectedCount}/${r.playerCount}</small>
+        <span class="st ${r.phase === "lobby" ? "" : "live"}">${r.phase === "lobby" ? "Лобі" : r.phase === "summary" ? "Підсумок" : "Гра йде"}</span></div>`,
       onEnter: (roomId) => beginGame(session.username, roomId),
     });
-    showView("room-entry");
-  } else { showView("locked"); }
-  window.addEventListener("beforeunload", () => { if (window.CharadesGame) G.stop(); });
+    showView("entry");
+  } else showView("locked");
+  window.addEventListener("beforeunload", () => G.stop());
 })();
 </script>
 </body>
