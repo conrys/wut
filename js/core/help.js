@@ -1,5 +1,5 @@
 // ==========================================================================
-// Кнопка «❓» + модалка з правилами гри. Контент — окремий блок тексту на
+// Кнопка «?» + модалка з правилами гри. Контент — окремий блок тексту на
 // кожну гру в HELP_CONTENT нижче, ключ — те саме ім'я гри, що дає
 // currentGameName() в records.js (з імені файлу: tetris.html -> 'tetris').
 //
@@ -18,7 +18,7 @@
         <p>Заповни поле цифрами 1–9 так, щоб у кожному рядку, кожній колонці
         і кожному квадраті 3×3 кожна цифра зустрічалась рівно один раз.</p>
         <p><b>Керування:</b> тап по клітинці → тап по цифрі внизу. Стрілки на
-        клавіатурі теж працюють. «💡 Підказка» відкриває правильну цифру в
+        клавіатурі теж працюють. «Підказка» відкриває правильну цифру в
         обраній клітинці, але коштує як помилка.</p>
         <p><b>Як рахуються очки:</b></p>
         <p class="help-formula">База складності − (час, сек × 2) − (помилки × 40)</p>
@@ -35,7 +35,7 @@
         Порожня клітинка (без цифри) автоматично відкриває всіх сусідів
         по ланцюжку.</p>
         <p><b>Керування:</b> тап — відкрити клітинку. Довге натискання
-        (або тумблер «🚩 Режим прапорця» внизу) — поставити/зняти прапорець
+        (або тумблер «Прапорці» внизу) — поставити/зняти прапорець
         на підозрілій клітинці.</p>
         <p>Перший тап завжди безпечний — міни розставляються вже після
         нього, оминаючи цю клітинку і сусідів.</p>
@@ -65,7 +65,7 @@
         <p>Класична Косинка (Klondike). Мета — зібрати всі 52 карти у 4
         фундаменти зверху, по кожній масті окремо, від Туза до Короля.</p>
         <p><b>Стовпці:</b> карти складаються за спаданням рангу з
-        чергуванням кольору (🔴⚫). На порожній стовпець можна класти лише
+        чергуванням кольору (червона на чорну і навпаки). На порожній стовпець можна класти лише
         Короля. Перетягувати можна одну карту або цілу валідну
         послідовність.</p>
         <p><b>Сток/відбій:</b> тап по закритій колоді відкриває карти у
@@ -75,7 +75,7 @@
         прямо; «Норм» — по 1, звичайна випадкова роздача; «Складно» — по 3
         карти і заплутаніші роздачі. Чим складніше — тим більше очок.</p>
         <p>Колода тасується чесно, але кожну роздачу перед грою розв'язує
-        солвер — виграти її точно можна. <b>💡 Підказка</b> показує
+        солвер — виграти її точно можна. <b>Підказка</b> показує
         наступний хід на шляху до перемоги (кожна мінус 100 очок). Якщо
         ходами заведеш гру в глухий кут — гра про це скаже: скасуй кілька
         ходів або почни нову.</p>
@@ -90,7 +90,7 @@
         <p>Один телефон передається по колу. Гравець, у кого телефон,
         бачить слово й показує його жестами (без слів!) або пояснює
         описово — залежно від того, як домовитесь. Решта вгадує вголос.</p>
-        <p><b>Керування:</b> вгадали слово — тисни «✅ Вгадали!», одразу
+        <p><b>Керування:</b> вгадали слово — тисни «Вгадали!», одразу
         з'явиться нове. Важко/незручно — «⏭ Пропустити», теж без штрафу.</p>
         <p>Коли час раунду вийде — рахунок раунду додається до загального,
         і телефон передається далі.</p>
@@ -118,25 +118,30 @@
     style.textContent = `
       .help-btn {
         position: fixed; bottom: 16px; right: 16px; z-index: 9998;
-        width: 40px; height: 40px; border-radius: 50%;
-        background: rgba(0,0,0,0.5); color: #f4f5f1;
-        border: 1px solid rgba(255,255,255,0.15);
-        font-family: 'Inter', sans-serif; font-size: 16px; font-weight: 700;
+        width: 40px; height: 40px; border-radius: 50%; padding: 0;
+        background: rgba(10,12,20,0.6); color: #f4f5f1;
+        border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 4px 14px rgba(0,0,0,.35);
         display: flex; align-items: center; justify-content: center;
         touch-action: manipulation; cursor: pointer;
       }
+      .help-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.3; stroke-linecap: round; stroke-linejoin: round; }
       .help-btn:active { opacity: 0.6; }
       .help-overlay {
-        position: fixed; inset: 0; background: rgba(0,0,0,0.6);
-        display: none; align-items: center; justify-content: center;
-        z-index: 9999; padding: 20px;
+        position: fixed; inset: 0; background: rgba(6,8,14,0.66);
+        display: none; align-items: flex-end; justify-content: center;
+        z-index: 9999; padding: 0;
       }
+      @keyframes sheetUp { from { transform: translateY(40px); opacity: 0; } }
+
       .help-overlay.open { display: flex; }
       .help-modal {
-        background: #22252b; border-radius: 16px; padding: 22px;
-        width: 100%; max-width: 340px; max-height: 75vh; overflow-y: auto;
-        color: #f4f5f1; font-family: 'Inter', sans-serif;
+        background: linear-gradient(180deg, #232733, #171a22); border: 1px solid rgba(255,255,255,0.08); border-bottom: 0;
+        border-radius: 22px 22px 0 0; padding: 10px 20px calc(18px + env(safe-area-inset-bottom));
+        width: 100%; max-width: 480px; max-height: 80vh; overflow-y: auto;
+        color: #f4f5f1; font-family: 'Inter', sans-serif; box-shadow: 0 -16px 40px rgba(0,0,0,.45); animation: sheetUp .3s cubic-bezier(.2,.9,.3,1) both;
       }
+      .help-modal::before { content: ""; display: block; width: 44px; height: 5px; margin: 0 auto 12px; border-radius: 3px; background: rgba(255,255,255,.18); }
+      .help-modal p b { color: #fff; }
       .help-modal h3 {
         font-family: 'Space Grotesk', sans-serif; margin: 0 0 12px; font-size: 18px;
       }
@@ -145,13 +150,13 @@
         font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 14px;
         color: #38cfa0; background: #14161a; border-radius: 8px; padding: 8px 10px;
       }
-      .help-close { text-align: center; margin-top: 6px; font-size: 12px; color: #8b909c; cursor: pointer; }
+      .help-close { display: block; margin-top: 8px; padding: 12px; border-radius: 12px; text-align: center; font-size: 14px; font-weight: 700; color: #f4f5f1; background: rgba(255,255,255,0.07); cursor: pointer; }
     `;
     document.head.appendChild(style);
 
     const btn = document.createElement("button");
     btn.className = "help-btn";
-    btn.textContent = "❓";
+    btn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.2 2.8c-.8.4-1.2 1.1-1.2 2V15"/><path d="M12 18.5v.01"/></svg>';
     btn.setAttribute("aria-label", "Правила гри");
     document.body.appendChild(btn);
 
