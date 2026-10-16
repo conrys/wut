@@ -276,6 +276,7 @@
     "miner": "Сапер",
     "doodle": "Стрибунець",
     "soliter": "Косинка",
+    "roulette": "Рулетка",
     "poker": "Покер",
     "snake": "Змійка",
     "spy": "Шпигун",
@@ -305,7 +306,7 @@
   // просто отримує 🎮 за замовчуванням (див. gameIcon()).
   const GAME_ICONS = {
     "tetris": "🧱", "2048": "🔢", "wordle": "🔤", "sudoku": "🔢",
-    "miner": "💣", "doodle": "🐸", "soliter": "🃏", "poker": "🃏",
+    "miner": "💣", "doodle": "🐸", "soliter": "🃏", "roulette": "🎰", "poker": "🃏",
     "snake": "🐍", "spy": "🕵️", "chess": "♟️", "checkers": "🔴",
     "whoami": "❓", "memology": "😂", "crocodile": "🐊", "quiplash": "😆",
     "mafia": "🔪", "teli": "📞", "quiz": "🧠", "draw": "🎨", "durak": "🃏",
@@ -321,7 +322,7 @@
   // колекція (games41_wordle_*) і своя механіка стріків, не games41_scores.
   // Дурак — накопичувальний лічильник перемог (як шахи/шашки), тому теж тут.
   const SCORABLE_GAMES = [
-    "tetris", "2048", "sudoku", "miner", "doodle", "soliter", "snake", "chess", "checkers", "whoami", "durak",
+    "tetris", "2048", "sudoku", "miner", "doodle", "soliter", "roulette", "snake", "chess", "checkers", "whoami", "durak",
   ];
 
   function gameLabel(gameName) {
