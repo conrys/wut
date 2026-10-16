@@ -1,160 +1,113 @@
+<!-- Гра: Крокодил — один телефон по колу: показуєш слово жестами, хто вгадав — бере телефон. Тема: джунглі. -->
 <!DOCTYPE html>
 <html lang="uk">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<meta name="theme-color" content="#0f3b26" />
 <title>Крокодил</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --bg: #14161a;
-    --surface-1: #22252b;   /* було --tile-bg */
-    --surface-2: #1b1d22;   /* було хардкод #1b1d22 */
-    --line: rgba(255,255,255,0.1);
-
-    --text: #f4f5f1;        /* було --text-light */
-    --text-muted: #8b909c;
-
-    --accent: #38cfa0;
-
-    --font-display: 'Space Grotesk', sans-serif;
-    --font-body: 'Inter', sans-serif;
-
-    --radius-xs: 4px;
-    --radius-sm: 8px;
-    --radius-md: 14px;
-    --radius-lg: 20px;
-    --radius-pill: 999px;
-
-    --scrim: rgba(0,0,0,0.31);
-    --scrim-strong: rgba(0,0,0,0.82);
-    --blur-panel: 12px;
-    --blur-bg: 3px;
-
-    --z-bg-scene: 0;
-    --z-content: 1;
-    --z-sticky: 10;
-    --z-banner: 20;
-    --z-sidebar: 90;
-    --z-modal: 100;
-    --z-pause: 500;
-    --z-fx: 900;
-    --z-toast: 999;
-  }
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none;
-      -webkit-user-select: none; -webkit-touch-callout: none; }
-  html, body { margin: 0; padding: 0; min-height: 100dvh; background: var(--bg);
-      font-family: var(--font-body); color: var(--text); overflow-x: hidden; touch-action: manipulation; }
-  .page { max-width: 480px; margin: 0 auto; min-height: 100dvh; position: relative;
-      z-index: 0; overflow: hidden; display: flex; flex-direction: column; }
-  .pad { flex: 1; display: flex; flex-direction: column; align-items: center;
-      padding: 0 18px calc(30px + env(safe-area-inset-bottom)); }
-  .hidden { display: none !important; }
-
-  h2 { font-family: var(--font-display); font-size: 20px; margin: 0 0 14px; text-align: center; }
-  .status-line { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 14px; }
-
-  .host-panel { width: 100%; background: var(--surface-1); border-radius: var(--radius-md); padding: 16px; margin-bottom: 14px; }
-  .host-panel label { display: block; font-size: 12px; color: var(--text-muted); margin: 10px 0 4px; }
-  .host-panel select { width: 100%; padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--line);
-      background: var(--bg); color: var(--text); font-size: 14px; }
-
-  button.primary-btn { width: 100%; border: none; border-radius: var(--radius-lg); padding: 12px; font-weight: 700;
-      font-size: 14px; cursor: pointer; background: var(--accent); color: #0e2318; margin-top: 10px; }
-  button.primary-btn:disabled { opacity: 0.35; cursor: default; }
-  button.secondary-btn { width: 100%; border: none; border-radius: var(--radius-lg); padding: 10px; font-weight: 700;
-      font-size: 13px; cursor: pointer; background: var(--surface-2); color: var(--text);
-      border: 1px solid var(--line); margin-top: 8px; }
-
-  .hint-text { font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 6px; min-height: 16px; }
-
-  /* --------- передача телефону --------- */
-  .reveal-circle {
-    width: 220px; height: 220px; border-radius: 50%; background: var(--surface-2);
-    border: 2px solid var(--line); display: flex; align-items: center; justify-content: center;
-    margin: 30px auto; text-align: center; padding: 20px; cursor: pointer;
-  }
-  .reveal-circle .icon { font-size: 40px; margin-bottom: 8px; }
-  .reveal-circle .prompt { font-size: 13px; color: var(--text-muted); }
-
-  /* --------- активна гра --------- */
-  .word-card {
-    width: 100%; background: var(--surface-1); border-radius: var(--radius-md); padding: 34px 20px;
-    display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 14px 0;
-  }
-  .word-card .theme-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; }
-  .word-card .word-text { font-family: var(--font-display); font-weight: 700; font-size: 30px; text-align: center; }
-  .action-row { display: flex; gap: 10px; width: 100%; }
-  .action-row .btn-skip { flex: 1; border: none; border-radius: var(--radius-lg); padding: 14px; font-weight: 700;
-      font-size: 14px; cursor: pointer; background: var(--surface-2); color: var(--text); border: 1px solid var(--line); }
-  .action-row .btn-correct { flex: 1.4; border: none; border-radius: var(--radius-lg); padding: 14px; font-weight: 700;
-      font-size: 15px; cursor: pointer; background: var(--accent); color: #0e2318; }
-  .round-score { text-align: center; color: var(--text-muted); font-size: 13px; margin-top: 10px; }
-  .round-score b { color: var(--text); font-family: var(--font-display); }
-
-  /* --------- фінал --------- */
-  .summary-box { width: 100%; background: var(--surface-1); border-radius: var(--radius-md); padding: 24px 18px; text-align: center; margin-bottom: 14px; }
-  .summary-box .big-num { font-family: var(--font-display); font-weight: 700; font-size: 40px; color: var(--accent); margin: 6px 0; }
-  .summary-box .total-line { font-size: 13px; color: var(--text-muted); }
-</style>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@700;800;900&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="js/styles/party-shared.css">
 <link rel="stylesheet" href="js/styles/game-header.css">
 <script src="js/core/game-header.js" defer></script>
+<style>
+:root {
+  --bg: #0f3b26; --panel: rgba(255,255,255,.07); --panel-2: rgba(255,255,255,.12); --ink: #f2fff0; --muted: rgba(226,250,220,.65); --line: rgba(255,255,255,.15);
+  --accent: #b6f23a; --accent-ink: #143300; --good: #b6f23a; --bad: #ff7a5c;
+  --font-d: 'Exo 2', 'Manrope', sans-serif; --font-b: 'Manrope', sans-serif;
+  --hdr-bg: rgba(15,59,38,.85);
+}
+/* тло: листя джунглів */
+body { background:
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cg fill='%23b6f23a' opacity='.07'%3E%3Cpath d='M30 120C30 70 70 30 120 30 120 80 80 120 30 120z'/%3E%3Cpath d='M150 230c0-40 30-70 70-70 0 40-30 70-70 70z'/%3E%3Cpath d='M170 90c20-30 50-40 60-38-4 18-26 42-60 38z'/%3E%3C/g%3E%3Cg fill='none' stroke='%23b6f23a' stroke-width='2' opacity='.1'%3E%3Cpath d='M30 120L120 30M150 230l70-70'/%3E%3C/g%3E%3C/svg%3E"),
+  radial-gradient(80% 50% at 50% 0%, #1d6b43, transparent 70%), #0f3b26 fixed; background-size: 240px 240px, auto; }
+.pp-hero h1, .pp-sumtitle { text-transform: uppercase; letter-spacing: .02em; }
+.pp-hero h1 span { color: var(--accent); }
+.pp-primary { box-shadow: 0 6px 22px rgba(182,242,58,.3); text-transform: uppercase; letter-spacing: .04em; }
+.pp-seg button.selected { background: var(--accent); color: var(--accent-ink); }
+.cr-themes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.cr-themes button { min-height: 42px; padding: 6px 10px; border-radius: 12px; border: 1px solid var(--line); background: transparent; color: var(--muted); font: 700 13px/1.15 var(--font-b); text-align: left; }
+.cr-themes button.rnd { grid-column: 1 / -1; text-align: center; }
+.cr-themes button.selected { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+.cr-score { display: flex; justify-content: center; gap: 8px; align-items: baseline; }
+.cr-score b { font: 900 40px var(--font-d); color: var(--accent); }
+.cr-score small { color: var(--muted); font-weight: 700; }
+.cr-pass { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; width: 230px; height: 230px; margin: 10px auto; border-radius: 50%;
+  border: 0; background: radial-gradient(circle at 35% 30%, #c9ff5c, #8fcf1d); color: var(--accent-ink); box-shadow: 0 0 0 10px rgba(182,242,58,.12), 0 20px 50px rgba(0,0,0,.35);
+  animation: crBreath 2.2s ease-in-out infinite; }
+.cr-pass .ic { font-size: 54px; }
+.cr-pass b { font: 900 18px var(--font-d); max-width: 170px; text-align: center; }
+.cr-pass:active { transform: scale(.95); }
+@keyframes crBreath { 50% { box-shadow: 0 0 0 22px rgba(182,242,58,.06), 0 20px 50px rgba(0,0,0,.35); } }
+.cr-status { text-align: center; font: 800 16px var(--font-b); }
+.cr-status.good { color: var(--accent); } .cr-status.bad { color: var(--bad); }
+
+.cr-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 34px 18px; border-radius: 24px; background: #f6ffe8; color: #143300; text-align: center;
+  box-shadow: 0 18px 40px rgba(0,0,0,.35); animation: crIn .45s cubic-bezier(.2,1.3,.4,1) both; }
+@keyframes crIn { from { opacity: 0; transform: rotateY(70deg) scale(.9); } }
+.cr-card small { font: 800 12px var(--font-b); letter-spacing: .14em; text-transform: uppercase; opacity: .55; }
+.cr-card b { font: 900 34px/1.1 var(--font-d); overflow-wrap: anywhere; }
+.cr-card .no { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin-top: 6px; }
+.cr-card .no span { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; background: rgba(20,51,0,.08); font: 800 11px var(--font-b); }
+.cr-timebar { height: 10px; border-radius: 5px; background: var(--panel-2); overflow: hidden; }
+.cr-timebar i { display: block; height: 100%; width: 100%; background: var(--accent); transform-origin: 0 50%; transition: transform .25s linear, background .3s; }
+.cr-timebar.urgent i { background: var(--bad); }
+.cr-timeline { display: flex; justify-content: space-between; font: 800 13px var(--font-b); color: var(--muted); }
+.cr-actions { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; }
+.cr-actions .pp-btn { min-height: 64px; font-size: 16px; border-radius: 18px; }
+.cr-got { background: var(--accent); color: var(--accent-ink); border: 0; font-family: var(--font-d); font-weight: 900; text-transform: uppercase; }
+.cr-words { display: flex; flex-wrap: wrap; gap: 6px; }
+.cr-words span { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px; background: var(--panel-2); font-size: 13px; font-weight: 700; }
+.cr-big { text-align: center; font: 900 72px/1 var(--font-d); color: var(--accent); animation: ppPop .6s cubic-bezier(.2,1.4,.4,1) both .2s; }
+</style>
 </head>
 <body>
-<div class="page">
-<div class="pad">
+<div id="app"><div class="pp-wrap">
+  <section class="pp-view" id="view-setup">
+    <div class="pp-hero"><span data-emblem></span><h1>Кроко<span>дил</span></h1><p>Один телефон по колу: покажи слово жестами — без слів і звуків. Хто вгадав, той показує наступне.</p></div>
+    <div class="pp-card"><div class="pp-h">Тема</div><div class="cr-themes" id="themeSeg"></div>
+      <div class="pp-label">Складність</div><div class="pp-seg" id="diffSeg"></div>
+      <div class="pp-label">Час на слово</div><div class="pp-seg" id="timeSeg"></div>
+      <button class="pp-btn pp-primary pp-block pp-big" id="startBtn" style="margin-top:18px"><span data-ic="play"></span> Почати гру</button></div>
+    <details class="pp-card pp-rules"><summary>Як грати</summary><ol>
+      <li>Перший гравець бере телефон і дивиться слово.</li>
+      <li>Показує його жестами й мімікою — говорити й видавати звуки не можна, показувати на предмети теж.</li>
+      <li>Хто вгадав — отримує телефон і показує наступне слово. Не виходить — пропускай.</li></ol></details>
+  </section>
 
-  <div id="view-setup">
-    <h2>🐊 Крокодил</h2>
-    <div class="status-line">Один телефон — по черзі показує слово, інші вгадують</div>
-    <div class="host-panel">
-      <label>Тема</label>
-      <select id="themeSelect"></select>
-      <label>Складність</label>
-      <select id="difficultySelect"></select>
-      <button class="primary-btn" id="startBtn">Почати гру</button>
-    </div>
-  </div>
+  <section class="pp-view hidden" id="view-ready">
+    <div class="cr-score"><b id="readyScore">0</b><small id="readyScoreLbl">вгадано</small></div>
+    <div class="cr-status" id="readyStatusLine">Передай телефон першому гравцю</div>
+    <button class="cr-pass" id="readyCircle"><span data-ic="eye"></span><b>Я готовий — показати слово</b></button>
+    <div class="pp-note">Інші — не підглядайте!</div>
+    <div class="pp-card hidden" id="wordsCard"><div class="pp-h">Вже вгадали</div><div class="cr-words" id="wordsList"></div></div>
+    <button class="pp-btn pp-ghost pp-block" id="endGameFromReadyBtn"><span data-ic="flag"></span> Завершити гру</button>
+  </section>
 
-  <div id="view-ready" class="hidden">
-    <h2>🐊 Крокодил</h2>
-    <div class="status-line" id="readyStatusLine">Передай телефон першому гравцю</div>
-    <div class="reveal-circle" id="readyCircle">
-      <div>
-        <div class="icon">🤚</div>
-        <div class="prompt">Готовий(-а)? Тисни, щоб побачити слово</div>
-      </div>
+  <section class="pp-view hidden" id="view-active">
+    <div class="cr-card" id="wordCard"><small id="activeTheme"></small><b id="activeWord"></b>
+      <div class="no"><span>без слів</span><span>без звуків</span><span>без вказівок на предмети</span></div></div>
+    <div id="timeBox" class="hidden"><div class="cr-timebar" id="timeBar"><i></i></div><div class="cr-timeline"><span>Час</span><span id="timeLeft"></span></div></div>
+    <div class="cr-actions">
+      <button class="pp-btn" id="skipBtn">Інше слово</button>
+      <button class="pp-btn cr-got" id="correctBtn"><span data-ic="check"></span> Вгадали!</button>
     </div>
-    <div class="round-score" id="sessionScoreLine"></div>
-    <button class="secondary-btn" id="endGameFromReadyBtn">🏁 Завершити гру</button>
-  </div>
+    <div class="cr-score"><b id="sessionTotalVal" style="font-size:22px">0</b><small>вгадано за гру</small></div>
+    <button class="pp-btn pp-ghost pp-block" id="endGameFromActiveBtn"><span data-ic="flag"></span> Завершити гру</button>
+  </section>
 
-  <div id="view-active" class="hidden">
-    <div class="word-card">
-      <div class="theme-label" id="activeTheme"></div>
-      <div class="word-text" id="activeWord"></div>
-    </div>
-    <div class="action-row">
-      <button class="btn-skip" id="skipBtn">⏭ Пропустити</button>
-      <button class="btn-correct" id="correctBtn">✅ Вгадали!</button>
-    </div>
-    <div class="round-score">Разом вгадано: <b id="sessionTotalVal">0</b></div>
-    <button class="secondary-btn" id="endGameFromActiveBtn">🏁 Завершити гру</button>
-  </div>
-
-  <div id="view-final" class="hidden">
-    <h2>🎉 Гру завершено</h2>
-    <div class="summary-box">
-      <div class="status-line" style="margin:0;">Загальний рахунок</div>
-      <div class="big-num" id="finalScoreVal">0</div>
-    </div>
-    <div class="hint-text" id="finalHint"></div>
-    <button class="primary-btn" id="newGameBtn">🔄 Нова гра</button>
-  </div>
-
-</div>
-</div>
+  <section class="pp-view hidden" id="view-final">
+    <h2 class="pp-sumtitle">Гру завершено</h2>
+    <div class="cr-big" id="finalScoreVal">0</div>
+    <div class="pp-note" id="finalLbl"></div>
+    <div class="pp-card hidden" id="finalWordsCard"><div class="pp-h">Що показували</div><div class="cr-words" id="finalWords"></div></div>
+    <div class="pp-note" id="finalHint"></div>
+    <button class="pp-btn pp-primary pp-block pp-big" id="newGameBtn"><span data-ic="refresh"></span> Нова гра</button>
+  </section>
+</div></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
@@ -163,6 +116,8 @@
 <script src="js/core/app-settings.js"></script>
 <script src="js/core/login.js"></script>
 <script src="js/promts/crocodile-words.js"></script>
+<script src="js/quiplash-sounds.js"></script>
+<script src="js/party-ui.js"></script>
 <script src="js/core/score-connect.js"></script>
 <script src="js/core/records.js"></script>
 <script src="js/core/help.js"></script>
@@ -173,38 +128,55 @@
   // від мережі для старту/раунду/фінішу. Firestore потрібен лише щоб
   // зберегти рекорд наприкінці — його відсутність нічого не ламає.
   //
-  // Ланцюжок без раундів/таймера: хтось показує слово → хтось вгадав →
-  // телефон переходить ЙОМУ → він одразу отримує наступне слово. "Завершити
-  // гру" доступне в будь-який момент, а не лише по завершенню фіксованого ходу.
+  // Ланцюжок без раундів: хтось показує слово → хтось вгадав → телефон
+  // переходить ЙОМУ → він одразу отримує наступне слово. Таймер на слово — за бажанням.
+  const { esc, icon } = window.PartyUI;
+  const $ = (id) => document.getElementById(id);
+  const sfx = (n) => { try { window.QuiplashSfx && QuiplashSfx.play(n); } catch (e) {} };
+  const buzz = (p) => { try { window.QuiplashSfx && QuiplashSfx.vibrate(p); } catch (e) {} };
+  const plural = (n, one, few, many) => n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? few : many;
+  const EMBLEM = `<svg class="pp-emblem" viewBox="0 0 120 120" aria-hidden="true">
+    <path d="M10 74c6-18 24-30 50-30h30c10 0 20 6 20 16s-8 14-18 14H70c-6 0-8 4-12 8s-14 6-22 6c-14 0-26-6-26-14z" fill="#8fcf1d"/>
+    <path d="M60 58h46M62 66h42" stroke="#143300" stroke-width="3" stroke-linecap="round"/>
+    <path d="M66 58l4 6 4-6 4 6 4-6 4 6 4-6 4 6 4-6" fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round"/>
+    <circle cx="74" cy="40" r="10" fill="#8fcf1d"/><circle cx="76" cy="38" r="5" fill="#fff"/><circle cx="77" cy="38" r="2.6" fill="#143300"/>
+    <path d="M20 66l-6-8M32 58l-3-9M44 52l-1-9" stroke="#6ea514" stroke-width="5" stroke-linecap="round"/></svg>`;
+  document.querySelectorAll("[data-ic]").forEach((el) => { el.outerHTML = icon(el.dataset.ic); });
+  document.querySelectorAll("[data-emblem]").forEach((el) => { el.outerHTML = EMBLEM; });
+
   const VIEWS = ["setup", "ready", "active", "final"];
   function showView(name) {
-    VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name));
+    VIEWS.forEach((v) => $("view-" + v).classList.toggle("hidden", v !== name));
+    window.scrollTo(0, 0);
   }
 
-  let difficulty = "medium";
-  let sessionTotal = 0;
-  let currentWord = null;
-  let currentThemeName = null;
+  let theme = "random", difficulty = "medium", timeLimit = 0;
+  let sessionTotal = 0, currentWord = null, currentThemeName = null;
   let usedWords = {}; // "тема:складність" -> [слова], щоб не повторювались за сесію
+  let guessed = [];
 
-  function themeSetting() { return document.getElementById("themeSelect").value; }
-
-  function buildSetupDOM() {
-    const themeSelect = document.getElementById("themeSelect");
-    themeSelect.innerHTML =
-      `<option value="random">🎲 Випадкова</option>` +
-      CROCODILE_THEMES.map((t) => `<option value="${t.name}">${t.name}</option>`).join("");
-
-    const diffSelect = document.getElementById("difficultySelect");
-    diffSelect.innerHTML = `<option value="easy">Легка</option><option value="medium" selected>Середня</option><option value="hard">Складна</option>`;
+  // ---- налаштування кнопками ----
+  $("themeSeg").innerHTML = `<button class="rnd" data-v="random">Випадкова тема</button>` + CROCODILE_THEMES.map((t) => `<button data-v="${esc(t.name)}">${esc(t.name)}</button>`).join("");
+  $("diffSeg").innerHTML = [["easy", "Легка"], ["medium", "Середня"], ["hard", "Складна"]].map(([v, l]) => `<button data-v="${v}">${l}</button>`).join("");
+  $("timeSeg").innerHTML = [[0, "Без часу"], [60, "60 с"], [90, "90 с"], [120, "2 хв"]].map(([v, l]) => `<button data-v="${v}">${l}</button>`).join("");
+  try { const t = Number(localStorage.getItem("croc_time")); if ([0, 60, 90, 120].includes(t)) timeLimit = t; } catch (e) {}
+  function paintSetup() {
+    $("themeSeg").querySelectorAll("button").forEach((b) => b.classList.toggle("selected", b.dataset.v === theme));
+    $("diffSeg").querySelectorAll("button").forEach((b) => b.classList.toggle("selected", b.dataset.v === difficulty));
+    $("timeSeg").querySelectorAll("button").forEach((b) => b.classList.toggle("selected", Number(b.dataset.v) === timeLimit));
   }
+  $("themeSeg").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (b) { theme = b.dataset.v; paintSetup(); sfx("pop"); } });
+  $("diffSeg").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (b) { difficulty = b.dataset.v; paintSetup(); sfx("pop"); } });
+  $("timeSeg").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-v]"); if (!b) return;
+    timeLimit = Number(b.dataset.v); paintSetup(); sfx("pop");
+    try { localStorage.setItem("croc_time", String(timeLimit)); } catch (er) {}
+  });
 
   function pickWord() {
-    const chosenTheme = themeSetting() === "random"
-      ? CROCODILE_THEMES[Math.floor(Math.random() * CROCODILE_THEMES.length)].name
-      : themeSetting();
-    const theme = CROCODILE_THEMES.find((t) => t.name === chosenTheme);
-    const pool = theme[difficulty];
+    const chosenTheme = theme === "random" ? CROCODILE_THEMES[Math.floor(Math.random() * CROCODILE_THEMES.length)].name : theme;
+    const th = CROCODILE_THEMES.find((t) => t.name === chosenTheme);
+    const pool = th[difficulty];
     const key = chosenTheme + ":" + difficulty;
     if (!usedWords[key]) usedWords[key] = [];
     let available = pool.filter((w) => !usedWords[key].includes(w));
@@ -215,55 +187,78 @@
     currentThemeName = chosenTheme;
   }
 
-  function renderActiveWord() {
-    document.getElementById("activeTheme").textContent = currentThemeName;
-    document.getElementById("activeWord").textContent = currentWord;
-    document.getElementById("sessionTotalVal").textContent = String(sessionTotal);
+  // ---- таймер слова ----
+  let timer = null, endsAt = 0, lastTick = null;
+  function stopTimer() { if (timer) { clearInterval(timer); timer = null; } }
+  function startTimer() {
+    stopTimer();
+    $("timeBox").classList.toggle("hidden", !timeLimit);
+    if (!timeLimit) return;
+    endsAt = Date.now() + timeLimit * 1000; lastTick = null;
+    const tick = () => {
+      const left = Math.max(0, endsAt - Date.now()), sec = Math.ceil(left / 1000);
+      $("timeBar").querySelector("i").style.transform = `scaleX(${left / (timeLimit * 1000)})`;
+      $("timeBar").classList.toggle("urgent", sec <= 10);
+      $("timeLeft").textContent = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+      if (sec <= 5 && sec > 0 && sec !== lastTick) { lastTick = sec; sfx("tick"); }
+      if (left <= 0) {
+        stopTimer(); sfx("wah"); buzz([60, 60, 60]);
+        setReady(`Час вийшов! Слово було: «${currentWord}». Передай телефон далі`, "bad");
+      }
+    };
+    tick(); timer = setInterval(tick, 250);
   }
 
+  function setReady(text, cls) {
+    $("readyStatusLine").textContent = text;
+    $("readyStatusLine").className = "cr-status " + (cls || "");
+    $("readyScore").textContent = sessionTotal;
+    $("readyScoreLbl").textContent = plural(sessionTotal, "слово вгадано", "слова вгадано", "слів вгадано");
+    $("wordsCard").classList.toggle("hidden", !guessed.length);
+    $("wordsList").innerHTML = guessed.slice().reverse().map((w) => `<span>${icon("check")}${esc(w)}</span>`).join("");
+    showView("ready");
+  }
   function showWord() {
     pickWord();
+    $("activeTheme").textContent = currentThemeName;
+    $("activeWord").textContent = currentWord;
+    $("sessionTotalVal").textContent = String(sessionTotal);
+    const c = $("wordCard"); c.style.animation = "none"; void c.offsetWidth; c.style.animation = "";
     showView("active");
-    renderActiveWord();
+    startTimer();
+    sfx("whoosh"); buzz(20);
   }
 
-  document.getElementById("correctBtn").addEventListener("click", () => {
-    sessionTotal += 1;
-    document.getElementById("readyStatusLine").textContent = "✅ Вгадано! Передай телефон гравцю, який вгадав";
-    document.getElementById("sessionScoreLine").innerHTML = `Разом вгадано: <b>${sessionTotal}</b>`;
-    showView("ready");
+  $("correctBtn").addEventListener("click", () => {
+    stopTimer();
+    sessionTotal += 1; guessed.push(currentWord);
+    sfx("ding"); buzz([20, 30, 20]);
+    setReady("Вгадано! Передай телефон тому, хто вгадав", "good");
   });
-  document.getElementById("skipBtn").addEventListener("click", showWord); // той самий тримач, нове слово одразу
+  $("skipBtn").addEventListener("click", () => { stopTimer(); showWord(); }); // той самий тримач, нове слово одразу
 
-  document.getElementById("startBtn").addEventListener("click", () => {
-    difficulty = document.getElementById("difficultySelect").value;
-    sessionTotal = 0;
-    usedWords = {};
-    document.getElementById("readyStatusLine").textContent = "Передай телефон першому гравцю";
-    document.getElementById("sessionScoreLine").textContent = "";
-    showView("ready");
+  $("startBtn").addEventListener("click", () => {
+    sessionTotal = 0; usedWords = {}; guessed = [];
+    setReady("Передай телефон першому гравцю");
   });
-  document.getElementById("readyCircle").addEventListener("click", showWord);
+  $("readyCircle").addEventListener("click", showWord);
 
   function finishGame() {
-    document.getElementById("finalScoreVal").textContent = String(sessionTotal);
-    const hintEl = document.getElementById("finalHint");
-    hintEl.textContent = (!window.AppAuth || !window.AppAuth.getSession())
-      ? "Увійди в профіль, щоб зберігати рекорди"
-      : "";
+    stopTimer();
+    $("finalScoreVal").textContent = String(sessionTotal);
+    $("finalLbl").textContent = plural(sessionTotal, "слово вгадали разом", "слова вгадали разом", "слів вгадали разом");
+    $("finalWordsCard").classList.toggle("hidden", !guessed.length);
+    $("finalWords").innerHTML = guessed.map((w) => `<span>${esc(w)}</span>`).join("");
+    $("finalHint").textContent = (!window.AppAuth || !window.AppAuth.getSession()) ? "Увійди в профіль, щоб зберігати рекорди" : "";
     if (window.AppScore) window.AppScore.sendScore("crocodile", sessionTotal);
+    sfx("fanfare");
     showView("final");
   }
-  document.getElementById("endGameFromReadyBtn").addEventListener("click", finishGame);
-  document.getElementById("endGameFromActiveBtn").addEventListener("click", finishGame);
+  $("endGameFromReadyBtn").addEventListener("click", () => { if (confirm("Завершити гру?")) finishGame(); });
+  $("endGameFromActiveBtn").addEventListener("click", () => { if (confirm("Завершити гру?")) finishGame(); });
+  $("newGameBtn").addEventListener("click", () => { sessionTotal = 0; usedWords = {}; guessed = []; paintSetup(); showView("setup"); });
 
-  document.getElementById("newGameBtn").addEventListener("click", () => {
-    sessionTotal = 0;
-    usedWords = {};
-    showView("setup");
-  });
-
-  buildSetupDOM();
+  paintSetup();
   showView("setup");
 })();
 </script>
