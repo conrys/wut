@@ -1,9 +1,175 @@
 /* ==========================================================================
-   Спільні анімації Сміхлиста — раніше ці два keyframes були продубльовані
-   ідентично в quiplash.html і quiplash-tv.html (кожен файл self-contained,
-   без спільного білд-кроку). Тепер обидва просто лінкують цей файл, а не
-   тримають свою копію в <style>.
+   Сміхлист — спільний візуал для телефона (quiplash.html) і ТВ (quiplash-tv.html).
+   Мультяшний стиль: товсті «чорнильні» контури, паперові картки з тінню,
+   яскраві акценти, обертові промені на тлі.
    ========================================================================== */
+:root {
+  --ink: #14112b;
+  --bg1: #3a1f8f;
+  --bg2: #150d42;
+  --paper: #fff8e7;
+  --white: #ffffff;
+  --yellow: #ffd23f;
+  --pink: #ff4f9a;
+  --teal: #2ee6c5;
+  --blue: #4d8dff;
+  --red: #ff5a5f;
+  --muted: #c3bdf0;
+  --ray-hue: 262;
+  --ql-font: "Rubik", -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
 
 @keyframes scene-bg-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 @keyframes lobby-char-in { from { opacity: 0; transform: translate(-50%,-50%) scale(0.5); } to { opacity: 1; transform: translate(-50%,-50%) scale(1); } }
+
+/* ---------- тло ---------- */
+.ql-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
+  background: radial-gradient(120% 90% at 50% 20%, hsl(var(--ray-hue) 62% 38%) 0%, var(--bg2) 70%); transition: background 1.2s; }
+.ql-bg::before { content: ""; position: absolute; top: 50%; left: 50%; width: 240vmax; height: 240vmax;
+  margin: -120vmax 0 0 -120vmax;
+  background: repeating-conic-gradient(from 0deg, rgba(255,255,255,0.055) 0deg 7deg, transparent 7deg 14deg);
+  animation: scene-bg-spin 160s linear infinite; }
+.ql-bg::after { content: ""; position: absolute; inset: 0;
+  background: radial-gradient(circle at 15% 85%, rgba(255,79,154,0.22), transparent 40%),
+              radial-gradient(circle at 85% 15%, rgba(46,230,197,0.16), transparent 40%); }
+body[data-scene="voting"] .ql-bg { --ray-hue: 330; }
+body[data-scene="reveal"] .ql-bg { --ray-hue: 44; }
+body[data-scene="round_intro"] .ql-bg::before, body[data-scene="game_over"] .ql-bg::before { animation-duration: 40s; }
+body[data-scene="answering"] .ql-bg { --ray-hue: 205; }
+body[data-scene="game_over"] .ql-bg { --ray-hue: 48; }
+
+/* ---------- логотип ---------- */
+.ql-logo { font-family: var(--ql-font); font-weight: 900; letter-spacing: -0.02em; line-height: 0.9; display: inline-block;
+  transform: rotate(-4deg); color: var(--yellow); -webkit-text-stroke: 0.06em var(--ink); paint-order: stroke fill;
+  text-shadow: 0 0.08em 0 var(--ink), 0 0.14em 0 rgba(0,0,0,0.25); }
+.ql-logo span + span { color: var(--pink); }
+.ql-logo.bob { animation: ql-bob 2.6s ease-in-out infinite; }
+@keyframes ql-bob { 0%,100% { transform: rotate(-4deg) translateY(0); } 50% { transform: rotate(-2deg) translateY(-6px); } }
+
+/* ---------- базові компоненти ---------- */
+.ql-card { background: var(--paper); color: var(--ink); border: 3px solid var(--ink); border-radius: 20px;
+  box-shadow: 0 6px 0 var(--ink); }
+.ql-btn { font-family: var(--ql-font); font-weight: 800; font-size: 18px; color: var(--ink); background: var(--yellow);
+  border: 3px solid var(--ink); border-radius: 999px; padding: 13px 26px; box-shadow: 0 5px 0 var(--ink);
+  cursor: pointer; transition: transform 0.08s, box-shadow 0.08s, filter 0.15s; touch-action: manipulation; }
+.ql-btn:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 1px 0 var(--ink); }
+.ql-btn:disabled { filter: grayscale(0.7) brightness(0.8); cursor: default; opacity: 0.7; }
+.ql-btn.pink { background: var(--pink); color: #fff; }
+.ql-btn.teal { background: var(--teal); }
+.ql-btn.ghost { background: rgba(255,255,255,0.12); color: #fff; border-color: rgba(255,255,255,0.5); box-shadow: none; }
+.ql-chip { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; font-size: 13px; letter-spacing: 0.04em;
+  text-transform: uppercase; padding: 5px 12px; border-radius: 999px; background: var(--ink); color: var(--yellow);
+  border: 2px solid rgba(255,255,255,0.15); }
+.ql-chip.pink { color: #fff; background: var(--pink); border-color: var(--ink); }
+
+/* питання — велика паперова табличка */
+.ql-prompt { position: relative; background: var(--white); color: var(--ink); border: 3px solid var(--ink); border-radius: 22px;
+  box-shadow: 0 7px 0 var(--ink); padding: 18px 20px; font-weight: 800; line-height: 1.25; text-wrap: balance; }
+.ql-prompt .blank { display: inline-block; min-width: 3em; border-bottom: 3px solid var(--pink); }
+
+/* бульбашка відповіді */
+.ql-bubble { position: relative; background: var(--white); color: var(--ink); border: 3px solid var(--ink); border-radius: 22px;
+  padding: 16px 18px; font-weight: 700; line-height: 1.25; box-shadow: 0 6px 0 var(--ink); word-break: break-word; }
+.ql-bubble::after { content: ""; position: absolute; bottom: -15px; left: 28px; width: 22px; height: 18px; background: var(--white);
+  border: 3px solid var(--ink); border-top: none; border-left: none; transform: skewX(35deg); border-bottom-right-radius: 6px; }
+.ql-bubble.right::after { left: auto; right: 28px; transform: skewX(-35deg) scaleX(-1); }
+.ql-bubble.win { background: #fff6c9; border-color: var(--ink); box-shadow: 0 6px 0 var(--ink), 0 0 0 5px var(--yellow); }
+.ql-bubble.win::after { background: #fff6c9; }
+.ql-bubble.lose { opacity: 0.78; filter: saturate(0.6); }
+.ql-bubble.missing { color: #8a84b8; font-style: italic; background: #e9e6fa; }
+.ql-bubble.missing::after { background: #e9e6fa; }
+
+/* таймер-кільце */
+.ql-timer { --p: 1; position: relative; width: 52px; height: 52px; flex-shrink: 0; border-radius: 50%;
+  background: conic-gradient(var(--timer-color, var(--teal)) calc(var(--p) * 360deg), rgba(255,255,255,0.14) 0);
+  display: grid; place-items: center; transition: transform 0.2s; }
+.ql-timer::before { content: ""; position: absolute; inset: 6px; border-radius: 50%; background: var(--ink); }
+.ql-timer span { position: relative; font-family: var(--ql-font); font-weight: 900; font-size: 19px; color: #fff; font-variant-numeric: tabular-nums; }
+.ql-timer.warn { --timer-color: var(--yellow); }
+.ql-timer.urgent { --timer-color: var(--red); animation: ql-pulse 0.5s ease-in-out infinite; }
+.ql-timer.hidden-timer { visibility: hidden; }
+@keyframes ql-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+
+/* бейджі балів */
+.ql-points { display: inline-flex; align-items: center; gap: 6px; font-weight: 900; color: var(--ink); background: var(--teal);
+  border: 2.5px solid var(--ink); border-radius: 999px; padding: 4px 12px; box-shadow: 0 3px 0 var(--ink); }
+.ql-bonus { display: inline-flex; align-items: center; gap: 6px; font-weight: 900; font-size: 14px; color: var(--ink);
+  background: var(--yellow); border: 2.5px solid var(--ink); border-radius: 999px; padding: 4px 12px; box-shadow: 0 3px 0 var(--ink);
+  transform: rotate(-3deg); }
+.ql-bonus.super { background: linear-gradient(90deg, #ffd23f, #ff4f9a, #2ee6c5, #ffd23f); background-size: 300% 100%;
+  animation: ql-rainbow 1.6s linear infinite; color: var(--ink); }
+.ql-bonus.forfeit { background: #e1dcff; }
+@keyframes ql-rainbow { from { background-position: 0 0; } to { background-position: 300% 0; } }
+
+/* голоси: аватарки-фішки, що «вилітають» */
+.ql-voters { display: flex; flex-wrap: wrap; gap: 4px; min-height: 0; }
+.ql-voters .qa-av { width: 30px; height: 30px; animation: ql-vote-in 0.45s cubic-bezier(.3,1.6,.5,1) both; }
+@keyframes ql-vote-in { from { opacity: 0; transform: translateY(-14px) scale(0.3); } to { opacity: 1; transform: none; } }
+
+/* поява елементів */
+.ql-pop { animation: ql-pop 0.5s cubic-bezier(.3,1.6,.5,1) both; }
+@keyframes ql-pop { from { opacity: 0; transform: scale(0.6) translateY(12px); } to { opacity: 1; transform: none; } }
+.ql-rise { animation: ql-rise 0.5s ease-out both; }
+@keyframes ql-rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+.ql-slide-l { animation: ql-slide-l 0.55s cubic-bezier(.2,1.3,.4,1) both; }
+.ql-slide-r { animation: ql-slide-r 0.55s cubic-bezier(.2,1.3,.4,1) both; }
+@keyframes ql-slide-l { from { opacity: 0; transform: translateX(-60px) rotate(-6deg); } to { opacity: 1; transform: none; } }
+@keyframes ql-slide-r { from { opacity: 0; transform: translateX(60px) rotate(6deg); } to { opacity: 1; transform: none; } }
+.ql-stamp { animation: ql-stamp 0.45s cubic-bezier(.2,1.6,.4,1) both; }
+@keyframes ql-stamp { from { opacity: 0; transform: scale(2.6) rotate(-14deg); } to { opacity: 1; transform: scale(1) rotate(-6deg); } }
+
+/* заставка раунду */
+.ql-round-intro { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }
+.ql-round-num { font-family: var(--ql-font); font-weight: 900; color: #fff; -webkit-text-stroke: 0.05em var(--ink); paint-order: stroke fill;
+  text-shadow: 0 0.07em 0 var(--ink); animation: ql-zoom-in 0.7s cubic-bezier(.2,1.5,.4,1) both; }
+.ql-round-sub { font-weight: 800; color: var(--yellow); animation: ql-rise 0.5s 0.35s ease-out both; }
+.ql-round-mult { font-family: var(--ql-font); font-weight: 900; color: var(--ink); background: var(--yellow); border: 3px solid var(--ink);
+  border-radius: 16px; padding: 6px 16px; box-shadow: 0 5px 0 var(--ink); animation: ql-stamp 0.45s 0.7s both; }
+@keyframes ql-zoom-in { from { opacity: 0; transform: scale(0.2) rotate(-10deg); } to { opacity: 1; transform: none; } }
+
+/* VS */
+.ql-vs { font-family: var(--ql-font); font-weight: 900; color: var(--pink); -webkit-text-stroke: 0.06em var(--ink); paint-order: stroke fill;
+  text-shadow: 0 0.08em 0 var(--ink); animation: ql-vs 0.6s 0.25s cubic-bezier(.2,1.8,.4,1) both; }
+@keyframes ql-vs { from { opacity: 0; transform: scale(3) rotate(20deg); } to { opacity: 1; transform: scale(1) rotate(-8deg); } }
+
+/* таблиця рахунку */
+.ql-board { display: flex; flex-direction: column; gap: 8px; }
+.ql-row { position: relative; display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.08);
+  border: 2px solid rgba(255,255,255,0.12); border-radius: 16px; padding: 6px 12px 6px 6px; color: #fff; transition: transform 0.7s cubic-bezier(.3,1.2,.5,1); }
+.ql-row.me { border-color: var(--teal); background: rgba(46,230,197,0.12); }
+.ql-row.first { background: rgba(255,210,63,0.18); border-color: var(--yellow); }
+.ql-row-rank { width: 26px; text-align: center; font-weight: 900; color: var(--muted); flex-shrink: 0; }
+.ql-row .qa-av { width: 44px; height: 44px; flex-shrink: 0; }
+.ql-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.ql-row-name { font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ql-row-bar { height: 8px; border-radius: 999px; background: rgba(255,255,255,0.1); overflow: hidden; }
+.ql-row-bar i { display: block; height: 100%; width: 0; border-radius: 999px; background: var(--c, var(--teal)); transition: width 1s cubic-bezier(.22,1,.36,1); }
+.ql-row-score { font-weight: 900; font-size: 18px; min-width: 56px; text-align: right; font-variant-numeric: tabular-nums; }
+.ql-row-delta { position: absolute; right: 10px; top: -10px; font-size: 12px; font-weight: 900; color: var(--ink); background: var(--teal);
+  border: 2px solid var(--ink); border-radius: 999px; padding: 1px 8px; animation: ql-pop 0.5s 0.6s both; }
+.ql-row-move { font-size: 12px; font-weight: 900; margin-left: 4px; }
+.ql-row-move.up { color: var(--teal); }
+.ql-row-move.down { color: var(--red); }
+
+/* конфеті */
+.ql-confetti { position: fixed; inset: 0; pointer-events: none; z-index: 950; overflow: hidden; }
+.ql-confetti i { position: absolute; top: -20px; width: 10px; height: 16px; border-radius: 2px; border: 1.5px solid var(--ink);
+  animation: ql-fall var(--dur, 3s) var(--delay, 0s) cubic-bezier(.3,.6,.6,1) forwards; }
+@keyframes ql-fall { to { transform: translate(var(--dx, 0), 110vh) rotate(var(--rot, 720deg)); } }
+
+/* СУПЕРСМІХЛИСТ — оверлей на весь екран */
+.ql-super { position: fixed; inset: 0; z-index: 900; display: none; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; pointer-events: none; background: radial-gradient(circle, rgba(255,210,63,0.35), rgba(20,17,43,0.75) 70%); }
+.ql-super.playing { display: flex; animation: ql-fade-out 2.6s ease forwards; }
+.ql-super::before { content: ""; position: absolute; width: 200vmax; height: 200vmax;
+  background: repeating-conic-gradient(rgba(255,210,63,0.25) 0 10deg, transparent 10deg 20deg); animation: scene-bg-spin 8s linear infinite; }
+.ql-super .qa-av { position: relative; width: min(46vw, 260px); height: min(46vw, 260px); animation: ql-super-pop 1s cubic-bezier(.2,1.6,.4,1) both; }
+.ql-super-label { position: relative; font-family: var(--ql-font); font-weight: 900; font-size: clamp(36px, 10vw, 96px); color: var(--yellow);
+  -webkit-text-stroke: 0.06em var(--ink); paint-order: stroke fill; text-shadow: 0 0.08em 0 var(--ink); animation: ql-stamp 0.5s 0.35s both; }
+.ql-super-name { position: relative; font-weight: 900; font-size: clamp(18px, 4vw, 36px); color: #fff; animation: ql-rise 0.4s 0.6s both; }
+@keyframes ql-super-pop { 0% { transform: scale(0.2) rotate(-30deg); } 60% { transform: scale(1.15) rotate(8deg); } 100% { transform: scale(1) rotate(0); } }
+@keyframes ql-fade-out { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ql-bg::before, .ql-super::before { animation: none; }
+}

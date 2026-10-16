@@ -3,236 +3,242 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<title>Смішліст</title>
+<title>Сміхлист</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="js/styles/quiplash-shared.css">
 <style>
-/* ================= Оригінальний styles.css (quipleaf), портовано 1:1 ================= */
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-body {
-  margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
-  font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-  overscroll-behavior: none; -webkit-user-select: none; user-select: none;
-}
-h1, h2 { margin: 0 0 8px; }
-.hint { color: #9a9aa5; font-size: 14px; margin: 4px 0 16px; }
-.error { color: #e74c3c; min-height: 20px; font-size: 14px; }
+html, body { margin: 0; min-height: 100%; }
+body { min-height: 100vh; background: var(--bg2); color: #fff; font-family: var(--ql-font);
+  overscroll-behavior: none; -webkit-user-select: none; user-select: none; }
+textarea, input { -webkit-user-select: text; user-select: text; font-family: var(--ql-font); }
 .hidden { display: none !important; }
+button { font-family: var(--ql-font); }
 
-#gameHeader .slot-left,
-#gameHeader .slot-right { min-width: 96px; }
+#gameHeader .slot-left, #gameHeader .slot-right { min-width: 96px; }
 #gameHeader .slot-right { justify-content: flex-end; }
-#gameHeader #my-badge { justify-self: center; }
-#my-badge { display: flex; align-items: center; gap: 8px; font-weight: 600; justify-self: start; min-width: 0; }
-#round-label { justify-self: center; text-align: center; }
-#pause-btn { place-self: center end; }
+#my-badge { display: flex; align-items: center; gap: 6px; font-weight: 800; min-width: 0; }
+#my-badge .qa-av { width: 30px; height: 30px; }
+#my-badge .name { max-width: 34vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.screen { max-width: 480px; margin: 0 auto; padding: 24px; text-align: center; position: relative; z-index: 2; }
+.wrap { position: relative; z-index: 2; max-width: 520px; margin: 0 auto; padding: 10px 16px calc(28px + env(safe-area-inset-bottom)); }
+.screen { text-align: center; }
+.hint { color: var(--muted); font-size: 15px; font-weight: 600; margin: 6px 0 14px; line-height: 1.35; }
+h1, h2 { margin: 0 0 10px; }
 
-button { padding: 10px 18px; font-size: 16px; border: none; border-radius: 6px; background: #3498db; color: #fff; cursor: pointer; }
-button:disabled { opacity: 0.5; cursor: default; }
+/* HUD під шапкою: раунд · таймер · пауза */
+#hud { position: relative; z-index: 20; display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin: 0 0 12px; padding: 6px 6px 6px 8px; background: rgba(20,17,43,0.72); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border: 2px solid rgba(255,255,255,0.1); border-radius: 999px; }
+#hud .left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+#hud-phase { font-weight: 700; font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#hud .right { display: flex; align-items: center; gap: 8px; }
+.icon-btn { width: 40px; height: 40px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.35); background: rgba(255,255,255,0.08);
+  color: #fff; font-size: 16px; display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; }
+#hud .ql-timer { width: 46px; height: 46px; }
+#hud .ql-timer span { font-size: 17px; }
 
-#avatar-picker { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 12px 0 4px; font-size: 14px; color: #c8c8d0; }
-#avatar-select { padding: 8px 10px; border-radius: 6px; border: 1px solid #444; background: #2b2b33; color: #fff; font-size: 14px; }
-#start-btn, #restart-btn { background: #2ecc71; color: #10331e; font-weight: 600; margin-top: 12px; }
+#pause-overlay { position: fixed; inset: 0; z-index: 800; display: flex; align-items: center; justify-content: center; padding: 24px;
+  background: rgba(10,8,28,0.86); backdrop-filter: blur(4px); }
+#pause-overlay .ql-card { padding: 24px; max-width: 340px; text-align: center; }
+#pause-overlay .big { font-size: 48px; margin: 0; }
 
-.player-list { text-align: left; max-width: 320px; margin: 0 auto 12px; }
-.score-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 15px; }
-.score-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
-.score-me { background: rgba(52,152,219,0.15); border-radius: 4px; margin: 0 -6px; padding: 6px; }
-
-.timer-bar { height: 6px; background: #2b2b33; border-radius: 4px; overflow: hidden; margin-bottom: 16px; }
-.timer-fill { height: 100%; background: #3498db; width: 100%; transition: width 0.3s linear; }
-
-.answer-card { background: #2b2b33; border: 1px solid #3a3a44; border-radius: 8px; padding: 16px; margin-bottom: 16px; text-align: left; }
-.prompt-text { font-size: 16px; font-weight: 600; margin: 0 0 12px; }
-.prompt-image { display: block; max-width: 100%; max-height: 240px; width: auto; margin: 0 auto 12px; border-radius: 8px; object-fit: contain; background: #14141a; }
-.answer-card textarea { width: 100%; min-height: 60px; padding: 10px; font-size: 15px; border-radius: 6px; border: 1px solid #444; background: #1e1e24; color: #fff; resize: none; outline: none; font-family: inherit; margin-bottom: 8px; }
-
-#voting-choices { display: flex; flex-direction: column; gap: 12px; }
-.answer-btn { background: #2b2b33; border: 1px solid #3a3a44; border-radius: 8px; padding: 16px; font-size: 16px; text-align: left; white-space: normal; color: #f0f0f0; }
-#gallery-choices .answer-btn { text-align: center; }
-
-.reveal-row { display: flex; flex-direction: column; gap: 12px; }
-.reveal-answer { background: #2b2b33; border: 1px solid #3a3a44; border-radius: 8px; padding: 16px; text-align: left; }
-.reveal-winner { border-color: #2ecc71; box-shadow: 0 0 0 2px rgba(46,204,113,0.4); }
-.reveal-name { font-weight: 700; margin: 0 0 4px; }
-.reveal-answer-text { margin: 0 0 6px; font-size: 15px; }
-
-#scene-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; background: #1e1e24; }
-#scene-bg::before {
-  content: ''; position: absolute; top: 50%; left: 50%; width: 220vmax; height: 220vmax;
-  margin-top: -110vmax; margin-left: -110vmax;
-  background: repeating-conic-gradient(from 0deg, hsla(var(--ray-hue,210),70%,55%,0.09) 0deg var(--ray-width,8deg), transparent var(--ray-width,8deg) calc(var(--ray-width,8deg) * 2));
-  animation: scene-bg-spin var(--ray-speed,140s) linear infinite;
-}
-.bg-reverse #scene-bg::before { animation-direction: reverse; }
-
-
-#lobby-ring { position: relative; width: min(84vw,380px); aspect-ratio: 1/1; margin: 0 auto 24px; }
-#lobby-logo { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); text-align: center; font-size: 22px; font-weight: 800; letter-spacing: 0.02em; white-space: nowrap; }
-.logo-accent { color: #3498db; }
-.lobby-character { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 6px; transform: translate(-50%,-50%); animation: lobby-char-in 0.4s ease-out; }
-.lobby-character-avatar { width: 60px; height: 60px; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px rgba(255,255,255,0.15); flex-shrink: 0; }
-.lobby-character-avatar img { width: 100%; height: 100%; object-fit: contain; }
-.lobby-character-name { font-size: 13px; font-weight: 600; max-width: 90px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-
-.pause-btn { background: transparent; border: 1px solid #4a4a56; color: #f0f0f0; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0; flex-shrink: 0; }
-#pause-overlay { position: fixed; inset: 0; background: rgba(10,10,14,0.88); display: flex; align-items: center; justify-content: center; z-index: 500; text-align: center; padding: 24px; }
-.pause-box { max-width: 360px; }
-.pause-icon { font-size: 48px; margin: 0 0 8px; }
-#resume-btn { margin-top: 12px; background: #ff6fa5; border: none; color: #1e1e24; font-weight: 700; font-size: 16px; padding: 12px 28px; border-radius: 999px; cursor: pointer; }
-
-.readiness-bar { display: flex; flex-wrap: wrap; justify-content: center; gap: 18px; margin-top: 28px; padding-top: 12px; }
-.readiness-avatar { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 64px; transform: translateY(10px); opacity: 0.55; filter: brightness(0.55) saturate(0.6); transition: transform 0.35s ease, opacity 0.35s ease, filter 0.35s ease; }
-.readiness-avatar.is-ready { transform: translateY(0); opacity: 1; filter: none; }
-.readiness-avatar-img { width: 48px; height: 48px; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px rgba(255,255,255,0.15); flex-shrink: 0; }
-.readiness-avatar-img img { width: 100%; height: 100%; object-fit: contain; }
-.readiness-avatar-name { font-size: 11px; max-width: 64px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #c8c8d0; }
-.readiness-avatar.is-me .readiness-avatar-name { color: #ff6fa5; font-weight: 700; }
-
-#answer-ready { text-align: center; padding: 32px 0 8px; }
-.ready-icon { font-size: 44px; margin: 0 0 8px; }
-
-.final-board { max-width: 420px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; text-align: left; }
-.final-row { display: flex; align-items: center; gap: 14px; background: #24242c; border: 1px solid #38383f; border-radius: 14px; padding: 12px 16px; }
-.final-row.winner { background: #33301f; border-color: #ffd76f; box-shadow: 0 0 0 2px rgba(255,215,111,0.25), 0 0 24px rgba(255,215,111,0.18); }
-.final-rank { width: 28px; flex-shrink: 0; text-align: center; font-size: 18px; font-weight: 800; color: #9c9ca6; }
-.final-avatar { width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px rgba(255,255,255,0.15); }
-.final-avatar img { width: 100%; height: 100%; object-fit: contain; }
-.final-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.final-name { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.final-bar-track { height: 10px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
-.final-bar-fill { height: 100%; border-radius: 999px; width: 0%; transition: width 0.9s cubic-bezier(0.22,1,0.36,1); background: #3498db; }
-.final-score { font-size: 17px; font-weight: 800; min-width: 50px; text-align: right; flex-shrink: 0; }
-
-/* --------- вхід у кімнату --------- */
-.text-input { width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 8px;
-    border: 1px solid #444; background: #1e1e24; color: #fff; font-size: 16px;
-    letter-spacing: 0.08em; text-align: center; text-transform: uppercase; margin-bottom: 8px; }
-.text-input:focus { outline: 1px solid #3498db; }
-.divider { display: flex; align-items: center; gap: 10px; color: #9a9aa5; font-size: 12px; margin: 14px 0; }
-.divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: #3a3a44; }
-.rooms-list { display: flex; flex-direction: column; gap: 8px; text-align: left; margin-bottom: 4px; }
-.room-item { background: #2b2b33; border: 1px solid #3a3a44; border-radius: 8px; padding: 12px 14px; cursor: pointer; }
-.room-item:active { border-color: #3498db; }
+/* ---------- вхід у кімнату ---------- */
+.entry-logo { font-size: 64px; margin: 18px 0 6px; }
+.text-input { width: 100%; padding: 14px; border-radius: 16px; border: 3px solid var(--ink); background: #fff; color: var(--ink);
+  font-size: 20px; font-weight: 900; letter-spacing: 0.18em; text-align: center; text-transform: uppercase; margin-bottom: 10px; box-shadow: 0 4px 0 var(--ink); }
+.text-input:focus { outline: 3px solid var(--yellow); }
+.divider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; font-weight: 700; margin: 16px 0; }
+.divider::before, .divider::after { content: ""; flex: 1; height: 2px; background: rgba(255,255,255,0.14); }
+.rooms-list { display: flex; flex-direction: column; gap: 10px; text-align: left; }
+.room-item { background: rgba(255,255,255,0.08); border: 2px solid rgba(255,255,255,0.16); border-radius: 16px; padding: 12px 14px; cursor: pointer; }
+.room-item:active { border-color: var(--yellow); }
 .room-item-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-.room-item-title { font-weight: 700; }
-.room-item-phase { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 10px; background: #1e1e24; color: #9a9aa5; }
-.room-item-count { font-size: 12px; color: #9a9aa5; }
-#lobby-room-code { font-family: monospace; font-size: 16px; letter-spacing: 0.15em; color: #ffd76f; }
+.room-item-title { font-weight: 800; }
+.room-item-phase { font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 999px; background: var(--ink); color: var(--yellow); }
+.room-item-count { font-size: 13px; color: var(--muted); }
+.full-btn { width: 100%; }
+
+/* ---------- лобі ---------- */
+.lobby-logo { font-size: 56px; margin: 8px 0 14px; }
+.code-card { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; margin-bottom: 14px; text-align: left; }
+.code-card .label { font-size: 12px; font-weight: 800; color: #6b6496; text-transform: uppercase; letter-spacing: 0.06em; }
+.code-card .code { font-size: 30px; font-weight: 900; letter-spacing: 0.16em; }
+.code-card .tv { font-size: 12px; font-weight: 700; color: #6b6496; max-width: 150px; text-align: right; line-height: 1.3; }
+.me-card { display: flex; align-items: center; gap: 14px; padding: 12px 14px; margin-bottom: 14px; text-align: left; }
+.me-card .qa-av { width: 84px; height: 84px; flex-shrink: 0; }
+.me-card .who { flex: 1; min-width: 0; }
+.me-card .who b { display: block; font-size: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.me-card .who small { color: #6b6496; font-weight: 700; }
+.me-card .ql-btn { font-size: 14px; padding: 9px 14px; }
+.players-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px 6px; margin: 4px 0 14px; }
+.p-slot { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; }
+.p-slot .qa-av { width: 64px; height: 64px; }
+.p-slot .nm { font-size: 12px; font-weight: 800; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.p-slot.me .nm { color: var(--teal); }
+.p-slot.off { opacity: 0.4; filter: grayscale(0.8); }
+.p-slot.empty .ghost { width: 54px; height: 54px; margin: 5px; border-radius: 50%; border: 3px dashed rgba(255,255,255,0.18); }
+.lobby-count { font-weight: 800; color: var(--yellow); }
+.rules { text-align: left; padding: 12px 16px; margin-top: 16px; font-size: 14px; font-weight: 600; line-height: 1.45; }
+.rules summary { font-weight: 900; cursor: pointer; }
+.rules ol { margin: 8px 0 0; padding-left: 20px; }
+
+/* вибір персонажа */
+#picker { position: fixed; inset: 0; z-index: 700; background: rgba(10,8,28,0.82); display: flex; align-items: flex-end; justify-content: center; }
+#picker .sheet { width: 100%; max-width: 520px; max-height: 86vh; overflow: auto; padding: 16px 14px calc(16px + env(safe-area-inset-bottom));
+  border-radius: 24px 24px 0 0; border-bottom: none; animation: ql-rise 0.3s ease-out; }
+#picker h3 { margin: 0 0 10px; }
+.pick-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.pick { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; border-radius: 16px; border: 3px solid transparent;
+  background: #fff; cursor: pointer; color: var(--ink); font-weight: 800; font-size: 12px; }
+.pick .qa-av { width: 60px; height: 60px; }
+.pick.mine { border-color: var(--ink); background: #fff1b3; }
+.pick.taken { opacity: 0.35; filter: grayscale(1); pointer-events: none; }
+
+/* ---------- заставка раунду ---------- */
+.intro { min-height: 62vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+.intro .ql-round-num { font-size: 68px; }
+.intro .ql-round-sub { font-size: 17px; max-width: 360px; }
+.intro .ql-round-mult { font-size: 22px; }
+.intro .qa-av { width: 120px; height: 120px; }
+.intro .fact { font-size: 14px; color: var(--muted); max-width: 380px; font-weight: 600; }
+
+/* ---------- відповіді ---------- */
+.ans-head { display: flex; align-items: center; justify-content: space-between; margin: 2px 0 10px; }
+.ans-head .qa-av { width: 56px; height: 56px; }
+.ans-prompt { font-size: 21px; margin-bottom: 14px; text-align: left; }
+.ans-img { display: block; width: 100%; max-height: 38vh; object-fit: contain; border-radius: 16px; border: 3px solid var(--ink); background: #0c0826;
+  box-shadow: 0 6px 0 var(--ink); margin-bottom: 14px; }
+.ans-box { position: relative; }
+.ans-box textarea { width: 100%; min-height: 96px; padding: 14px; font-size: 19px; font-weight: 700; color: var(--ink); background: #fff;
+  border: 3px solid var(--ink); border-radius: 18px; resize: none; outline: none; box-shadow: inset 0 3px 0 rgba(0,0,0,0.06); }
+.ans-box textarea:focus { border-color: var(--pink); }
+.ans-count { position: absolute; right: 12px; bottom: 10px; font-size: 12px; font-weight: 800; color: #9a94c4; }
+.ans-actions { display: flex; gap: 10px; margin-top: 12px; }
+.ans-actions .ql-btn { flex: 1; }
+.ans-actions .ql-btn.ghost { flex: 0 0 auto; padding: 13px 16px; }
+.done-box { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 0 4px; }
+.done-box .qa-av { width: 120px; height: 120px; }
+.done-box h2 { font-size: 26px; }
+.ready-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 10px; margin-top: 14px; }
+.ready-grid .r { display: flex; flex-direction: column; align-items: center; width: 58px; transition: opacity 0.3s, transform 0.3s; }
+.ready-grid .r .qa-av { width: 48px; height: 48px; }
+.ready-grid .r .nm { font-size: 11px; font-weight: 800; max-width: 58px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.ready-grid .r.ok .nm { color: var(--teal); }
+.ready-grid .r.wait { opacity: 0.55; }
+.stamp-title { display: inline-block; font-size: 38px; font-weight: 900; color: var(--yellow); -webkit-text-stroke: 0.05em var(--ink); paint-order: stroke fill;
+  text-shadow: 0 4px 0 var(--ink); margin: 30px 0 10px; }
+
+/* ---------- голосування ---------- */
+.vote-meta { display: flex; justify-content: center; gap: 8px; margin-bottom: 10px; }
+.vote-prompt { font-size: 20px; margin-bottom: 22px; text-align: left; }
+.vote-img { display: block; width: 100%; max-height: 30vh; object-fit: contain; border-radius: 16px; border: 3px solid var(--ink); background: #0c0826; margin-bottom: 12px; box-shadow: 0 5px 0 var(--ink); }
+.choices { display: flex; flex-direction: column; gap: 26px; }
+.choice-btn { width: 100%; text-align: left; font-size: 20px; cursor: pointer; font-family: var(--ql-font); transition: transform 0.1s; }
+.choice-btn:active:not(:disabled) { transform: scale(0.97); }
+.choice-btn:disabled { cursor: default; }
+.choice-btn.picked { background: #d8fff6; box-shadow: 0 6px 0 var(--ink), 0 0 0 5px var(--teal); }
+.choice-btn.picked::after { background: #d8fff6; }
+.choice-btn.mine { background: #fff1b3; }
+.choice-btn.mine::after { background: #fff1b3; }
+.choice-tag { display: inline-block; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em; background: var(--ink);
+  color: var(--yellow); border-radius: 999px; padding: 2px 8px; margin-bottom: 6px; }
+.vs-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 6px 0; }
+.vs-wrap .ql-vs { font-size: 64px; }
+.mystery { display: flex; gap: 12px; }
+.mystery .ql-bubble { flex: 1; font-size: 36px; text-align: center; padding: 18px 0; }
+.vote-status { margin-top: 18px; font-weight: 700; color: var(--muted); }
+.gallery-list { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.gallery-list .ql-bubble::after { display: none; }
+.gallery-list .choice-btn { font-size: 18px; }
+
+/* ---------- підсумок пари ---------- */
+.rv { display: flex; flex-direction: column; gap: 14px; }
+.rv-item { display: flex; flex-direction: column; gap: 8px; text-align: left; }
+.rv-item .ql-bubble { font-size: 19px; }
+.rv-foot { display: flex; align-items: center; gap: 10px; padding: 0 4px; min-height: 52px; }
+.rv-foot .qa-av { width: 52px; height: 52px; flex-shrink: 0; }
+.rv-who { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.rv-who b { font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rv-pts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.rv-votes { font-size: 13px; font-weight: 800; color: var(--muted); }
+.d1 { animation-delay: 0.3s !important; } .d2 { animation-delay: 1.5s !important; } .d3 { animation-delay: 2.4s !important; }
+
+/* ---------- кінець раунду / гри ---------- */
+.end-title { font-size: 30px; font-weight: 900; margin: 6px 0 14px; }
+.podium { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 4px 0 18px; }
+.podium .crown { font-size: 44px; animation: ql-bob 1.6s ease-in-out infinite; margin-bottom: -12px; position: relative; z-index: 2; }
+.podium .qa-av { width: 150px; height: 150px; }
+.podium .nm { font-size: 30px; font-weight: 900; color: var(--yellow); -webkit-text-stroke: 0.04em var(--ink); paint-order: stroke fill; text-shadow: 0 3px 0 var(--ink); }
+.podium .sc { font-weight: 800; color: #fff; }
+.end-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
 </style>
 <link rel="stylesheet" href="js/styles/game-header.css">
 <script src="js/core/game-header.js" defer></script>
 </head>
-<body>
+<body data-scene="entry">
 <div id="gameHeader" class="game-header game-header--fixed">
   <div class="slot-left"></div>
   <div class="slot-center"><span id="my-badge"></span></div>
   <div class="slot-right"><div id="top-bar"></div></div>
 </div>
 
-<div id="scene-bg" aria-hidden="true"></div>
-
-<div id="header-bar" class="hidden">
-  <span id="round-label"></span>
-  <button id="pause-btn" class="pause-btn" title="Пауза">⏸</button>
-</div>
+<div class="ql-bg" aria-hidden="true"></div>
 
 <div id="pause-overlay" class="hidden">
-  <div class="pause-box">
-    <p class="pause-icon">⏸</p>
-    <h2>Гру на паузі</h2>
-    <p class="hint" id="pause-by-text"></p>
-    <button id="resume-btn">Продовжити</button>
+  <div class="ql-card">
+    <p class="big">⏸</p>
+    <h2>Пауза</h2>
+    <p class="hint" id="pause-by-text" style="color:#6b6496"></p>
+    <button class="ql-btn pink" id="resume-btn">Продовжити</button>
   </div>
 </div>
 
-<div id="screen-locked" class="screen hidden">
-  <h1>Сміхліст</h1>
-  <p class="hint">Увійди в профіль, щоб грати з друзями</p>
+<div id="picker" class="hidden">
+  <div class="sheet ql-card">
+    <h3>Обери персонажа</h3>
+    <div class="pick-grid" id="pick-grid"></div>
+    <button class="ql-btn" id="picker-close" style="margin-top:14px;width:100%">Готово</button>
+  </div>
 </div>
 
-<div id="screen-waiting" class="screen hidden">
-  <h1>Сміхліст</h1>
-  <p class="hint">Гра триває — приєднаєшся на наступній</p>
-</div>
-
-<div id="screen-room-entry" class="screen hidden">
-  <h1>Сміхліст</h1>
-  <p class="hint">Обери активну кімнату або введи код друга</p>
-  <div class="rooms-list" id="activeRoomsList"></div>
-  <div class="divider">або вручну</div>
-  <input class="text-input" id="roomCodeInput" maxlength="5" placeholder="КОД КІМНАТИ" />
-  <button id="joinRoomBtn">Приєднатись</button>
-  <div class="divider">або</div>
-  <button id="createRoomBtn" style="background:#2ecc71; color:#10331e;">Створити нову кімнату</button>
-</div>
-
-<div id="screen-lobby" class="screen hidden">
-  <div id="lobby-ring">
-    <div id="lobby-logo"><span>Сміх</span><span class="logo-accent">ліст</span></div>
-  </div>
-  <p class="hint" id="lobby-room-code"></p>
-  <p class="hint" id="lobby-hint"></p>
-  <div id="avatar-picker">
-    <label for="avatar-select">Аватар</label>
-    <select id="avatar-select"></select>
-  </div>
-  <button id="start-btn" class="hidden">Почати гру</button>
-</div>
-
-<div id="screen-answer" class="screen hidden">
-  <p class="hint hidden" id="answer-explainer">Перед вами картинка, вигадайте смішний або цікавий підпис</p>
-  <h2 id="answer-title">Пиши відповідь!</h2>
-  <p class="hint" id="answer-progress"></p>
-  <div id="answer-cards"></div>
-  <div id="answer-ready" class="hidden">
-    <p class="ready-icon" id="answer-ready-icon">✅</p>
-    <p class="hint" id="answer-ready-text">Відповідь(-і) надіслано! Чекаємо решту гравців…</p>
-  </div>
-  <p class="hint hidden" id="answer-countdown">Всі відповіли. Готуємось до голосування…</p>
-  <div id="answer-readiness" class="readiness-bar"></div>
-</div>
-
-<div id="screen-voting" class="screen hidden">
-  <div class="timer-bar"><div id="vote-timer-fill" class="timer-fill"></div></div>
-  <p class="hint" id="matchup-progress"></p>
-  <img id="voting-prompt-image" class="prompt-image hidden" alt="">
-  <h2 id="voting-prompt"></h2>
-
-  <div id="voting-choices" class="hidden">
-    <button class="answer-btn" id="choice-a" data-choice="A"></button>
-    <button class="answer-btn" id="choice-b" data-choice="B"></button>
-  </div>
-  <div id="gallery-choices" class="hidden"></div>
-  <div id="voting-waiting" class="hidden">
-    <p class="hint" id="voting-waiting-text"></p>
-  </div>
-  <div id="voting-reveal" class="hidden">
-    <div class="reveal-row">
-      <div class="reveal-answer" id="reveal-a"></div>
-      <div class="reveal-answer" id="reveal-b"></div>
+<main class="wrap">
+  <div id="hud" class="hidden">
+    <div class="left"><span class="ql-chip" id="hud-round"></span><span id="hud-phase"></span></div>
+    <div class="right">
+      <div class="ql-timer hidden-timer" id="hud-timer"><span>0</span></div>
+      <button class="icon-btn" id="pause-btn" title="Пауза">⏸</button>
     </div>
-    <div id="gallery-reveal-list"></div>
   </div>
-</div>
 
-<div id="screen-round-end" class="screen hidden">
-  <h2 id="round-end-title"></h2>
-  <div id="gallery-recap" class="hidden"></div>
-  <div id="round-scoreboard" class="final-board"></div>
-  <p class="hint" id="round-end-hint">Наступний раунд ось-ось почнеться…</p>
-  <div id="round-end-actions" class="hidden">
-    <button id="continue-btn">Продовжити гру</button>
-    <button id="finish-btn">Завершити гру</button>
-  </div>
-</div>
+  <section id="screen-locked" class="screen hidden">
+    <div class="ql-logo entry-logo bob"><span>Сміх</span><span>лист</span></div>
+    <p class="hint">Увійди в профіль, щоб грати з друзями</p>
+  </section>
 
-<div id="screen-game-over" class="screen hidden">
-  <h1>🎉 Гру завершено!</h1>
-  <div id="final-scoreboard" class="final-board"></div>
-  <button id="restart-btn" class="hidden">Грати знову</button>
-</div>
+  <section id="screen-room-entry" class="screen hidden">
+    <div class="ql-logo entry-logo bob"><span>Сміх</span><span>лист</span></div>
+    <p class="hint">Пиши найсмішніші відповіді й збирай голоси друзів</p>
+    <div class="rooms-list" id="activeRoomsList"></div>
+    <div class="divider">або за кодом</div>
+    <input class="text-input" id="roomCodeInput" maxlength="5" placeholder="КОД" autocomplete="off" />
+    <button class="ql-btn teal full-btn" id="joinRoomBtn">Приєднатись</button>
+    <div class="divider">або</div>
+    <button class="ql-btn full-btn" id="createRoomBtn">Створити кімнату</button>
+  </section>
+
+  <section id="screen-lobby" class="screen hidden"></section>
+  <section id="screen-intro" class="screen hidden"></section>
+  <section id="screen-answer" class="screen hidden">
+    <div id="answer-main"></div>
+    <div id="answer-ready" class="ready-grid"></div>
+  </section>
+  <section id="screen-vote" class="screen hidden"></section>
+  <section id="screen-reveal" class="screen hidden"></section>
+  <section id="screen-end" class="screen hidden"></section>
+</main>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
@@ -240,12 +246,14 @@ button:disabled { opacity: 0.5; cursor: default; }
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
 <script src="js/core/firebase-config.js"></script>
 <script src="js/core/app-settings.js"></script>
-<link rel="stylesheet" href="js/styles/quiplash-shared.css">
 <link rel="stylesheet" href="js/styles/reactions.css">
 <script src="js/core/login.js"></script>
 <script src="js/promts/quiplash-prompts.js"></script>
 <script src="js/core/online-engine.js"></script>
+<script src="js/quiplash-avatars.js"></script>
 <script src="js/quiplash-game.js"></script>
+<script src="js/quiplash-ui.js"></script>
+<script src="js/quiplash-sounds.js"></script>
 <script src="js/core/reactions.js"></script>
 <script src="js/core/room-code-ui.js"></script>
 <script src="js/core/score-connect.js"></script>
@@ -255,543 +263,470 @@ button:disabled { opacity: 0.5; cursor: default; }
 <script src="js/core/refresh-button.js"></script>
 <script>
 (function () {
-  const SCREENS = ["locked", "room-entry", "waiting", "lobby", "answer", "voting", "round-end", "game-over"];
-  function screen(name) {
-    SCREENS.forEach((s) => document.getElementById("screen-" + s).classList.toggle("hidden", s !== name));
-  }
-  function escapeHtml(s) {
-    const d = document.createElement("div");
-    d.textContent = s == null ? "" : String(s);
-    return d.innerHTML;
-  }
-  function charImg(p) { return `img/char${p.character || 1}.svg`; }
+  const G = window.QuiplashGame, UI = window.QuiplashUI, SFX = window.QuiplashSfx;
+  const esc = UI.esc;
+  const $ = (id) => document.getElementById(id);
+  const SCREENS = ["locked", "room-entry", "lobby", "intro", "answer", "vote", "reveal", "end"];
 
-  let lastState = null;
   let session = null;
-  let appliedSessionSeed = null;
-  let lastLobbyRingKey = null;
-  let scoreSentForGame = false; // дедуп: щоб не слати рахунок повторно на кожен рендер game_over
+  let lastState = null;
+  let lastCtx = { host: false };
   let reactionsMounted = false;
+  let scoreSentKey = null;
+  let phaseKey = null;
+  let lastTickSec = null;
+  let draft = {}; // незбережений текст відповіді на випадок перемальовки
 
-  const headerBar = document.getElementById("header-bar");
-  const myBadge = document.getElementById("my-badge");
-  const roundLabel = document.getElementById("round-label");
-  const pauseBtn = document.getElementById("pause-btn");
-  const pauseOverlay = document.getElementById("pause-overlay");
-  const pauseByText = document.getElementById("pause-by-text");
-  const lobbyRing = document.getElementById("lobby-ring");
-  const lobbyHint = document.getElementById("lobby-hint");
-  const avatarPicker = document.getElementById("avatar-picker");
-  const avatarSelect = document.getElementById("avatar-select");
-  const startBtn = document.getElementById("start-btn");
-  const answerTitle = document.getElementById("answer-title");
-  const answerExplainer = document.getElementById("answer-explainer");
-  const answerProgress = document.getElementById("answer-progress");
-  const answerCards = document.getElementById("answer-cards");
-  const answerReady = document.getElementById("answer-ready");
-  const answerCountdown = document.getElementById("answer-countdown");
-  const answerReadiness = document.getElementById("answer-readiness");
-  const voteTimerFill = document.getElementById("vote-timer-fill");
-  const matchupProgress = document.getElementById("matchup-progress");
-  const votingPromptImage = document.getElementById("voting-prompt-image");
-  const votingPrompt = document.getElementById("voting-prompt");
-  const votingChoices = document.getElementById("voting-choices");
-  const galleryChoices = document.getElementById("gallery-choices");
-  const votingWaiting = document.getElementById("voting-waiting");
-  const votingWaitingText = document.getElementById("voting-waiting-text");
-  const votingReveal = document.getElementById("voting-reveal");
-  const revealA = document.getElementById("reveal-a");
-  const revealB = document.getElementById("reveal-b");
-  const galleryRevealList = document.getElementById("gallery-reveal-list");
-  const roundEndTitle = document.getElementById("round-end-title");
-  const galleryRecap = document.getElementById("gallery-recap");
-  const roundScoreboard = document.getElementById("round-scoreboard");
-  const roundEndHint = document.getElementById("round-end-hint");
-  const roundEndActions = document.getElementById("round-end-actions");
-  const continueBtn = document.getElementById("continue-btn");
-  const finishBtn = document.getElementById("finish-btn");
-  const finalScoreboard = document.getElementById("final-scoreboard");
-  const restartBtn = document.getElementById("restart-btn");
-  const choiceA = document.getElementById("choice-a");
-  const choiceB = document.getElementById("choice-b");
+  function screen(name) {
+    SCREENS.forEach((s) => $("screen-" + s).classList.toggle("hidden", s !== name));
+  }
+  function setHtml(el, key, html) {
+    if (el.dataset.key === key) return false;
+    el.dataset.key = key;
+    el.innerHTML = html;
+    return true;
+  }
+  function me(state) { return state.players && state.players[session]; }
+  function playerOf(state, name) { return Object.assign({ name }, (state.players || {})[name] || { character: 1 }); }
 
-  function renderBadge() {
-    myBadge.innerHTML = "";
-    const p = lastState && lastState.players && lastState.players[session];
-    const dot = document.createElement("span");
-    dot.className = "score-dot";
-    dot.style.background = (p && p.color) || "#999";
-    const label = document.createElement("span");
-    label.textContent = session;
-    myBadge.appendChild(dot);
-    myBadge.appendChild(label);
+  // ---------------- шапка / HUD ----------------
+  function renderBadge(state) {
+    const p = me(state);
+    const key = `${session}|${p ? p.character : 0}`;
+    setHtml($("my-badge"), key, `${p ? UI.avatar(p, "idle") : ""}<span class="name">${esc(session)}</span>`);
   }
 
-  function applySessionBackground(seed) {
-    if (seed === null || seed === undefined || seed === appliedSessionSeed) return;
-    appliedSessionSeed = seed;
-    const widths = [6, 8, 10, 14, 18];
-    const speeds = [90, 120, 150, 180, 220];
-    const hue = seed % 360;
-    const width = widths[seed % widths.length];
-    const speed = speeds[Math.floor(seed / 7) % speeds.length];
-    document.documentElement.style.setProperty("--ray-hue", hue);
-    document.documentElement.style.setProperty("--ray-width", width + "deg");
-    document.documentElement.style.setProperty("--ray-speed", speed + "s");
-    document.body.classList.toggle("bg-reverse", seed % 2 === 0);
-  }
-
-  function renderLobbyRing(players) {
-    const key = players.map((p) => `${p.name}:${p.character || 1}:${p.color || ""}`).join(",");
-    if (key === lastLobbyRingKey) return;
-    lastLobbyRingKey = key;
-    lobbyRing.querySelectorAll(".lobby-character").forEach((el) => el.remove());
-    const n = players.length;
-    players.forEach((p, i) => {
-      const angle = (360 / Math.max(n, 1)) * i - 90;
-      const rad = (angle * Math.PI) / 180;
-      const x = 50 + 40 * Math.cos(rad);
-      const y = 50 + 40 * Math.sin(rad);
-      const node = document.createElement("div");
-      node.className = "lobby-character";
-      node.style.left = x + "%";
-      node.style.top = y + "%";
-      const avatar = document.createElement("div");
-      avatar.className = "lobby-character-avatar";
-      avatar.style.background = p.color;
-      const img = document.createElement("img");
-      img.src = charImg(p);
-      img.alt = "";
-      img.onerror = function () { this.style.display = "none"; };
-      avatar.appendChild(img);
-      const label = document.createElement("div");
-      label.className = "lobby-character-name";
-      label.textContent = p.name;
-      node.appendChild(avatar);
-      node.appendChild(label);
-      lobbyRing.appendChild(node);
-    });
-  }
-
-  function renderAvatarPicker(state, username) {
-    const me = state.players && state.players[username];
-    if (!me) {
-      avatarPicker.classList.add("hidden");
-      return;
+  const PHASE_LABEL = {
+    round_intro: "Готуйся…", answering: "Пиши відповіді", answer_countdown: "Збираємо відповіді",
+    voting: "Голосування", reveal: "Результат", round_end: "Рахунок",
+  };
+  function renderHud(state) {
+    const visible = state.phase !== "lobby" && state.phase !== "game_over";
+    $("hud").classList.toggle("hidden", !visible);
+    if (!visible) return;
+    const final = (G.ROUND_PLAN[state.round - 1] || "classic") === "image";
+    $("hud-round").textContent = final ? "Фінал" : `Раунд ${state.round}/${G.TOTAL_ROUNDS}`;
+    let label = PHASE_LABEL[state.phase] || "";
+    if ((state.phase === "voting" || state.phase === "reveal") && !state.gallery) {
+      const list = G.matchupList(state);
+      label += ` · ${(state.currentMatchupIndex || 0) + 1}/${list.length}`;
     }
-    const taken = new Set(Object.entries(state.players || {})
-      .filter(([name]) => name !== username)
-      .map(([, player]) => player.character));
-    if (!avatarSelect.options.length) {
-      const avatarNames = ["Лука", "Ліам", "Йорк", "Лісі", "Сімон", "Кікі", "Лойд", "Карен"];
-      avatarSelect.innerHTML = avatarNames
-        .map((name, index) => `<option value="${index + 1}">${name}</option>`)
-        .join("");
+    $("hud-phase").textContent = label;
+    $("pause-btn").textContent = state.paused ? "▶" : "⏸";
+  }
+  function timerVisible(state) {
+    return state.phase === "answering" || (state.phase === "voting" && !(state.voteRevealAt && G.now() < state.voteRevealAt));
+  }
+  // крутимо таймер і тіки окремо від рендеру стану
+  setInterval(() => {
+    if (!lastState) return;
+    const secs = UI.paintTimer($("hud-timer"), lastState, timerVisible(lastState));
+    if (secs != null && secs <= 5 && secs > 0 && secs !== lastTickSec && !lastState.paused) SFX.play(secs <= 3 ? "tickUrgent" : "tick");
+    lastTickSec = secs;
+    // кінець VS-заставки — перемалювати голосування без чекання нового стану
+    if (lastState.phase === "voting" && $("screen-vote").dataset.intro === "1" && !(lastState.voteRevealAt && G.now() < lastState.voteRevealAt)) {
+      renderVote(lastState);
     }
-    Array.from(avatarSelect.options).forEach((option) => {
-      option.disabled = taken.has(Number(option.value));
-    });
-    if (document.activeElement !== avatarSelect) avatarSelect.value = String(me.character || 1);
-    avatarPicker.classList.remove("hidden");
+  }, 200);
+
+  // ---------------- звуки на зміну фази ----------------
+  function cue(state) {
+    const key = `${state.phase}|${state.round}|${state.currentMatchupIndex}`;
+    if (key === phaseKey) return;
+    const first = phaseKey === null;
+    phaseKey = key;
+    if (first) return;
+    switch (state.phase) {
+      case "round_intro": SFX.play("chime"); break;
+      case "answer_countdown": SFX.play(state.timedOut ? "buzz" : "ding"); break;
+      case "voting": SFX.play("vs"); break;
+      case "reveal": setTimeout(() => SFX.play("ding"), 1500); break;
+      case "round_end": SFX.play("drum"); break;
+      case "game_over": SFX.play("fanfare"); UI.confetti(110); break;
+    }
   }
 
-  function renderReadinessBar(container, players, answeredNames) {
-    const answeredSet = new Set(answeredNames);
-    container.innerHTML = "";
-    players.forEach((p) => {
-      const isReady = answeredSet.has(p.name);
-      const node = document.createElement("div");
-      node.className = "readiness-avatar" + (isReady ? " is-ready" : "") + (p.name === session ? " is-me" : "");
-      const avatar = document.createElement("div");
-      avatar.className = "readiness-avatar-img";
-      avatar.style.background = p.color;
-      const img = document.createElement("img");
-      img.src = charImg(p);
-      img.onerror = function () { this.style.display = "none"; };
-      avatar.appendChild(img);
-      const label = document.createElement("div");
-      label.className = "readiness-avatar-name";
-      label.textContent = p.name;
-      node.appendChild(avatar);
-      node.appendChild(label);
-      container.appendChild(node);
-    });
+  // ---------------- ЛОБІ ----------------
+  let pickerOpen = false;
+  function renderLobby(state) {
+    const players = Object.entries(state.players || {}).sort((a, b) => (a[1].joinedAt || 0) - (b[1].joinedAt || 0));
+    const conn = G.connectedEntries(state.players);
+    const host = G.computeHost(state.players);
+    const mine = me(state);
+    const canStart = lastCtx.host && conn.length >= G.MIN_PLAYERS;
+    const slots = players.map(([n, p]) => `<div class="p-slot${n === session ? " me" : ""}${conn.some(([c]) => c === n) ? "" : " off"}">
+        ${UI.avatar(Object.assign({ name: n }, p), "idle")}<div class="nm">${n === host ? "👑 " : ""}${esc(n)}</div></div>`);
+    const empties = Math.max(0, Math.min(8, Math.ceil(Math.max(players.length, 4) / 4) * 4) - players.length);
+    for (let i = 0; i < empties; i++) slots.push(`<div class="p-slot empty"><div class="ghost"></div><div class="nm">&nbsp;</div></div>`);
+    const startBlock = lastCtx.host
+      ? `<button class="ql-btn pink full-btn" id="start-btn" ${canStart ? "" : "disabled"}>${canStart ? "Почати гру!" : `Потрібно ще ${G.MIN_PLAYERS - conn.length}`}</button>`
+      : `<p class="hint">Чекаємо, поки <b style="color:#fff">${esc(host || "ведучий")}</b> почне гру…</p>`;
+    const key = JSON.stringify([players.map(([n, p]) => [n, p.character, conn.some(([c]) => c === n)]), host, lastCtx.host, G.roomId]);
+    const changed = setHtml($("screen-lobby"), key, `
+      <div class="ql-logo lobby-logo bob"><span>Сміх</span><span>лист</span></div>
+      <div class="ql-card code-card">
+        <div><div class="label">Код кімнати</div><div class="code">${esc(G.roomId || "")}</div></div>
+        <div class="tv">Великий екран: «Сміхлист ТВ» з цим кодом</div>
+      </div>
+      ${mine ? `<div class="ql-card me-card">
+        ${UI.avatar(Object.assign({ name: session }, mine), "happy")}
+        <div class="who"><b>${esc(session)}</b><small>${esc(QuiplashAvatars.name(mine.character))}</small></div>
+        <button class="ql-btn teal" id="pick-btn">Змінити</button>
+      </div>` : `<p class="hint">Кімната заповнена — дивишся як глядач</p>`}
+      <div class="players-grid">${slots.join("")}</div>
+      <p class="hint">Гравців: <span class="lobby-count">${players.length}/${G.MAX_PLAYERS}</span> · можна приєднатись і посеред гри</p>
+      ${startBlock}
+      <details class="ql-card rules"><summary>Як грати?</summary><ol>
+        <li>Кожен отримує два жартівливі питання. Те саме питання дістається ще комусь.</li>
+        <li>Пиши найсмішнішу відповідь. Не знаєш що — тисни 🛟.</li>
+        <li>Решта голосує за кращу з двох, не знаючи авторів.</li>
+        <li>100 балів за голос, бонус за перемогу, а всі голоси — це <b>СМІХЛИСТ!</b></li>
+        <li>Раунд 2 — бали ×2, фінал з картинкою — ×3.</li>
+      </ol></details>`);
+    if (changed) {
+      const sb = $("start-btn");
+      if (sb) sb.onclick = () => { SFX.play("pop"); G.startGame(lastState); };
+      const pb = $("pick-btn");
+      if (pb) pb.onclick = () => { pickerOpen = true; renderPicker(lastState); };
+    }
+    if (pickerOpen) renderPicker(state);
   }
 
-  function renderFinalBoard(container, entries) {
-    const boardKey = entries.map(([name, p]) => `${name}:${p.score || 0}`).join("|");
-    if (container.dataset.boardKey === boardKey) return;
-    container.dataset.boardKey = boardKey;
-    const max = Math.max(1, ...entries.map(([, p]) => p.score || 0));
-    container.innerHTML = "";
-    entries.forEach(([name, p], i) => {
-      const row = document.createElement("div");
-      row.className = "final-row" + (i === 0 ? " winner" : "");
-      row.innerHTML = `
-        <div class="final-rank">${i + 1}</div>
-        <div class="final-avatar" style="background:${p.color || "#888"}">
-          <img src="${charImg(p)}" onerror="this.style.display='none'">
-        </div>
-        <div class="final-info">
-          <div class="final-name">${escapeHtml(name)}</div>
-          <div class="final-bar-track"><div class="final-bar-fill" style="width:0%"></div></div>
-        </div>
-        <div class="final-score">${p.score || 0}</div>`;
-      container.appendChild(row);
-      requestAnimationFrame(() => {
-        row.querySelector(".final-bar-fill").style.width = Math.round(((p.score || 0) / max) * 100) + "%";
+  function renderPicker(state) {
+    const mine = me(state);
+    if (!pickerOpen || !mine || state.phase !== "lobby") { $("picker").classList.add("hidden"); pickerOpen = false; return; }
+    $("picker").classList.remove("hidden");
+    const taken = new Set(Object.entries(state.players || {}).filter(([n]) => n !== session).map(([, p]) => p.character));
+    const key = `${mine.character}|${[...taken].sort().join(",")}`;
+    if (setHtml($("pick-grid"), key, QuiplashAvatars.CHARACTERS.map((c) =>
+      `<div class="pick${c.id === mine.character ? " mine" : ""}${taken.has(c.id) ? " taken" : ""}" data-pick="${c.id}">
+        ${QuiplashAvatars.html({ character: c.id }, c.id === mine.character ? "happy" : "idle")}<span>${esc(c.name)}</span></div>`).join(""))) {
+      $("pick-grid").querySelectorAll(".pick").forEach((el) => {
+        el.onclick = () => { SFX.play("pop"); G.setAvatar(Number(el.dataset.pick)); };
       });
-    });
+    }
+  }
+  $("picker-close").onclick = () => { pickerOpen = false; $("picker").classList.add("hidden"); };
+  $("picker").addEventListener("click", (e) => { if (e.target.id === "picker") { pickerOpen = false; $("picker").classList.add("hidden"); } });
+
+  // ---------------- ЗАСТАВКА РАУНДУ ----------------
+  function renderIntro(state) {
+    const t = UI.roundTitle(state.round);
+    const mine = me(state);
+    const answering = G.isAnswerer(state, session) && mine;
+    setHtml($("screen-intro"), `intro-${state.round}-${!!answering}`, `<div class="intro">
+      <div class="ql-round-num">${esc(t.title)}</div>
+      <div class="ql-round-sub">${esc(t.sub)}</div>
+      <div class="ql-round-mult">${esc(t.mult)}</div>
+      ${mine ? UI.avatar(Object.assign({ name: session }, mine), answering ? "shock" : "happy", "ql-pop") : ""}
+      ${answering ? "" : `<p class="hint">🍿 Цього раунду відповідають інші — ти голосуєш</p>`}
+      ${state.tvFact ? `<div class="fact">💡 ${esc(state.tvFact)}</div>` : ""}
+    </div>`);
   }
 
-  function setTimerFill(deadline, totalMs) {
-    if (!deadline) { voteTimerFill.style.width = "100%"; return; }
-    const remaining = Math.max(0, deadline - window.QuiplashGame.now());
-    voteTimerFill.style.width = Math.max(0, Math.min(100, (remaining / totalMs) * 100)) + "%";
+  // ---------------- ВІДПОВІДІ ----------------
+  function myPending(state) {
+    if (state.gallery) {
+      const done = state.gallery.answers && state.gallery.answers[session];
+      return done ? [] : [{ id: "gallery", gallery: true }];
+    }
+    return G.matchupList(state).filter((m) =>
+      (m.playerAId === session && (m.answerA == null || m.answerA === "")) || (m.playerBId === session && (m.answerB == null || m.answerB === "")));
+  }
+  function myTotal(state) {
+    if (state.gallery) return 1;
+    return G.matchupList(state).filter((m) => m.playerAId === session || m.playerBId === session).length;
   }
 
-  function effectiveDeadline(state) {
-    if (!state.phaseDeadline) return null;
-    return state.paused
-      ? state.phaseDeadline + Math.max(0, window.QuiplashGame.now() - (state.pausedAt || window.QuiplashGame.now()))
-      : state.phaseDeadline;
-  }
-
-  function makeRevealBlock(name, answer, count, points) {
-    const wrap = document.createElement("div");
-    wrap.innerHTML = `<p class="reveal-name">${escapeHtml(name)}</p>
-      <p class="reveal-answer-text">${escapeHtml(answer)}</p>
-      <p class="hint">${count || 0} голос(и) · +${points || 0} очок</p>`;
-    return wrap;
+  function renderReady(state, show) {
+    const box = $("answer-ready");
+    if (!show) { setHtml(box, "none", ""); return; }
+    const names = Object.keys(state.players || {}).filter((n) => G.isAnswerer(state, n) && state.roundAnswerers && state.roundAnswerers.includes(n));
+    const key = names.map((n) => `${n}:${G.playerAnswered(state, n) ? 1 : 0}:${state.players[n].character}`).join("|");
+    setHtml(box, key, names.map((n) => {
+      const ok = G.playerAnswered(state, n);
+      return `<div class="r ${ok ? "ok" : "wait"}">${UI.avatar(playerOf(state, n), ok ? "happy" : "write")}<div class="nm">${esc(n)}</div></div>`;
+    }).join(""));
   }
 
   function renderAnswering(state) {
-    answerCountdown.classList.add("hidden");
-    const players = Object.entries(state.players || {}).map(([n, p]) => ({ name: n, ...p }))
-      .filter((p) => QuiplashGame.isAnswerer(state, p.name));
-    const readyIcon = document.getElementById("answer-ready-icon");
-    const readyText = document.getElementById("answer-ready-text");
-    if (!QuiplashGame.isAnswerer(state, session)) {
-      // гравців більше 8: цей раунд відповідають інші, ти голосуєш
-      answerTitle.classList.add("hidden");
-      answerProgress.classList.add("hidden");
-      answerExplainer.classList.add("hidden");
-      answerCards.classList.add("hidden");
-      answerCards.dataset.answerKey = "";
-      answerReady.classList.remove("hidden");
-      readyIcon.textContent = "🍿";
-      readyText.textContent = `Цей раунд відповідають ${state.roundAnswerers.length} гравців, ти голосуєш. Наступного раунду — твоя черга.`;
-      renderReadinessBar(answerReadiness, players, state.gallery ? Object.keys(state.gallery.answers || {}) : players.filter((p) =>
-        Object.values(state.matchups || {}).every((m) => (m.playerAId !== p.name || m.answerA != null) && (m.playerBId !== p.name || m.answerB != null))).map((p) => p.name));
+    const main = $("answer-main");
+    const mine = me(state);
+    if (!mine || !G.isAnswerer(state, session)) {
+      setHtml(main, "spectate", `<div class="done-box">${mine ? UI.avatar(Object.assign({ name: session }, mine), "idle") : ""}
+        <h2>🍿 Ти голосуєш</h2><p class="hint">Цей раунд відповідають інші. Наступного — твоя черга!</p></div>`);
+      renderReady(state, true);
       return;
     }
-    readyIcon.textContent = "✅";
-    readyText.textContent = "Відповідь(-і) надіслано! Чекаємо решту гравців…";
-
-    if (state.gallery) {
-      answerTitle.classList.add("hidden");
-      answerProgress.classList.add("hidden");
-      answerExplainer.classList.remove("hidden");
-      const already = state.gallery.answers && state.gallery.answers[session] !== undefined;
-      renderReadinessBar(answerReadiness, players, Object.keys(state.gallery.answers || {}));
-      if (already) {
-        answerCards.classList.add("hidden");
-        answerReady.classList.remove("hidden");
-        answerCards.dataset.answerKey = "";
-        return;
-      }
-      answerCards.classList.remove("hidden");
-      answerReady.classList.add("hidden");
-      const galleryKey = `gallery-${state.round}`;
-      if (answerCards.dataset.answerKey === galleryKey) return;
-      answerCards.dataset.answerKey = galleryKey;
-      answerCards.innerHTML = `<div class="answer-card">
-        <img class="prompt-image" src="${escapeHtml(state.gallery.image)}" onerror="this.style.display='none'">
-        <p class="prompt-text">${escapeHtml(state.gallery.text)}</p>
-        <textarea id="galleryInput" maxlength="100" placeholder="Одне слово чи ціла фраза…"></textarea>
-        <button id="gallerySubmit">Надіслати</button>
-      </div>`;
-      document.getElementById("gallerySubmit").addEventListener("click", () => {
-        const t = document.getElementById("galleryInput").value.trim();
-        if (t) QuiplashGame.submitAnswer(null, t);
+    const pending = myPending(state);
+    if (!pending.length) {
+      setHtml(main, "done-" + state.round, `<div class="done-box ql-pop">${UI.avatar(Object.assign({ name: session }, mine), "happy")}
+        <h2>Готово!</h2><p class="hint">Чекаємо, поки допишуть інші…</p></div>`);
+      renderReady(state, true);
+      return;
+    }
+    renderReady(state, false);
+    const cur = pending[0];
+    const total = myTotal(state);
+    const idx = total - pending.length + 1;
+    const draftKey = `${state.round}-${cur.id}`;
+    const promptBlock = cur.gallery
+      ? `<img class="ans-img" src="${esc(state.gallery.image)}" alt="" onerror="this.style.display='none'">
+         <div class="ql-prompt ans-prompt">${state.gallery.text ? UI.promptHtml(state.gallery.text) : "Придумай найсмішніший підпис до картинки"}</div>`
+      : `<div class="ql-prompt ans-prompt ql-pop">${UI.promptHtml(cur.promptText)}</div>`;
+    const changed = setHtml(main, "q-" + draftKey, `
+      <div class="ans-head"><span class="ql-chip pink">${cur.gallery ? "Фінальний підпис" : `Питання ${idx}/${total}`}</span>
+        ${UI.avatar(Object.assign({ name: session }, mine), "write")}</div>
+      ${promptBlock}
+      <div class="ans-box"><textarea id="ans-input" maxlength="${G.MAX_ANSWER_LEN}" placeholder="Твоя відповідь…" enterkeyhint="send">${esc(draft[draftKey] || "")}</textarea>
+        <span class="ans-count" id="ans-count">0/${G.MAX_ANSWER_LEN}</span></div>
+      <div class="ans-actions">
+        <button class="ql-btn ghost" id="ans-safety" title="Рятівна відповідь">🛟</button>
+        <button class="ql-btn pink" id="ans-send">Надіслати</button>
+      </div>`);
+    if (!changed) return;
+    const input = $("ans-input"), count = $("ans-count"), send = $("ans-send");
+    const sync = () => { draft[draftKey] = input.value; count.textContent = `${input.value.length}/${G.MAX_ANSWER_LEN}`; send.disabled = !input.value.trim(); };
+    input.addEventListener("input", sync);
+    sync();
+    const submit = () => {
+      const text = input.value.trim();
+      if (!text) return;
+      send.disabled = true;
+      G.submitAnswer(cur.gallery ? null : cur.id, text).then((ok) => {
+        if (ok) { SFX.play("pop"); SFX.vibrate(30); delete draft[draftKey]; }
+        else send.disabled = false;
       });
-      return;
-    }
-
-    answerExplainer.classList.add("hidden");
-    const mine = Object.values(state.matchups || {}).filter((m) => m.playerAId === session || m.playerBId === session);
-    const answeredNames = players.filter((p) =>
-      Object.values(state.matchups || {}).every((m) =>
-        (m.playerAId !== p.name || m.answerA != null) && (m.playerBId !== p.name || m.answerB != null)
-      )
-    ).map((p) => p.name);
-    renderReadinessBar(answerReadiness, players, answeredNames);
-
-    const pending = mine.filter((m) => (m.playerAId === session ? m.answerA == null : m.answerB == null));
-    if (mine.length && !pending.length) {
-      answerTitle.classList.add("hidden");
-      answerProgress.classList.add("hidden");
-      answerCards.classList.add("hidden");
-      answerReady.classList.remove("hidden");
-      answerCards.dataset.answerKey = "";
-      return;
-    }
-    answerTitle.classList.remove("hidden");
-    answerReady.classList.add("hidden");
-    answerCards.classList.remove("hidden");
-    const current = pending[0];
-    if (!current) { answerCards.innerHTML = ""; return; }
-    const doneCount = mine.length - pending.length;
-    answerProgress.classList.toggle("hidden", mine.length <= 1);
-    answerProgress.textContent = `Питання ${doneCount + 1} з ${mine.length}`;
-    const answerKey = `classic-${current.id}`;
-    if (answerCards.dataset.answerKey === answerKey) return;
-    answerCards.dataset.answerKey = answerKey;
-    answerCards.innerHTML = `<div class="answer-card">
-      <p class="prompt-text">${escapeHtml(current.promptText)}</p>
-      <textarea id="matchupInput" maxlength="100" placeholder="Твоя смішна відповідь…"></textarea>
-      <button id="matchupSubmit">Надіслати</button>
-    </div>`;
-    document.getElementById("matchupSubmit").addEventListener("click", () => {
-      const t = document.getElementById("matchupInput").value.trim();
-      if (t) QuiplashGame.submitAnswer(current.id, t);
-    });
+    };
+    send.onclick = submit;
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); } });
+    $("ans-safety").onclick = () => {
+      const quips = G.SAFETY_QUIPS;
+      let q = quips[Math.floor(Math.random() * quips.length)];
+      if (q === input.value && quips.length > 1) q = quips[(quips.indexOf(q) + 1) % quips.length];
+      input.value = q;
+      sync();
+      SFX.play("pop");
+    };
+    if (window.matchMedia("(min-width: 700px)").matches) setTimeout(() => input.focus(), 50);
   }
 
-  function renderAnswerCountdown() {
-    answerCards.classList.add("hidden");
-    answerReady.classList.add("hidden");
-    answerCountdown.classList.remove("hidden");
-    answerCountdown.textContent = "Всі відповіли. Готуємось до голосування…";
+  function renderAnswerDone(state) {
+    renderReady(state, false);
+    const mine = me(state);
+    setHtml($("answer-main"), `cd-${state.round}-${!!state.timedOut}`, `<div class="ql-stamp stamp-title">${state.timedOut ? "Час вийшов! ⏰" : "Всі відповіли!"}</div>
+      ${mine ? `<div class="done-box">${UI.avatar(Object.assign({ name: session }, mine), state.timedOut ? "shock" : "happy")}</div>` : ""}
+      <p class="hint">Зараз голосуємо — автори приховані до кінця</p>`);
   }
 
-  // На TV перед голосуванням показується анімована "VS"-заставка
-  // (quiplash-tv.html) — блокуємо кнопки голосування на телефоні до того ж
-  // моменту. voteRevealAt пише хост (quiplash-game.js) явно, разом з
-  // phaseDeadline, що вже враховує цю затримку — тому голосуючі отримують
-  // повні заявлені секунди, а не (секунди мінус тривалість заставки).
-  let voteIntroTimer = null;
-
-  function isVoteIntroLocked(state) {
-    return !!state.voteRevealAt && window.QuiplashGame.now() < state.voteRevealAt;
-  }
-
-  function scheduleVoteIntroUnlock(state) {
-    clearTimeout(voteIntroTimer);
-    const wait = Math.max(0, (state.voteRevealAt || 0) - window.QuiplashGame.now());
-    voteIntroTimer = setTimeout(() => {
-      if (lastState && lastState.phase === "voting") renderVoting(lastState);
-    }, wait + 30);
-  }
-
-  function renderVoting(state) {
-    galleryChoices.classList.add("hidden");
-    votingChoices.classList.add("hidden");
-    votingWaiting.classList.add("hidden");
-    votingReveal.classList.add("hidden");
+  // ---------------- ГОЛОСУВАННЯ ----------------
+  function renderVote(state) {
+    const el = $("screen-vote");
+    const intro = !!state.voteRevealAt && G.now() < state.voteRevealAt;
+    el.dataset.intro = intro ? "1" : "0";
+    const mine = me(state);
 
     if (state.gallery) {
       const g = state.gallery;
-      matchupProgress.textContent = "Голосування за найкращий підпис";
-      votingPromptImage.src = g.image; votingPromptImage.classList.remove("hidden");
-      votingPrompt.textContent = g.text;
-
-      if (state.phase === "reveal") {
-        setTimerFill(null, 1);
-        votingReveal.classList.remove("hidden");
-        revealA.parentElement.classList.add("hidden");
-        galleryRevealList.classList.remove("hidden");
-        galleryRevealList.innerHTML = "";
-        const results = Object.entries(g.results || {}).sort((a, b) => b[1].count - a[1].count);
-        results.forEach(([n, r], i) => {
-          const row = document.createElement("div");
-          row.className = "reveal-answer" + (i === 0 && r.count > 0 ? " reveal-winner" : "");
-          row.appendChild(makeRevealBlock(n, g.answers[n], r.count, r.points));
-          galleryRevealList.appendChild(row);
-        });
+      const answers = Object.entries(g.answers || {}).filter(([, t]) => t);
+      if (intro) {
+        setHtml(el, `gi-${state.round}`, `<div class="intro">
+          <div class="ql-round-num" style="font-size:44px">Голосуємо!</div>
+          <img class="vote-img ql-pop" src="${esc(g.image)}" alt="">
+          <div class="ql-round-sub">${answers.length} підписів — обери найкращий</div></div>`);
         return;
       }
-      setTimerFill(effectiveDeadline(state), window.QuiplashGame.galleryVoteMs(state));
-      if (isVoteIntroLocked(state)) {
-        scheduleVoteIntroUnlock(state);
-        votingWaiting.classList.remove("hidden");
-        votingWaitingText.textContent = "Дивись на екран 👀";
-        return;
-      }
-      const haveAnswered = g.answers && g.answers[session] !== undefined;
       const myVote = g.votes && g.votes[session];
-      if ((haveAnswered || !QuiplashGame.isAnswerer(state, session)) && !myVote) {
-        galleryChoices.classList.remove("hidden");
-        galleryChoices.innerHTML = "";
-        Object.entries(g.answers || {}).filter(([n]) => n !== session).forEach(([n, text]) => {
-          const btn = document.createElement("button");
-          btn.className = "answer-btn";
-          btn.textContent = text;
-          btn.addEventListener("click", () => { galleryChoices.classList.add("hidden"); QuiplashGame.submitGalleryVote(n); });
-          galleryChoices.appendChild(btn);
+      const canVote = mine && !myVote && answers.some(([n]) => n !== session);
+      const votesIn = Object.keys(g.votes || {}).length;
+      const need = G.galleryVoters(state).length;
+      const key = `gv-${state.round}-${myVote || ""}-${canVote}-${votesIn}`;
+      const changed = setHtml(el, key, `
+        <img class="vote-img" src="${esc(g.image)}" alt="">
+        ${g.text ? `<div class="ql-prompt vote-prompt" style="margin-bottom:14px">${UI.promptHtml(g.text)}</div>` : ""}
+        <p class="hint">${myVote ? "Голос зараховано ✔" : canVote ? "Тапни найсмішніший підпис" : "Дивимось, як голосують інші"}</p>
+        <div class="gallery-list">${answers.map(([n, t], i) => {
+          const isMine = n === session;
+          return `<button class="ql-bubble choice-btn ql-rise${isMine ? " mine" : ""}${myVote === n ? " picked" : ""}" data-target="${esc(n)}" style="animation-delay:${i * 60}ms" ${canVote && !isMine ? "" : "disabled"}>
+            ${isMine ? `<span class="choice-tag">твій підпис</span><br>` : ""}${esc(t)}</button>`;
+        }).join("")}</div>
+        <p class="vote-status">Голосів: ${votesIn}/${need}</p>`);
+      if (changed && canVote) {
+        el.querySelectorAll("[data-target]").forEach((b) => {
+          b.onclick = () => { if (b.disabled) return; SFX.play("pop"); SFX.vibrate(20); b.classList.add("picked"); G.submitGalleryVote(b.dataset.target); };
         });
-      } else {
-        votingWaiting.classList.remove("hidden");
-        votingWaitingText.textContent = !haveAnswered
-          ? "Ти не встиг(-ла) відповісти цього раунду — просто дивись 👀"
-          : "Твій голос зараховано. Чекаємо решту…";
       }
+      if (changed && el.dataset.lastM === "g" + state.round) el.querySelectorAll(".ql-rise").forEach((b) => { b.style.animation = "none"; });
+      el.dataset.lastM = "g" + state.round;
       return;
     }
 
-    const list = Object.values(state.matchups || {});
+    const list = G.matchupList(state);
     const m = list[state.currentMatchupIndex];
     if (!m) return;
-    matchupProgress.textContent = `Пара ${state.currentMatchupIndex + 1}/${list.length}`;
-    votingPromptImage.classList.add("hidden");
-    votingPrompt.textContent = m.promptText;
-
+    const head = `<div class="ql-prompt vote-prompt">${UI.promptHtml(m.promptText)}</div>`;
+    if (intro) {
+      setHtml(el, `vi-${m.id}`, `${head}
+        <div class="vs-wrap"><div class="mystery"><div class="ql-bubble ql-slide-l">?</div><div class="ql-bubble right ql-slide-r">?</div></div>
+        <div class="ql-vs">VS</div></div>
+        <p class="hint">Хто ж це написав? Дізнаєтесь після голосування</p>`);
+      return;
+    }
     const isParticipant = m.playerAId === session || m.playerBId === session;
     const myVote = m.votes && m.votes[session];
+    const canVote = mine && G.canVoteOn(state, m, session) && !myVote;
+    const twoPlayer = G.connectedEntries(state.players).length === 2;
+    const votesIn = Object.keys(m.votes || {}).length;
+    const need = G.eligibleVoters(state, m).length;
+    const myChoice = m.playerAId === session ? "A" : m.playerBId === session ? "B" : null;
+    const btn = (side, text) => {
+      const own = myChoice === side;
+      const disabled = !canVote || (twoPlayer && own);
+      return `<button class="ql-bubble choice-btn ${side === "A" ? "ql-slide-l" : "right ql-slide-r"}${own ? " mine" : ""}${myVote === side ? " picked" : ""}" data-choice="${side}" ${disabled ? "disabled" : ""}>
+        ${own ? `<span class="choice-tag">твоя відповідь</span><br>` : ""}${esc(text)}</button>`;
+    };
+    const status = myVote ? "Голос зараховано ✔ Чекаємо інших…"
+      : isParticipant && !twoPlayer ? "Це твоя пара! Тримай кулачки 🤞"
+      : canVote ? "Тапни смішнішу відповідь" : "Дивимось, як голосують інші";
+    const changed = setHtml(el, `v-${m.id}-${myVote || ""}-${canVote}-${votesIn}`, `${head}
+      <div class="choices">${btn("A", m.answerA)}${btn("B", m.answerB)}</div>
+      <p class="vote-status">${status}<br>Голосів: ${votesIn}/${need}</p>`);
+    if (changed && canVote) {
+      el.querySelectorAll("[data-choice]").forEach((b) => {
+        b.onclick = () => { if (b.disabled) return; SFX.play("pop"); SFX.vibrate(20); b.classList.add("picked"); G.submitVote(m.id, b.dataset.choice); };
+      });
+    }
+    // повторні рендери не повинні перезапускати анімацію в'їзду
+    if (!changed) return;
+    if (el.dataset.lastM === m.id) el.querySelectorAll(".ql-slide-l,.ql-slide-r").forEach((b) => { b.style.animation = "none"; });
+    el.dataset.lastM = m.id;
+  }
 
-    if (state.phase === "reveal") {
-      setTimerFill(null, 1);
-      votingReveal.classList.remove("hidden");
-      galleryRevealList.classList.add("hidden");
-      revealA.parentElement.classList.remove("hidden");
-      const aWon = (m.pointsA || 0) > (m.pointsB || 0);
-      const bWon = (m.pointsB || 0) > (m.pointsA || 0);
-      revealA.className = "reveal-answer" + (aWon ? " reveal-winner" : "");
-      revealB.className = "reveal-answer" + (bWon ? " reveal-winner" : "");
-      revealA.innerHTML = ""; revealB.innerHTML = "";
-      revealA.appendChild(makeRevealBlock(m.playerAId, m.answerA, m.countA, m.pointsA));
-      revealB.appendChild(makeRevealBlock(m.playerBId, m.answerB, m.countB, m.pointsB));
+  // ---------------- ПІДСУМОК ПАРИ ----------------
+  function voterChips(state, votes, side) {
+    return Object.entries(votes || {}).filter(([, v]) => v === side).map(([n], i) =>
+      UI.avatar(playerOf(state, n), "happy").replace('class="qa-av', `style="animation-delay:${300 + i * 120}ms" class="qa-av`)).join("");
+  }
+  function revealItem(state, opts) {
+    const p = playerOf(state, opts.name);
+    const mood = opts.missing ? "sad" : opts.win ? "happy" : opts.lose ? "sad" : "idle";
+    return `<div class="rv-item">
+      <div class="ql-bubble ${opts.right ? "right" : ""} ${opts.win ? "win" : ""} ${opts.lose ? "lose" : ""} ${opts.missing ? "missing" : ""} ql-rise">${opts.missing ? "— не встиг(-ла) відповісти —" : esc(opts.text)}</div>
+      <div class="rv-foot" style="${opts.right ? "flex-direction:row-reverse;text-align:right" : ""}">
+        <span class="ql-pop d2">${UI.avatar(p, mood)}</span>
+        <div class="rv-who">
+          <b class="ql-rise d2">${esc(opts.name)}${opts.name === session ? " (ти)" : ""}</b>
+          <div class="ql-voters" style="${opts.right ? "justify-content:flex-end" : ""}">${opts.chips || ""}</div>
+          <div class="rv-pts ql-pop d3" style="${opts.right ? "justify-content:flex-end" : ""}">
+            <span class="ql-points">+${opts.points || 0}</span>${UI.bonusLabel(opts.bonusKind, opts.bonus)}
+            ${opts.count != null ? `<span class="rv-votes">${opts.count} ${UI.votesWord(opts.count)}</span>` : ""}</div>
+        </div>
+      </div></div>`;
+  }
+
+  function renderReveal(state) {
+    const el = $("screen-reveal");
+    if (state.gallery) {
+      const g = state.gallery;
+      const res = Object.entries(g.results || {}).sort((a, b) => b[1].count - a[1].count);
+      setHtml(el, `gr-${state.round}`, `<img class="vote-img" src="${esc(g.image)}" alt="">
+        <div class="rv">${res.map(([n, r], i) => {
+          const chips = Object.entries(g.votes || {}).filter(([, t]) => t === n).map(([v]) => UI.avatar(playerOf(state, v), "happy")).join("");
+          return revealItem(state, { name: n, text: g.answers[n], points: r.points, bonus: r.bonusPoints, bonusKind: r.bonusKind, count: r.count, chips, win: i === 0 && r.count > 0, lose: r.count === 0 });
+        }).join("")}</div>`);
       return;
     }
-
-    setTimerFill(effectiveDeadline(state), window.QuiplashGame.classicVoteMs(state));
-    if (isVoteIntroLocked(state)) {
-      scheduleVoteIntroUnlock(state);
-      votingWaiting.classList.remove("hidden");
-      votingWaitingText.textContent = "Дивись на екран 👀";
-      return;
+    const m = G.matchupList(state)[state.currentMatchupIndex];
+    if (!m) return;
+    const aMissing = !m.answerA, bMissing = !m.answerB;
+    const aWin = (m.pointsA || 0) > (m.pointsB || 0), bWin = (m.pointsB || 0) > (m.pointsA || 0);
+    const changed = setHtml(el, `r-${m.id}-${m.finalized ? 1 : 0}`, `<div class="ql-prompt vote-prompt" style="font-size:17px;margin-bottom:16px">${UI.promptHtml(m.promptText)}</div>
+      <div class="rv">
+        ${revealItem(state, { name: m.playerAId, text: m.answerA, missing: aMissing, points: m.pointsA, bonus: m.bonusA, bonusKind: m.bonusKindA, count: aMissing || bMissing ? null : m.countA, chips: voterChips(state, m.votes, "A"), win: aWin, lose: bWin })}
+        ${revealItem(state, { name: m.playerBId, text: m.answerB, missing: bMissing, right: true, points: m.pointsB, bonus: m.bonusB, bonusKind: m.bonusKindB, count: aMissing || bMissing ? null : m.countB, chips: voterChips(state, m.votes, "B"), win: bWin, lose: aWin })}
+      </div>`);
+    if (changed && (m.playerAId === session || m.playerBId === session)) {
+      const won = (m.playerAId === session && aWin) || (m.playerBId === session && bWin);
+      setTimeout(() => { if (won) SFX.vibrate([40, 60, 40]); }, 1600);
     }
-    const twoPlayerTest = Object.keys(state.players || {}).length === 2;
-    if ((!isParticipant || twoPlayerTest) && !myVote) {
-      votingChoices.classList.remove("hidden");
-      choiceA.textContent = m.answerA;
-      choiceB.textContent = m.answerB;
-      choiceA.disabled = twoPlayerTest && m.playerAId === session;
-      choiceB.disabled = twoPlayerTest && m.playerBId === session;
-      choiceA.onclick = () => QuiplashGame.submitVote(m.id, "A");
-      choiceB.onclick = () => QuiplashGame.submitVote(m.id, "B");
+  }
+
+  // ---------------- КІНЕЦЬ РАУНДУ / ГРИ ----------------
+  function renderRoundEnd(state) {
+    const el = $("screen-end");
+    const last = state.round >= G.TOTAL_ROUNDS;
+    if (setHtml(el, `re-${state.round}`, `<div class="end-title ql-pop">${last ? "Фінальний підрахунок" : `Після раунду ${state.round}`}</div>
+      <div id="board"></div>
+      <p class="hint" id="end-hint" style="margin-top:14px"></p>`)) {
+      UI.renderBoard($("board"), state, { showDelta: true, me: session });
     } else {
-      votingWaiting.classList.remove("hidden");
-      const votesIn = Object.keys(m.votes || {}).length;
-      votingWaitingText.textContent = isParticipant
-        ? `Люди голосують за вашу пару відповідей… (${votesIn})`
-        : `Твій голос зараховано. Чекаємо решту…`;
+      UI.renderBoard($("board"), state, { showDelta: true, me: session });
+    }
+    const t = UI.phaseTimer(state);
+    const secs = t ? Math.ceil(t.remaining / 1000) : 0;
+    $("end-hint").textContent = last ? "Зараз дізнаємось переможця…" : `Наступний раунд за ${secs} с`;
+  }
+
+  function renderGameOver(state) {
+    const el = $("screen-end");
+    const ranked = Object.entries(state.players || {}).sort((a, b) => (b[1].score || 0) - (a[1].score || 0));
+    const top = ranked[0];
+    const tie = ranked.length > 1 && (ranked[1][1].score || 0) === (top[1].score || 0);
+    const changed = setHtml(el, `go-${state.createdAt}-${lastCtx.host}`, `
+      <div class="end-title">${tie ? "Нічия! 🤝" : "Переможець!"}</div>
+      ${top ? `<div class="podium ql-pop"><div class="crown">👑</div>${UI.avatar(playerOf(state, top[0]), "happy")}
+        <div class="nm">${esc(top[0])}</div><div class="sc">${top[1].score || 0} балів</div></div>` : ""}
+      <div id="final-board"></div>
+      <div class="end-actions">${lastCtx.host ? `<button class="ql-btn pink" id="again-btn">Грати ще раз</button>` : `<p class="hint">Ведучий може почати нову гру</p>`}</div>`);
+    UI.renderBoard($("final-board"), state, { final: true, me: session });
+    if (changed && $("again-btn")) $("again-btn").onclick = () => { SFX.play("pop"); G.backToLobby(); };
+    const mine = me(state);
+    const key = `${G.roomId}|${state.createdAt}`;
+    if (mine && scoreSentKey !== key) {
+      scoreSentKey = key;
+      if (window.AppScore && window.AppScore.sendScore) window.AppScore.sendScore("quiplash", mine.score || 0);
     }
   }
 
+  // ---------------- головний рендер ----------------
   function onState(state, ctx) {
+    lastState = state;
+    lastCtx = ctx;
     document.body.dataset.scene = state.phase;
-    // Сідло тла раніше було просто state.round (0,1,2,3) — а це число щоразу
-    // скидається на 0 при новій грі (emptyState()), тому послідовність тла
-    // йшла по колу тих самих значень щоразу в тому ж порядку. createdAt
-    // реально оновлюється щоразу при "нова гра" (forceResetRoom), тому додає
-    // справжню варіативність МІЖ іграми, а не лише всередині однієї.
-    applySessionBackground((state.createdAt || 0) + (state.round || 0) * 97);
-    if (!ctx.username) { screen("locked"); headerBar.classList.add("hidden"); return; }
-
-    headerBar.classList.remove("hidden");
-    if (!reactionsMounted && window.GameReactions && QuiplashGame.roomRef) {
+    if (!ctx.username) { screen("locked"); return; }
+    if (!reactionsMounted && window.GameReactions && G.roomRef) {
       reactionsMounted = true;
-      window.GameReactions.mount(QuiplashGame.roomRef, ctx.username);
+      window.GameReactions.mount(G.roomRef, ctx.username);
     }
-    renderBadge();
-    roundLabel.textContent = state.phase === "lobby" ? "" : `Раунд ${state.round}/${QuiplashGame.TOTAL_ROUNDS}`;
-    const pausable = state.phase !== "lobby" && state.phase !== "game_over";
-    pauseBtn.classList.toggle("hidden", !pausable);
-    pauseBtn.textContent = state.paused ? "▶" : "⏸";
-    pauseOverlay.classList.toggle("hidden", !state.paused);
-    if (state.paused) pauseByText.textContent = state.pausedByName ? `${state.pausedByName} поставив(-ла) гру на паузу` : "Гру поставлено на паузу";
+    renderBadge(state);
+    renderHud(state);
+    cue(state);
+    UI.maybeSuper(state, () => { SFX.play("fanfare"); SFX.vibrate([60, 40, 60, 40, 120]); });
+    $("pause-overlay").classList.toggle("hidden", !state.paused);
+    if (state.paused) $("pause-by-text").textContent = state.pausedByName ? `${state.pausedByName} натиснув(-ла) паузу` : "";
+    if (state.phase !== "lobby") { pickerOpen = false; $("picker").classList.add("hidden"); }
 
-    const iAmIn = state.players && state.players[ctx.username];
-    if (!iAmIn && (state.phase === "answering" || state.phase === "answer_countdown" || state.phase === "voting" || state.phase === "reveal" || state.phase === "round_end")) {
-      screen("waiting");
-      return;
-    }
-
-    const players = Object.entries(state.players || {});
-
-    if (state.phase === "lobby") {
-      screen("lobby");
-      scoreSentForGame = false;
-      answerCards.dataset.answerKey = "";
-      document.getElementById("lobby-room-code").textContent = QuiplashGame.roomId ? `Код кімнати: ${QuiplashGame.roomId}` : "";
-      renderLobbyRing(players.map(([n, p]) => ({ name: n, ...p })));
-      renderAvatarPicker(state, ctx.username);
-      const conn = QuiplashGame.connectedEntries(state.players);
-      startBtn.classList.toggle("hidden", !ctx.host);
-      if (conn.length < QuiplashGame.MIN_PLAYERS) {
-        lobbyHint.textContent = `Потрібно ще щонайменше ${QuiplashGame.MIN_PLAYERS - conn.length} гравців(-я).`;
-        startBtn.disabled = true;
-      } else {
-        lobbyHint.textContent = `Готово! Гравців: ${conn.length}/${QuiplashGame.MAX_PLAYERS}.`;
-        startBtn.disabled = false;
-      }
-      return;
-    }
-
-    if (state.phase === "answering") { screen("answer"); renderAnswering(state); return; }
-    if (state.phase === "answer_countdown") { screen("answer"); renderAnswerCountdown(); return; }
-    if (state.phase === "voting" || state.phase === "reveal") { screen("voting"); renderVoting(state); return; }
-
-    if (state.phase === "round_end") {
-      screen("round-end");
-      roundEndTitle.textContent = `Результати раунду ${state.round}`;
-      const finalRound = state.round >= QuiplashGame.TOTAL_ROUNDS;
-      roundEndHint.textContent = finalRound
-        ? (state.awaitingContinuation ? "Ведучий вирішує, що робимо далі…" : "")
-        : "Наступний раунд ось-ось почнеться…";
-      roundEndActions.classList.toggle("hidden", !(finalRound && state.awaitingContinuation && ctx.host));
-      if (state.gallery && state.gallery.results) {
-        galleryRecap.classList.remove("hidden");
-        const results = Object.entries(state.gallery.results).sort((a, b) => b[1].count - a[1].count);
-        galleryRecap.innerHTML = `<img class="prompt-image" src="${escapeHtml(state.gallery.image)}" onerror="this.style.display='none'">
-          <p class="prompt-text">${escapeHtml(state.gallery.text)}</p>` +
-          results.map(([n, r]) => `<p class="hint">${escapeHtml(n)}: "${escapeHtml(state.gallery.answers[n])}" — ${r.count} голос(и), +${r.points} очок</p>`).join("");
-      } else {
-        galleryRecap.classList.add("hidden");
-        galleryRecap.innerHTML = "";
-      }
-      renderFinalBoard(roundScoreboard, players.sort((a, b) => (b[1].score || 0) - (a[1].score || 0)));
-      return;
-    }
-
-    if (state.phase === "game_over") {
-      screen("game-over");
-      renderFinalBoard(finalScoreboard, players.sort((a, b) => (b[1].score || 0) - (a[1].score || 0)));
-      restartBtn.classList.toggle("hidden", !ctx.host);
-      if (!scoreSentForGame) {
-        scoreSentForGame = true;
-        const me = state.players && state.players[ctx.username];
-        if (me && window.AppScore && window.AppScore.sendScore) {
-          window.AppScore.sendScore("quiplash", me.score || 0);
-        }
-      }
-      return;
+    switch (state.phase) {
+      case "lobby": screen("lobby"); renderLobby(state); break;
+      case "round_intro": screen("intro"); renderIntro(state); break;
+      case "answering": screen("answer"); renderAnswering(state); break;
+      case "answer_countdown": screen("answer"); renderAnswerDone(state); break;
+      case "voting": screen("vote"); renderVote(state); break;
+      case "reveal": screen("reveal"); renderReveal(state); break;
+      case "round_end": screen("end"); renderRoundEnd(state); break;
+      case "game_over": screen("end"); renderGameOver(state); break;
     }
   }
 
-  pauseBtn.addEventListener("click", () => QuiplashGame.setPause(!(lastState && lastState.paused)));
-  document.getElementById("resume-btn").addEventListener("click", () => QuiplashGame.setPause(false));
-  startBtn.addEventListener("click", () => QuiplashGame.startGame(lastState));
-  avatarSelect.addEventListener("change", (e) => QuiplashGame.setAvatar(Number(e.target.value)));
-  restartBtn.addEventListener("click", () => QuiplashGame.resetGame());
-  continueBtn.addEventListener("click", () => QuiplashGame.continueGame());
-  finishBtn.addEventListener("click", () => QuiplashGame.finishGame());
+  $("pause-btn").onclick = () => G.setPause(!(lastState && lastState.paused));
+  $("resume-btn").onclick = () => G.setPause(false);
+  // кінець раунду: оновлюємо «Наступний раунд за N с»
+  setInterval(() => { if (lastState && lastState.phase === "round_end" && $("end-hint")) renderRoundEnd(lastState); }, 500);
 
-  function beginGame(username_, roomId) {
-    session = username_;
-    QuiplashGame.onStateChange = (state, ctx) => { lastState = state; onState(state, ctx); };
-    QuiplashGame.start(username_, roomId);
+  function beginGame(username, roomId) {
+    session = username;
+    G.onStateChange = (state, ctx) => onState(state, ctx);
+    G.start(username, roomId);
   }
 
   const authSession = window.AppAuth && window.AppAuth.getSession();
@@ -801,10 +736,10 @@ button:disabled { opacity: 0.5; cursor: default; }
       codeInputId: "roomCodeInput",
       joinBtnId: "joinRoomBtn",
       createBtnId: "createRoomBtn",
-      watchActiveRooms: QuiplashGame.watchActiveRooms,
+      watchActiveRooms: G.watchActiveRooms,
       renderRoomItem: (r) => `
         <div class="room-item-head">
-          <span class="room-item-title">Кімната ${escapeHtml(r.roomId)}</span>
+          <span class="room-item-title">Кімната ${esc(r.roomId)}</span>
           <span class="room-item-phase">${r.phase === "lobby" ? "Лобі" : "Гра триває"}</span>
         </div>
         <div class="room-item-count">Онлайн: ${r.connectedCount} / ${r.playerCount}</div>`,
@@ -815,7 +750,7 @@ button:disabled { opacity: 0.5; cursor: default; }
     screen("locked");
   }
 
-  window.addEventListener("beforeunload", () => { if (window.QuiplashGame) window.QuiplashGame.stop(); });
+  window.addEventListener("beforeunload", () => G.stop());
 })();
 </script>
 </body>

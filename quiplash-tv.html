@@ -3,258 +3,111 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Смішліст — великий екран</title>
+<title>Сміхлист ТВ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="js/styles/quiplash-shared.css">
 <link rel="stylesheet" href="js/styles/reactions.css">
 <style>
 * { box-sizing: border-box; }
-body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
-    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-    display: flex; align-items: center; justify-content: center; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg2); color: #fff; font-family: var(--ql-font); overflow: hidden; }
 .hidden { display: none !important; }
-.host-screen { width: 100%; max-width: 900px; padding: 40px; text-align: center; position: relative; z-index: 2; }
-.host-screen h1 { font-size: 40px; margin: 0 0 8px; }
-.host-screen h2 { font-size: 26px; color: #ccc; margin: 0 0 8px; }
-.hint { color: #9a9aa5; font-size: 18px; margin: 4px 0 16px; }
+.stage { position: relative; z-index: 2; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 3vh 4vw; text-align: center; gap: 2.2vh; }
+.hint { color: var(--muted); font-size: clamp(16px, 1.8vw, 26px); font-weight: 700; margin: 0; }
+.top-bar { position: fixed; top: 2vh; left: 3vw; right: 3vw; z-index: 10; display: flex; justify-content: space-between; align-items: center; pointer-events: none; }
+.top-bar .ql-chip { font-size: clamp(13px, 1.3vw, 20px); padding: 8px 18px; }
+.top-bar .ql-timer { width: clamp(64px, 6vw, 110px); height: clamp(64px, 6vw, 110px); }
+.top-bar .ql-timer span { font-size: clamp(22px, 2.4vw, 42px); }
+.top-bar .ql-timer::before { inset: 9px; }
+#status-line { position: fixed; bottom: 2vh; left: 0; right: 0; z-index: 10; text-align: center; color: #ffb84d; font-weight: 800; font-size: clamp(14px, 1.4vw, 22px); pointer-events: none; }
+#pause-overlay { position: fixed; inset: 0; z-index: 800; display: flex; align-items: center; justify-content: center; background: rgba(10,8,28,0.86); }
+#pause-overlay .ql-card { padding: 4vh 5vw; font-size: clamp(20px, 2.5vw, 40px); font-weight: 900; text-align: center; }
 
-#scene-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; background: #1e1e24; }
-#scene-bg::before {
-  content: ''; position: absolute; top: 50%; left: 50%; width: 220vmax; height: 220vmax;
-  margin-top: -110vmax; margin-left: -110vmax;
-  background: repeating-conic-gradient(from 0deg, hsla(var(--ray-hue,210),70%,55%,0.09) 0deg var(--ray-width,8deg), transparent var(--ray-width,8deg) calc(var(--ray-width,8deg) * 2));
-  animation: scene-bg-spin var(--ray-speed,140s) linear infinite;
-}
-.bg-reverse #scene-bg::before { animation-direction: reverse; }
+/* лобі */
+.tv-logo { font-size: clamp(72px, 11vw, 190px); }
+.tv-code { display: flex; align-items: center; gap: 2vw; padding: 1.4vh 2.4vw; }
+.tv-code .label { font-size: clamp(14px, 1.4vw, 22px); font-weight: 800; color: #6b6496; text-transform: uppercase; text-align: left; line-height: 1.3; }
+.tv-code .code { font-size: clamp(44px, 6vw, 100px); font-weight: 900; letter-spacing: 0.14em; }
+.tv-players { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 1.2vh 1vw; width: min(92vw, 1500px); }
+.tv-players.few { grid-template-columns: repeat(var(--cols, 5), minmax(0, 1fr)); width: min(80vw, 1100px); }
+.tv-p { display: flex; flex-direction: column; align-items: center; gap: 0.4vh; min-width: 0; animation: ql-pop 0.5s cubic-bezier(.3,1.6,.5,1) both; }
+.tv-p .qa-av { width: clamp(60px, 7vw, 130px); height: clamp(60px, 7vw, 130px); }
+.tv-p .nm { font-weight: 800; font-size: clamp(13px, 1.3vw, 22px); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-p.off { opacity: 0.35; filter: grayscale(0.8); }
+.tv-p.ok .nm { color: var(--teal); }
+.tv-p.wait { opacity: 0.6; }
 
+/* заставка раунду */
+.tv-round .ql-round-num { font-size: clamp(80px, 12vw, 220px); }
+.tv-round .ql-round-sub { font-size: clamp(20px, 2.4vw, 40px); }
+.tv-round .ql-round-mult { font-size: clamp(24px, 3vw, 52px); }
+.fact { font-size: clamp(16px, 1.6vw, 26px); color: var(--muted); font-weight: 700; max-width: 70vw; }
+.big-title { font-size: clamp(44px, 6vw, 110px); font-weight: 900; color: #fff; -webkit-text-stroke: 0.05em var(--ink); paint-order: stroke fill; text-shadow: 0 0.07em 0 var(--ink); margin: 0; }
 
-#lobby-ring { position: relative; width: min(56vw,520px); aspect-ratio: 1/1; margin: 0 auto 24px; }
-#lobby-logo { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); text-align: center;
-    font-size: 36px; font-weight: 800; letter-spacing: 0.02em; white-space: nowrap; }
-.logo-accent { color: #3498db; }
-.lobby-character { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 6px;
-    transform: translate(-50%,-50%); animation: lobby-char-in 0.4s ease-out; }
-.lobby-character-avatar { width: 84px; height: 84px; border-radius: 50%; overflow: hidden; display: flex;
-    align-items: center; justify-content: center; box-shadow: 0 0 0 2px rgba(255,255,255,0.15); flex-shrink: 0; }
-.lobby-character-avatar img { width: 100%; height: 100%; object-fit: contain; }
-.lobby-character-name { font-size: 16px; font-weight: 600; max-width: 130px; text-align: center;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* голосування */
+.tv-prompt { font-size: clamp(26px, 3.4vw, 60px); max-width: 80vw; }
+.tv-duel { display: grid; grid-template-columns: 1fr auto 1fr; align-items: start; gap: 3vw; width: min(90vw, 1500px); }
+.tv-duel .ql-vs { font-size: clamp(60px, 7vw, 130px); align-self: center; }
+.tv-side { display: flex; flex-direction: column; gap: 3vh; min-width: 0; }
+.tv-side .ql-bubble { font-size: clamp(24px, 2.8vw, 52px); padding: 3vh 2vw; min-height: 14vh; display: flex; align-items: center; justify-content: center; text-align: center; }
+.tv-who { display: flex; align-items: center; gap: 1.2vw; min-height: 14vh; }
+.tv-side.right .tv-who { flex-direction: row-reverse; }
+.tv-who .qa-av { width: clamp(80px, 9vw, 170px); height: clamp(80px, 9vw, 170px); flex-shrink: 0; }
+.tv-who-info { display: flex; flex-direction: column; gap: 1vh; min-width: 0; text-align: left; }
+.tv-side.right .tv-who-info { text-align: right; align-items: flex-end; }
+.tv-who-info b { font-size: clamp(22px, 2.4vw, 44px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-who-info .rv-pts { display: flex; gap: 0.8vw; align-items: center; flex-wrap: wrap; }
+.tv-side.right .rv-pts { justify-content: flex-end; }
+.tv-who-info .ql-points, .tv-who-info .ql-bonus { font-size: clamp(16px, 1.7vw, 30px); padding: 0.5vh 1.2vw; }
+.tv-who-info .ql-voters .qa-av { width: clamp(30px, 3vw, 56px); height: clamp(30px, 3vw, 56px); }
+.tv-side.right .ql-voters { justify-content: flex-end; }
+.tv-votecount { font-size: clamp(18px, 2vw, 34px); font-weight: 800; color: var(--muted); }
+.tv-voted { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.6vw; min-height: 6vh; }
+.tv-voted .qa-av { width: clamp(36px, 3.6vw, 66px); height: clamp(36px, 3.6vw, 66px); animation: ql-vote-in 0.45s cubic-bezier(.3,1.6,.5,1) both; }
+.d1 { animation-delay: 0.3s !important; } .d2 { animation-delay: 1.5s !important; } .d3 { animation-delay: 2.4s !important; }
 
+/* галерея (фінал) */
+.tv-gallery { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 3vw; width: min(94vw, 1700px); align-items: center; }
+.tv-gallery img { width: 100%; max-height: 70vh; object-fit: contain; border-radius: 22px; border: 4px solid var(--ink); background: #0c0826; box-shadow: 0 8px 0 var(--ink); }
+.tv-answers { display: grid; grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr)); gap: 2vh 1.4vw; }
+.tv-answers .ql-bubble { font-size: clamp(16px, 1.7vw, 30px); padding: 1.6vh 1.2vw; text-align: center; }
+.tv-answers .ql-bubble::after { display: none; }
+.tv-res { display: flex; flex-direction: column; gap: 1.4vh; max-height: 78vh; overflow: hidden; }
+.tv-res-row { display: flex; align-items: center; gap: 1vw; text-align: left; }
+.tv-res-row .qa-av { width: clamp(50px, 5vw, 90px); height: clamp(50px, 5vw, 90px); flex-shrink: 0; }
+.tv-res-row .ql-bubble { flex: 1; font-size: clamp(16px, 1.7vw, 30px); padding: 1.2vh 1.2vw; }
+.tv-res-row .ql-bubble::after { display: none; }
+.tv-res-row .side { display: flex; flex-direction: column; align-items: flex-end; gap: 0.6vh; min-width: 12vw; }
+.tv-res-row .side b { font-size: clamp(14px, 1.4vw, 24px); }
 
-.prompt-image { display: block; max-width: 100%; max-height: 360px; margin: 0 auto 12px; border-radius: 8px; object-fit: contain; background: #14141a; }
-.prompt-image.big { max-width: 420px; margin: 0 auto 16px; border-radius: 14px; }
-
-.readiness-bar { display: flex; flex-wrap: wrap; justify-content: center; gap: 32px; margin-top: 40px; padding-top: 12px; }
-.readiness-avatar { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 96px;
-    transform: translateY(10px); opacity: 0.55; filter: brightness(0.55) saturate(0.6);
-    transition: transform 0.35s ease, opacity 0.35s ease, filter 0.35s ease; }
-.readiness-avatar.is-ready { transform: translateY(0); opacity: 1; filter: none; }
-.readiness-avatar-img { width: 84px; height: 84px; border-radius: 50%; overflow: hidden; display: flex;
-    align-items: center; justify-content: center; box-shadow: 0 0 0 2px rgba(255,255,255,0.15); flex-shrink: 0; }
-.readiness-avatar-img img { width: 100%; height: 100%; object-fit: contain; }
-.readiness-avatar-name { font-size: 16px; max-width: 96px; text-align: center; white-space: nowrap;
-    overflow: hidden; text-overflow: ellipsis; color: #c8c8d0; }
-
-.timer-bar.big { height: 10px; max-width: 700px; margin: 0 auto 24px; background: #2b2b33; border-radius: 4px; overflow: hidden; }
-.timer-fill { height: 100%; background: #3498db; width: 100%; transition: width 0.3s linear; }
-
-#host-vote-intro { display: flex; align-items: center; justify-content: center; gap: 60px; padding: 60px 20px; }
-#host-vote-intro .vote-intro-side { display: flex; flex-direction: column; align-items: center; gap: 14px; animation: vote-intro-in 0.5s ease both; }
-#host-vote-intro .vote-intro-side:nth-child(2) { animation-delay: 0.12s; }
-#host-vote-intro .vote-intro-avatar { width: 160px; height: 160px; border-radius: 50%; display: flex;
-    align-items: center; justify-content: center; box-shadow: 0 0 0 4px rgba(255,255,255,0.18); }
-#host-vote-intro .vote-intro-avatar img { width: 100%; height: 100%; object-fit: contain; }
-#host-vote-intro .vote-intro-name { font-size: 26px; font-weight: 700; }
-#host-vote-intro .vote-intro-vs { font-size: 40px; font-weight: 800; color: #ff6fa5; opacity: 0; animation: vote-intro-in 0.4s ease 0.3s both; }
-#host-vote-intro .vote-intro-authors { display: flex; flex-wrap: wrap; justify-content: center; gap: 26px; max-width: 900px; }
-#host-vote-intro .vote-intro-authors .vote-intro-side { gap: 8px; }
-#host-vote-intro .vote-intro-authors .vote-intro-avatar { width: 100px; height: 100px; }
-#host-vote-intro .vote-intro-authors .vote-intro-name { font-size: 16px; }
-#host-vote-intro-title { text-align: center; font-size: 22px; color: #c8c8d0; margin-bottom: 12px; }
-@keyframes vote-intro-in { from { opacity: 0; transform: translateY(18px) scale(0.85); } to { opacity: 1; transform: translateY(0) scale(1); } }
-
-.reveal-row.big { display: flex; flex-direction: row; gap: 24px; margin-top: 24px; }
-.reveal-row.big .reveal-answer { flex: 1; background: #2b2b33; border: 1px solid #3a3a44; border-radius: 8px; padding: 24px; text-align: left; }
-.reveal-answer.reveal-winner { border-color: #2ecc71; box-shadow: 0 0 0 2px rgba(46,204,113,0.4); }
-.reveal-name { font-weight: 700; margin: 0 0 4px; }
-.reveal-row.big .reveal-answer-text { font-size: 20px; margin: 0 0 6px; }
-@media (max-width: 700px) { .reveal-row.big { flex-direction: column; } }
-
-#host-gallery-choices { display: grid; grid-template-columns: repeat(var(--answer-columns,2), minmax(0,1fr));
-    grid-auto-rows: minmax(90px, auto); justify-content: center; gap: 18px; max-width: 1100px; margin: 0 auto; width: 100%; }
-#host-gallery-choices .gallery-tile { background: #2a2a33; border: 1px solid #45454f; border-radius: 14px; padding: 20px;
-    font-size: 20px; text-align: center; display: flex; align-items: center; justify-content: center; min-height: 90px; }
-#host-reveal-gallery-list { display: flex; flex-direction: column; gap: 14px; max-width: 900px; margin: 0 auto; }
-#host-reveal-gallery-list .reveal-answer { background: #2b2b33; border: 1px solid #3a3a44; border-radius: 8px; padding: 16px; text-align: left; }
-.smihlystok-reaction { display: flex; align-items: center; gap: 14px; margin: -4px 0 12px; color: #ffd76f; font-size: 24px; font-weight: 800; }
-.smihlystok-reaction img { width: 96px; height: 96px; border-radius: 50%; object-fit: contain; background: #ffd76f; box-shadow: 0 0 0 3px rgba(255,215,111,0.55), 0 0 24px rgba(255,215,111,0.45); animation: smihlystok-expression 1.3s ease-in-out both; transform-origin: 50% 72%; }
-.smihlystok-reaction span { text-shadow: 0 0 14px rgba(255,215,111,0.55); }
-@keyframes smihlystok-expression {
-  0% { opacity: 0; transform: scale(0.7) rotate(-4deg); filter: saturate(1) contrast(1); }
-  23.08% { opacity: 1; transform: scale(1.35) rotate(3deg); filter: saturate(2.2) contrast(1.35) brightness(1.08); }
-  76.92% { opacity: 1; transform: scale(1.35) rotate(-2deg); filter: saturate(2.2) contrast(1.35) brightness(1.08); }
-  100% { opacity: 1; transform: scale(1) rotate(0); filter: saturate(1) contrast(1) brightness(1); }
-}
-
-.points-row { display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
-.points-base { font-size: 20px; color: #e6e6ea; }
-.points-bonus { position: relative; font-size: 20px; font-weight: 800; color: #ffd76f; padding: 6px 16px; border-radius: 999px; opacity: 0; white-space: nowrap; }
-.points-bonus::before { content: ''; position: absolute; inset: 0; border-radius: 999px;
-    background: radial-gradient(circle, rgba(255,215,111,0.55) 0%, rgba(255,111,165,0.35) 60%, transparent 80%);
-    z-index: -1; transform: scale(0.6); opacity: 0; transition: transform 0.4s ease, opacity 0.4s ease; }
-.points-bonus.pop { animation: points-pop 0.5s ease both; }
-.points-bonus.pop::before { transform: scale(1.3); opacity: 1; }
-@keyframes points-pop { 0% { opacity: 0; font-size: 10px; } 70% { opacity: 1; font-size: 140%; } 100% { opacity: 1; font-size: 100%; } }
-
-#host-gallery-recap { max-width: 1000px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
-#host-gallery-recap img.prompt-image.big { max-width: 480px; }
-#host-gallery-recap .recap-prompt { font-size: 24px; text-align: center; margin: 4px 0 24px; }
-#host-gallery-recap .recap-row { display: flex; align-items: center; gap: 18px; background: #26262e; border-radius: 14px;
-    padding: 16px 24px; margin-bottom: 14px; font-size: 22px; text-align: left; }
-#host-gallery-recap .recap-row .recap-avatar { width: 56px; height: 56px; border-radius: 50%; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center; }
-#host-gallery-recap .recap-row .recap-avatar img { width: 100%; height: 100%; object-fit: contain; }
-#host-gallery-recap .recap-row .recap-text { flex: 1; min-width: 0; }
-#host-gallery-recap .recap-row .recap-name { font-weight: 700; margin-right: 8px; }
-#host-gallery-recap .recap-row .recap-caption { color: #d6d6dc; }
-#host-classic-recap { display: flex; flex-direction: column; gap: 14px; max-width: 1000px; margin: 0 auto; }
-#host-classic-recap .classic-recap-row { background: #26262e; border-radius: 14px; padding: 18px 24px; text-align: left; }
-#host-classic-recap .classic-recap-prompt { font-size: 20px; font-weight: 700; margin-bottom: 12px; }
-#host-classic-recap .classic-recap-answers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-#host-classic-recap .classic-recap-answer { background: #2b2b33; border: 1px solid #3a3a44; border-radius: 8px; padding: 12px; }
-@media (max-width: 700px) { #host-classic-recap .classic-recap-answers { grid-template-columns: 1fr; } }
-
-.section-subtitle { font-size: 22px; color: #9c9ca6; font-weight: 600; margin: 36px auto 16px; padding-top: 24px;
-    border-top: 1px solid #38383f; max-width: 920px; }
-.final-title { font-size: 56px; margin-bottom: 28px; }
-.final-board { max-width: 920px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; text-align: left; }
-.final-row { display: flex; align-items: center; gap: 14px; background: #24242c; border: 1px solid #38383f; border-radius: 14px; padding: 12px 16px; }
-.final-row.winner { background: #33301f; border-color: #ffd76f; box-shadow: 0 0 0 2px rgba(255,215,111,0.25), 0 0 24px rgba(255,215,111,0.18); }
-.final-rank { width: 40px; flex-shrink: 0; text-align: center; font-size: 24px; font-weight: 800; color: #9c9ca6; }
-.final-avatar { width: 56px; height: 56px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px rgba(255,255,255,0.15); }
-.final-avatar img { width: 100%; height: 100%; object-fit: contain; }
-.final-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
-.final-name { font-size: 20px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.final-bar-track { height: 14px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
-.final-bar-fill { height: 100%; border-radius: 999px; width: 0%; transition: width 0.9s cubic-bezier(0.22,1,0.36,1); }
-.final-score { font-size: 24px; font-weight: 800; min-width: 70px; text-align: right; flex-shrink: 0; }
-
-#pause-overlay { position: fixed; inset: 0; background: rgba(10,10,14,0.88); display: flex; align-items: center; justify-content: center; z-index: 500; text-align: center; padding: 24px; }
-#host-player-status { position: fixed; top: 12px; left: 0; width: 100%; z-index: 10; min-height: 24px; color: #ffb84d; font-size: 18px; text-align: center; pointer-events: none; }
-.pause-icon { font-size: 48px; margin: 0 0 8px; }
-
-/* СУПЕРСМІХЛИСТ — 100% голосів за одну відповідь: аватар вилітає на весь екран */
-#super-smihlystok-overlay {
-  position: fixed; inset: 0; z-index: 900;
-  display: none; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
-  pointer-events: none;
-}
-#super-smihlystok-overlay.playing { display: flex; }
-.super-smihlystok-avatar {
-  width: 22vh; height: 22vh; min-width: 220px; min-height: 220px;
-  border-radius: 50%; display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 0 0 6px rgba(255,215,111,0.7), 0 0 70px rgba(255,215,111,0.6);
-  animation: super-smihlystok-pop 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-.super-smihlystok-avatar img { width: 82%; height: 82%; object-fit: contain; }
-.super-smihlystok-label {
-  font-family: inherit; font-weight: 800; font-size: 28px; color: #ffd76f;
-  text-shadow: 0 0 18px rgba(255,215,111,0.7); white-space: nowrap;
-  animation: super-smihlystok-label-fade 0.8s ease forwards;
-}
-/* 0.3с: 50%→400% + оберт на 30° проти годинникової. 0.3с: тримається.
-   0.2с: оберт ще на 60° за годинниковою (сумарно на +30° від старту) і
-   одночасно зменшення до 20% зі зникненням. Разом 0.8с. */
-@keyframes super-smihlystok-pop {
-  0%    { transform: scale(0.5) rotate(0deg); opacity: 1; }
-  37.5% { transform: scale(4) rotate(-30deg); opacity: 1; }
-  75%   { transform: scale(4) rotate(-30deg); opacity: 1; }
-  100%  { transform: scale(0.2) rotate(30deg); opacity: 0; }
-}
-@keyframes super-smihlystok-label-fade {
-  0%, 75% { opacity: 1; }
-  100%    { opacity: 0; }
-}
+/* рахунок */
+.tv-board { width: min(80vw, 1100px); }
+.tv-board .ql-board { gap: 1vh; }
+.tv-board.many .ql-board { display: grid; grid-template-columns: 1fr 1fr; gap: 1vh 1.5vw; }
+.tv-board .ql-row { padding: 0.6vh 1.2vw 0.6vh 0.6vw; }
+.tv-board .ql-row .qa-av { width: clamp(40px, 4.4vw, 76px); height: clamp(40px, 4.4vw, 76px); }
+.tv-board .ql-row-name { font-size: clamp(16px, 1.6vw, 28px); }
+.tv-board .ql-row-score { font-size: clamp(18px, 1.9vw, 34px); min-width: 7vw; }
+.tv-board .ql-row-rank { font-size: clamp(16px, 1.5vw, 26px); width: 3vw; }
+.tv-board .ql-row-delta { font-size: clamp(12px, 1.1vw, 18px); }
+.tv-podium { display: flex; align-items: center; gap: 3vw; }
+.tv-podium .qa-av { width: clamp(140px, 16vw, 300px); height: clamp(140px, 16vw, 300px); }
+.tv-podium .crown { font-size: clamp(50px, 6vw, 110px); animation: ql-bob 1.6s ease-in-out infinite; }
+.tv-podium .nm { font-size: clamp(40px, 5vw, 96px); font-weight: 900; color: var(--yellow); -webkit-text-stroke: 0.04em var(--ink); paint-order: stroke fill; text-shadow: 0 0.06em 0 var(--ink); }
+.tv-podium .sc { font-size: clamp(20px, 2.2vw, 38px); font-weight: 800; }
+.tv-sound { position: fixed; bottom: 2vh; right: 2vw; z-index: 20; }
 </style>
 </head>
-<body>
-
-<div id="scene-bg" aria-hidden="true"></div>
-
-<div id="super-smihlystok-overlay">
-  <div class="super-smihlystok-avatar" id="super-smihlystok-avatar">
-    <img id="super-smihlystok-img" src="" alt="">
-  </div>
-  <div class="super-smihlystok-label">СУПЕРСМІХЛИСТ!</div>
-</div>
-
-<div id="pause-overlay" class="hidden">
-  <div>
-    <p class="pause-icon">⏸</p>
-    <h2>Гру на паузі</h2>
-    <p class="hint" id="pause-by-text"></p>
-  </div>
-</div>
-<p id="host-player-status"></p>
-
-<div id="host-screen-lobby" class="host-screen">
-  <div id="lobby-ring"><div id="lobby-logo"><span>Сміх</span><span class="logo-accent">ліст</span></div></div>
-  <p class="hint" id="host-room-code" style="font-family:monospace; font-size:20px; letter-spacing:0.15em; color:#ffd76f;"></p>
-  <p class="hint" id="host-lobby-hint"></p>
-  <p class="hint" id="host-vote-seconds-hint"></p>
-</div>
-
-<div id="host-screen-answering" class="host-screen hidden">
-  <p class="hint" id="host-round-label"></p>
-  <p class="hint hidden" id="host-answer-explainer">Перед вами картинка, вигадайте смішний або цікавий підпис</p>
-  <img id="host-answer-image" class="prompt-image hidden" alt="">
-  <h2 id="host-answer-title">Всі пишуть відповіді…</h2>
-  <p class="hint" id="host-answer-countdown"></p>
-  <p class="hint" id="host-answer-fact"></p>
-  <div id="host-answer-progress" class="readiness-bar"></div>
-</div>
-
-<div id="host-screen-voting" class="host-screen hidden">
-  <div id="host-vote-intro" class="hidden">
-    <p id="host-vote-intro-title"></p>
-    <div id="host-vote-intro-body"></div>
-  </div>
-  <div id="host-vote-main">
-    <p class="hint" id="host-vote-progress"></p>
-    <div class="timer-bar big"><div id="host-vote-timer" class="timer-fill"></div></div>
-    <img id="host-prompt-image" class="prompt-image hidden" alt="">
-    <h1 id="host-prompt"></h1>
-    <div class="reveal-row big" id="host-pair-choices">
-      <div class="reveal-answer" id="host-answer-a"><p class="reveal-name">A</p><p class="reveal-answer-text" id="host-answer-a-text"></p></div>
-      <div class="reveal-answer" id="host-answer-b"><p class="reveal-name">B</p><p class="reveal-answer-text" id="host-answer-b-text"></p></div>
-    </div>
-    <div id="host-gallery-choices" class="hidden"></div>
-    <p class="hint" id="host-vote-count"></p>
-  </div>
-</div>
-
-<div id="host-screen-reveal" class="host-screen hidden">
-  <img id="host-reveal-prompt-image" class="prompt-image hidden" alt="">
-  <h1 id="host-reveal-prompt"></h1>
-  <div class="reveal-row big" id="host-reveal-pair">
-    <div class="reveal-answer" id="host-reveal-a"></div>
-    <div class="reveal-answer" id="host-reveal-b"></div>
-  </div>
-  <div id="host-reveal-gallery-list" class="hidden"></div>
-</div>
-
-<div id="host-screen-round-end" class="host-screen hidden">
-  <h1 id="host-round-end-title"></h1>
-  <div id="host-gallery-recap" class="hidden"></div>
-  <div id="host-classic-recap" class="hidden"></div>
-  <h2 id="host-scoreboard-title" class="section-subtitle hidden">Загальний рахунок</h2>
-  <div id="host-round-scoreboard" class="final-board"></div>
-  <p class="hint" id="host-round-end-hint"></p>
-</div>
-
-<div id="host-screen-game-over" class="host-screen hidden">
-  <h1 class="final-title">🏆 Переможець!</h1>
-  <div id="host-final-scoreboard" class="final-board"></div>
-</div>
+<body data-scene="lobby">
+<div class="ql-bg" aria-hidden="true"></div>
+<div id="pause-overlay" class="hidden"><div class="ql-card">⏸ Пауза<div class="hint" id="pause-by" style="color:#6b6496;margin-top:8px"></div></div></div>
+<div class="top-bar"><span class="ql-chip" id="round-chip" style="visibility:hidden"></span><div class="ql-timer hidden-timer" id="tv-timer"><span>0</span></div></div>
+<div id="status-line"></div>
+<button class="ql-btn ghost tv-sound" id="sound-btn">🔊 Увімкнути звук</button>
+<main class="stage" id="stage"></main>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
@@ -264,454 +117,243 @@ body { margin: 0; min-height: 100vh; background: #1e1e24; color: #f0f0f0;
 <script src="js/core/firebase-config.js"></script>
 <script src="js/promts/quiplash-prompts.js"></script>
 <script src="js/core/online-engine.js"></script>
+<script src="js/quiplash-avatars.js"></script>
 <script src="js/quiplash-game.js"></script>
+<script src="js/quiplash-ui.js"></script>
+<script src="js/quiplash-sounds.js"></script>
 <script src="js/core/reactions.js"></script>
 <script>
 (function () {
-  function escapeHtml(s) { const d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML; }
-  function charImg(p) { return `img/char${(p && p.character) || 1}.svg`; }
-
-  let lastSuperSmihlystokAt = null;
-  function maybeShowSuperSmihlystok(state) {
-    const at = state.superSmihlystokAt;
-    if (!at || at === lastSuperSmihlystokAt) return;
-    lastSuperSmihlystokAt = at;
-
-    const p = (state.players || {})[state.superSmihlystokUsername] || { character: 1, color: "#888" };
-    const overlay = document.getElementById("super-smihlystok-overlay");
-    const avatar = document.getElementById("super-smihlystok-avatar");
-    const img = document.getElementById("super-smihlystok-img");
-
-    img.src = charImg(p);
-    avatar.style.background = p.color || "#888";
-
-    overlay.classList.remove("playing");
-    void overlay.offsetWidth; // форс-рефлоу — щоб CSS-анімація перезапустилась, якщо подія трапиться знову
-    overlay.classList.add("playing");
-    setTimeout(() => overlay.classList.remove("playing"), 820);
-  }
-  function screen(id) {
-    document.querySelectorAll(".host-screen").forEach((el) => el.classList.add("hidden"));
-    document.getElementById(id).classList.remove("hidden");
-  }
-
-  let lastLobbyRingKey = null;
-  let appliedSessionSeed = null;
-  let voteIntroKey = null;
-  let latestState = null;
+  const G = window.QuiplashGame, UI = window.QuiplashUI, SFX = window.QuiplashSfx;
+  const esc = UI.esc;
+  const stage = document.getElementById("stage");
+  let state = null;
+  let roomId = null;
   let reactionsMounted = false;
+  let phaseKey = null;
+  let lastTick = null;
 
-  function playersArray(state) {
-    return Object.entries(state.players || {}).map(([id, p]) => ({ id, name: id, ...p }));
+  function setStage(key, html) {
+    if (stage.dataset.key === key) return false;
+    stage.dataset.key = key;
+    stage.innerHTML = html;
+    return true;
   }
-  function connNames(state) { return QuiplashGame.connectedEntries(state.players).map(([n]) => n); }
+  const P = (name) => Object.assign({ name }, (state.players || {})[name] || { character: 1 });
+  const conn = () => G.connectedEntries(state.players).map(([n]) => n);
 
-  function applySessionBackground(seed) {
-    if (seed === null || seed === undefined || seed === appliedSessionSeed) return;
-    appliedSessionSeed = seed;
-    const widths = [6, 8, 10, 14, 18], speeds = [90, 120, 150, 180, 220];
-    document.documentElement.style.setProperty("--ray-hue", seed % 360);
-    document.documentElement.style.setProperty("--ray-width", widths[seed % widths.length] + "deg");
-    document.documentElement.style.setProperty("--ray-speed", speeds[Math.floor(seed / 7) % speeds.length] + "s");
-    document.body.classList.toggle("bg-reverse", seed % 2 === 0);
-  }
-
-  function renderLobbyRing(players) {
-    const key = players.map((p) => `${p.id}:${p.character || 1}:${p.color || ""}`).join(",");
-    if (key === lastLobbyRingKey) return;
-    lastLobbyRingKey = key;
-    const ring = document.getElementById("lobby-ring");
-    ring.querySelectorAll(".lobby-character").forEach((el) => el.remove());
-    const n = players.length;
-    players.forEach((p, i) => {
-      const angle = (360 / Math.max(n, 1)) * i - 90, rad = (angle * Math.PI) / 180;
-      const x = 50 + 40 * Math.cos(rad), y = 50 + 40 * Math.sin(rad);
-      const node = document.createElement("div");
-      node.className = "lobby-character"; node.style.left = x + "%"; node.style.top = y + "%";
-      node.innerHTML = `<div class="lobby-character-avatar" style="background:${p.color || "#888"}">
-          <img src="${charImg(p)}" onerror="this.style.display='none'"></div>
-        <div class="lobby-character-name">${escapeHtml(p.name)}</div>`;
-      ring.appendChild(node);
-    });
+  function cue() {
+    const key = `${state.phase}|${state.round}|${state.currentMatchupIndex}`;
+    if (key === phaseKey) return;
+    const first = phaseKey === null;
+    phaseKey = key;
+    if (first) return;
+    switch (state.phase) {
+      case "round_intro": SFX.play("chime"); setTimeout(() => SFX.play("whoosh"), 600); break;
+      case "answering": SFX.play("pop"); break;
+      case "answer_countdown": SFX.play(state.timedOut ? "buzz" : "ding"); break;
+      case "voting": SFX.play("vs"); break;
+      case "reveal": SFX.play("drum"); setTimeout(() => SFX.play("ding"), 1500); break;
+      case "round_end": SFX.play("cheer"); break;
+      case "game_over": SFX.play("fanfare"); setTimeout(() => SFX.play("cheer"), 700); UI.confetti(160); setTimeout(() => UI.confetti(120), 1600); break;
+    }
   }
 
-  function renderReadinessBar(container, players, answeredNames) {
-    const answeredSet = new Set(answeredNames);
-    container.innerHTML = "";
-    players.forEach((p) => {
-      const node = document.createElement("div");
-      node.className = "readiness-avatar" + (answeredSet.has(p.id) ? " is-ready" : "");
-      node.innerHTML = `<div class="readiness-avatar-img" style="background:${p.color || "#888"}">
-          <img src="${charImg(p)}" onerror="this.style.display='none'"></div>
-        <div class="readiness-avatar-name">${escapeHtml(p.name)}</div>`;
-      container.appendChild(node);
-    });
+  function playersGrid(names, moodOf, extraCls) {
+    const n = names.length;
+    const few = n <= 10;
+    return `<div class="tv-players${few ? " few" : ""}" style="--cols:${Math.max(3, Math.min(5, n))}">${names.map((nm, i) =>
+      `<div class="tv-p ${extraCls ? extraCls(nm) : ""}" style="animation-delay:${i * 50}ms">${UI.avatar(P(nm), moodOf ? moodOf(nm) : "idle")}<div class="nm">${esc(nm)}</div></div>`).join("")}</div>`;
   }
 
-  function setTimerFill(el, deadline, totalMs) {
-    if (!deadline) { el.style.width = "100%"; return; }
-    const remaining = Math.max(0, deadline - window.QuiplashGame.now());
-    el.style.width = Math.max(0, Math.min(100, (remaining / totalMs) * 100)) + "%";
+  function renderLobby() {
+    const names = Object.keys(state.players || {}).sort((a, b) => (state.players[a].joinedAt || 0) - (state.players[b].joinedAt || 0));
+    const c = new Set(conn());
+    const key = "lobby|" + names.map((n) => `${n}:${state.players[n].character}:${c.has(n)}`).join(",");
+    setStage(key, `<div class="ql-logo tv-logo bob"><span>Сміх</span><span>лист</span></div>
+      <div class="ql-card tv-code"><div class="label">Заходьте з телефонів<br>Сміхлист → код кімнати</div><div class="code">${esc(roomId)}</div></div>
+      ${names.length ? playersGrid(names, () => "idle", (n) => (c.has(n) ? "" : "off")) : `<p class="hint">Чекаємо на гравців…</p>`}
+      <p class="hint">${c.size < G.MIN_PLAYERS ? `Потрібно ще ${G.MIN_PLAYERS - c.size} гравців` : `Гравців: ${names.length}/${G.MAX_PLAYERS} — ведучий може починати!`}</p>`);
   }
 
-  function effectiveDeadline(state) {
-    if (!state.phaseDeadline) return null;
-    return state.paused
-      ? state.phaseDeadline + Math.max(0, window.QuiplashGame.now() - (state.pausedAt || window.QuiplashGame.now()))
-      : state.phaseDeadline;
+  function renderIntro() {
+    const t = UI.roundTitle(state.round);
+    const answerers = state.roundAnswerers || conn();
+    setStage(`intro|${state.round}`, `<div class="tv-round ql-round-intro">
+        <div class="ql-round-num">${esc(t.title)}</div><div class="ql-round-sub">${esc(t.sub)}</div><div class="ql-round-mult">${esc(t.mult)}</div></div>
+      ${playersGrid(answerers, () => "shock")}
+      ${answerers.length < Object.keys(state.players || {}).length ? `<p class="hint">Відповідають ${answerers.length} з ${Object.keys(state.players).length} — решта голосує</p>` : ""}`);
   }
 
-  function pointsRowHtml(count, basePoints, bonusPoints, key) {
-    const bonusId = `bonus-${key}`;
-    return `<div class="points-row">
-        <span class="points-base">${count || 0} голос(и): +${basePoints || 0} балів</span>
-        ${bonusPoints ? `<span class="points-bonus" id="${bonusId}" data-bonus="${bonusPoints}">СМІХЛИСТОЧОК +${bonusPoints} балів</span>` : ""}
-      </div>`;
-  }
-  function animateBonusBadges(container, baseDelayMs) {
-    container.querySelectorAll(".points-bonus").forEach((el, i) => {
-      setTimeout(() => { el.style.opacity = "1"; el.classList.add("pop"); }, (baseDelayMs || 0) + i * 220);
-    });
-  }
-
-  function avatarNode(p, size) {
-    const wrap = document.createElement("div");
-    wrap.className = "vote-intro-avatar";
-    wrap.style.width = size + "px"; wrap.style.height = size + "px"; wrap.style.background = p.color || "#888";
-    wrap.innerHTML = `<img src="${charImg(p)}" onerror="this.style.display='none'">`;
-    return wrap;
+  function renderAnswering() {
+    const answerers = (state.roundAnswerers || conn()).filter((n) => state.players && state.players[n]);
+    const done = answerers.filter((n) => G.playerAnswered(state, n));
+    const key = `ans|${state.round}|${done.join(",")}`;
+    const g = state.gallery;
+    setStage(key, `${g ? `<img src="${esc(g.image)}" alt="" style="max-height:42vh;max-width:70vw;border-radius:22px;border:4px solid var(--ink);box-shadow:0 8px 0 var(--ink)">` : ""}
+      <h1 class="big-title">${g ? "Придумайте підпис!" : "Пишіть відповіді!"}</h1>
+      <p class="hint">${g ? "Дивіться на картинку і пишіть на телефонах" : "Питання — на ваших телефонах. Кожне дісталось двом гравцям."}</p>
+      ${playersGrid(answerers, (n) => (done.includes(n) ? "happy" : "write"), (n) => (done.includes(n) ? "ok" : "wait"))}
+      <p class="hint">Готові: ${done.length}/${answerers.length}</p>
+      ${state.tvFact ? `<div class="fact">💡 ${esc(state.tvFact)}</div>` : ""}`);
   }
 
-  function setTwoRowGrid(container, itemCount) {
-    container.style.setProperty("--answer-columns", String(Math.max(2, Math.ceil(itemCount / 2))));
+  function renderCountdown() {
+    setStage(`cd|${state.round}|${!!state.timedOut}`, `<h1 class="big-title ql-stamp" style="color:var(--yellow)">${state.timedOut ? "Час вийшов! ⏰" : "Всі відповіли!"}</h1>
+      <p class="hint">Голосуємо — автори приховані до кінця</p>`);
   }
 
-  function renderVoteIntro(state, m, galleryCandidates, galleryAuthors) {
-    const body = document.getElementById("host-vote-intro-body");
-    const title = document.getElementById("host-vote-intro-title");
-    body.innerHTML = ""; body.className = "";
+  function votedRow(votes) {
+    return `<div class="tv-voted">${Object.keys(votes || {}).map((n) => UI.avatar(P(n), "happy")).join("")}</div>`;
+  }
+
+  function renderVoting() {
+    const intro = !!state.voteRevealAt && G.now() < state.voteRevealAt;
     if (state.gallery) {
-      title.textContent = "Голосуємо за найкращий підпис від:";
-      body.className = "vote-intro-authors";
-      galleryAuthors.forEach((p) => {
-        const side = document.createElement("div");
-        side.className = "vote-intro-side";
-        side.appendChild(avatarNode(p, 100));
-        side.innerHTML += `<div class="vote-intro-name">${escapeHtml(p.name)}</div>`;
-        body.appendChild(side);
-      });
+      const g = state.gallery;
+      const answers = Object.entries(g.answers || {}).filter(([, t]) => t);
+      const cols = answers.length > 8 ? 3 : answers.length > 3 ? 2 : 1;
+      const votesIn = Object.keys(g.votes || {}).length;
+      if (setStage(`gv|${state.round}|${intro}`, `<div class="tv-gallery">
+          <img src="${esc(g.image)}" alt="">
+          <div><h1 class="big-title" style="font-size:clamp(30px,3.4vw,60px);margin-bottom:2vh">${intro ? "Голосуємо!" : "Найкращий підпис?"}</h1>
+            <div class="tv-answers" style="--cols:${cols}">${answers.map(([, t], i) => `<div class="ql-bubble ql-pop" style="animation-delay:${intro ? 9999 : i * 120}ms">${esc(t)}</div>`).join("")}</div>
+            <p class="tv-votecount" id="vc" style="margin-top:2vh"></p><div id="voted"></div></div></div>`)) {
+        stage.dataset.voted = "";
+      }
+      document.getElementById("vc").textContent = intro ? "" : `Голосів: ${votesIn}/${G.galleryVoters(state).length}`;
+      const vk = Object.keys(g.votes || {}).join(",");
+      if (stage.dataset.voted !== vk) { stage.dataset.voted = vk; document.getElementById("voted").innerHTML = votedRow(g.votes); }
       return;
     }
-    title.textContent = "Голосуємо за краще з двох:";
-    const sideA = document.createElement("div");
-    sideA.className = "vote-intro-side";
-    sideA.appendChild(avatarNode(m.pa, 160));
-    sideA.innerHTML += `<div class="vote-intro-name">${escapeHtml(m.pa.name)}</div>`;
-    const vs = document.createElement("div"); vs.className = "vote-intro-vs"; vs.textContent = "VS";
-    const sideB = document.createElement("div");
-    sideB.className = "vote-intro-side";
-    sideB.appendChild(avatarNode(m.pb, 160));
-    sideB.innerHTML += `<div class="vote-intro-name">${escapeHtml(m.pb.name)}</div>`;
-    body.appendChild(sideA); body.appendChild(vs); body.appendChild(sideB);
+    const m = G.matchupList(state)[state.currentMatchupIndex];
+    if (!m) return;
+    const side = (text, right) => `<div class="tv-side${right ? " right" : ""}">
+      <div class="ql-bubble ${right ? "right ql-slide-r" : "ql-slide-l"}">${intro ? "?" : esc(text)}</div></div>`;
+    if (setStage(`v|${m.id}|${intro}`, `<div class="ql-prompt tv-prompt ql-pop">${UI.promptHtml(m.promptText)}</div>
+        <div class="tv-duel">${side(m.answerA)}<div class="ql-vs">VS</div>${side(m.answerB, true)}</div>
+        <p class="tv-votecount" id="vc"></p><div id="voted"></div>`)) {
+      stage.dataset.voted = "";
+    }
+    const votesIn = Object.keys(m.votes || {}).length;
+    document.getElementById("vc").textContent = intro ? "Хто ж автори? Дізнаємось після голосування" : `Голосуйте на телефонах! ${votesIn}/${G.eligibleVoters(state, m).length}`;
+    const vk = Object.keys(m.votes || {}).join(",");
+    if (stage.dataset.voted !== vk) { stage.dataset.voted = vk; document.getElementById("voted").innerHTML = intro ? "" : votedRow(m.votes); }
   }
 
-  function renderScoreBars(container, players, opts) {
-    opts = opts || {};
-    const avatarKey = players.map((p) => `${p.id}:${p.character || 1}:${p.color || ""}`).join("|");
-    const renderKey = opts.key ? `${opts.key}|${avatarKey}` : avatarKey;
-    if (container.dataset.key === renderKey) return;
-    container.dataset.key = renderKey;
-    const maxScore = players.reduce((m, p) => Math.max(m, p.score || 0), 0) || 1;
-    container.innerHTML = "";
-    const fills = [];
-    players.forEach((p, i) => {
-      const row = document.createElement("div");
-      row.className = "final-row" + (opts.crownWinner && i === 0 ? " winner" : "");
-      row.innerHTML = `<div class="final-rank">${opts.crownWinner && i === 0 ? "👑" : i + 1}</div>
-        <div class="final-avatar" style="background:${p.color || "#888"}"><img src="${charImg(p)}" onerror="this.style.display='none'"></div>
-        <div class="final-info"><div class="final-name">${escapeHtml(p.name)}</div>
-          <div class="final-bar-track"><div class="final-bar-fill" style="background:${p.color || "#3498db"};width:0%"></div></div></div>
-        <div class="final-score">${p.score || 0}</div>`;
-      container.appendChild(row);
-      const pct = p.score > 0 ? Math.max(4, Math.round(((p.score || 0) / maxScore) * 100)) : 0;
-      fills.push({ fill: row.querySelector(".final-bar-fill"), pct });
-    });
-    requestAnimationFrame(() => requestAnimationFrame(() => fills.forEach(({ fill, pct }) => { fill.style.width = pct + "%"; })));
+  function chips(votes, match) {
+    return Object.entries(votes || {}).filter(([, v]) => v === match).map(([n], i) =>
+      UI.avatar(P(n), "happy").replace('class="qa-av', `style="animation-delay:${300 + i * 140}ms" class="qa-av`)).join("");
   }
 
-  function render(state) {
-    latestState = state;
+  function renderReveal() {
+    if (state.gallery) {
+      const g = state.gallery;
+      const res = Object.entries(g.results || {}).sort((a, b) => b[1].count - a[1].count).slice(0, 8);
+      setStage(`gr|${state.round}`, `<div class="tv-gallery"><img src="${esc(g.image)}" alt="">
+        <div class="tv-res">${res.map(([n, r], i) => `<div class="tv-res-row ql-rise" style="animation-delay:${(res.length - 1 - i) * 350}ms">
+          ${UI.avatar(P(n), i === 0 && r.count > 0 ? "happy" : r.count === 0 ? "sad" : "idle")}
+          <div class="ql-bubble ${i === 0 && r.count > 0 ? "win" : ""}">${esc(g.answers[n])}<div class="ql-voters" style="margin-top:6px">${chips(g.votes, n)}</div></div>
+          <div class="side"><b>${esc(n)}</b><span class="ql-points">+${r.points}</span>${UI.bonusLabel(r.bonusKind, r.bonusPoints)}</div></div>`).join("")}</div></div>`);
+      return;
+    }
+    const m = G.matchupList(state)[state.currentMatchupIndex];
+    if (!m) return;
+    const aWin = (m.pointsA || 0) > (m.pointsB || 0), bWin = (m.pointsB || 0) > (m.pointsA || 0);
+    const forfeit = !m.answerA || !m.answerB;
+    const side = (name, text, pts, bonus, kind, count, choice, win, lose, right) => `<div class="tv-side${right ? " right" : ""}">
+      <div class="ql-bubble ${right ? "right" : ""} ${win ? "win" : ""} ${lose ? "lose" : ""} ${text ? "" : "missing"}">${text ? esc(text) : "— без відповіді —"}</div>
+      <div class="tv-who"><span class="ql-pop d2">${UI.avatar(P(name), !text ? "sad" : win ? "happy" : lose ? "sad" : "idle")}</span>
+        <div class="tv-who-info"><b class="ql-rise d2">${esc(name)}</b>
+          <div class="ql-voters">${chips(m.votes, choice)}</div>
+          <div class="rv-pts ql-pop d3"><span class="ql-points">+${pts || 0}</span>${UI.bonusLabel(kind, bonus)}${forfeit ? "" : `<span class="tv-votecount">${count || 0} ${UI.votesWord(count || 0)}</span>`}</div></div></div></div>`;
+    setStage(`r|${m.id}`, `<div class="ql-prompt tv-prompt" style="font-size:clamp(22px,2.6vw,46px)">${UI.promptHtml(m.promptText)}</div>
+      <div class="tv-duel">${side(m.playerAId, m.answerA, m.pointsA, m.bonusA, m.bonusKindA, m.countA, "A", aWin, bWin)}
+        <div class="ql-vs" style="opacity:.5">VS</div>
+        ${side(m.playerBId, m.answerB, m.pointsB, m.bonusB, m.bonusKindB, m.countB, "B", bWin, aWin, true)}</div>`);
+  }
+
+  function renderRoundEnd() {
+    const last = state.round >= G.TOTAL_ROUNDS;
+    const many = Object.keys(state.players || {}).length > 8;
+    if (setStage(`re|${state.round}`, `<h1 class="big-title">${last ? "Фінальний підрахунок" : `Після раунду ${state.round}`}</h1>
+      <div class="tv-board${many ? " many" : ""}" id="board"></div><p class="hint" id="re-hint"></p>`)) {
+      UI.renderBoard(document.getElementById("board"), state, { showDelta: true });
+    }
+    UI.renderBoard(document.getElementById("board"), state, { showDelta: true });
+    const t = UI.phaseTimer(state);
+    document.getElementById("re-hint").textContent = last ? "А переможцем стає…" : conn().length < 2 ? "Чекаємо, поки гравці повернуться…" : `Наступний раунд за ${t ? Math.ceil(t.remaining / 1000) : 0} с`;
+  }
+
+  function renderGameOver() {
+    const ranked = Object.entries(state.players || {}).sort((a, b) => (b[1].score || 0) - (a[1].score || 0));
+    const top = ranked[0];
+    const many = ranked.length > 8;
+    if (setStage(`go|${state.createdAt}|${ranked.length}`, `${top ? `<div class="tv-podium ql-pop">${UI.avatar(P(top[0]), "happy")}
+        <div style="text-align:left"><div class="crown">👑</div><div class="nm">${esc(top[0])}</div><div class="sc">${top[1].score || 0} балів</div></div></div>` : ""}
+      <div class="tv-board${many ? " many" : ""}" id="board"></div>`)) {
+      UI.renderBoard(document.getElementById("board"), state, { final: true });
+    }
+  }
+
+  function render() {
+    if (!state) return;
     document.body.dataset.scene = state.phase;
-    if (!reactionsMounted && window.GameReactions && QuiplashGame.roomRef) {
+    if (!reactionsMounted && window.GameReactions) {
       reactionsMounted = true;
-      window.GameReactions.mountOverlay(QuiplashGame.roomRef);
+      window.GameReactions.mountOverlay(window.rtdb.ref(`quiplash_rooms/${roomId}`));
     }
-    // Те саме, що й у quiplash.html — createdAt додає варіативність МІЖ
-    // іграми, а не лише всередині однієї (round завжди скидається на 0).
-    applySessionBackground((state.createdAt || 0) + (state.round || 0) * 97);
-    maybeShowSuperSmihlystok(state);
-    if (state.phase !== "voting") voteIntroKey = null;
-
+    cue();
+    UI.maybeSuper(state, () => { SFX.play("fanfare"); setTimeout(() => SFX.play("cheer"), 400); });
     document.getElementById("pause-overlay").classList.toggle("hidden", !state.paused);
-    if (state.paused) {
-      document.getElementById("pause-by-text").textContent = state.pausedByName
-        ? `${state.pausedByName} поставив(-ла) гру на паузу` : "Гру поставлено на паузу";
-    }
+    if (state.paused) document.getElementById("pause-by").textContent = state.pausedByName ? `${state.pausedByName} натиснув(-ла) паузу` : "";
+    const chip = document.getElementById("round-chip");
+    const playing = state.phase !== "lobby" && state.phase !== "game_over";
+    chip.style.visibility = playing ? "visible" : "hidden";
+    chip.textContent = (G.ROUND_PLAN[state.round - 1] || "classic") === "image" ? "Фінал · ×3"
+      : `Раунд ${state.round}/${G.TOTAL_ROUNDS}${state.round > 1 ? ` · ×${G.mult(state.round)}` : ""}`;
+    const players = Object.keys(state.players || {});
+    const c = new Set(conn());
+    const off = players.filter((n) => !c.has(n));
+    document.getElementById("status-line").textContent = off.length && playing ? `Відключились: ${off.join(", ")}` : "";
 
-    const players = playersArray(state);
-    const conn = QuiplashGame.connectedEntries(state.players);
-    const inactive = players.filter((player) => !conn.some(([name]) => name === player.id));
-    document.getElementById("host-player-status").textContent = inactive.length
-      ? `Гравець відключився: ${inactive.map((player) => player.name).join(", ")}`
-      : "";
-
-    if (state.phase === "lobby") {
-      screen("host-screen-lobby");
-      renderLobbyRing(players);
-      const n = conn.length;
-      document.getElementById("host-lobby-hint").textContent = n < QuiplashGame.MIN_PLAYERS
-        ? `Потрібно ще щонайменше ${QuiplashGame.MIN_PLAYERS - n} гравців(-я). Гру можна почати з будь-якого телефона.`
-        : `Гравців: ${n}/${QuiplashGame.MAX_PLAYERS}. Хтось із гравців може натиснути "Почати гру".`;
-      document.getElementById("host-vote-seconds-hint").textContent = state.settings.voteSeconds
-        ? `Час на голосування: ${state.settings.voteSeconds}с (налаштовується з телефону)` : "";
-      return;
-    }
-
-    if (state.phase === "answering") {
-      screen("host-screen-answering");
-      document.getElementById("host-round-label").textContent = `Раунд ${state.round}/${QuiplashGame.TOTAL_ROUNDS}`;
-      document.getElementById("host-answer-fact").textContent = state.tvFact ? `Цікавий факт: ${state.tvFact}` : "";
-      const explainer = document.getElementById("host-answer-explainer");
-      const image = document.getElementById("host-answer-image");
-      const title = document.getElementById("host-answer-title");
-      document.getElementById("host-answer-countdown").textContent = "";
-      let answeredNames;
-      if (state.gallery) {
-        explainer.classList.remove("hidden");
-        image.src = state.gallery.image; image.classList.remove("hidden");
-        title.textContent = state.gallery.text;
-        answeredNames = Object.keys(state.gallery.answers || {});
-      } else {
-        explainer.classList.add("hidden"); image.classList.add("hidden");
-        title.textContent = "Всі пишуть відповіді…";
-        answeredNames = players.filter((p) => Object.values(state.matchups || {}).every((m) =>
-          (m.playerAId !== p.id || m.answerA != null) && (m.playerBId !== p.id || m.answerB != null)
-        )).map((p) => p.id);
-      }
-      const answeringPlayers = players.filter((p) => QuiplashGame.isAnswerer(state, p.id));
-      if (state.roundAnswerers) title.textContent += ` (відповідають ${state.roundAnswerers.length} з ${players.length})`;
-      renderReadinessBar(document.getElementById("host-answer-progress"), answeringPlayers, answeredNames);
-      return;
-    }
-
-    if (state.phase === "answer_countdown") {
-      screen("host-screen-answering");
-      document.getElementById("host-round-label").textContent = `Раунд ${state.round}/${QuiplashGame.TOTAL_ROUNDS}`;
-      document.getElementById("host-answer-explainer").classList.add("hidden");
-      document.getElementById("host-answer-image").classList.add("hidden");
-      document.getElementById("host-answer-title").textContent = "Всі відповіли. Готуємось до голосування…";
-      document.getElementById("host-answer-fact").textContent = state.tvFact ? `Цікавий факт: ${state.tvFact}` : "";
-      return;
-    }
-
-    if (state.phase === "voting" || state.phase === "reveal") {
-      const byId = {}; players.forEach((p) => { byId[p.id] = p; });
-      const isVoting = state.phase === "voting";
-      screen(isVoting ? "host-screen-voting" : "host-screen-reveal");
-
-      if (state.gallery) {
-        const g = state.gallery;
-        const authors = Object.keys(g.answers || {}).map((n) => byId[n]).filter(Boolean);
-        const candidates = Object.entries(g.answers || {}).map(([n, text]) => ({ name: n, text }));
-
-        if (isVoting) {
-          const introKey = `gallery-${state.round}`;
-          if (introKey !== voteIntroKey) {
-            voteIntroKey = introKey;
-            renderVoteIntro(state, null, candidates, authors);
-          }
-          const showIntro = !!state.voteRevealAt && window.QuiplashGame.now() < state.voteRevealAt;
-          document.getElementById("host-vote-intro").classList.toggle("hidden", !showIntro);
-          document.getElementById("host-vote-main").classList.toggle("hidden", showIntro);
-
-          document.getElementById("host-vote-progress").textContent = `Раунд ${state.round}/${QuiplashGame.TOTAL_ROUNDS} · Голосування за найкращий підпис`;
-          setTimerFill(document.getElementById("host-vote-timer"), effectiveDeadline(state), window.QuiplashGame.galleryVoteMs(state));
-          document.getElementById("host-prompt").textContent = g.text;
-          const promptImg = document.getElementById("host-prompt-image");
-          promptImg.src = g.image; promptImg.classList.remove("hidden");
-          document.getElementById("host-pair-choices").classList.add("hidden");
-          const galleryBox = document.getElementById("host-gallery-choices");
-          galleryBox.classList.remove("hidden");
-          setTwoRowGrid(galleryBox, candidates.length);
-          galleryBox.innerHTML = candidates.map((c) => `<div class="gallery-tile">${escapeHtml(c.text)}</div>`).join("");
-          const galleryVoters = conn.filter(([name]) => g.answers && g.answers[name] !== undefined).length;
-          document.getElementById("host-vote-count").textContent = `Голосів: ${Object.keys(g.votes || {}).length}/${galleryVoters}`;
-        } else {
-          document.getElementById("host-reveal-prompt").textContent = g.text;
-          const img = document.getElementById("host-reveal-prompt-image");
-          img.src = g.image; img.classList.remove("hidden");
-          document.getElementById("host-reveal-pair").classList.add("hidden");
-          const list = document.getElementById("host-reveal-gallery-list");
-          list.classList.remove("hidden");
-          const key = `${state.round}-gallery`;
-          if (list.dataset.key !== key) {
-            list.dataset.key = key;
-            const results = Object.entries(g.results || {}).sort((a, b) => b[1].count - a[1].count);
-            list.innerHTML = results.map(([n, r], i) => `<div class="reveal-answer${i === 0 && r.count > 0 ? " reveal-winner" : ""}">
-              ${i === 0 && r.count > 0 ? `<div class="smihlystok-reaction"><img src="${charImg(byId[n] || { character: 1 })}" alt=""><span>СМІХЛИСТ!</span></div>` : ""}
-              <p class="reveal-name">${escapeHtml(n)}</p>
-                <p class="reveal-answer-text">${escapeHtml(g.answers[n])}</p>
-                ${pointsRowHtml(r.count, r.basePoints, r.bonusPoints, `${state.round}-${n}`)}
-              </div>`).join("");
-            animateBonusBadges(list, 700);
-          }
-        }
-        return;
-      }
-
-      const list = Object.values(state.matchups || {});
-      const m = list[state.currentMatchupIndex];
-      if (!m) return;
-      const pa = byId[m.playerAId] || { name: m.playerAId };
-      const pb = byId[m.playerBId] || { name: m.playerBId };
-
-      if (isVoting) {
-        const introKey = m.id;
-        if (introKey !== voteIntroKey) {
-          voteIntroKey = introKey;
-          renderVoteIntro(state, { pa, pb });
-        }
-        const showIntro = !!state.voteRevealAt && window.QuiplashGame.now() < state.voteRevealAt;
-        document.getElementById("host-vote-intro").classList.toggle("hidden", !showIntro);
-        document.getElementById("host-vote-main").classList.toggle("hidden", showIntro);
-
-        document.getElementById("host-pair-choices").classList.remove("hidden");
-        document.getElementById("host-gallery-choices").classList.add("hidden");
-        document.getElementById("host-vote-progress").textContent = `Раунд ${state.round}/${QuiplashGame.TOTAL_ROUNDS} · Пара ${state.currentMatchupIndex + 1}/${list.length}`;
-        setTimerFill(document.getElementById("host-vote-timer"), effectiveDeadline(state), window.QuiplashGame.classicVoteMs(state));
-        document.getElementById("host-prompt").textContent = m.promptText;
-        document.getElementById("host-prompt-image").classList.add("hidden");
-        document.getElementById("host-answer-a-text").textContent = m.answerA;
-        document.getElementById("host-answer-b-text").textContent = m.answerB;
-        const votesIn = Object.keys(m.votes || {}).length;
-        const votesNeeded = conn.length === 2 ? 2 : conn.filter(([n]) => n !== m.playerAId && n !== m.playerBId).length;
-        document.getElementById("host-vote-count").textContent = `Голосів: ${votesIn}/${votesNeeded}`;
-      } else {
-        document.getElementById("host-reveal-prompt").textContent = m.promptText;
-        document.getElementById("host-reveal-prompt-image").classList.add("hidden");
-        document.getElementById("host-reveal-pair").classList.remove("hidden");
-        document.getElementById("host-reveal-gallery-list").classList.add("hidden");
-        const aWon = (m.pointsA || 0) > (m.pointsB || 0), bWon = (m.pointsB || 0) > (m.pointsA || 0);
-        const a = document.getElementById("host-reveal-a"), b = document.getElementById("host-reveal-b");
-        if (a.dataset.key !== m.id) {
-          a.dataset.key = m.id;
-          a.className = "reveal-answer" + (aWon ? " reveal-winner" : "");
-          b.className = "reveal-answer" + (bWon ? " reveal-winner" : "");
-          a.innerHTML = `<p class="reveal-name">${escapeHtml(pa.name)}</p><p class="reveal-answer-text">${escapeHtml(m.answerA)}</p>${pointsRowHtml(m.countA, m.basePointsA, m.bonusPointsA, m.id + "-a")}`;
-          b.innerHTML = `<p class="reveal-name">${escapeHtml(pb.name)}</p><p class="reveal-answer-text">${escapeHtml(m.answerB)}</p>${pointsRowHtml(m.countB, m.basePointsB, m.bonusPointsB, m.id + "-b")}`;
-          animateBonusBadges(document.getElementById("host-reveal-pair"), 700);
-        }
-      }
-      return;
-    }
-
-    if (state.phase === "round_end") {
-      screen("host-screen-round-end");
-      document.getElementById("host-round-end-title").textContent = `Результати раунду ${state.round}`;
-      const recap = document.getElementById("host-gallery-recap");
-      const isFinalRound = state.round >= QuiplashGame.TOTAL_ROUNDS;
-      const byId = {}; players.forEach((p) => { byId[p.id] = p; });
-
-      if (state.gallery && state.gallery.results) {
-        recap.classList.remove("hidden");
-        const key = `round-${state.round}`;
-        if (recap.dataset.key !== key) {
-          recap.dataset.key = key;
-          const results = Object.entries(state.gallery.results).sort((a, b) => b[1].count - a[1].count);
-          recap.innerHTML = `<img class="prompt-image big" src="${escapeHtml(state.gallery.image)}">
-            <p class="recap-prompt">${escapeHtml(state.gallery.text)}</p>` +
-            results.map(([n, r]) => {
-              const p = byId[n] || {};
-              return `<div class="recap-row">
-                <div class="recap-avatar" style="background:${p.color || "#888"}"><img src="${charImg(p)}" onerror="this.style.display='none'"></div>
-                <div class="recap-text"><span class="recap-name">${escapeHtml(n)}</span><span class="recap-caption">"${escapeHtml(state.gallery.answers[n])}"</span></div>
-                ${pointsRowHtml(r.count, r.basePoints, r.bonusPoints, `recap-${state.round}-${n}`)}
-              </div>`;
-            }).join("");
-          animateBonusBadges(recap, 500);
-        }
-      } else {
-        recap.dataset.key = ""; recap.classList.add("hidden"); recap.innerHTML = "";
-      }
-
-      const classicRecap = document.getElementById("host-classic-recap");
-      if (!state.gallery && state.matchups) {
-        const key = `round-${state.round}-classic-${Object.values(state.matchups).map((m) => `${m.id}:${m.pointsA || 0}:${m.pointsB || 0}`).join("|")}`;
-        classicRecap.classList.remove("hidden");
-        if (classicRecap.dataset.key !== key) {
-          classicRecap.dataset.key = key;
-          classicRecap.innerHTML = Object.values(state.matchups).map((m) => `
-            <div class="classic-recap-row">
-              <div class="classic-recap-prompt">${escapeHtml(m.promptText)}</div>
-              <div class="classic-recap-answers">
-                <div class="classic-recap-answer"><b>${escapeHtml(m.playerAId)}</b><br>${escapeHtml(m.answerA || "Без відповіді")}<br><span class="hint">${m.countA || 0} голос(и) · +${m.pointsA || 0}</span></div>
-                <div class="classic-recap-answer"><b>${escapeHtml(m.playerBId)}</b><br>${escapeHtml(m.answerB || "Без відповіді")}<br><span class="hint">${m.countB || 0} голос(и) · +${m.pointsB || 0}</span></div>
-              </div>
-            </div>`).join("");
-        }
-      } else {
-        classicRecap.dataset.key = "";
-        classicRecap.classList.add("hidden");
-        classicRecap.innerHTML = "";
-      }
-
-      const scoreboardTitle = document.getElementById("host-scoreboard-title");
-      {
-        scoreboardTitle.classList.toggle("hidden", !state.gallery);
-        renderScoreBars(document.getElementById("host-round-scoreboard"),
-          players.slice().sort((a, b) => (b.score || 0) - (a.score || 0)), { key: `round-${state.round}` });
-      }
-      document.getElementById("host-round-end-hint").textContent = isFinalRound
-        ? (state.awaitingContinuation ? "Ведучий вирішує, що робимо далі…" : "")
-        : (conn.length < 2 ? "Чекаємо, поки гравці повернуться…" : "Наступний раунд ось-ось почнеться…");
-      return;
-    }
-
-    if (state.phase === "game_over") {
-      screen("host-screen-game-over");
-      renderScoreBars(document.getElementById("host-final-scoreboard"),
-        players.slice().sort((a, b) => (b.score || 0) - (a.score || 0)), { key: "final", crownWinner: true });
-      return;
+    switch (state.phase) {
+      case "lobby": renderLobby(); break;
+      case "round_intro": renderIntro(); break;
+      case "answering": renderAnswering(); break;
+      case "answer_countdown": renderCountdown(); break;
+      case "voting": renderVoting(); break;
+      case "reveal": renderReveal(); break;
+      case "round_end": renderRoundEnd(); break;
+      case "game_over": renderGameOver(); break;
     }
   }
+
+  setInterval(() => {
+    if (!state) return;
+    const visible = state.phase === "answering" || (state.phase === "voting" && !(state.voteRevealAt && G.now() < state.voteRevealAt));
+    const secs = UI.paintTimer(document.getElementById("tv-timer"), state, visible);
+    if (secs != null && secs <= 5 && secs > 0 && secs !== lastTick && !state.paused) SFX.play(secs <= 3 ? "tickUrgent" : "tick");
+    lastTick = secs;
+    // кінець VS-заставки і зворотний відлік — без чекання нового стану
+    if (state.phase === "voting" || state.phase === "round_end") render();
+  }, 250);
+
+  const soundBtn = document.getElementById("sound-btn");
+  soundBtn.onclick = () => { SFX.play("chime"); soundBtn.remove(); };
 
   function waitForRtdb() {
     if (!window.rtdbReady) { setTimeout(waitForRtdb, 300); return; }
-    // Номерні кімнати: TV бере код з ?room=CODE в URL (лінк, який хост
-    // показує на телефоні в лобі), або питає його один раз при відкритті —
-    // той самий підхід, що й у quiz-tv.html.
-    const roomId = (new URLSearchParams(location.search).get("room") || prompt("Код кімнати Смішліста:") || "").trim().toUpperCase();
+    roomId = (new URLSearchParams(location.search).get("room") || prompt("Код кімнати Сміхлиста:") || "").trim().toUpperCase();
     if (!roomId) return;
     history.replaceState(null, "", location.pathname + "?room=" + roomId);
-    const codeLabel = document.getElementById("host-room-code");
-    if (codeLabel) codeLabel.textContent = `Код кімнати: ${roomId}`;
     window.rtdb.ref(`quiplash_rooms/${roomId}`).on("value", (snap) => {
-      const state = snap.val();
-      if (state) render(state);
+      const s = snap.val();
+      if (!s) { setStage("none", `<div class="ql-logo tv-logo bob"><span>Сміх</span><span>лист</span></div><p class="hint">Кімнату ${esc(roomId)} ще не створено — створіть її з телефона</p>`); return; }
+      state = s;
+      render();
     });
   }
-  setInterval(() => {
-    if (!latestState) return;
-    if (latestState.phase === "answer_countdown") {
-      const remaining = Math.max(0, (latestState.phaseDeadline || window.QuiplashGame.now()) - window.QuiplashGame.now());
-      document.getElementById("host-answer-countdown").textContent = `Старт голосування через ${Math.ceil(remaining / 1000)}…`;
-      return;
-    }
-    if (latestState.phase !== "voting") return;
-    const timer = document.getElementById("host-vote-timer");
-    const total = latestState.gallery ? window.QuiplashGame.galleryVoteMs(latestState) : window.QuiplashGame.classicVoteMs(latestState);
-    setTimerFill(timer, effectiveDeadline(latestState), total);
-  }, 200);
   waitForRtdb();
 })();
 </script>
