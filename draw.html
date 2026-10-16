@@ -1,213 +1,220 @@
-<!-- Гра: Крокодил / Галерея  |  Файл: draw.html -->
+<!-- Гра: Малювалка (Крокодил на полотні / Галерея) — тема: арт-студія з плямами фарби. -->
 <!DOCTYPE html>
 <html lang="uk">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
-<title>Крокодил / Галерея</title>
-<link rel="stylesheet" href="js/styles/teli-style.css" />
-<style>
-  .mode-selector { display: flex; gap: 8px; margin-bottom: 12px; }
-  .mode-btn { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: #1a1a2e; color: #fff; cursor: pointer; }
-  .mode-btn.active { background: #00e676; color: #000; font-weight: bold; }
-  .drawer-prompt { font-size: 1.4rem; font-weight: bold; color: #00e676; text-align: center; margin-bottom: 10px; }
-  .guess-chip { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: rgba(255,255,255,0.05); margin-bottom: 6px; border-radius: 6px; }
-  .timer-badge { font-size: 1.2rem; font-weight: bold; color: #ffca28; text-align: center; margin-bottom: 8px; }
-  .gallery-preview img { max-width: 100%; border-radius: 8px; border: 2px solid rgba(255,255,255,0.2); }
-  .brush-size { display: flex; align-items: center; gap: 12px; }
-  .brush-preview { flex: none; width: 44px; height: 44px; border-radius: 10px; background: #fff;
-    display: flex; align-items: center; justify-content: center; overflow: hidden; }
-  .brush-dot { display: block; border-radius: 50%; background: #1a1a1a; width: 6px; height: 6px; flex: none; }
-  .brush-range { flex: 1; min-width: 0; height: 32px; margin: 0; accent-color: var(--accent); }
-  .brush-range:disabled { opacity: 0.35; }
-</style>
+<meta name="theme-color" content="#1c1726" />
+<title>Малювалка</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="js/styles/party-shared.css">
 <link rel="stylesheet" href="js/styles/game-header.css">
 <script src="js/core/game-header.js" defer></script>
+<style>
+:root {
+  --bg: #1c1726; --panel: rgba(255,255,255,.06); --panel-2: rgba(255,255,255,.11); --ink: #fbf7ff; --muted: rgba(240,232,255,.62); --line: rgba(255,255,255,.14);
+  --accent: #ff3d8b; --accent-ink: #fff; --cyan: #29d3ff; --yellow: #ffd23f; --good: #3be08f; --bad: #ff6b6b;
+  --font-d: 'Manrope', sans-serif; --font-b: 'Manrope', sans-serif; --font-s: 'Pacifico', cursive;
+  --hdr-bg: rgba(28,23,38,.85);
+}
+/* тло: плями фарби */
+body { background:
+  radial-gradient(28% 18% at 8% 12%, rgba(255,61,139,.30), transparent 70%),
+  radial-gradient(24% 16% at 92% 30%, rgba(41,211,255,.26), transparent 70%),
+  radial-gradient(30% 18% at 20% 88%, rgba(255,210,63,.20), transparent 70%),
+  radial-gradient(22% 14% at 88% 92%, rgba(59,224,143,.18), transparent 70%), #1c1726 fixed; }
+.pp-hero h1, .pp-lobby-head .t b { font-family: var(--font-s); font-weight: 400; letter-spacing: 0; }
+.pp-hero h1 { font-size: 40px; background: linear-gradient(90deg, var(--accent), var(--yellow), var(--cyan)); -webkit-background-clip: text; background-clip: text; color: transparent; padding: 4px 0; }
+.pp-lobby-head .t b { font-size: 24px; color: var(--accent); }
+.pp-primary { box-shadow: 0 6px 22px rgba(255,61,139,.35); }
+.pp-code b { color: var(--yellow); }
+.pp-seg button.selected { background: var(--accent); color: #fff; }
+
+/* режими */
+.dr-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.dr-mode { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 12px; border-radius: 16px; border: 2px solid var(--line); background: var(--panel); color: var(--ink); text-align: left; }
+.dr-mode .ic { font-size: 26px; color: var(--cyan); }
+.dr-mode b { font: 800 15px var(--font-b); }
+.dr-mode small { font-size: 12px; color: var(--muted); line-height: 1.35; }
+.dr-mode.selected { border-color: var(--accent); background: rgba(255,61,139,.12); }
+.dr-mode.selected .ic { color: var(--accent); }
+.dr-mode:disabled { opacity: 1; cursor: default; }
+
+/* слово / завдання */
+.dr-word { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 16px; background: linear-gradient(135deg, var(--accent), #a24dff); box-shadow: 0 10px 26px rgba(255,61,139,.3); }
+.dr-word small { display: block; font: 800 11px var(--font-b); letter-spacing: .1em; text-transform: uppercase; opacity: .85; }
+.dr-word b { display: block; font: 800 22px/1.15 var(--font-b); }
+.dr-word .pp-btn { margin-left: auto; min-height: 40px; padding: 0 12px; font-size: 12px; background: rgba(255,255,255,.18); border-color: rgba(255,255,255,.3); flex: none; }
+.dr-who { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); }
+.dr-who small { display: block; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.dr-who b { font: 800 17px var(--font-b); }
+.dr-who .say { margin-left: auto; display: flex; align-items: center; gap: 6px; font: 800 13px var(--font-b); color: var(--yellow); }
+
+/* полотно й інструменти */
+.canvas-wrap { position: relative; width: 100%; aspect-ratio: 4 / 3; border-radius: 16px; overflow: hidden; background: #fff; touch-action: none;
+  box-shadow: 0 0 0 4px rgba(255,255,255,.08), 0 16px 36px rgba(0,0,0,.4); }
+.canvas-wrap canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.dr-tools { display: flex; flex-direction: column; gap: 10px; }
+.color-swatches { display: flex; justify-content: space-between; gap: 4px; }
+.swatch { width: 34px; height: 34px; border-radius: 50%; padding: 0; border: 3px solid var(--bg); box-shadow: 0 0 0 1px var(--line); transition: transform .15s; }
+.swatch.selected { transform: scale(1.15); box-shadow: 0 0 0 2px var(--ink); }
+.dr-row { display: flex; align-items: center; gap: 8px; }
+.tool-btn { flex: none; width: 46px; height: 46px; display: grid; place-items: center; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); font-size: 22px; }
+.tool-btn.selected { background: var(--accent); border-color: var(--accent); color: #fff; }
+.tool-btn:active { transform: scale(.94); }
+.brush-preview { flex: none; width: 40px; height: 40px; border-radius: 10px; background: #fff; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.brush-dot { display: block; border-radius: 50%; background: #1a1a1a; width: 6px; height: 6px; flex: none; }
+.brush-range { flex: 1; min-width: 0; height: 32px; margin: 0; accent-color: var(--accent); }
+.brush-range:disabled { opacity: .35; }
+.dr-grow { flex: 1; }
+
+/* хто вгадав */
+.dr-guessers { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.dr-g { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; border-radius: 14px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+.dr-g .nm { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 800; }
+.dr-g .sc { font: 800 13px var(--font-b); color: var(--yellow); }
+.dr-g.drawer { border-color: var(--accent); }
+.dr-g.drawer::after { content: "малює"; position: absolute; top: 4px; right: 6px; font-size: 9px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.dr-g.tap { cursor: pointer; border-color: rgba(59,224,143,.5); }
+.dr-g.tap:active { transform: scale(.96); background: rgba(59,224,143,.18); }
+
+/* галерея */
+.dr-frame { padding: 12px; border-radius: 10px; background: linear-gradient(135deg, #c99a3d, #8a6420); box-shadow: 0 18px 40px rgba(0,0,0,.45), inset 0 0 0 3px rgba(255,255,255,.2); }
+.dr-frame img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: contain; background: #fff; border-radius: 3px; }
+.dr-frame.in { animation: drIn .5s cubic-bezier(.2,1.3,.4,1) both; }
+@keyframes drIn { from { opacity: 0; transform: scale(.85) rotate(-3deg); } }
+.dr-answer { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 16px; background: rgba(59,224,143,.14); border: 1px solid var(--good); animation: ppPop .5s cubic-bezier(.2,1.4,.4,1) both; }
+.dr-answer small { display: block; font-size: 12px; color: var(--muted); }
+.dr-answer b { font: 800 19px var(--font-b); color: var(--good); }
+.dr-ask { text-align: center; font: 400 26px var(--font-s); color: var(--yellow); }
+.dr-dots { display: flex; justify-content: center; gap: 5px; }
+.dr-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--line); } .dr-dots i.on { background: var(--accent); } .dr-dots i.done { background: rgba(255,61,139,.45); }
+.dr-sent { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 18px 0; text-align: center; }
+.dr-sent b { font: 800 18px var(--font-b); }
+</style>
 </head>
 <body>
-<div class="wrap">
-  <div class="title-block" id="titleBlock">
-    <h2>КРОКОДИЛ & ГАЛЕРЕЯ</h2>
-  </div>
+<div id="app"><div class="pp-wrap">
+  <section class="pp-view pp-center hidden" id="view-locked"><span class="pp-big-ic" data-ic="lock"></span><div class="pp-note" style="font-size:16px">Увійди в профіль, щоб грати з друзями</div></section>
+  <section class="pp-view pp-center hidden" id="view-waiting"><span class="pp-big-ic" data-ic="hourglass"></span><div class="pp-note" style="font-size:16px">Гра вже йде — приєднаєшся до наступної</div></section>
 
-  <!-- НЕ ЗАЛОГІНЕНИЙ -->
-  <div class="hidden stage-center" id="view-locked">
-    <div class="empty-state"><div class="empty-icon">🔒</div><div class="status-line">Увійди в профіль, щоб грати</div></div>
-  </div>
+  <section class="pp-view hidden" id="view-room-entry">
+    <div class="pp-hero"><span data-emblem></span><h1>Малювалка</h1><p>Малюй — а друзі вгадують. Наживо по черзі або всі разом у галереї.</p></div>
+    <div class="pp-card"><div class="pp-h"><span data-ic="users"></span> Активні кімнати</div><div class="rooms-list" id="activeRoomsList"></div></div>
+    <div class="pp-or">або за кодом</div>
+    <div class="pp-join"><input class="pp-field" id="roomCodeInput" maxlength="5" placeholder="КОД" autocomplete="off" /><button class="pp-btn" id="joinRoomBtn">Увійти</button></div>
+    <button class="pp-btn pp-primary pp-block pp-big" id="createRoomBtn">Створити кімнату</button>
+  </section>
 
-  <!-- ВХІД У КІМНАТУ -->
-  <div class="hidden stage" id="view-room-entry">
-    <div class="status-line">Обери активну кімнату або введи код друга</div>
-    <div class="card rooms-list" id="activeRoomsList"></div>
-    <div class="divider">або вручну</div>
-    <input class="field" id="roomCodeInput" maxlength="5" placeholder="КОД КІМНАТИ" style="text-align:center; text-transform:uppercase; letter-spacing:0.1em;" />
-    <button class="btn btn-primary btn-block" id="joinRoomBtn">Приєднатись</button>
-    <div class="divider">або</div>
-    <button class="btn btn-block" id="createRoomBtn">Створити нову кімнату</button>
-  </div>
-
-  <!-- ЛОБІ -->
-  <div class="hidden stage" id="view-lobby">
-    <div class="room-code-display" id="roomCodeDisplay"></div>
-    <div class="status-line" id="lobbyStatus"><span class="pulse-dot"></span> Очікуємо гравців...</div>
-    
-    <div class="card">
-      <h3>Режим гри</h3>
-      <div class="mode-selector">
-        <button class="mode-btn active" id="modeCrocBtn">🐊 Крокодил</button>
-        <button class="mode-btn" id="modeGalBtn">🎨 Галерея</button>
+  <section class="pp-view hidden" id="view-lobby">
+    <div class="pp-lobby-head"><span data-emblem></span><div class="t"><b>Малювалка</b><small id="lobbyStatus"></small></div>
+      <div class="pp-code"><small>Код кімнати</small><b id="roomCodeDisplay"></b></div></div>
+    <div class="pp-card"><div class="pp-h"><span data-ic="users"></span> Гравці <span class="cnt" id="lobbyCount"></span></div>
+      <div class="pp-players" id="playersList"></div>
+      <div class="pp-note" style="margin-top:10px">Торкнись своєї аватарки, щоб змінити персонажа</div></div>
+    <div class="pp-card"><div class="pp-h">Режим</div>
+      <div class="dr-modes">
+        <button class="dr-mode" id="modeCrocBtn" data-tic="brush"><b>Наживо</b><small>Один малює, решта бачать штрихи й вгадують уголос</small></button>
+        <button class="dr-mode" id="modeGalBtn" data-tic="frame"><b>Галерея</b><small>Малюють усі одночасно, потім вгадуємо кожну картину</small></button>
       </div>
-
+      <div class="pp-label">Складність слів</div><div class="pp-seg" id="diffSeg"></div>
       <div id="gallerySettingsBlock" class="hidden">
-        <label for="galleryTimeSelect" style="display:flex; justify-content:space-between; font-size: 0.9rem; color: #aaa;">Час на малювання: <output id="galleryTimeValue">60 с</output></label>
-        <input type="range" id="galleryTimeSelect" min="20" max="120" step="1" value="60" aria-label="Час на малювання" style="width:100%; margin-top:4px; margin-bottom:12px;" />
+        <label class="pp-label" for="galleryTimeSelect">Час на малюнок <output id="galleryTimeValue">60 с</output></label>
+        <input class="pp-range" type="range" id="galleryTimeSelect" min="20" max="120" step="5" value="60" /></div>
+      <div id="hostPanel" class="hidden"><button class="pp-btn pp-primary pp-block pp-big" id="startBtn" style="margin-top:18px"><span data-ic="play"></span> Почати гру</button>
+        <div class="pp-err" id="startHint"></div></div></div>
+    <div class="pp-card pp-waithost hidden" id="waitHostLobby"></div>
+    <button class="pp-btn pp-ghost pp-block hidden" id="resetBtn"><span data-ic="refresh"></span> Скинути гру</button>
+  </section>
+
+  <section class="pp-view hidden" id="view-active">
+    <div class="pp-topbar">
+      <div class="pp-round"><small>Раунд</small><b id="roundNo"></b></div>
+      <div class="pp-stagetitle" id="stageTitle"></div>
+      <div class="pp-timer off" id="timer"><svg viewBox="0 0 44 44"><circle class="trk" cx="22" cy="22" r="19"/><circle class="bar" cx="22" cy="22" r="19"/></svg><span></span></div>
+    </div>
+
+    <!-- === НАЖИВО === -->
+    <div id="crocStage" class="pp-stage hidden">
+      <div id="crocHead"></div>
+      <div class="canvas-wrap"><canvas id="crocCanvas"></canvas></div>
+      <div id="crocTools" class="dr-tools hidden">
+        <div class="color-swatches" id="crocSwatches">
+          <button class="swatch selected" style="background:#1a1a1a" data-color="#1a1a1a" aria-label="Чорний"></button>
+          <button class="swatch" style="background:#e0503c" data-color="#e0503c" aria-label="Червоний"></button>
+          <button class="swatch" style="background:#3c7de0" data-color="#3c7de0" aria-label="Синій"></button>
+          <button class="swatch" style="background:#4caf6d" data-color="#4caf6d" aria-label="Зелений"></button>
+          <button class="swatch" style="background:#e0c23c" data-color="#e0c23c" aria-label="Жовтий"></button>
+          <button class="swatch" style="background:#d8b98f" data-color="#d8b98f" aria-label="Бежевий"></button>
+          <button class="swatch" style="background:#8d5a3c" data-color="#8d5a3c" aria-label="Коричневий"></button>
+          <button class="swatch" style="background:#ffffff" data-color="#ffffff" aria-label="Білий"></button>
+        </div>
+        <div class="dr-row">
+          <button class="tool-btn selected" id="crocPenBtn" aria-label="Олівець" data-tic="pen"></button>
+          <button class="tool-btn" id="crocEraserBtn" aria-label="Ластик" data-tic="eraser"></button>
+          <button class="tool-btn" id="crocFillBtn" aria-label="Заливка" data-tic="bucket"></button>
+          <span class="brush-preview" aria-hidden="true"><i class="brush-dot" id="crocBrushDot"></i></span>
+          <input type="range" class="brush-range" id="crocBrushSize" min="2" max="30" step="1" value="6" aria-label="Товщина пензля" />
+        </div>
+        <div class="dr-row">
+          <button class="tool-btn" id="crocUndoBtn" aria-label="Скасувати крок" data-tic="undo"></button>
+          <button class="tool-btn" id="crocClearBtn" aria-label="Очистити" data-tic="trash"></button>
+        </div>
       </div>
-
-      <label style="font-size: 0.9rem; color: #aaa;">Складність слів:</label>
-      <select class="text-entry-input" id="difficultySelect" style="margin-top: 4px;">
-        <option value="easy">Легка</option>
-        <option value="medium" selected>Середня</option>
-        <option value="hard">Складна</option>
-      </select>
+      <div class="pp-card"><div class="pp-h" id="guessTitle">Рахунок</div><div class="dr-guessers" id="crocPlayersList"></div></div>
     </div>
 
-    <div class="card">
-      <h3>Гравці в кімнаті</h3>
-      <div id="playersList"></div>
-    </div>
-
-    <div class="card hidden" id="hostPanel">
-      <button class="btn btn-primary btn-block" id="startBtn">Почати гру</button>
-      <div class="err-msg" id="startHint"></div>
-    </div>
-    <button class="btn btn-block hidden" id="resetBtn" style="opacity:0.6; margin-top: 10px;">Скинути гру</button>
-  </div>
-
-  <!-- АКТИВНА ГРА -->
-  <div class="hidden stage" id="view-active">
-    
-    <!-- === РЕЖИМ: КРОКОДИЛ === -->
-    <div id="crocStage" class="hidden">
-      <div class="waiting-count" id="crocRoundLabel">Раунд 1</div>
-      <div class="drawer-prompt" id="crocPrompt">...</div>
-
-      <div class="canvas-wrap">
-        <canvas id="crocCanvas"></canvas>
-      </div>
-
-      <!-- Панель інструментів (лише для того, хто малює) -->
-      <div id="crocTools" class="hidden" style="margin-top: 10px;">
-        <div class="draw-toolbar">
-          <div class="color-swatches" id="crocSwatches" style="flex-wrap:wrap">
-            <button class="swatch selected" style="background:#1a1a1a" data-color="#1a1a1a"></button>
-            <button class="swatch" style="background:#e0503c" data-color="#e0503c"></button>
-            <button class="swatch" style="background:#3c7de0" data-color="#3c7de0"></button>
-            <button class="swatch" style="background:#4caf6d" data-color="#4caf6d"></button>
-            <button class="swatch" style="background:#e0c23c" data-color="#e0c23c"></button>
+    <!-- === ГАЛЕРЕЯ === -->
+    <div id="galleryStage" class="pp-stage hidden">
+      <div id="galDrawingStage" class="pp-stage hidden">
+        <div class="dr-word"><div><small>Намалюй</small><b id="galPrompt"></b></div></div>
+        <div class="canvas-wrap"><canvas id="galCanvas"></canvas></div>
+        <div class="dr-tools">
+          <div class="color-swatches" id="galSwatches">
+            <button class="swatch selected" style="background:#1a1a1a" data-color="#1a1a1a" aria-label="Чорний"></button>
+            <button class="swatch" style="background:#e0503c" data-color="#e0503c" aria-label="Червоний"></button>
+            <button class="swatch" style="background:#3c7de0" data-color="#3c7de0" aria-label="Синій"></button>
+            <button class="swatch" style="background:#4caf6d" data-color="#4caf6d" aria-label="Зелений"></button>
+            <button class="swatch" style="background:#e0c23c" data-color="#e0c23c" aria-label="Жовтий"></button>
             <button class="swatch" style="background:#d8b98f" data-color="#d8b98f" aria-label="Бежевий"></button>
-            <button class="swatch" style="background:#8d5a3c" data-color="#8d5a3c"></button>
+            <button class="swatch" style="background:#8d5a3c" data-color="#8d5a3c" aria-label="Коричневий"></button>
             <button class="swatch" style="background:#ffffff" data-color="#ffffff" aria-label="Білий"></button>
           </div>
-          <div class="draw-tools" style="flex-wrap:wrap">
-            <button class="tool-btn selected" id="crocPenBtn">✏️ Олівець</button>
-            <button class="tool-btn" id="crocEraserBtn">🧽 Ластик</button>
-            <button class="tool-btn" id="crocFillBtn">🪣 Заливка</button>
-          </div>
-          <div class="brush-size">
-            <span class="brush-preview" aria-hidden="true"><i class="brush-dot" id="crocBrushDot"></i></span>
-            <input type="range" class="brush-range" id="crocBrushSize" min="2" max="30" step="1" value="6" aria-label="Товщина пензля" />
-          </div>
-        </div>
-        <div class="draw-actions">
-          <button class="btn" id="crocUndoBtn">↩️ Скасувати</button>
-          <button class="btn" id="crocClearBtn">Очистити</button>
-        </div>
-      </div>
-
-      <div class="card" style="margin-top: 12px;">
-        <h3>Гравці та рахунок</h3>
-        <div id="crocPlayersList"></div>
-      </div>
-
-      <div class="draw-actions hidden" id="hostCrocActions" style="margin-top: 10px;">
-        <button class="btn" id="skipPromptBtn">Пропустити слово</button>
-        <button class="btn" id="nextDrawerBtn">Змінити художника</button>
-      </div>
-    </div>
-
-    <!-- === РЕЖИМ: ГАЛЕРЕЯ === -->
-    <div id="galleryStage" class="hidden">
-      
-      <!-- Под-фаза 1: Малювання -->
-      <div id="galDrawingStage" class="hidden">
-        <div class="timer-badge" id="galTimer">90s</div>
-        <div class="drawer-prompt" id="galPrompt">Завдання: ...</div>
-
-        <div class="canvas-wrap">
-          <canvas id="galCanvas"></canvas>
-        </div>
-
-        <div class="draw-toolbar" style="margin-top: 10px;">
-          <div class="color-swatches" id="galSwatches" style="flex-wrap:wrap">
-            <button class="swatch selected" style="background:#1a1a1a" data-color="#1a1a1a"></button>
-            <button class="swatch" style="background:#e0503c" data-color="#e0503c"></button>
-            <button class="swatch" style="background:#3c7de0" data-color="#3c7de0"></button>
-            <button class="swatch" style="background:#4caf6d" data-color="#4caf6d"></button>
-            <button class="swatch" style="background:#e0c23c" data-color="#e0c23c"></button>
-            <button class="swatch" style="background:#d8b98f" data-color="#d8b98f" aria-label="Бежевий"></button>
-            <button class="swatch" style="background:#8d5a3c" data-color="#8d5a3c"></button>
-            <button class="swatch" style="background:#ffffff" data-color="#ffffff" aria-label="Білий"></button>
-          </div>
-          <div class="draw-tools" style="flex-wrap:wrap">
-            <button class="tool-btn selected" id="galPenBtn">✏️ Олівець</button>
-            <button class="tool-btn" id="galEraserBtn">🧽 Ластик</button>
-            <button class="tool-btn" id="galFillBtn">🪣 Заливка</button>
-          </div>
-          <div class="brush-size">
+          <div class="dr-row">
+            <button class="tool-btn selected" id="galPenBtn" aria-label="Олівець" data-tic="pen"></button>
+            <button class="tool-btn" id="galEraserBtn" aria-label="Ластик" data-tic="eraser"></button>
+            <button class="tool-btn" id="galFillBtn" aria-label="Заливка" data-tic="bucket"></button>
             <span class="brush-preview" aria-hidden="true"><i class="brush-dot" id="galBrushDot"></i></span>
             <input type="range" class="brush-range" id="galBrushSize" min="2" max="30" step="1" value="6" aria-label="Товщина пензля" />
           </div>
-        </div>
-        <div class="draw-actions">
-          <button class="btn" id="galUndoBtn">↩️</button>
-          <button class="btn" id="galClearBtn">Очистити</button>
-          <button class="btn btn-primary btn-block" id="galSubmitBtn">Готово</button>
-        </div>
-      </div>
-
-      <!-- Очікування після здачі малюнка -->
-      <div id="galWaitStage" class="hidden">
-        <div class="empty-state">
-          <div class="empty-icon">🎨</div>
-          <div class="status-line" id="galWaitStatus">Малюнок відправлено! Чекаємо на інших...</div>
+          <div class="dr-row">
+            <button class="tool-btn" id="galUndoBtn" aria-label="Скасувати крок" data-tic="undo"></button>
+            <button class="tool-btn" id="galClearBtn" aria-label="Очистити" data-tic="trash"></button>
+            <button class="pp-btn pp-primary pp-big dr-grow" id="galSubmitBtn">Готово</button>
+          </div>
         </div>
       </div>
-
-      <!-- Под-фаза 2: Показ (Reveal) -->
-      <div id="galRevealStage" class="hidden">
-        <div class="waiting-count" id="galRevealIndex">Картина 1 з X</div>
-        <div class="gallery-preview" style="text-align: center; margin: 12px 0;">
-          <img id="galRevealImg" src="" alt="Малюнок" />
-        </div>
-        <div class="drawer-prompt hidden" id="galRevealAnswer" style="color: #4caf6d;">Тема: ...</div>
-        
-        <div class="draw-actions hidden" id="hostGalRevealTools">
-          <button class="btn btn-primary btn-block" id="galRevealBtn">Показати що це було</button>
-          <button class="btn btn-block hidden" id="galNextBtn">Наступний малюнок →</button>
-        </div>
+      <div id="galWaitStage" class="hidden"></div>
+      <div id="galRevealStage" class="pp-stage hidden">
+        <div class="dr-dots" id="galDots"></div>
+        <div class="dr-frame" id="galFrame"><img id="galRevealImg" alt="Малюнок" /></div>
+        <div class="dr-ask" id="galAsk">Що це?</div>
+        <div id="galRevealAnswer" class="hidden"></div>
       </div>
-
-      <!-- Под-фаза 3: Кінець раунду -->
-      <div id="galRoundEndStage" class="hidden">
-        <div class="status-line">Раунд завершено!</div>
-        <button class="btn btn-primary btn-block hidden" id="galNewRoundBtn">Наступний раунд</button>
-      </div>
-
+      <div id="galRoundEndStage" class="hidden"><div class="dr-sent"><span class="pp-big-ic" data-ic="star"></span><b>Раунд завершено!</b><div class="pp-note">Ведучий почне наступний — нові завдання кожному</div></div></div>
     </div>
 
-    <button class="btn btn-block" id="resetBtnActive" style="opacity:0.5; margin-top: 20px;">Скинути гру</button>
-  </div>
-</div>
+    <div class="pp-hostbar hidden" id="hostBar">
+      <button class="pp-btn pp-ghost" id="resetBtnActive"><span data-ic="refresh"></span></button>
+      <button class="pp-btn pp-ghost hidden" id="nextDrawerBtn">Інший художник</button>
+      <button class="pp-btn pp-primary hidden" id="galRevealBtn">Показати відповідь</button>
+      <button class="pp-btn pp-primary hidden" id="galNextBtn">Наступна картина</button>
+      <button class="pp-btn pp-primary hidden" id="galNewRoundBtn">Наступний раунд</button>
+    </div>
+  </section>
+</div></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
@@ -218,68 +225,76 @@
 <link rel="stylesheet" href="js/styles/reactions.css">
 <script src="js/core/login.js"></script>
 <script src="js/core/online-engine.js"></script>
+<script src="js/quiplash-avatars.js"></script>
+<script src="js/quiplash-sounds.js"></script>
 <script src="js/promts/draw-prompts.js"></script>
 <script src="js/draw-canvas.js"></script>
 <script src="js/draw-game.js"></script>
 <script src="js/core/room-code-ui.js"></script>
+<script src="js/party-ui.js"></script>
 <script src="js/core/reactions.js"></script>
 <script src="js/core/help.js"></script>
 <script src="js/core/back-button.js"></script>
 <script>
 (function () {
-  const VIEWS = ["locked", "room-entry", "lobby", "active"];
+  const { esc, icon } = window.PartyUI;
+  const $ = (id) => document.getElementById(id);
+  const sfx = (n) => { try { window.QuiplashSfx && QuiplashSfx.play(n); } catch (e) {} };
+  const buzz = (p) => { try { window.QuiplashSfx && QuiplashSfx.vibrate(p); } catch (e) {} };
+  const plural = (n, one, few, many) => n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? few : many;
+  const TOOL_ICONS = {
+    pen: '<path d="M4 20l1.2-4.6L15.6 5a2.1 2.1 0 0 1 3 0l.4.4a2.1 2.1 0 0 1 0 3L8.6 18.8z"/><path d="M13.5 7l3.5 3.5"/>',
+    eraser: '<path d="M8.5 20H20M4.6 15.4l9.2-9.2a2 2 0 0 1 2.8 0l2.2 2.2a2 2 0 0 1 0 2.8L11 19.1a3 3 0 0 1-4.2 0l-2.2-2.2a1.2 1.2 0 0 1 0-1.5z"/><path d="M9 11l4 4"/>',
+    bucket: '<path d="M5 11l7-7 7 7-6.3 6.3a1 1 0 0 1-1.4 0z"/><path d="M5 11h14M20 15s1.5 2 1.5 3a1.5 1.5 0 0 1-3 0c0-1 1.5-3 1.5-3z"/>',
+    undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+    trash: '<path d="M4 7h16M9 7V4h6v3M6.5 7l1 13h9l1-13M10 11v6M14 11v6"/>',
+    brush: '<path d="M14 4l6 6-8.5 8.5a3 3 0 0 1-2 .9L5 20l.6-4.5a3 3 0 0 1 .9-2z"/>',
+    frame: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M6 16l4-5 3 3 2-2 3 4"/><circle cx="15.5" cy="8.5" r="1.5"/>',
+  };
+  const ticon = (n) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${TOOL_ICONS[n] || ""}</svg>`;
+  const EMBLEM = `<svg class="pp-emblem" viewBox="0 0 120 120" aria-hidden="true">
+    <path d="M60 14c28 0 48 18 48 40 0 14-10 20-22 20-8 0-12 4-12 10 0 8 6 10 6 16 0 6-8 8-20 8-28 0-48-20-48-48s22-46 48-46z" fill="#f2e6d0"/>
+    <circle cx="36" cy="44" r="8" fill="#ff3d8b"/><circle cx="58" cy="32" r="8" fill="#ffd23f"/><circle cx="82" cy="42" r="8" fill="#29d3ff"/><circle cx="34" cy="70" r="8" fill="#3be08f"/>
+    <path d="M110 18L76 74" stroke="#8a6420" stroke-width="7" stroke-linecap="round"/><path d="M78 70l-8 16 12-10z" fill="#ff3d8b"/></svg>`;
+  document.querySelectorAll("[data-ic]").forEach((el) => { el.outerHTML = icon(el.dataset.ic); });
+  document.querySelectorAll("[data-tic]").forEach((el) => { el.insertAdjacentHTML("afterbegin", ticon(el.dataset.tic)); });
+  document.querySelectorAll("[data-emblem]").forEach((el) => { el.outerHTML = EMBLEM; });
+  const avatar = (room, name, opts) => window.PartyUI.avatar(room, name, opts);
+  const sig = {};
+  function paint(id, key, html) { if (sig[id] === key) return false; sig[id] = key; $(id).innerHTML = html; return true; }
+
+  const VIEWS = ["locked", "waiting", "room-entry", "lobby", "active"];
+  let curView = null;
   function showView(name) {
-    VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name));
-    document.getElementById("titleBlock").classList.toggle("hidden", name === "active");
+    if (curView === name) return;
+    curView = name;
+    VIEWS.forEach((v) => $("view-" + v).classList.toggle("hidden", v !== name));
+    document.body.dataset.view = name === "active" ? "round" : name;
+    window.scrollTo(0, 0);
   }
-  function escapeHtml(s) {
-    return (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  }
 
-  let username = null;
-  let lastRoom = null;
-  let reactionsMounted = false;
-  let lastCtx = null;
-  
-  let crocCanvasObj = null;
-  let galCanvasObj = null;
+  let username = null, lastRoom = null, lastCtx = null, reactionsMounted = false;
+  let crocCanvasObj = null, galCanvasObj = null;
+  let strokeBatchBuffer = [], strokeBatchTimer = null, crocBatchesRef = null, crocRoomRef = null;
+  let lastCrocKey = null, lastGalRound = null, lastRevealKey = null, autoSentRound = null;
 
-  let strokeBatchBuffer = [];
-  let strokeBatchTimer = null;
-  let crocBatchesRef = null;
-  let crocRoomRef = null;
-
-  // ---------------- UI Handlers & Setup ----------------
+  // ---------------- полотна ----------------
   function initCanvases() {
     if (!crocCanvasObj) {
-      const crocEl = document.getElementById("crocCanvas");
-      crocCanvasObj = createDrawCanvas(crocEl, {
-        onStroke: (seg) => {
-          if (lastCtx && lastCtx.isDrawer) {
-            strokeBatchBuffer.push(seg);
-          }
-        }
-      });
+      crocCanvasObj = createDrawCanvas($("crocCanvas"), { onStroke: (seg) => { if (lastCtx && lastCtx.isDrawer) strokeBatchBuffer.push(seg); } });
       bindCanvasControls(crocCanvasObj, "croc");
     }
     if (!galCanvasObj) {
-      const galEl = document.getElementById("galCanvas");
-      galCanvasObj = createDrawCanvas(galEl, {});
+      galCanvasObj = createDrawCanvas($("galCanvas"), {});
       bindCanvasControls(galCanvasObj, "gal");
     }
   }
-
   function bindCanvasControls(canvasObj, prefix) {
-    const $ = (suffix) => document.getElementById(prefix + suffix);
-    const canvasEl = $("Canvas");
-    const penBtn = $("PenBtn"), eraserBtn = $("EraserBtn"), fillBtn = $("FillBtn");
-    const brushSize = $("BrushSize"), brushDot = $("BrushDot");
+    const P = (suffix) => $(prefix + suffix);
+    const canvasEl = P("Canvas"), penBtn = P("PenBtn"), eraserBtn = P("EraserBtn"), fillBtn = P("FillBtn"), brushSize = P("BrushSize"), brushDot = P("BrushDot");
     const swatches = document.querySelectorAll(`#${prefix}Swatches .swatch`);
-    let currentTool = "pen"; // pen | eraser | fill — взаємовиключні
-    let currentColor = "#1a1a1a";
-
+    let currentTool = "pen", currentColor = "#1a1a1a"; // pen | eraser | fill — взаємовиключні
     // Прев'ю: кружок у масштабі, у якому штрих побачать на екрані (canvas = 600 px логічних).
-    // Ластик малює втричі товще за повзунок (draw-canvas.js).
     function updateBrushPreview() {
       const scale = canvasEl && canvasEl.clientWidth ? canvasEl.clientWidth / 600 : 0.74;
       const w = Number(brushSize.value);
@@ -288,9 +303,7 @@
       else if (currentTool === "eraser") { px = w * 3 * scale; bg = "#ffffff"; border = "2px solid #9aa0a6"; }
       else { px = w * scale; bg = currentColor; }
       px = Math.max(3, Math.min(42, Math.round(px)));
-      brushDot.style.width = px + "px"; brushDot.style.height = px + "px";
-      brushDot.style.background = bg; brushDot.style.border = border; brushDot.style.borderRadius = radius;
-      brushDot.style.boxSizing = "border-box";
+      Object.assign(brushDot.style, { width: px + "px", height: px + "px", background: bg, border, borderRadius: radius, boxSizing: "border-box" });
     }
     function setTool(tool) {
       currentTool = tool;
@@ -299,334 +312,283 @@
       penBtn.classList.toggle("selected", tool === "pen");
       eraserBtn.classList.toggle("selected", tool === "eraser");
       fillBtn.classList.toggle("selected", tool === "fill");
-      brushSize.disabled = tool === "fill"; // для заливки товщина не потрібна
+      brushSize.disabled = tool === "fill";
       updateBrushPreview();
     }
     penBtn.addEventListener("click", () => setTool("pen"));
     eraserBtn.addEventListener("click", () => setTool("eraser"));
-    // Заливка: спершу обери колір (кольори не вимикають заливку), потім торкнись області.
-    // У Крокодилі заливка йде тим самим потоком, що й штрихи (onStroke → strokeBatches → addStroke).
+    // У «Наживо» заливка йде тим самим потоком, що й штрихи (onStroke → strokeBatches → addStroke).
     fillBtn.addEventListener("click", () => setTool("fill"));
-    brushSize.addEventListener("input", () => {
-      canvasObj.setWidth(Number(brushSize.value));
-      updateBrushPreview();
-    });
-    swatches.forEach((sw) => {
-      sw.addEventListener("click", () => {
-        currentColor = sw.dataset.color;
-        canvasObj.setColor(currentColor); // скидає ластик у модулі
-        swatches.forEach((s) => s.classList.remove("selected"));
-        sw.classList.add("selected");
-        if (currentTool === "eraser") setTool("pen"); // колір після ластика = повернення до олівця
-        else updateBrushPreview();                    // у заливці інструмент лишається
-      });
-    });
-    canvasObj.setWidth(Number(brushSize.value)); // стартова товщина = положення повзунка
+    brushSize.addEventListener("input", () => { canvasObj.setWidth(Number(brushSize.value)); updateBrushPreview(); });
+    swatches.forEach((sw) => sw.addEventListener("click", () => {
+      currentColor = sw.dataset.color;
+      canvasObj.setColor(currentColor); // скидає ластик у модулі
+      swatches.forEach((s) => s.classList.remove("selected"));
+      sw.classList.add("selected");
+      if (currentTool === "eraser") setTool("pen"); else updateBrushPreview();
+    }));
+    canvasObj.setWidth(Number(brushSize.value));
     updateBrushPreview();
-
-    const undoBtn = document.getElementById(`${prefix}UndoBtn`);
-    if (undoBtn) undoBtn.addEventListener("click", () => {
+    P("UndoBtn").addEventListener("click", () => {
       const removedId = canvasObj.undo();
-      if (prefix === "croc" && lastCtx && lastCtx.isDrawer && removedId) {
-        DrawGame.sendUndo(removedId);
-      }
+      if (prefix === "croc" && lastCtx && lastCtx.isDrawer && removedId) DrawGame.sendUndo(removedId);
     });
-
-    const clearBtn = document.getElementById(`${prefix}ClearBtn`);
-    if (clearBtn) clearBtn.addEventListener("click", () => {
+    P("ClearBtn").addEventListener("click", () => {
+      if (!confirm("Стерти весь малюнок?")) return;
       canvasObj.clear();
-      if (prefix === "croc" && lastCtx && lastCtx.isDrawer) {
-        DrawGame.sendClear();
-      }
+      if (prefix === "croc" && lastCtx && lastCtx.isDrawer) DrawGame.sendClear();
     });
   }
 
-  // ---------------- Render Functions ----------------
+  // ---------------- лобі ----------------
+  $("diffSeg").innerHTML = [["easy", "Легка"], ["medium", "Середня"], ["hard", "Складна"]].map(([v, l]) => `<button data-v="${v}">${l}</button>`).join("");
+  $("diffSeg").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (b && lastCtx && lastCtx.host) { DrawGame.setDifficulty(b.dataset.v); sfx("pop"); } });
   function renderLobby(room, ctx) {
-    const connNames = DrawGame.connectedNames(room.players);
-    const hostName = DrawGame.computeHost(room.players);
-
-    document.getElementById("roomCodeDisplay").textContent = DrawGame.roomId || "";
-    document.getElementById("lobbyStatus").innerHTML =
-      `<span class="pulse-dot"></span> Онлайн: ${connNames.length} (мін. ${DrawGame.MIN_PLAYERS})`;
-
-    const allNames = Object.keys(room.players || {});
-    document.getElementById("playersList").innerHTML = allNames.map((n) => {
-      const online = connNames.includes(n);
-      return `<div class="player-chip ${online ? "" : "offline"}"><span>${escapeHtml(n)}</span>${n === hostName ? '<span class="badge">ВЕДУЧИЙ</span>' : ""}</div>`;
-    }).join("") || '<div class="status-line">Порожньо</div>';
-
-    // Хост налаштування
+    const conn = DrawGame.connectedNames(room.players), hostName = DrawGame.computeHost(room.players), me = ctx.username, players = room.players || {};
+    $("roomCodeDisplay").textContent = DrawGame.roomId || "";
+    $("lobbyStatus").textContent = `Онлайн: ${conn.length} · мінімум ${DrawGame.MIN_PLAYERS}`;
+    $("lobbyCount").textContent = conn.length;
+    const names = Object.keys(players).sort((a, b) => conn.includes(b) - conn.includes(a));
+    const key = names.map((n) => [n, players[n].character, conn.includes(n), n === hostName].join(":")).join("|") + "#" + me;
+    if (paint("playersList", key, names.map((n) => {
+      const mine = n === me;
+      return `<button class="pp-pl ${mine ? "me" : ""} ${conn.includes(n) ? "" : "off"}" ${mine ? 'data-me="1"' : "disabled"}>${avatar(room, n, { size: "lg", mood: mine ? "happy" : "idle" })}
+        <span class="nm">${esc(n)}</span>${n === hostName ? `<span class="tag">${icon("crown")}</span>` : ""}${mine ? `<span class="swap">${icon("swap")}</span>` : ""}</button>`;
+    }).join("") || '<div class="pp-note">Ще нікого немає</div>')) {
+      const mine = $("playersList").querySelector("[data-me]");
+      if (mine) mine.addEventListener("click", () => { DrawGame.cycleAvatar(); sfx("pop"); });
+    }
     const isHost = ctx.host;
-    document.getElementById("hostPanel").classList.toggle("hidden", !isHost);
-    document.getElementById("resetBtn").classList.toggle("hidden", !isHost);
-
-    document.getElementById("modeCrocBtn").disabled = !isHost;
-    document.getElementById("modeGalBtn").disabled = !isHost;
-    document.getElementById("galleryTimeSelect").disabled = !isHost;
-    document.getElementById("difficultySelect").disabled = !isHost;
-
-    document.getElementById("modeCrocBtn").classList.toggle("active", room.mode === "crocodile");
-    document.getElementById("modeGalBtn").classList.toggle("active", room.mode === "gallery");
-    document.getElementById("gallerySettingsBlock").classList.toggle("hidden", room.mode !== "gallery");
-
-    const gallerySeconds = Math.min(120, Math.max(20, Number(room.gallerySettings && room.gallerySettings.drawSeconds) || DrawGame.DEFAULT_GALLERY_SECONDS));
-    document.getElementById("galleryTimeSelect").value = gallerySeconds;
-    document.getElementById("galleryTimeValue").textContent = `${gallerySeconds} с`;
-    document.getElementById("difficultySelect").value = room.difficulty || DrawGame.DEFAULT_DIFFICULTY;
-
-    if (isHost) {
-      const enough = connNames.length >= DrawGame.MIN_PLAYERS;
-      document.getElementById("startBtn").disabled = !enough;
-      document.getElementById("startHint").textContent = enough ? "" : `Потрібно ще ${DrawGame.MIN_PLAYERS - connNames.length} гравців`;
+    $("hostPanel").classList.toggle("hidden", !isHost);
+    $("resetBtn").classList.toggle("hidden", !isHost);
+    ["modeCrocBtn", "modeGalBtn", "galleryTimeSelect"].forEach((id) => { $(id).disabled = !isHost; });
+    $("diffSeg").querySelectorAll("button").forEach((b) => { b.disabled = !isHost; b.classList.toggle("selected", b.dataset.v === (room.difficulty || DrawGame.DEFAULT_DIFFICULTY)); });
+    $("modeCrocBtn").classList.toggle("selected", room.mode !== "gallery");
+    $("modeGalBtn").classList.toggle("selected", room.mode === "gallery");
+    $("gallerySettingsBlock").classList.toggle("hidden", room.mode !== "gallery");
+    const rng = $("galleryTimeSelect");
+    if (document.activeElement !== rng) {
+      const sec = Math.min(120, Math.max(20, Number(room.gallerySettings && room.gallerySettings.drawSeconds) || DrawGame.DEFAULT_GALLERY_SECONDS));
+      rng.value = sec; $("galleryTimeValue").textContent = `${sec} с`;
+    }
+    $("waitHostLobby").classList.toggle("hidden", !!isHost);
+    if (!isHost) {
+      paint("waitHostLobby", "w" + hostName + (players[hostName] || {}).character,
+        `${hostName ? avatar(room, hostName, { size: "md", mood: "write" }) : ""}<div class="pp-note"><b style="color:var(--ink)">${esc(hostName || "Ведучий")}</b> обирає режим.<br>Почнемо, щойно ведучий натисне «Почати».</div>`);
+    } else {
+      const enough = conn.length >= DrawGame.MIN_PLAYERS;
+      $("startBtn").disabled = !enough;
+      $("startHint").textContent = enough ? "" : `Потрібно ще ${DrawGame.MIN_PLAYERS - conn.length} ${plural(DrawGame.MIN_PLAYERS - conn.length, "гравець", "гравці", "гравців")}`;
     }
   }
 
-    function renderCrocodile(room, ctx) {
-        document.getElementById("crocStage").classList.remove("hidden");
-        document.getElementById("galleryStage").classList.add("hidden");
-        document.getElementById("crocRoundLabel").textContent = `Раунд ${room.round}`;
-
-        const isDrawer = ctx.isDrawer;
-        const croc = room.crocodile || {};
-        const crocCanvasEl = document.getElementById("crocCanvas");
-
-        if (isDrawer) {
-            document.getElementById("crocPrompt").textContent = `Твоє слово: «${croc.promptText || ""}»`;
-            document.getElementById("crocTools").classList.remove("hidden");
-            
-            // Вмикаємо можливість малювати для художника
-            if (crocCanvasEl) crocCanvasEl.style.pointerEvents = "auto";
-            
-            startStrokeFlusher();
-        } else {
-            document.getElementById("crocPrompt").textContent = `Малює: ${croc.drawerUsername || "..."}`;
-            document.getElementById("crocTools").classList.add("hidden");
-            
-            // 🚫 БЛОКУЄМО інтерактивність canvas для глядача (дотики/миша не працюватимуть)
-            if (crocCanvasEl) crocCanvasEl.style.pointerEvents = "none";
-            
-            stopStrokeFlusher();
-            subscribeLiveStrokes();
-        }
-
-        // Список гравців (кнопка "Вгадав!" тільки для художника)
-        const connNames = DrawGame.connectedNames(room.players);
-        document.getElementById("crocPlayersList").innerHTML = connNames.map((n) => {
-            const p = room.players[n] || {};
-            const canMark = isDrawer && n !== croc.drawerUsername;
-            
-            return `<div class="guess-chip">
-            <span>${escapeHtml(n)} <b>(${p.score || 0} б)</b> ${n === croc.drawerUsername ? '✏️' : ''}</span>
-            ${canMark ? `<button class="btn" style="padding:4px 8px; font-size:0.8rem;" onclick="window.markGuess('${escapeHtml(n)}')">Вгадав!</button>` : ''}
-            </div>`;
-        }).join("");
-
-        document.getElementById("hostCrocActions").classList.toggle("hidden", !ctx.host);
+  // ---------------- наживо ----------------
+  function renderCrocodile(room, ctx) {
+    $("crocStage").classList.remove("hidden");
+    $("galleryStage").classList.add("hidden");
+    const isDrawer = ctx.isDrawer, croc = room.crocodile || {}, drawer = croc.drawerUsername;
+    $("stageTitle").textContent = isDrawer ? "Ти малюєш" : "Вгадуй";
+    const crocKey = (room.round || 0) + "|" + drawer + "|" + croc.promptText;
+    if (crocKey !== lastCrocKey) {
+      if (lastCrocKey) { sfx("whoosh"); if (isDrawer) buzz(30); }
+      lastCrocKey = crocKey;
     }
-
-  function renderGallery(room, ctx) {
-    document.getElementById("crocStage").classList.add("hidden");
-    document.getElementById("galleryStage").classList.remove("hidden");
-    stopStrokeFlusher();
-
-    const gal = room.gallery || {};
-    const sub = gal.sub;
-
-    document.getElementById("galDrawingStage").classList.toggle("hidden", sub !== "drawing");
-    document.getElementById("galWaitStage").classList.toggle("hidden", sub !== "drawing" || !gal.submissions || !gal.submissions[username]);
-    if (sub === "drawing" && gal.submissions && gal.submissions[username]) {
-      document.getElementById("galDrawingStage").classList.add("hidden");
+    paint("crocHead", crocKey + isDrawer + ((room.players || {})[drawer] || {}).character, isDrawer
+      ? `<div class="dr-word"><div><small>Твоє слово — малюй без літер</small><b>${esc(croc.promptText || "")}</b></div><button class="pp-btn" id="crocSkipBtn">Інше</button></div>`
+      : `<div class="dr-who">${avatar(room, drawer, { size: "md", mood: "write" })}<div><small>Малює</small><b>${esc(drawer || "…")}</b></div><span class="say">${icon("mic")} Кажи вголос!</span></div>`);
+    const crocCanvasEl = $("crocCanvas");
+    if (isDrawer) {
+      $("crocTools").classList.remove("hidden");
+      crocCanvasEl.style.pointerEvents = "auto";
+      unsubscribeLiveStrokes(); // художник малює сам — власні штрихи не повинні повертатись йому з бази
+      startStrokeFlusher();
+    } else {
+      $("crocTools").classList.add("hidden");
+      crocCanvasEl.style.pointerEvents = "none";
+      stopStrokeFlusher();
+      subscribeLiveStrokes();
     }
-
-    document.getElementById("galRevealStage").classList.toggle("hidden", sub !== "reveal");
-    document.getElementById("galRoundEndStage").classList.toggle("hidden", sub !== "roundEnd");
-
-    if (sub === "drawing") {
-      const prompt = (gal.prompts && gal.prompts[username]) || "...";
-      document.getElementById("galPrompt").textContent = `Завдання: «${prompt}»`;
-      const secondsLeft = Math.max(0, Math.ceil((gal.drawEndsAt - DrawGame.now()) / 1000));
-      document.getElementById("galTimer").textContent = `${secondsLeft}s`;
-    } else if (sub === "reveal") {
-      const order = gal.revealOrder || [];
-      const idx = gal.revealIndex || 0;
-      const targetUser = order[idx];
-      const imgData = gal.submissions ? gal.submissions[targetUser] : "";
-
-      document.getElementById("galRevealIndex").textContent = `Картина ${idx + 1} з ${order.length}`;
-      document.getElementById("galRevealImg").src = imgData || "";
-
-      const answerEl = document.getElementById("galRevealAnswer");
-      if (gal.revealed) {
-        answerEl.classList.remove("hidden");
-        const prompt = (gal.prompts && gal.prompts[targetUser]) || "...";
-        answerEl.textContent = `${targetUser} малював: «${prompt}»`;
-      } else {
-        answerEl.classList.add("hidden");
-      }
-
-      document.getElementById("hostGalRevealTools").classList.toggle("hidden", !ctx.host);
-      document.getElementById("galRevealBtn").classList.toggle("hidden", gal.revealed);
-      document.getElementById("galNextBtn").classList.toggle("hidden", !gal.revealed);
-    } else if (sub === "roundEnd") {
-      document.getElementById("galNewRoundBtn").classList.toggle("hidden", !ctx.host);
-    }
+    const conn = DrawGame.connectedNames(room.players);
+    $("guessTitle").textContent = isDrawer ? "Хто вгадав? Торкнись" : "Рахунок";
+    const sorted = conn.slice().sort((a, b) => ((room.players[b] || {}).score || 0) - ((room.players[a] || {}).score || 0));
+    paint("crocPlayersList", JSON.stringify(sorted.map((n) => [n, (room.players[n] || {}).score, (room.players[n] || {}).character])) + drawer + isDrawer,
+      sorted.map((n) => {
+        const p = room.players[n] || {}, canMark = isDrawer && n !== drawer;
+        return `<button class="dr-g ${n === drawer ? "drawer" : ""} ${canMark ? "tap" : ""}" ${canMark ? `data-guess="${esc(n)}"` : "disabled"}>${avatar(room, n, { size: "md", still: n !== drawer, mood: n === drawer ? "write" : "idle" })}
+          <span class="nm">${esc(n)}</span><span class="sc">${p.score || 0}</span></button>`;
+      }).join(""));
+    $("nextDrawerBtn").classList.toggle("hidden", !ctx.host);
+    ["galRevealBtn", "galNextBtn", "galNewRoundBtn"].forEach((id) => $(id).classList.add("hidden"));
+    $("timer").className = "pp-timer off";
   }
-
-  // ---------------- Live Stroke Syncing ----------------
-  function startStrokeFlusher() {
-    if (strokeBatchTimer) return;
-    strokeBatchTimer = setInterval(() => {
-      if (strokeBatchBuffer.length > 0) {
-        DrawGame.pushStrokeBatch(strokeBatchBuffer);
-        strokeBatchBuffer = [];
-      }
-    }, 100);
-  }
-
-  function stopStrokeFlusher() {
-    if (strokeBatchTimer) { clearInterval(strokeBatchTimer); strokeBatchTimer = null; }
-    strokeBatchBuffer = [];
-  }
-
-  function subscribeLiveStrokes() {
-    if (crocBatchesRef) return;
-    crocCanvasObj.clear();
-    
-    // Пряма підписка на RTDB вузол штрихів (у КОНКРЕТНІЙ кімнаті — раніше
-    // тут був захардкожений шлях "shared", який ламав живе малювання одразу,
-    // як тільки з'явилось кілька номерних кімнат одночасно)
-    const roomRef = window.rtdb.ref(`draw_rooms/${DrawGame.roomId}/crocodile`);
-    crocRoomRef = roomRef;
-    crocBatchesRef = roomRef.child("strokeBatches");
-    
-    crocBatchesRef.on("child_added", (snap) => {
-      const batch = snap.val();
-      if (Array.isArray(batch)) {
-        batch.forEach((seg) => crocCanvasObj.addStroke(seg));
-      }
-    });
-
-    roomRef.child("clearSignal").on("value", (snap) => {
-      if (snap.val()) crocCanvasObj.clear();
-    });
-
-    roomRef.child("undoSignal").on("value", (snap) => {
-      const sig = snap.val();
-      if (sig && sig.strokeId) crocCanvasObj.removeStroke(sig.strokeId);
-    });
-  }
-
-  function unsubscribeLiveStrokes() {
-    if (crocBatchesRef) {
-      crocBatchesRef.off();
-      if (crocRoomRef) {
-        crocRoomRef.child("clearSignal").off();
-        crocRoomRef.child("undoSignal").off();
-      }
-      crocBatchesRef = null;
-      crocRoomRef = null;
-    }
-  }
-
-  // ---------------- State Callback ----------------
-  function onState(room, ctx) {
-    lastRoom = room; lastCtx = ctx;
-    if (!ctx.username) { showView("locked"); return; }
-    if (!reactionsMounted && window.GameReactions && window.DrawGame.roomRef) {
-      reactionsMounted = true;
-      window.GameReactions.mount(window.DrawGame.roomRef, ctx.username);
-    }
-
-    showView(room.phase);
-    initCanvases();
-
-    if (room.phase === "lobby") {
-      unsubscribeLiveStrokes();
-      renderLobby(room, ctx);
-    } else if (room.phase === "active") {
-      if (room.mode === "crocodile") renderCrocodile(room, ctx);
-      else renderGallery(room, ctx);
-    }
-  }
-
-  // ---------------- Event Listeners ----------------
-  document.getElementById("modeCrocBtn").addEventListener("click", () => DrawGame.setMode("crocodile"));
-  document.getElementById("modeGalBtn").addEventListener("click", () => DrawGame.setMode("gallery"));
-  document.getElementById("galleryTimeSelect").addEventListener("input", (e) => {
-    document.getElementById("galleryTimeValue").textContent = `${e.target.value} с`;
+  $("crocPlayersList").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-guess]");
+    if (!b || !lastCtx || !lastCtx.isDrawer) return;
+    const name = b.dataset.guess;
+    if (!confirm(`${name} вгадав(ла)? Обидва отримаєте по балу, і ${name} малюватиме далі.`)) return;
+    if (crocCanvasObj) crocCanvasObj.clear();
+    DrawGame.sendClear();
+    DrawGame.markCorrectGuess(name);
+    sfx("ding"); buzz([20, 30, 20]);
   });
-  document.getElementById("galleryTimeSelect").addEventListener("change", (e) => DrawGame.setGalleryTimer(Number(e.target.value)));
-  document.getElementById("difficultySelect").addEventListener("change", (e) => DrawGame.setDifficulty(e.target.value));
-
-  document.getElementById("startBtn").addEventListener("click", () => DrawGame.startGame(lastRoom));
-  document.getElementById("resetBtn").addEventListener("click", () => { if (confirm("Скинути гру?")) DrawGame.resetGame(); });
-  document.getElementById("resetBtnActive").addEventListener("click", () => { if (confirm("Скинути гру?")) DrawGame.resetGame(); });
-
-  document.getElementById("skipPromptBtn").addEventListener("click", () => {
+  $("crocHead").addEventListener("click", (e) => {
+    if (!e.target.closest("#crocSkipBtn")) return;
     if (crocCanvasObj) crocCanvasObj.clear();
     DrawGame.sendClear();
     DrawGame.hostSkipPrompt();
   });
-    document.getElementById("nextDrawerBtn").addEventListener("click", () => {
-        if (crocCanvasObj) crocCanvasObj.clear();
-        DrawGame.sendClear();
-        DrawGame.hostForceNextDrawer();
-    });
 
-    document.getElementById("galSubmitBtn").addEventListener("click", () => {
-        const img = galCanvasObj.exportImage();
-        DrawGame.submitDrawing(img);
-    });
+  // ---------------- галерея ----------------
+  function renderGallery(room, ctx) {
+    $("crocStage").classList.add("hidden");
+    $("galleryStage").classList.remove("hidden");
+    stopStrokeFlusher();
+    unsubscribeLiveStrokes();
+    const gal = room.gallery || {}, sub = gal.sub;
+    const mineDone = !!(gal.submissions && gal.submissions[username]);
+    if (room.round !== lastGalRound) { lastGalRound = room.round; if (galCanvasObj) galCanvasObj.clear(); $("galSubmitBtn").disabled = false; }
 
-  document.getElementById("galRevealBtn").addEventListener("click", () => DrawGame.hostRevealAnswer());
-  document.getElementById("galNextBtn").addEventListener("click", () => DrawGame.hostNextDrawing());
-  document.getElementById("galNewRoundBtn").addEventListener("click", () => DrawGame.hostNewGalleryRound());
+    $("galDrawingStage").classList.toggle("hidden", sub !== "drawing" || mineDone);
+    $("galWaitStage").classList.toggle("hidden", sub !== "drawing" || !mineDone);
+    $("galRevealStage").classList.toggle("hidden", sub !== "reveal");
+    $("galRoundEndStage").classList.toggle("hidden", sub !== "roundEnd");
+    $("stageTitle").textContent = sub === "drawing" ? (mineDone ? "Чекаємо інших" : "Малюй!") : sub === "reveal" ? "Галерея" : "Кінець раунду";
 
-    window.markGuess = function(guesserName) {
-    // 1. Очищаємо полотно локально і відправляємо сигнал очищення всім гравцям в мережі
-        if (crocCanvasObj) {
-            crocCanvasObj.clear();
-        }
-        if (lastCtx && lastCtx.isDrawer) {
-            DrawGame.sendClear();
-        }
-
-        // 2. Нараховуємо бали та переходимо до наступного слова / художника
-        DrawGame.markCorrectGuess(guesserName);
-    };
-
-  // ---------------- Init ----------------
-  function beginGame(username_, roomId) {
-    username = username_;
-    DrawGame.onStateChange = onState;
-    DrawGame.start(username_, roomId);
+    if (sub === "drawing") {
+      $("galPrompt").textContent = (gal.prompts && gal.prompts[username]) || "…";
+      if (mineDone) {
+        const conn = DrawGame.connectedNames(room.players), left = conn.filter((n) => !(gal.submissions || {})[n]);
+        paint("galWaitStage", "w" + left.join(","), `<div class="dr-sent">${avatar(room, username, { size: "xl", mood: "happy" })}<b>Картина в галереї!</b></div>
+          <div class="pp-wait">${left.length ? `<div class="who">${left.map((n) => avatar(room, n, { size: "sm", mood: "write" })).join("")}</div><div>Ще малюють: ${left.length}</div>` : "<div>Усі готові</div>"}</div>`);
+      }
+    } else if (sub === "reveal") {
+      const order = gal.revealOrder || [], idx = gal.revealIndex || 0, target = order[idx];
+      const rk = room.round + "|" + idx;
+      if (rk !== lastRevealKey) {
+        lastRevealKey = rk; sfx("whoosh");
+        $("galRevealImg").src = (gal.submissions && gal.submissions[target]) || "";
+        const f = $("galFrame"); f.classList.remove("in"); void f.offsetWidth; f.classList.add("in");
+      }
+      $("galDots").innerHTML = order.map((_, i) => `<i class="${i === idx ? "on" : i < idx ? "done" : ""}"></i>`).join("");
+      $("galAsk").classList.toggle("hidden", !!gal.revealed);
+      $("galRevealAnswer").classList.toggle("hidden", !gal.revealed);
+      paint("galRevealAnswer", rk + gal.revealed, gal.revealed
+        ? `<div class="dr-answer">${avatar(room, target, { size: "md", mood: "happy" })}<div><small>${esc(target)} малював(ла)</small><b>${esc((gal.prompts && gal.prompts[target]) || "…")}</b></div></div>` : "");
+    }
+    const host = ctx.host;
+    $("nextDrawerBtn").classList.add("hidden");
+    $("galRevealBtn").classList.toggle("hidden", !(host && sub === "reveal" && !gal.revealed));
+    $("galNextBtn").classList.toggle("hidden", !(host && sub === "reveal" && gal.revealed));
+    $("galNewRoundBtn").classList.toggle("hidden", !(host && sub === "roundEnd"));
+    updateTimer();
   }
 
+  // таймер галереї + автовідправка за 1.5 с до кінця, щоб малюнок не загубився
+  const RING = 2 * Math.PI * 19;
+  let lastTick = null;
+  function updateTimer() {
+    const el = $("timer"), room = lastRoom;
+    const gal = room && room.gallery;
+    if (!room || room.phase !== "active" || room.mode !== "gallery" || !gal || gal.sub !== "drawing" || !gal.drawEndsAt) { el.className = "pp-timer off"; return; }
+    const total = Math.min(120, Math.max(20, Number(room.gallerySettings && room.gallerySettings.drawSeconds) || 60)) * 1000;
+    const left = Math.max(0, gal.drawEndsAt - DrawGame.now()), sec = Math.ceil(left / 1000);
+    const bar = el.querySelector(".bar");
+    bar.style.strokeDasharray = RING; bar.style.strokeDashoffset = RING * (1 - Math.min(1, left / total));
+    el.querySelector("span").textContent = sec;
+    el.className = "pp-timer" + (sec <= 10 ? " urgent" : "");
+    const mineDone = !!(gal.submissions && gal.submissions[username]);
+    if (!mineDone && sec <= 5 && sec > 0 && sec !== lastTick) { lastTick = sec; sfx("tick"); }
+    if (!mineDone && left <= 1500 && autoSentRound !== room.round && galCanvasObj) {
+      autoSentRound = room.round;
+      DrawGame.submitDrawing(galCanvasObj.exportCompact(900000));
+    }
+  }
+  setInterval(updateTimer, 250);
+
+  // ---------------- живі штрихи ----------------
+  function startStrokeFlusher() {
+    if (strokeBatchTimer) return;
+    strokeBatchTimer = setInterval(() => {
+      if (strokeBatchBuffer.length > 0) { DrawGame.pushStrokeBatch(strokeBatchBuffer); strokeBatchBuffer = []; }
+    }, 100);
+  }
+  function stopStrokeFlusher() {
+    if (strokeBatchTimer) { clearInterval(strokeBatchTimer); strokeBatchTimer = null; }
+    strokeBatchBuffer = [];
+  }
+  function subscribeLiveStrokes() {
+    if (crocBatchesRef) return;
+    crocCanvasObj.clear();
+    // підписка на штрихи саме цієї кімнати
+    const roomRef = window.rtdb.ref(`draw_rooms/${DrawGame.roomId}/crocodile`);
+    crocRoomRef = roomRef;
+    crocBatchesRef = roomRef.child("strokeBatches");
+    crocBatchesRef.on("child_added", (snap) => {
+      const batch = snap.val();
+      if (Array.isArray(batch)) batch.forEach((seg) => crocCanvasObj.addStroke(seg));
+    });
+    roomRef.child("clearSignal").on("value", (snap) => { if (snap.val()) crocCanvasObj.clear(); });
+    roomRef.child("undoSignal").on("value", (snap) => { const s = snap.val(); if (s && s.strokeId) crocCanvasObj.removeStroke(s.strokeId); });
+  }
+  function unsubscribeLiveStrokes() {
+    if (!crocBatchesRef) return;
+    crocBatchesRef.off();
+    if (crocRoomRef) { crocRoomRef.child("clearSignal").off(); crocRoomRef.child("undoSignal").off(); }
+    crocBatchesRef = null; crocRoomRef = null;
+  }
+
+  // ---------------- стан ----------------
+  function onState(room, ctx) {
+    const prevPhase = lastRoom && lastRoom.phase;
+    lastRoom = room; lastCtx = ctx;
+    if (!ctx.username) { showView("locked"); return; }
+    if (!reactionsMounted && window.GameReactions && DrawGame.roomRef) { reactionsMounted = true; window.GameReactions.mount(DrawGame.roomRef, ctx.username); }
+    const iAmIn = room.players && room.players[ctx.username];
+    if (!iAmIn && room.phase !== "lobby") { showView("waiting"); return; }
+    initCanvases();
+    if (room.phase === "lobby") {
+      unsubscribeLiveStrokes(); stopStrokeFlusher(); lastCrocKey = null; lastGalRound = null; lastRevealKey = null;
+      showView("lobby"); renderLobby(room, ctx);
+    } else {
+      if (prevPhase === "lobby") sfx("whoosh");
+      showView("active");
+      $("roundNo").textContent = room.round || 1;
+      $("hostBar").classList.toggle("hidden", !ctx.host);
+      if (room.mode === "gallery") renderGallery(room, ctx); else renderCrocodile(room, ctx);
+    }
+  }
+
+  $("modeCrocBtn").addEventListener("click", () => { DrawGame.setMode("crocodile"); sfx("pop"); });
+  $("modeGalBtn").addEventListener("click", () => { DrawGame.setMode("gallery"); sfx("pop"); });
+  $("galleryTimeSelect").addEventListener("input", (e) => { $("galleryTimeValue").textContent = `${e.target.value} с`; });
+  $("galleryTimeSelect").addEventListener("change", (e) => DrawGame.setGalleryTimer(Number(e.target.value)));
+  $("startBtn").addEventListener("click", () => DrawGame.startGame(lastRoom));
+  $("resetBtn").addEventListener("click", () => { if (confirm("Скинути гру?")) DrawGame.resetGame(); });
+  $("resetBtnActive").addEventListener("click", () => { if (confirm("Скинути гру для всіх?")) DrawGame.resetGame(); });
+  $("nextDrawerBtn").addEventListener("click", () => { if (crocCanvasObj) crocCanvasObj.clear(); DrawGame.sendClear(); DrawGame.hostForceNextDrawer(); });
+  $("galSubmitBtn").addEventListener("click", () => {
+    $("galSubmitBtn").disabled = true;
+    DrawGame.submitDrawing(galCanvasObj.exportCompact(900000)); sfx("pop");
+  });
+  $("galRevealBtn").addEventListener("click", () => { DrawGame.hostRevealAnswer(); sfx("drum"); });
+  $("galNextBtn").addEventListener("click", () => DrawGame.hostNextDrawing());
+  $("galNewRoundBtn").addEventListener("click", () => DrawGame.hostNewGalleryRound());
+
+  function beginGame(username_, roomId) { username = username_; DrawGame.onStateChange = onState; DrawGame.start(username_, roomId); }
   const session = window.AppAuth && window.AppAuth.getSession();
   if (session && window.rtdbReady) {
     RoomCodeUI.mount({
-      containerId: "activeRoomsList",
-      codeInputId: "roomCodeInput",
-      joinBtnId: "joinRoomBtn",
-      createBtnId: "createRoomBtn",
+      containerId: "activeRoomsList", codeInputId: "roomCodeInput", joinBtnId: "joinRoomBtn", createBtnId: "createRoomBtn",
       watchActiveRooms: DrawGame.watchActiveRooms,
-      renderRoomItem: (r) => `
-        <div class="player-chip"><span>Кімната ${RoomCodeUI.escapeHtml(r.roomId)}</span>
-        <span class="badge">${r.phase === "lobby" ? "Лобі" : "Гра триває"}</span></div>
-        <div class="status-line" style="text-align:left; font-size:12px;">Онлайн: ${r.connectedCount} / ${r.playerCount}</div>`,
+      emptyListHtml: '<div class="hint-text">Активних кімнат поки нема — створи нову</div>',
+      renderRoomItem: (r) => `<div class="pp-room"><b>${esc(r.roomId)}</b><small>${icon("users")} ${r.connectedCount}/${r.playerCount}</small>
+        <span class="st ${r.phase === "lobby" ? "" : "live"}">${r.phase === "lobby" ? "Лобі" : "Гра йде"}</span></div>`,
       onEnter: (roomId) => beginGame(session.username, roomId),
     });
     showView("room-entry");
-  } else {
-    showView("locked");
-  }
+  } else showView("locked");
 
-  window.addEventListener("beforeunload", () => {
-    stopStrokeFlusher();
-    unsubscribeLiveStrokes();
-    if (window.DrawGame) DrawGame.stop();
-  });
+  window.addEventListener("beforeunload", () => { stopStrokeFlusher(); unsubscribeLiveStrokes(); if (window.DrawGame) DrawGame.stop(); });
 })();
 </script>
 </body>
