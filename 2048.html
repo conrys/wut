@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
   <title>2048</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+  <meta name="theme-color" content="#fff4ec" />
   <style>
     :root {
       --bg: #14161a;
@@ -182,6 +183,29 @@
       touch-action: manipulation;
       cursor: pointer;
     }
+    /* ===== тема «мармелад»: кремове тло з посипкою, тарілка-дошка, глянцеві цукерки-плитки; Nunito 900 ===== */
+    :root { --bg: #fff4ec; --board-bg: #f6d6cb; --cell-bg: rgba(255,255,255,.55); --text-light: #5b2a3c; --text-muted: #b07a8a; --accent: #ff5d8f; }
+    html, body { background:
+      radial-gradient(60% 40% at 50% 0%, rgba(255,93,143,.16), transparent 70%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cg stroke-width='4' stroke-linecap='round' opacity='.35'%3E%3Cpath d='M14 20l8 4' stroke='%23ff5d8f'/%3E%3Cpath d='M70 14l-6 7' stroke='%234fc3f7'/%3E%3Cpath d='M100 50l8-2' stroke='%23ffc23d'/%3E%3Cpath d='M30 80l3 8' stroke='%238fd16a'/%3E%3Cpath d='M84 96l7 5' stroke='%239b7bff'/%3E%3Cpath d='M52 56l-7 3' stroke='%23ff9466'/%3E%3C/g%3E%3C/svg%3E"),
+      #fff4ec; font-family: 'Nunito', sans-serif; }
+    .title { font: 900 40px 'Nunito', sans-serif; letter-spacing: -.02em;
+      background: linear-gradient(135deg, #ff5d8f, #ff9466 50%, #ffc23d); -webkit-background-clip: text; background-clip: text; color: transparent;
+      filter: drop-shadow(0 3px 0 rgba(91,42,60,.12)); }
+    .score-box { background: #fff; box-shadow: 0 4px 0 rgba(91,42,60,.1); border: 2px solid #ffe0e9; }
+    .score-label { color: var(--text-muted); font-weight: 800; }
+    .score-value { font: 900 18px 'Nunito', sans-serif; color: var(--text-light); }
+    #newGameBtn, #overlayBtn { background: linear-gradient(180deg, #ff7aa3, #ff4f80); color: #fff; font: 900 14px 'Nunito', sans-serif; border-radius: 14px;
+      box-shadow: 0 4px 0 #d83a68; }
+    #newGameBtn:active, #overlayBtn:active { transform: translateY(3px); box-shadow: 0 1px 0 #d83a68; filter: none; }
+    .board { background: linear-gradient(160deg, #f9ddd2, #efc6b8); border-radius: 24px; box-shadow: 0 6px 0 #e3ad9c, 0 18px 40px rgba(91,42,60,.18), inset 0 2px 0 rgba(255,255,255,.6); }
+    .cell-bg { border-radius: 14px; box-shadow: inset 0 2px 4px rgba(91,42,60,.08); }
+    .tile-inner { position: relative; border-radius: 14px; font-family: 'Nunito', sans-serif; font-weight: 900; overflow: hidden;
+      box-shadow: 0 4px 0 rgba(91,42,60,.18), inset 0 -4px 0 rgba(0,0,0,.08); }
+    .tile-inner::after { content: ""; position: absolute; left: 10%; right: 10%; top: 6%; height: 34%; border-radius: 999px;
+      background: linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,0)); pointer-events: none; }
+    #overlay { background: rgba(255,244,236,.9); backdrop-filter: blur(3px); border-radius: 24px; }
+    #overlayText { font: 900 28px 'Nunito', sans-serif; color: var(--text-light); }
   </style>
 <link rel="stylesheet" href="js/styles/game-header.css">
 <script src="js/core/game-header.js" defer></script>
@@ -223,12 +247,15 @@
     const scoreVal = document.getElementById('scoreVal');
     const bestVal = document.getElementById('bestVal');
 
+    // «мармелад»: від світлих рожевих до яскравих цукерок
     const SHADES = {
-      2: '#3d4451', 4: '#4c5568', 8: '#5b6fa8', 16: '#4c7fc9',
-      32: '#3f9fd1', 64: '#2fc1c9', 128: '#38cfa0', 256: '#7bd66b',
-      512: '#d4d16a', 1024: '#e8a94f', 2048: '#ef7f4f', 4096: '#e0553f',
+      2: '#ffe3ec', 4: '#ffcfdc', 8: '#ffb38a', 16: '#ff9466',
+      32: '#ff6f61', 64: '#ff4f6d', 128: '#ffd25e', 256: '#ffc23d',
+      512: '#ffad1f', 1024: '#8fd16a', 2048: '#4fc3f7', 4096: '#9b7bff',
     };
-    function colorFor(value) { return SHADES[value] || '#c23b5a'; }
+    function colorFor(value) { return SHADES[value] || '#6c5ce7'; }
+    // світлі плитки — темне число, яскраві — біле
+    function inkFor(value) { return value <= 4 ? '#8a3b55' : (value >= 128 && value <= 512) ? '#6b4300' : '#ffffff'; }
 
     // ---- фонові клітинки ----
     for (let i = 0; i < 16; i++) {
@@ -369,6 +396,7 @@
       const inner = document.createElement('div');
       inner.className = 'tile-inner spawn';
       inner.style.background = colorFor(tile.value);
+      inner.style.color = inkFor(tile.value);
       inner.style.fontSize = fontSizeFor(tile.value) + 'px';
       inner.textContent = tile.value;
       el.appendChild(inner);
@@ -480,6 +508,7 @@
           keep.value = m.newValue;
           keep.innerEl.textContent = m.newValue;
           keep.innerEl.style.background = colorFor(m.newValue);
+          keep.innerEl.style.color = inkFor(m.newValue);
           keep.innerEl.style.fontSize = fontSizeFor(m.newValue) + 'px';
           keep.innerEl.classList.remove('pop');
           void keep.innerEl.offsetWidth;
@@ -517,7 +546,7 @@
         if (tiles[id].value === 2048) {
           phase = 'won';
           hasWonBefore = true;
-          showOverlay('2048! ПЕРЕМОГА 🎉', 'Продовжити гру', () => { phase = 'playing'; hideOverlay(); });
+          showOverlay('2048! ПЕРЕМОГА', 'Продовжити гру', () => { phase = 'playing'; hideOverlay(); });
           return;
         }
       }
