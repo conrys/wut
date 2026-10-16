@@ -49,7 +49,8 @@ function makeBots(count, resumeId) {
 }
 
 async function findTestPhotos() {
-  const dir = path.resolve(__dirname, "..", "memes");
+  // окремі тестові JPEG: меми й фото гри тепер у WebP, а правила бази приймають лише JPEG
+  const dir = path.resolve(__dirname, "fixtures");
   const names = await fs.readdir(dir);
   const photos = [];
   for (const name of names.sort()) {
@@ -63,7 +64,7 @@ async function findTestPhotos() {
     });
     if (photos.length === 2) return photos;
   }
-  throw new Error("Fake News needs two local JPEG test images smaller than 100 KB in memes/.");
+  throw new Error("Fake News needs two local JPEG test images smaller than 100 KB in bots/fixtures/.");
 }
 
 async function prepareBot(game, roomId, bot, currentPlayers, photoFiles) {
