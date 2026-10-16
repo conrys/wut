@@ -5,18 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Quiz — Табло</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="js/styles/reactions.css">
 <style>
   :root {
-    --bg-void: #0a0e2e; --bg-panel: #131a4d; --bg-panel-2: #1c2566; --bg-tile: #202a70;
-    --gold: #ffc847; --gold-soft: #ffe7a8; --correct: #35d399; --wrong: #ff5c7c;
+    --bg-void: #0a1452; --bg-panel: rgba(19,32,120,.72); --bg-panel-2: #0f2690; --bg-tile: #1736b8;
+    --gold: #ffcc33; --gold-soft: #ffe7a8; --correct: #35d399; --wrong: #ff5c7c;
     --text-primary: #f4f1ff; --text-muted: #8b90c4; --border-soft: rgba(255, 200, 71, 0.18);
-    --font-display: 'Space Grotesk', sans-serif; --font-body: 'Inter', sans-serif;
+    --font-display: 'Russo One', sans-serif; --font-body: 'Manrope', sans-serif;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; min-height: 100vh; overflow: hidden; height: 100vh; background: var(--bg-void);
-    background-image: radial-gradient(circle at 15% 10%, rgba(123,97,255,0.16), transparent 45%), radial-gradient(circle at 85% 90%, rgba(255,200,71,0.10), transparent 40%);
+    background-image: conic-gradient(from 200deg at 10% -10%, transparent 0 8deg, rgba(255,214,90,.10) 8deg 20deg, transparent 20deg 360deg),
+      conic-gradient(from 130deg at 90% -10%, transparent 0 8deg, rgba(120,170,255,.12) 8deg 20deg, transparent 20deg 360deg),
+      radial-gradient(80% 50% at 50% 110%, rgba(23,54,184,.7), transparent 70%);
     color: var(--text-primary); font-family: var(--font-body); }
   .hidden { display: none !important; }
 
@@ -86,6 +88,18 @@
   .result-points { font-family: var(--font-display); font-size: 30px; color: var(--gold); }
   .result-answer { color: var(--text-muted); font-size: 18px; max-width: 640px; }
 
+  /* монстрики */
+  .pav { display: inline-flex; flex: none; width: 34px; height: 34px; vertical-align: middle; }
+  .pav > .qa-av { width: 100%; height: 100%; }
+  .waiting-chip { display: flex; align-items: center; gap: 10px; padding: 8px 18px 8px 8px; }
+  .waiting-chip .pav { width: 52px; height: 52px; }
+  .active-player-strip { display: flex; align-items: center; justify-content: center; gap: 12px; }
+  .active-player-strip .pav { width: 56px; height: 56px; }
+  .result-who .pav { width: 120px; height: 120px; }
+  .podium-row .pav { width: 48px; height: 48px; margin-right: 12px; }
+  .podium-row.win .pav { width: 64px; height: 64px; }
+  .value-tile { background: linear-gradient(180deg, #2349d8, #1736b8); box-shadow: inset 0 -4px 0 rgba(0,0,0,.25); font-weight: 400; }
+  .logo, .countdown-num, .result-badge, .end-title, .cat-header { font-weight: 400; }
   .end-view { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; }
   .end-title { font-size: 46px; font-family: var(--font-display); }
   .podium { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 560px; }
@@ -101,7 +115,7 @@
 <body>
 <div class="stage">
   <div class="topbar">
-    <div class="logo">QU<span>I</span>Z</div>
+    <div class="logo">СВОЯ <span>ГРА</span></div>
     <div class="round-tag" id="roundTag">Гра триває</div>
   </div>
 
@@ -144,14 +158,15 @@
       </div>
 
       <div class="result-view hidden" id="view-result">
-        <div class="result-badge" id="resultBadge">✅ ПРАВИЛЬНО!</div>
+        <div class="result-who" id="resultWho"></div>
+        <div class="result-badge" id="resultBadge">ПРАВИЛЬНО!</div>
         <div class="result-points" id="resultPoints">+300 балів</div>
         <div class="result-answer" id="resultAnswer"></div>
       </div>
 
       <div class="end-view hidden" id="view-end">
         <div class="eyebrow">Гру завершено</div>
-        <div class="end-title">🎉 Переможець!</div>
+        <div class="end-title">Переможець!</div>
         <div class="podium" id="podium"></div>
       </div>
 
@@ -172,6 +187,7 @@
 <script src="js/core/firebase-config.js"></script>
 <script src="js/promts/quiz-topics.js"></script>
 <script src="js/core/online-engine.js"></script>
+<script src="js/quiplash-avatars.js"></script>
 <script src="js/quiz-game.js"></script>
 <script src="js/core/reactions.js"></script>
 <script>
@@ -180,6 +196,11 @@
   function showView(name) {
     VIEWS.forEach((v) => { const el = document.getElementById("view-" + v); if (el) el.classList.toggle("hidden", v !== name); });
     document.getElementById("activeStrip").classList.toggle("hidden", name !== "board");
+  }
+  // монстрик гравця (js/quiplash-avatars.js)
+  function av(state, name, mood) {
+    const p = (state.players || {})[name] || {};
+    return window.QuiplashAvatars ? `<span class="pav">${window.QuiplashAvatars.html({ character: p.character }, mood || "idle")}</span>` : "";
   }
   function escapeHtml(s) {
     const d = document.createElement("div");
@@ -194,7 +215,7 @@
         const online = window.QuizGame.connectedEntries(state.players).some(([n]) => n === name);
         const pts = p.score || 0;
         return `<div class="score-row ${name === state.currentPlayerUsername ? "is-active" : ""}">
-          <div class="name">${!online ? '<span class="dot-offline"></span>' : ""}${escapeHtml(name)}${name === state.currentPlayerUsername ? '<span class="badge-turn">ХІД</span>' : ""}</div>
+          <div class="name">${!online ? '<span class="dot-offline"></span>' : ""}${av(state, name)}${escapeHtml(name)}${name === state.currentPlayerUsername ? '<span class="badge-turn">ХІД</span>' : ""}</div>
           <div class="points ${pts < 0 ? "negative" : ""}">${pts}</div>
         </div>`;
       })
@@ -204,7 +225,7 @@
   function renderWaiting(state) {
     const conn = window.QuizGame.connectedEntries(state.players);
     document.getElementById("joinHint").textContent = `Потрібно щонайменше ${window.QuizGame.MIN_PLAYERS} гравці. Зараз: ${conn.length}`;
-    document.getElementById("waitingPlayers").innerHTML = conn.map(([name]) => `<div class="waiting-chip">${escapeHtml(name)}</div>`).join("");
+    document.getElementById("waitingPlayers").innerHTML = conn.map(([name]) => `<div class="waiting-chip">${av(state, name, "happy")}${escapeHtml(name)}</div>`).join("");
   }
 
   function questionValueFor(state, ci, qi) {
@@ -235,7 +256,7 @@
     valueGrid.innerHTML = html;
     valueGrid.style.gridTemplateRows = `repeat(${maxQ}, 1fr)`;
 
-    document.getElementById("activeStrip").innerHTML = `<b>${escapeHtml(state.currentPlayerUsername || "")}</b> вибирає питання… ${state.isCatchUpTurn ? "🔥 наздоганяюче питання (x2)" : ""} · Раунд ${state.round || 1}/${window.QuizGame.TOTAL_ROUNDS}`;
+    document.getElementById("activeStrip").innerHTML = `${av(state, state.currentPlayerUsername, "write")}<span><b>${escapeHtml(state.currentPlayerUsername || "")}</b> вибирає питання… ${state.isCatchUpTurn ? "наздоганяюче питання (бали ×2)" : ""} · Раунд ${state.round || 1}/${window.QuizGame.TOTAL_ROUNDS}</span>`;
   }
 
   let lastQuestionKey = null;
@@ -276,7 +297,8 @@
     const q = categoryIndex !== undefined ? window.QuizGame.QUIZ_TOPICS[categoryIndex].questions[questionIndex] : null;
 
     const badge = document.getElementById("resultBadge");
-    badge.textContent = ev.correct ? "✅ ПРАВИЛЬНО!" : "❌ НЕПРАВИЛЬНО";
+    badge.textContent = ev.selectedIndex == null ? "ЧАС ВИЙШОВ" : ev.correct ? "ПРАВИЛЬНО!" : "НЕПРАВИЛЬНО";
+    document.getElementById("resultWho").innerHTML = av(state, ev.playerName, ev.correct ? "happy" : "sad");
     badge.className = "result-badge " + (ev.correct ? "correct" : "wrong");
     document.getElementById("resultPoints").textContent = `${ev.pointsAwarded >= 0 ? "+" : ""}${ev.pointsAwarded} балів — ${ev.playerName}`;
     document.getElementById("resultAnswer").textContent = q ? `Правильна відповідь: ${q.options[q.correctIndices[0]]}. ${q.answerText || ""}` : "";
@@ -295,8 +317,8 @@
     const sorted = Object.entries(state.players || {}).sort((a, b) => (b[1].score || 0) - (a[1].score || 0));
     document.getElementById("podium").innerHTML = sorted
       .map(([name, p], i) => `<div class="podium-row ${i === 0 ? "win" : ""}">
-        <div class="podium-rank">${i + 1}${i === 0 ? " 👑" : ""}</div>
-        <div class="podium-name">${escapeHtml(name)}</div>
+        <div class="podium-rank">${i + 1}</div>
+        <div class="podium-name" style="display:flex;align-items:center">${av(state, name, i === 0 ? "happy" : "idle")}${escapeHtml(name)}</div>
         <div class="podium-score">${p.score || 0}</div>
       </div>`)
       .join("");
