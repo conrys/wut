@@ -91,7 +91,12 @@
   @keyframes checkmatePulse { from { opacity: 0.5; } to { opacity: 1; } }
   .sq .movedot { position: absolute; width: 26%; height: 26%; border-radius: 50%; background: var(--board-dot); z-index: 1; }
   .sq .movedot.capture { width: 100%; height: 100%; border-radius: 0; background: transparent; box-shadow: inset 0 0 0 4px var(--board-dot); }
-  .sq .coord { position: absolute; bottom: 2px; left: 3px; font-size: 9px; font-family: var(--font-body); opacity: 0.5; z-index: 1; }
+  /* координати: цифра ряду — зліва вгорі в лівому стовпчику, буква — справа внизу в нижньому ряду; колір — протилежний клітинці */
+  .sq .coord { position: absolute; z-index: 1; font: 700 clamp(9px, 2.6vw, 12px)/1 var(--font-body); pointer-events: none; }
+  .sq .coord.rank { top: 3px; left: 3px; }
+  .sq .coord.file { bottom: 2px; right: 4px; }
+  .sq.light .coord { color: var(--board-dark); }
+  .sq.dark .coord { color: var(--board-light); }
 
   .promo-picker {
     position: fixed; inset: 0; background: var(--scrim-strong); z-index: 100;
@@ -412,8 +417,14 @@
         }
         if (visCol === 0) {
           const coord = document.createElement("div");
-          coord.className = "coord";
+          coord.className = "coord rank";
           coord.textContent = 8 - row;
+          sq.appendChild(coord);
+        }
+        if (visRow === 7) {
+          const coord = document.createElement("div");
+          coord.className = "coord file";
+          coord.textContent = "abcdefgh"[col];
           sq.appendChild(coord);
         }
 
