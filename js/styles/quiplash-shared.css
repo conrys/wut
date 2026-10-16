@@ -173,3 +173,30 @@ body[data-scene="game_over"] .ql-bg { --ray-hue: 48; }
 @media (prefers-reduced-motion: reduce) {
   .ql-bg::before, .ql-super::before { animation: none; }
 }
+
+/* ---------- рахунок графіком (ТВ) ---------- */
+.ql-chart { display: flex; align-items: flex-end; justify-content: center; gap: min(1.4vw, 22px); width: 100%; max-width: 1700px; margin: 0 auto; }
+.ql-col { flex: 1 1 0; max-width: 9vw; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 0.8vh; }
+.ql-col-stack { position: relative; width: 100%; height: var(--chart-h, 50vh); display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
+.ql-col-head { display: flex; flex-direction: column; align-items: center; gap: 0.3vh; margin-bottom: 0.6vh; transition: transform 1.2s cubic-bezier(.22,1,.36,1); }
+.ql-col-head .qa-av { width: min(5.5vw, 9vh); height: min(5.5vw, 9vh); }
+.ql-col-score { font-weight: 900; font-size: min(1.8vw, 3.2vh); color: #fff; font-variant-numeric: tabular-nums; text-shadow: 0 2px 0 var(--ink); }
+.ql-col-delta { font-size: min(1.1vw, 2vh); font-weight: 900; color: var(--ink); background: var(--teal); border: 2px solid var(--ink); border-radius: 999px;
+  padding: 1px 8px; animation: ql-pop 0.5s calc(var(--d) + 900ms) both; }
+.ql-col-bar { position: relative; width: 74%; height: 0; border: 3px solid var(--ink); border-bottom: none; border-radius: 12px 12px 0 0;
+  background: rgba(255,255,255,0.08); box-shadow: 0 0 0 0 transparent; overflow: hidden; transition: height 0.7s cubic-bezier(.22,1,.36,1) var(--d); }
+.ql-chart.grown .ql-col-bar { height: var(--h-old); }
+.ql-chart.grown .ql-col-bar { animation: ql-bar-grow 1.2s cubic-bezier(.22,1,.36,1) calc(var(--d) + 700ms) forwards; }
+@keyframes ql-bar-grow { to { height: var(--h-new); } }
+.ql-col-bar i { position: absolute; left: 0; right: 0; bottom: 0; }
+.ql-col-bar i.old { height: calc(var(--ratio, 1) * 100%); background: var(--c); }
+.ql-col-bar i.new { top: 0; background: repeating-linear-gradient(-45deg, var(--c) 0 8px, rgba(255,255,255,0.55) 8px 14px); }
+.ql-col.top .ql-col-bar { box-shadow: 0 0 24px rgba(255,210,63,0.55); border-color: var(--yellow); }
+.ql-col-name { width: 100%; font-weight: 800; font-size: min(1.15vw, 2.2vh); color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center;
+  border-top: 3px solid var(--ink); padding-top: 0.6vh; }
+.ql-col-name b { font-size: 0.85em; margin-left: 3px; }
+.ql-col-name b.up { color: var(--teal); }
+.ql-col-name b.down { color: var(--red); }
+.ql-chart.dense .ql-col-head .qa-av { width: min(4vw, 7vh); height: min(4vw, 7vh); }
+.ql-chart.dense .ql-col-score { font-size: min(1.3vw, 2.6vh); }
+.ql-chart.dense .ql-col-name { font-size: min(0.85vw, 1.8vh); }

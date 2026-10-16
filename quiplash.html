@@ -17,11 +17,14 @@ textarea, input { -webkit-user-select: text; user-select: text; font-family: var
 .hidden { display: none !important; }
 button { font-family: var(--ql-font); }
 
-#gameHeader .slot-left, #gameHeader .slot-right { min-width: 96px; }
+/* шапка: один рядок, напівпрозора, без дублювання імені (воно є в профілі праворуч) */
+#gameHeader.game-header--fixed { background: rgba(20,17,43,0.78); border-bottom: 2px solid rgba(255,255,255,0.08);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: max(6px, env(safe-area-inset-top)) 10px 6px; gap: 6px; }
+#gameHeader .slot-left, #gameHeader .slot-center, #gameHeader .slot-right { flex-wrap: nowrap; gap: 6px; }
 #gameHeader .slot-right { justify-content: flex-end; }
-#my-badge { display: flex; align-items: center; gap: 6px; font-weight: 800; min-width: 0; }
-#my-badge .qa-av { width: 30px; height: 30px; }
-#my-badge .name { max-width: 34vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#gameHeader button, #gameHeader a { font-family: var(--ql-font); }
+#gameHeader .reactions-wrap.in-header { position: relative; right: auto; bottom: auto; }
+#gameHeader .reactions-toggle { width: 38px; height: 38px; min-width: 38px; min-height: 38px; max-width: 38px; max-height: 38px; }
 
 .wrap { position: relative; z-index: 2; max-width: 520px; margin: 0 auto; padding: 10px 16px calc(28px + env(safe-area-inset-bottom)); }
 .screen { text-align: center; }
@@ -33,7 +36,8 @@ h1, h2 { margin: 0 0 10px; }
   gap: 10px; margin: 0 0 12px; padding: 6px 6px 6px 8px; background: rgba(20,17,43,0.72); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   border: 2px solid rgba(255,255,255,0.1); border-radius: 999px; }
 #hud .left { display: flex; align-items: center; gap: 8px; min-width: 0; }
-#hud-phase { font-weight: 700; font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#hud .ql-chip { white-space: nowrap; flex-shrink: 0; font-size: 12px; padding: 5px 10px; }
+#hud-phase { font-weight: 700; font-size: 13px; min-width: 0; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #hud .right { display: flex; align-items: center; gap: 8px; }
 .icon-btn { width: 40px; height: 40px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.35); background: rgba(255,255,255,0.08);
   color: #fff; font-size: 16px; display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; }
@@ -145,9 +149,10 @@ h1, h2 { margin: 0 0 10px; }
 .choice-btn.mine::after { background: #fff1b3; }
 .choice-tag { display: inline-block; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em; background: var(--ink);
   color: var(--yellow); border-radius: 999px; padding: 2px 8px; margin-bottom: 6px; }
-.vs-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 6px 0; }
+.vs-wrap { display: flex; flex-direction: column; align-items: stretch; gap: 4px; margin: 6px 0; }
+.vs-wrap .ql-vs { align-self: center; }
 .vs-wrap .ql-vs { font-size: 64px; }
-.mystery { display: flex; gap: 12px; }
+.mystery { display: flex; gap: 14px; width: 100%; }
 .mystery .ql-bubble { flex: 1; font-size: 36px; text-align: center; padding: 18px 0; }
 .vote-status { margin-top: 18px; font-weight: 700; color: var(--muted); }
 .gallery-list { display: grid; grid-template-columns: 1fr; gap: 12px; }
@@ -181,7 +186,7 @@ h1, h2 { margin: 0 0 10px; }
 <body data-scene="entry">
 <div id="gameHeader" class="game-header game-header--fixed">
   <div class="slot-left"></div>
-  <div class="slot-center"><span id="my-badge"></span></div>
+  <div class="slot-center"></div>
   <div class="slot-right"><div id="top-bar"></div></div>
 </div>
 
@@ -257,10 +262,8 @@ h1, h2 { margin: 0 0 10px; }
 <script src="js/core/reactions.js"></script>
 <script src="js/core/room-code-ui.js"></script>
 <script src="js/core/score-connect.js"></script>
-<script src="js/core/records.js"></script>
 <script src="js/core/help.js"></script>
 <script src="js/core/back-button.js"></script>
-<script src="js/core/refresh-button.js"></script>
 <script>
 (function () {
   const G = window.QuiplashGame, UI = window.QuiplashUI, SFX = window.QuiplashSfx;
@@ -290,12 +293,6 @@ h1, h2 { margin: 0 0 10px; }
   function playerOf(state, name) { return Object.assign({ name }, (state.players || {})[name] || { character: 1 }); }
 
   // ---------------- шапка / HUD ----------------
-  function renderBadge(state) {
-    const p = me(state);
-    const key = `${session}|${p ? p.character : 0}`;
-    setHtml($("my-badge"), key, `${p ? UI.avatar(p, "idle") : ""}<span class="name">${esc(session)}</span>`);
-  }
-
   const PHASE_LABEL = {
     round_intro: "Готуйся…", answering: "Пиши відповіді", answer_countdown: "Збираємо відповіді",
     voting: "Голосування", reveal: "Результат", round_end: "Рахунок",
@@ -698,7 +695,6 @@ h1, h2 { margin: 0 0 10px; }
       reactionsMounted = true;
       window.GameReactions.mount(G.roomRef, ctx.username);
     }
-    renderBadge(state);
     renderHud(state);
     cue(state);
     UI.maybeSuper(state, () => { SFX.play("fanfare"); SFX.vibrate([60, 40, 60, 40, 120]); });

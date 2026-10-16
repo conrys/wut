@@ -129,6 +129,55 @@
     });
   }
 
+  // Рахунок стовпчиками (ТВ): аватарка на верхівці, приріст за раунд «доростає».
+  function renderChart(container, state, opts) {
+    opts = opts || {};
+    const byId = playersById(state);
+    const round = state.round || 0;
+    const rows = Object.values(byId).map((p) => ({
+      ...p, score: p.score || 0,
+      before: opts.showDelta ? G().scoreBefore(state, p.name, round) : (p.score || 0),
+    }));
+    const sorted = rows.slice().sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+    const prevRank = {};
+    rows.slice().sort((a, b) => b.before - a.before || a.name.localeCompare(b.name)).forEach((r, i) => { prevRank[r.name] = i; });
+    const max = Math.max(1, ...sorted.map((r) => r.score));
+    const n = sorted.length;
+    const best = sorted.length ? sorted[0].score : 0;
+    container.className = "ql-chart" + (n > 12 ? " dense" : "");
+    container.style.setProperty("--chart-h", opts.height || "50vh");
+    container.innerHTML = sorted.map((r, i) => {
+      const delta = r.score - r.before;
+      const move = opts.showDelta ? prevRank[r.name] - i : 0;
+      const top = r.score === best && best > 0;
+      const mood = opts.final ? (top ? "happy" : i === n - 1 && n > 2 ? "sad" : "idle") : (delta > 0 && top ? "happy" : delta === 0 && opts.showDelta && round > 0 ? "sad" : "idle");
+      const hOld = (r.before / max) * 100, hNew = (r.score / max) * 100;
+      return `<div class="ql-col${top ? " top" : ""}" style="--c:${r.color || "#2ee6c5"};--d:${i * 70}ms">
+        <div class="ql-col-stack" style="--h-old:${hOld.toFixed(1)}%;--h-new:${hNew.toFixed(1)}%;--ratio:${hNew > 0 ? (hOld / hNew).toFixed(3) : 0}">
+          <div class="ql-col-head">
+            ${opts.showDelta && delta > 0 ? `<span class="ql-col-delta">+${delta}</span>` : ""}
+            <span class="ql-col-score" data-from="${r.before}" data-to="${r.score}">${opts.showDelta ? r.before : r.score}</span>
+            ${avatar(r, mood)}
+          </div>
+          <div class="ql-col-bar"><i class="new"></i><i class="old"></i></div>
+        </div>
+        <div class="ql-col-name">${top ? "👑 " : ""}${esc(r.name)}${move > 0 ? `<b class="up">▲${move}</b>` : move < 0 ? `<b class="down">▼${-move}</b>` : ""}</div>
+      </div>`;
+    }).join("");
+    requestAnimationFrame(() => requestAnimationFrame(() => container.classList.add("grown")));
+    container.querySelectorAll(".ql-col-score").forEach((el) => {
+      const from = Number(el.dataset.from), to = Number(el.dataset.to);
+      if (from === to) return;
+      const start = performance.now() + 700, dur = 1200;
+      const step = (ts) => {
+        const k = Math.max(0, Math.min(1, (ts - start) / dur));
+        el.textContent = Math.round(from + (to - from) * (1 - Math.pow(1 - k, 3)));
+        if (k < 1 && el.isConnected) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
+  }
+
   function confetti(count) {
     const box = document.createElement("div");
     box.className = "ql-confetti";
@@ -171,5 +220,5 @@
     }, 1400);
   }
 
-  window.QuiplashUI = { esc, promptHtml, playersById, avatar, phaseTimer, paintTimer, roundTitle, bonusLabel, votesWord, renderBoard, confetti, maybeSuper };
+  window.QuiplashUI = { esc, promptHtml, playersById, avatar, phaseTimer, paintTimer, roundTitle, bonusLabel, votesWord, renderBoard, renderChart, confetti, maybeSuper };
 })();

@@ -162,10 +162,15 @@
   function connectedNames(state) { return connectedEntries(state.players).map(([n]) => n); }
   function activeNames(state) { return Object.entries(state.players || {}).filter(([, p]) => Engine.isActiveNow(p)).map(([n]) => n); }
 
+  // Хост — лише справжній клієнт гри (його heartbeat пише sessionId). Тестові
+  // боти пишуть тільки lastSeen і крутити тік не вміють: раніше, щойно телефон
+  // ведучого засинав, ведучим ставав бот — і гра стояла, поки людина не повернеться.
   function computeHost(players) {
-    const conn = Object.entries(players || {}).filter(([, p]) => Engine.isActiveNow(p));
-    if (!conn.length) return null;
-    return conn.sort((a, b) => (a[1].joinedAt || 0) - (b[1].joinedAt || 0) || a[0].localeCompare(b[0]))[0][0];
+    const active = Object.entries(players || {}).filter(([, p]) => Engine.isActiveNow(p));
+    const real = active.filter(([, p]) => p.sessionId);
+    const pool = real.length ? real : active;
+    if (!pool.length) return null;
+    return pool.sort((a, b) => (a[1].joinedAt || 0) - (b[1].joinedAt || 0) || a[0].localeCompare(b[0]))[0][0];
   }
 
   // ------------------------- аватарки -------------------------
@@ -434,9 +439,10 @@
     return !state || !Array.isArray(state.roundAnswerers) || state.roundAnswerers.includes(name);
   }
 
-  function pickAnswerers(state, conn) {
+  function pickAnswerers(state, conn, roundType) {
     const counts = state.answerCounts || {};
-    if (conn.length <= MAX_ANSWERERS) return conn.slice();
+    // фінал — один підпис на гравця, тож пишуть усі
+    if (roundType === "image" || conn.length <= MAX_ANSWERERS) return conn.slice();
     return shuffle(conn).sort((a, b) => (counts[a] || 0) - (counts[b] || 0)).slice(0, MAX_ANSWERERS);
   }
 
@@ -451,7 +457,7 @@
       const conn = connectedNames(state);
       if (conn.length < MIN_PLAYERS) return;
       const roundType = ROUND_PLAN[roundNumber - 1] || "classic";
-      const answerers = pickAnswerers(state, conn);
+      const answerers = pickAnswerers(state, conn, roundType);
       const answerCounts = Object.assign({}, state.answerCounts || {});
       answerers.forEach((n) => { answerCounts[n] = (answerCounts[n] || 0) + 1; });
       const t = now();

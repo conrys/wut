@@ -14,8 +14,8 @@
 html, body { margin: 0; height: 100%; }
 body { background: var(--bg2); color: #fff; font-family: var(--ql-font); overflow: hidden; }
 .hidden { display: none !important; }
-.stage { position: relative; z-index: 2; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding: 3vh 4vw; text-align: center; gap: 2.2vh; }
+.stage { position: relative; z-index: 2; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: safe center;
+  padding: 11vh 4vw 5vh; text-align: center; gap: 2vh; overflow: hidden; }
 .hint { color: var(--muted); font-size: clamp(16px, 1.8vw, 26px); font-weight: 700; margin: 0; }
 .top-bar { position: fixed; top: 2vh; left: 3vw; right: 3vw; z-index: 10; display: flex; justify-content: space-between; align-items: center; pointer-events: none; }
 .top-bar .ql-chip { font-size: clamp(13px, 1.3vw, 20px); padding: 8px 18px; }
@@ -31,10 +31,9 @@ body { background: var(--bg2); color: #fff; font-family: var(--ql-font); overflo
 .tv-code { display: flex; align-items: center; gap: 2vw; padding: 1.4vh 2.4vw; }
 .tv-code .label { font-size: clamp(14px, 1.4vw, 22px); font-weight: 800; color: #6b6496; text-transform: uppercase; text-align: left; line-height: 1.3; }
 .tv-code .code { font-size: clamp(44px, 6vw, 100px); font-weight: 900; letter-spacing: 0.14em; }
-.tv-players { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 1.2vh 1vw; width: min(92vw, 1500px); }
-.tv-players.few { grid-template-columns: repeat(var(--cols, 5), minmax(0, 1fr)); width: min(80vw, 1100px); }
+.tv-players { display: grid; grid-template-columns: repeat(var(--cols, 5), minmax(0, 1fr)); gap: 1vh 0.8vw; width: min(calc(var(--cols, 5) * 17vw), 94vw); }
 .tv-p { display: flex; flex-direction: column; align-items: center; gap: 0.4vh; min-width: 0; animation: ql-pop 0.5s cubic-bezier(.3,1.6,.5,1) both; }
-.tv-p .qa-av { width: clamp(60px, 7vw, 130px); height: clamp(60px, 7vw, 130px); }
+.tv-p .qa-av { width: var(--av, min(7vw, 14vh)); height: var(--av, min(7vw, 14vh)); }
 .tv-p .nm { font-weight: 800; font-size: clamp(13px, 1.3vw, 22px); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tv-p.off { opacity: 0.35; filter: grayscale(0.8); }
 .tv-p.ok .nm { color: var(--teal); }
@@ -75,7 +74,14 @@ body { background: var(--bg2); color: #fff; font-family: var(--ql-font); overflo
 .tv-answers { display: grid; grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr)); gap: 2vh 1.4vw; }
 .tv-answers .ql-bubble { font-size: clamp(16px, 1.7vw, 30px); padding: 1.6vh 1.2vw; text-align: center; }
 .tv-answers .ql-bubble::after { display: none; }
-.tv-res { display: flex; flex-direction: column; gap: 1.4vh; max-height: 78vh; overflow: hidden; }
+.tv-res { display: grid; grid-template-columns: repeat(var(--cols, 1), minmax(0, 1fr)); gap: 1.2vh 1vw; max-height: 80vh; }
+.tv-res.compact .tv-res-row .ql-bubble { font-size: min(1.25vw, 2.4vh); padding: 0.8vh 0.8vw; }
+.tv-res.compact .tv-res-row .qa-av { width: min(3.4vw, 6vh); height: min(3.4vw, 6vh); }
+.tv-res.compact .ql-voters .qa-av { width: min(1.8vw, 3.2vh); height: min(1.8vw, 3.2vh); }
+.tv-res.compact .side { min-width: 8vw; }
+.tv-res.compact .side b { font-size: min(1.1vw, 2vh); max-width: 9vw; }
+.tv-res.compact .ql-points, .tv-res.compact .ql-bonus { font-size: min(1vw, 1.9vh); padding: 2px 8px; }
+.tv-res-row .side b { max-width: 14vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tv-res-row { display: flex; align-items: center; gap: 1vw; text-align: left; }
 .tv-res-row .qa-av { width: clamp(50px, 5vw, 90px); height: clamp(50px, 5vw, 90px); flex-shrink: 0; }
 .tv-res-row .ql-bubble { flex: 1; font-size: clamp(16px, 1.7vw, 30px); padding: 1.2vh 1.2vw; }
@@ -93,12 +99,14 @@ body { background: var(--bg2); color: #fff; font-family: var(--ql-font); overflo
 .tv-board .ql-row-score { font-size: clamp(18px, 1.9vw, 34px); min-width: 7vw; }
 .tv-board .ql-row-rank { font-size: clamp(16px, 1.5vw, 26px); width: 3vw; }
 .tv-board .ql-row-delta { font-size: clamp(12px, 1.1vw, 18px); }
-.tv-podium { display: flex; align-items: center; gap: 3vw; }
-.tv-podium .qa-av { width: clamp(140px, 16vw, 300px); height: clamp(140px, 16vw, 300px); }
-.tv-podium .crown { font-size: clamp(50px, 6vw, 110px); animation: ql-bob 1.6s ease-in-out infinite; }
-.tv-podium .nm { font-size: clamp(40px, 5vw, 96px); font-weight: 900; color: var(--yellow); -webkit-text-stroke: 0.04em var(--ink); paint-order: stroke fill; text-shadow: 0 0.06em 0 var(--ink); }
+.tv-podium { display: flex; align-items: center; justify-content: center; gap: 3vw; max-width: 92vw; }
+.tv-podium .winner { display: flex; align-items: center; gap: 1.5vw; min-width: 0; }
+.tv-podium .qa-av { width: min(11vw, 20vh); height: min(11vw, 20vh); flex-shrink: 0; }
+.tv-podium.tie .qa-av { width: min(8vw, 14vh); height: min(8vw, 14vh); }
+.tv-crown { font-size: min(4vw, 7vh); font-weight: 900; animation: ql-bob 1.6s ease-in-out infinite; }
+.tv-podium .nm { max-width: 36vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: min(4vw, 7vh); font-weight: 900; color: var(--yellow); -webkit-text-stroke: 0.04em var(--ink); paint-order: stroke fill; text-shadow: 0 0.06em 0 var(--ink); }
 .tv-podium .sc { font-size: clamp(20px, 2.2vw, 38px); font-weight: 800; }
-.tv-sound { position: fixed; bottom: 2vh; right: 2vw; z-index: 20; }
+.tv-sound { position: fixed; bottom: 2vh; right: 2vw; z-index: 20; font-size: 14px; padding: 8px 14px; opacity: 0.8; }
 </style>
 </head>
 <body data-scene="lobby">
@@ -106,7 +114,7 @@ body { background: var(--bg2); color: #fff; font-family: var(--ql-font); overflo
 <div id="pause-overlay" class="hidden"><div class="ql-card">⏸ Пауза<div class="hint" id="pause-by" style="color:#6b6496;margin-top:8px"></div></div></div>
 <div class="top-bar"><span class="ql-chip" id="round-chip" style="visibility:hidden"></span><div class="ql-timer hidden-timer" id="tv-timer"><span>0</span></div></div>
 <div id="status-line"></div>
-<button class="ql-btn ghost tv-sound" id="sound-btn">🔊 Увімкнути звук</button>
+<button class="ql-btn ghost tv-sound" id="sound-btn">🔇 Звук</button>
 <main class="stage" id="stage"></main>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
@@ -161,8 +169,10 @@ body { background: var(--bg2); color: #fff; font-family: var(--ql-font); overflo
 
   function playersGrid(names, moodOf, extraCls) {
     const n = names.length;
-    const few = n <= 10;
-    return `<div class="tv-players${few ? " few" : ""}" style="--cols:${Math.max(3, Math.min(5, n))}">${names.map((nm, i) =>
+    // не більше двох рядів: 6–10 гравців — по 5, 11–20 — по 10 в ряд
+    const cols = n <= 5 ? Math.max(3, n) : Math.min(10, Math.ceil(n / 2));
+    const av = cols <= 5 ? "min(8vw, 15vh)" : "min(6.4vw, 11vh)";
+    return `<div class="tv-players" style="--cols:${cols};--av:${av}">${names.map((nm, i) =>
       `<div class="tv-p ${extraCls ? extraCls(nm) : ""}" style="animation-delay:${i * 50}ms">${UI.avatar(P(nm), moodOf ? moodOf(nm) : "idle")}<div class="nm">${esc(nm)}</div></div>`).join("")}</div>`;
   }
 
@@ -190,7 +200,7 @@ body { background: var(--bg2); color: #fff; font-family: var(--ql-font); overflo
     const done = answerers.filter((n) => G.playerAnswered(state, n));
     const key = `ans|${state.round}|${done.join(",")}`;
     const g = state.gallery;
-    setStage(key, `${g ? `<img src="${esc(g.image)}" alt="" style="max-height:42vh;max-width:70vw;border-radius:22px;border:4px solid var(--ink);box-shadow:0 8px 0 var(--ink)">` : ""}
+    setStage(key, `${g ? `<img src="${esc(g.image)}" alt="" style="max-height:30vh;max-width:60vw;border-radius:22px;border:4px solid var(--ink);box-shadow:0 8px 0 var(--ink)">` : ""}
       <h1 class="big-title">${g ? "Придумайте підпис!" : "Пишіть відповіді!"}</h1>
       <p class="hint">${g ? "Дивіться на картинку і пишіть на телефонах" : "Питання — на ваших телефонах. Кожне дісталось двом гравцям."}</p>
       ${playersGrid(answerers, (n) => (done.includes(n) ? "happy" : "write"), (n) => (done.includes(n) ? "ok" : "wait"))}
@@ -212,12 +222,12 @@ body { background: var(--bg2); color: #fff; font-family: var(--ql-font); overflo
     if (state.gallery) {
       const g = state.gallery;
       const answers = Object.entries(g.answers || {}).filter(([, t]) => t);
-      const cols = answers.length > 8 ? 3 : answers.length > 3 ? 2 : 1;
+      const cols = answers.length > 12 ? 4 : answers.length > 6 ? 3 : answers.length > 3 ? 2 : 1;
       const votesIn = Object.keys(g.votes || {}).length;
       if (setStage(`gv|${state.round}|${intro}`, `<div class="tv-gallery">
           <img src="${esc(g.image)}" alt="">
           <div><h1 class="big-title" style="font-size:clamp(30px,3.4vw,60px);margin-bottom:2vh">${intro ? "Голосуємо!" : "Найкращий підпис?"}</h1>
-            <div class="tv-answers" style="--cols:${cols}">${answers.map(([, t], i) => `<div class="ql-bubble ql-pop" style="animation-delay:${intro ? 9999 : i * 120}ms">${esc(t)}</div>`).join("")}</div>
+            <div class="tv-answers" style="--cols:${cols};${answers.length > 8 ? "font-size:.8em" : ""}">${answers.map(([, t], i) => `<div class="ql-bubble ql-pop" style="animation-delay:${intro ? 9999 : i * 120}ms">${esc(t)}</div>`).join("")}</div>
             <p class="tv-votecount" id="vc" style="margin-top:2vh"></p><div id="voted"></div></div></div>`)) {
         stage.dataset.voted = "";
       }
@@ -249,9 +259,12 @@ body { background: var(--bg2); color: #fff; font-family: var(--ql-font); overflo
   function renderReveal() {
     if (state.gallery) {
       const g = state.gallery;
-      const res = Object.entries(g.results || {}).sort((a, b) => b[1].count - a[1].count).slice(0, 8);
-      setStage(`gr|${state.round}`, `<div class="tv-gallery"><img src="${esc(g.image)}" alt="">
-        <div class="tv-res">${res.map(([n, r], i) => `<div class="tv-res-row ql-rise" style="animation-delay:${(res.length - 1 - i) * 350}ms">
+      const res = Object.entries(g.results || {}).sort((a, b) => b[1].count - a[1].count);
+      const compact = res.length > 5;
+      const cols = res.length > 12 ? 3 : compact ? 2 : 1;
+      const step = Math.min(350, 4500 / Math.max(1, res.length));
+      setStage(`gr|${state.round}`, `<div class="tv-gallery" style="${compact ? "grid-template-columns:minmax(0,.55fr) minmax(0,1.45fr)" : ""}"><img src="${esc(g.image)}" alt="">
+        <div class="tv-res${compact ? " compact" : ""}" style="--cols:${cols}">${res.map(([n, r], i) => `<div class="tv-res-row ql-rise" style="animation-delay:${Math.round((res.length - 1 - i) * step)}ms">
           ${UI.avatar(P(n), i === 0 && r.count > 0 ? "happy" : r.count === 0 ? "sad" : "idle")}
           <div class="ql-bubble ${i === 0 && r.count > 0 ? "win" : ""}">${esc(g.answers[n])}<div class="ql-voters" style="margin-top:6px">${chips(g.votes, n)}</div></div>
           <div class="side"><b>${esc(n)}</b><span class="ql-points">+${r.points}</span>${UI.bonusLabel(r.bonusKind, r.bonusPoints)}</div></div>`).join("")}</div></div>`);
@@ -275,24 +288,24 @@ body { background: var(--bg2); color: #fff; font-family: var(--ql-font); overflo
 
   function renderRoundEnd() {
     const last = state.round >= G.TOTAL_ROUNDS;
-    const many = Object.keys(state.players || {}).length > 8;
-    if (setStage(`re|${state.round}`, `<h1 class="big-title">${last ? "Фінальний підрахунок" : `Після раунду ${state.round}`}</h1>
-      <div class="tv-board${many ? " many" : ""}" id="board"></div><p class="hint" id="re-hint"></p>`)) {
-      UI.renderBoard(document.getElementById("board"), state, { showDelta: true });
+    if (setStage(`re|${state.round}`, `<h1 class="big-title" style="font-size:min(4.5vw,8vh)">${last ? "Фінальний підрахунок" : `Після раунду ${state.round}`}</h1>
+      <div id="board" style="width:100%"></div><p class="hint" id="re-hint"></p>`)) {
+      UI.renderChart(document.getElementById("board"), state, { showDelta: true, height: "52vh" });
     }
-    UI.renderBoard(document.getElementById("board"), state, { showDelta: true });
     const t = UI.phaseTimer(state);
     document.getElementById("re-hint").textContent = last ? "А переможцем стає…" : conn().length < 2 ? "Чекаємо, поки гравці повернуться…" : `Наступний раунд за ${t ? Math.ceil(t.remaining / 1000) : 0} с`;
   }
 
   function renderGameOver() {
     const ranked = Object.entries(state.players || {}).sort((a, b) => (b[1].score || 0) - (a[1].score || 0));
-    const top = ranked[0];
-    const many = ranked.length > 8;
-    if (setStage(`go|${state.createdAt}|${ranked.length}`, `${top ? `<div class="tv-podium ql-pop">${UI.avatar(P(top[0]), "happy")}
-        <div style="text-align:left"><div class="crown">👑</div><div class="nm">${esc(top[0])}</div><div class="sc">${top[1].score || 0} балів</div></div></div>` : ""}
-      <div class="tv-board${many ? " many" : ""}" id="board"></div>`)) {
-      UI.renderBoard(document.getElementById("board"), state, { final: true });
+    const best = ranked.length ? ranked[0][1].score || 0 : 0;
+    const winners = ranked.filter(([, p]) => (p.score || 0) === best).slice(0, 3);
+    const tie = winners.length > 1;
+    if (setStage(`go|${state.createdAt}|${ranked.length}`, `${winners.length ? `<div class="tv-crown">${tie ? "🤝 Нічия!" : "👑 Переможець"}</div>
+      <div class="tv-podium ql-pop${tie ? " tie" : ""}">${winners.map(([n]) => `<div class="winner">${UI.avatar(P(n), "happy")}
+        <div style="text-align:left;min-width:0"><div class="nm">${esc(n)}</div><div class="sc">${best} балів</div></div></div>`).join("")}</div>` : ""}
+      <div id="board" style="width:100%"></div>`)) {
+      UI.renderChart(document.getElementById("board"), state, { final: true, height: "36vh" });
     }
   }
 
