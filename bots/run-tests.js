@@ -211,6 +211,8 @@ async function run(game, roomId, count, resumeId) {
         }
         console.log("  (не підглядай, якщо граєш чесно)");
       }
+      // пауза (js/core/game-pause.js): боти теж чекають, лише тримають присутність
+      if (room.paused) { await wait(POLL_MS); continue; }
       const result = gameActions(game, room, bots, now);
       // малюнки (Телефон) — спершу в окремий вузол, потім посилання в кімнату
       for (const d of result.drawings || []) {
