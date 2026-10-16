@@ -4,6 +4,9 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
 <title>Стрибунець</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Neucha&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#f2e9d8" />
 <style>
   :root {
     --sky: #f2e9d8;
@@ -99,6 +102,24 @@
     touch-action: manipulation;
     -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
   }
+  /* ===== тема «зошитовий скетч»: рукописний Neucha, рахунок-наліпка, вікно — вирваний аркуш ===== */
+  html, body { background: #2b2a24; font-family: 'Neucha', 'Inter', cursive; }
+  .hud-bar { height: 50px; background: transparent; border-bottom: 0; padding: 6px 12px 0; pointer-events: none; }
+  .hud-bar span { pointer-events: auto; font: 400 26px/1 'Neucha', cursive; color: #23261f; padding: 4px 14px 6px; background: #fff36b;
+    border-radius: 3px; box-shadow: 2px 3px 0 rgba(35,38,31,.18); transform: rotate(-2deg); }
+  .hud-bar button { pointer-events: auto; width: 40px; height: 40px; border-radius: 50%; padding: 0; display: grid; place-items: center;
+    background: #fffdf6; border: 2px solid #23261f; box-shadow: 2px 2px 0 rgba(35,38,31,.25); }
+  .hud-bar button svg { width: 16px; height: 16px; fill: #23261f; }
+  #overlay { background: rgba(43,42,36,.55); }
+  #overlay > * { position: relative; z-index: 1; }
+  #overlay::before { content: ""; position: absolute; left: 50%; top: 50%; width: min(78%, 320px); height: 280px; transform: translate(-50%, -52%) rotate(-1.5deg);
+    background: repeating-linear-gradient(0deg, rgba(60,110,200,.14) 0 1px, transparent 1px 22px), repeating-linear-gradient(90deg, rgba(60,110,200,.14) 0 1px, transparent 1px 22px), #fffdf6;
+    border-radius: 4px; box-shadow: 0 14px 34px rgba(0,0,0,.35); clip-path: polygon(0 3%, 6% 0, 12% 3%, 18% 0, 24% 3%, 30% 0, 36% 3%, 42% 0, 48% 3%, 54% 0, 60% 3%, 66% 0, 72% 3%, 78% 0, 84% 3%, 90% 0, 96% 3%, 100% 0, 100% 100%, 0 100%); }
+  #overlayTitle { font: 400 34px/1 'Neucha', cursive; color: #23261f; }
+  #overlayScores { font: 400 20px/1.5 'Neucha', cursive; color: #3c5ea8; }
+  #overlayMsg { font: 400 16px/1.3 'Neucha', cursive; }
+  #overlayBtn { font: 400 20px 'Neucha', cursive; border-radius: 999px; padding: 10px 26px; background: #3f8a2a; box-shadow: 0 4px 0 #2a5f1b; }
+  #overlayBtn:active { transform: translateY(3px); box-shadow: 0 1px 0 #2a5f1b; }
 </style>
 <link rel="stylesheet" href="js/styles/game-header.css">
 <script src="js/core/game-header.js" defer></script>
@@ -108,7 +129,7 @@
   <div id="gameArea">
     <div class="hud-bar">
       <span id="scoreVal">0</span>
-      <button id="pauseBtn">II</button>
+      <button id="pauseBtn" aria-label="Пауза"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></svg></button>
     </div>
     <canvas id="game"></canvas>
     <div id="overlay">
