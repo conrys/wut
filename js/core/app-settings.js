@@ -315,49 +315,49 @@
         position: fixed;
         left: 16px;
         bottom: 16px;
-        z-index: var(--z-sticky, 999);
+        z-index: 999;
         width: 40px;
         height: 40px;
         border-radius: 50%;
-        border: 1px solid var(--line, rgba(255, 255, 255, 0.15));
+        border: 1px solid rgba(255,255,255,0.12);
         background: rgba(30, 30, 36, 0.85);
-        color: var(--text, #f0f0f0);
+        color: #f4f5f1;
         font-size: 18px;
         display: flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
-        backdrop-filter: blur(var(--blur-bg, 6px));
-        -webkit-backdrop-filter: blur(var(--blur-bg, 6px));
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
       }
       #appSettingsPanel {
         position: fixed;
         inset: 0;
-        z-index: var(--z-modal, 1000);
+        z-index: 1000;
         display: none;
         align-items: center;
         justify-content: center;
-        background: var(--scrim-strong, rgba(0, 0, 0, 0.82));
-        backdrop-filter: blur(var(--blur-panel, 12px));
-        -webkit-backdrop-filter: blur(var(--blur-panel, 12px));
+        background: rgba(0, 0, 0, 0.82);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
         padding: 16px;
         box-sizing: border-box;
       }
       #appSettingsPanel.open { display: flex; }
       #appSettingsPanel .box {
-        background: var(--surface-1, #1e1e24);
-        border: 1px solid var(--line, rgba(255, 255, 255, 0.12));
-        border-radius: var(--radius-lg, 20px);
+        background: #1e2230;
+        border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 20px;
         padding: 16px;
         width: 260px;
         max-width: calc(100vw - 24px);
-        color: var(--text, #f0f0f0);
+        color: #f4f5f1;
         font-family: inherit;
       }
       #appSettingsPanel h4 {
         margin: 0 0 8px;
         font-size: 12px;
-        color: var(--text-muted, #9a9aa5);
+        color: #9aa0ad;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.04em;
@@ -368,29 +368,35 @@
         min-width: 40px;
         padding: 8px 6px;
         font-size: 13px;
-        border-radius: var(--radius-sm, 8px);
-        border: 1px solid var(--line, rgba(255, 255, 255, 0.12));
+        border-radius: 8px;
+        border: 1px solid rgba(255,255,255,0.12);
         background: rgba(255, 255, 255, 0.06);
-        color: var(--text, #f0f0f0);
+        color: #f4f5f1;
         cursor: pointer;
       }
       #appSettingsPanel .opt-btn.active {
-        border-color: var(--accent, #38cfa0);
+        border-color: #ffc93c;
         background: rgba(56, 207, 160, 0.15);
-        color: var(--accent, #38cfa0);
+        color: #ffc93c;
       }
       #appSettingsPanel .close-btn {
         width: 100%;
         margin-top: 4px;
         padding: 10px;
-        border-radius: var(--radius-sm, 8px);
+        border-radius: 8px;
         border: none;
-        background: var(--accent, #38cfa0);
+        background: #ffc93c;
         color: #14161a;
         font-weight: 700;
         cursor: pointer;
       }
-    `;
+    
+      /* власна палітра — однаково в усіх іграх, як у профілю */
+      #appSettingsPanel .box { background: linear-gradient(180deg, #242836, #171a22); box-shadow: 0 24px 60px rgba(0,0,0,.55); }
+      #appSettingsPanel h4 small { font-weight: 600; color: #9aa0ad; text-transform: none; letter-spacing: 0; }
+      #appSettingsPanel .opt-btn.active { background: rgba(255,201,60,0.15); }
+      #appSettingsPanel .close-btn { color: #2a1c00; font-weight: 800; }
+`;
     document.head.appendChild(style);
 
     const btn = document.createElement("button");
