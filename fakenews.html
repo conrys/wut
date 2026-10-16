@@ -144,10 +144,6 @@ body[data-stage="reveal"] .tb-photo, body[data-stage="reveal"] .tg-photo { heigh
 body[data-view="round"] .fn-bg::before, body[data-view="summary"] .fn-bg::before { filter: blur(8px) brightness(.7); }
 body[data-view="round"] .fn-bg::after { background: linear-gradient(180deg, rgba(10,15,36,.82), rgba(10,15,36,.95)); }
 .pp-card { background: rgba(10,15,36,.72); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
-.fn-tvlink { display: flex; align-items: center; gap: 12px; color: inherit; text-decoration: none; border-style: dashed; }
-.fn-tvlink > .ic { font-size: 30px; color: var(--accent); flex: none; }
-.fn-tvlink b { display: block; font: 800 15px var(--font-d); letter-spacing: .04em; text-transform: uppercase; }
-.fn-tvlink span { font-size: 12px; color: var(--muted); }
 </style>
 </head>
 <body>
@@ -180,7 +176,6 @@ body[data-view="round"] .fn-bg::after { background: linear-gradient(180deg, rgba
       <div id="myChannels"></div>
       <div class="pp-err" id="photoErr"></div>
       <div class="pp-note" id="photosCount"></div></div>
-    <a class="pp-card fn-tvlink" id="tvLink" target="_blank" rel="noopener"><span data-ic="tv"></span><div><b>Є телевізор чи ноутбук?</b><span>Відкрий на ньому ТВ-екран — ефір на великому екрані, телефони лишаються пультами</span></div></a>
     <div class="pp-card hidden" id="hostPanel"><div class="pp-h">Налаштування</div>
       <label class="pp-label" for="writeSecSlider">Час на заголовок <output id="writeSecValue">60 с</output></label>
       <input class="pp-range" id="writeSecSlider" type="range" min="20" max="120" step="5" value="60" />
@@ -382,7 +377,6 @@ body[data-view="round"] .fn-bg::after { background: linear-gradient(180deg, rgba
     renderPhotos(room, ctx);
     const conn = G.connectedNames(room.players), hostName = G.computeHost(room.players), me = ctx.username, players = room.players || {};
     $("roomCodeDisplay").textContent = G.roomId || "";
-    $("tvLink").href = "fakenews-tv.html?room=" + encodeURIComponent(G.roomId || "");
     $("lobbyStatus").textContent = `Онлайн: ${conn.length}`;
     $("lobbyCount").textContent = conn.length;
     const names = Object.keys(players).sort((a, b) => conn.includes(b) - conn.includes(a));
