@@ -36,6 +36,47 @@
 
   let username = null;
   let onStateChange = () => {};
+  let latestState = null;
+  let avatarAsked = false;
+
+  // ------------------------- аватари (як у Дилемах) -------------------------
+  const AVATAR_STORAGE_PREFIX = "games41_quiplash_avatar_"; // профіль аватара з Смішліста
+  const QA = () => window.QuiplashAvatars; // підключати ДО цього файлу
+  const CHARACTERS = QA() ? QA().COUNT : 8;
+  const charColor = (c) => (QA() ? QA().color(c) : "#c8102e");
+  function takenChars(state) {
+    return new Set(Object.entries((state && state.players) || {}).filter(([n]) => n !== username).map(([, p]) => Number(p && p.character)));
+  }
+  function avatarFor(state) {
+    const taken = takenChars(state);
+    let want = null;
+    try {
+      const raw = window.localStorage && window.localStorage.getItem(AVATAR_STORAGE_PREFIX + username);
+      const profile = raw ? JSON.parse(raw) : null;
+      if (profile && profile.character >= 1 && profile.character <= CHARACTERS) want = Number(profile.character);
+    } catch (e) { /* немає localStorage — беремо за чергою */ }
+    if (want && !taken.has(want)) return { character: want, color: charColor(want) };
+    const idx = Object.keys((state && state.players) || {}).length;
+    for (let i = 0; i < CHARACTERS; i++) {
+      const c = ((want || idx) + i) % CHARACTERS + 1;
+      if (!taken.has(c)) return { character: c, color: charColor(c) };
+    }
+    const c = (idx % CHARACTERS) + 1;
+    return { character: c, color: charColor(c) };
+  }
+  // Тап по своїй аватарці в лобі — наступний вільний персонаж (без дублів).
+  function cycleAvatar() {
+    const state = latestState, me = state && state.players && state.players[username];
+    if (!me || state.phase !== "lobby" || !Engine.roomRef) return;
+    const taken = takenChars(state), cur = Number(me.character) || 1;
+    for (let i = 1; i <= CHARACTERS; i++) {
+      const c = (cur - 1 + i) % CHARACTERS + 1;
+      if (taken.has(c)) continue;
+      Engine.roomRef.child("players/" + username).update({ character: c, color: charColor(c) });
+      try { localStorage.setItem(AVATAR_STORAGE_PREFIX + username, JSON.stringify({ character: c, color: charColor(c) })); } catch (e) {}
+      return;
+    }
+  }
 
   function maxSpyCount(playerCount) {
     return Math.max(1, Math.min(3, playerCount - 2));
@@ -89,6 +130,13 @@
     Engine.onStateChange = (type, data) => {
       if (type !== "room-update") return;
       const state = data.room;
+      latestState = state;
+      const me = state.players && state.players[username];
+      if (me && !me.character && !avatarAsked) {
+        avatarAsked = true;
+        Engine.roomRef.child("players/" + username).update(avatarFor(state));
+      }
+      if (me && me.character) avatarAsked = false;
 
       // приєднались як спостерігач під час активного раунду — щойно раунд
       // завершиться (phase знову "lobby"), стаємо гравцем автоматично
@@ -132,6 +180,9 @@
     const shuffled = names.slice().sort(() => Math.random() - 0.5);
     const spies = shuffled.slice(0, spyCount);
 
+    // хто перший ставить питання — випадково серед усіх (і шпигун теж, інакше це підказка)
+    const firstAsker = names[Math.floor(Math.random() * names.length)];
+
     const cards = {};
     names.forEach((n) => {
       cards[n] = spies.includes(n) ? { isSpy: true } : { isSpy: false, themeName, word };
@@ -141,7 +192,7 @@
     // рушія), тому пишемо через низькорівневий setPhase() напряму разом з
     // ігровими полями round/cards одним update().
     Engine.setPhase("active", {
-      round: { number: (state.round.number || 0) + 1, themeName, word, spyUsernames: spies },
+      round: { number: (state.round.number || 0) + 1, themeName, word, spyUsernames: spies, startedAt: Engine.now(), firstAsker },
       cards,
     });
   }
@@ -165,6 +216,8 @@
   window.SpyGame = {
     MIN_PLAYERS,
     maxSpyCount,
+    cycleAvatar,
+    now: Engine.now,
     connectedEntries,
     computeHost: Engine.computeHost,
     watchActiveRooms,

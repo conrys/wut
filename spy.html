@@ -1,194 +1,164 @@
+<!-- Гра: Шпигун — у всіх одне слово, у шпигуна нічого. Тема: секретне досьє (картонна папка, червоні штампи). -->
 <!DOCTYPE html>
 <html lang="uk">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<meta name="theme-color" content="#14161b" />
 <title>Шпигун</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --bg: #14161a;
-    --surface-1: #22252b;   /* було --tile-bg */
-    --surface-2: #1b1d22;   /* було хардкод #1b1d22 — «запалі» елементи (коло, інпут) */
-    --line: rgba(255,255,255,0.1);
-
-    --text: #f4f5f1;        /* було --text-light */
-    --text-muted: #8b909c;
-
-    --accent: #38cfa0;
-    --danger: #ff6b6b;      /* було хардкод #ff6b6b на .spy-label/.spies b */
-
-    --font-display: 'Space Grotesk', sans-serif;
-    --font-body: 'Inter', sans-serif;
-
-    --radius-xs: 4px;
-    --radius-sm: 8px;
-    --radius-md: 14px;
-    --radius-lg: 20px;
-    --radius-pill: 999px;
-
-    --scrim: rgba(0,0,0,0.31);
-    --scrim-strong: rgba(0,0,0,0.82);
-    --blur-panel: 12px;
-    --blur-bg: 3px;
-
-    --z-bg-scene: 0;
-    --z-content: 1;
-    --z-sticky: 10;
-    --z-banner: 20;
-    --z-sidebar: 90;
-    --z-modal: 100;
-    --z-pause: 500;
-    --z-fx: 900;
-    --z-toast: 999;
-  }
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none;
-      -webkit-user-select: none; -webkit-touch-callout: none; }
-  html, body { margin: 0; padding: 0; min-height: 100dvh; background: var(--bg);
-      font-family: var(--font-body); color: var(--text); overflow-x: hidden; touch-action: manipulation; }
-  .page { max-width: 480px; margin: 0 auto; min-height: 100dvh; position: relative;
-      z-index: 0; overflow: hidden; display: flex; flex-direction: column; }
-  .pad { flex: 1; display: flex; flex-direction: column; align-items: center;
-      padding: 0 18px calc(30px + env(safe-area-inset-bottom)); }
-  .hidden { display: none !important; }
-
-  h2 { font-family: var(--font-display); font-size: 20px; margin: 0 0 14px; text-align: center; }
-  .status-line { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 14px; }
-  .pulse-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
-      margin-right: 6px; animation: pulse 1.4s infinite; }
-  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
-
-  .players-list { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-bottom: 18px; }
-  .player-chip { display: flex; justify-content: space-between; align-items: center;
-      background: var(--surface-1); border-radius: var(--radius-md); padding: 10px 14px; font-size: 14px; }
-  .player-chip.offline { opacity: 0.4; }
-  .badge { font-size: 10px; font-weight: 700; background: var(--accent); color: #0e2318;
-      padding: 3px 8px; border-radius: var(--radius-pill); }
-
-  .host-panel { width: 100%; background: var(--surface-1); border-radius: var(--radius-md); padding: 16px; margin-bottom: 14px; }
-  .host-panel label { display: block; font-size: 12px; color: var(--text-muted); margin: 10px 0 4px; }
-  .host-panel select { width: 100%; padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--line);
-      background: var(--bg); color: var(--text); font-size: 14px; }
-
-  button.primary-btn { width: 100%; border: none; border-radius: var(--radius-lg); padding: 12px; font-weight: 700;
-      font-size: 14px; cursor: pointer; background: var(--accent); color: #0e2318; margin-top: 10px; }
-  button.primary-btn:disabled { opacity: 0.35; cursor: default; }
-  button.secondary-btn { width: 100%; border: none; border-radius: var(--radius-lg); padding: 10px; font-weight: 700;
-      font-size: 13px; cursor: pointer; background: var(--surface-2); color: var(--text);
-      border: 1px solid var(--line); margin-top: 8px; }
-
-  .hint-text { font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 6px; min-height: 16px; }
-
-  /* --------- картка Шпигуна --------- */
-  .reveal-circle {
-    width: 220px; height: 220px; border-radius: 50%; background: var(--surface-2);
-    border: 2px solid var(--line); display: flex; align-items: center; justify-content: center;
-    margin: 30px auto; text-align: center; padding: 20px; cursor: pointer;
-  }
-  .reveal-circle .prompt { font-size: 13px; color: var(--text-muted); }
-  .reveal-circle .card-content { display: none; }
-  .reveal-circle.showing .prompt { display: none; }
-  .reveal-circle.showing .card-content { display: block; }
-  .card-content .theme { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
-  .card-content .word { font-family: var(--font-display); font-size: 24px; font-weight: 700; }
-  .card-content .spy-label { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: var(--danger); }
-
-  /* --------- фаза розкриття --------- */
-  .reveal-box { width: 100%; background: var(--surface-1); border-radius: var(--radius-md); padding: 20px; text-align: center; margin-bottom: 14px; }
-  .reveal-box .theme { font-size: 12px; color: var(--text-muted); }
-  .reveal-box .word { font-family: var(--font-display); font-size: 26px; font-weight: 700; margin: 6px 0 12px; }
-  .reveal-box .spies { font-size: 14px; }
-  .reveal-box .spies b { color: var(--danger); }
-
-  /* --------- вхід у кімнату --------- */
-  input.text-input { width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: var(--radius-md);
-      border: 1px solid var(--line); background: var(--surface-2); color: var(--text);
-      font-size: 16px; letter-spacing: 0.08em; text-align: center; text-transform: uppercase; }
-  input.text-input:focus { outline: 1px solid var(--accent); }
-  .divider { display: flex; align-items: center; gap: 10px; width: 100%; margin: 18px 0;
-      color: var(--text-muted); font-size: 12px; }
-  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
-  .room-code-display { font-family: var(--font-display); font-size: 22px; letter-spacing: 0.12em;
-      background: var(--surface-1); border: 1px dashed var(--line); border-radius: var(--radius-md);
-      padding: 10px 16px; margin-bottom: 14px; text-align: center; }
-  .rooms-list { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-bottom: 4px; }
-  .room-item { background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--radius-md);
-      padding: 12px 14px; cursor: pointer; }
-  .room-item:active { border-color: var(--accent); }
-  .room-item-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-  .room-item-title { font-family: var(--font-display); font-size: 15px; letter-spacing: 0.05em; }
-  .room-item-phase { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: var(--radius-pill);
-      background: var(--surface-2); color: var(--text-muted); }
-  .room-item-count { font-size: 12px; color: var(--text-muted); }
-</style>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=PT+Mono&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="js/styles/party-shared.css">
 <link rel="stylesheet" href="js/styles/game-header.css">
 <script src="js/core/game-header.js" defer></script>
+<style>
+:root {
+  --bg: #14161b; --panel: rgba(255,255,255,.05); --panel-2: rgba(255,255,255,.09); --ink: #f1ece2; --muted: rgba(241,236,226,.6); --line: rgba(241,236,226,.14);
+  --accent: #e23b4a; --accent-ink: #fff; --good: #55c08a; --bad: #ff5d6c;
+  --manila: #e6cf9c; --manila-2: #d6bb80; --paper: #f7f1e3; --paper-ink: #2a2118; --stamp: #c8102e;
+  --font-d: 'Oswald', 'Manrope', sans-serif; --font-b: 'Manrope', sans-serif; --font-m: 'PT Mono', ui-monospace, monospace;
+  --hdr-bg: rgba(20,22,27,.85);
+}
+/* тло: стіл слідчого — віньєтка, лампа зверху, ледь помітна сітка */
+body { background:
+  radial-gradient(60% 40% at 50% 0%, rgba(255,214,140,.13), transparent 70%),
+  radial-gradient(120% 80% at 50% 120%, rgba(0,0,0,.6), transparent 60%),
+  repeating-linear-gradient(0deg, rgba(255,255,255,.025) 0 1px, transparent 1px 34px),
+  repeating-linear-gradient(90deg, rgba(255,255,255,.025) 0 1px, transparent 1px 34px), #14161b fixed; }
+.pp-hero h1, .pp-lobby-head .t b { text-transform: uppercase; letter-spacing: .06em; }
+.pp-hero h1 span, .pp-lobby-head .t b span { color: var(--accent); }
+.pp-primary { box-shadow: 0 6px 20px rgba(226,59,74,.3); text-transform: uppercase; letter-spacing: .08em; }
+.pp-code b { color: var(--manila); font-family: var(--font-m); }
+.pp-room b { font-family: var(--font-m); }
+.pp-stagetitle { font-family: var(--font-d); letter-spacing: .2em; }
+
+/* штамп */
+.sp-stamp { display: inline-block; padding: 4px 12px; border: 3px solid currentColor; border-radius: 6px; color: var(--stamp);
+  font: 700 22px var(--font-d); letter-spacing: .14em; text-transform: uppercase; transform: rotate(-7deg); opacity: .92;
+  mask-image: repeating-radial-gradient(circle at 30% 40%, #000 0 2px, rgba(0,0,0,.75) 2px 3px); -webkit-mask-image: repeating-radial-gradient(circle at 30% 40%, #000 0 2px, rgba(0,0,0,.75) 2px 3px); }
+.sp-stamp.in { animation: spStamp .45s cubic-bezier(.2,1.6,.4,1) both .25s; }
+@keyframes spStamp { from { opacity: 0; transform: rotate(-7deg) scale(2.2); } }
+
+/* ---------- налаштування ---------- */
+.sp-themes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.sp-themes button { min-height: 40px; padding: 6px 8px; border-radius: 10px; border: 1px solid var(--line); background: transparent; color: var(--muted);
+  font: 700 13px/1.15 var(--font-b); text-align: left; }
+.sp-themes button.rnd { grid-column: 1 / -1; text-align: center; }
+.sp-themes button.selected { background: var(--manila); border-color: var(--manila); color: var(--paper-ink); }
+.pp-seg button.selected { background: var(--accent); color: #fff; }
+.sp-spies { display: flex; align-items: center; gap: 8px; }
+
+/* ---------- досьє (затисни, щоб відкрити) ---------- */
+.sp-folder { position: relative; height: 270px; margin: 18px 4px 4px; touch-action: none; -webkit-touch-callout: none; cursor: pointer; }
+.sp-folder .tab { position: absolute; top: -16px; left: 18px; width: 120px; height: 28px; border-radius: 10px 10px 0 0; background: var(--manila-2); }
+.sp-folder .back { position: absolute; inset: 0; border-radius: 4px 14px 14px 14px; background: var(--manila-2); box-shadow: 0 18px 40px rgba(0,0,0,.55); }
+.sp-folder .sheet { position: absolute; left: 14px; right: 14px; top: 14px; bottom: 10px; border-radius: 6px; background: var(--paper); color: var(--paper-ink);
+  padding: 18px 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center;
+  transition: transform .35s cubic-bezier(.2,1,.3,1); }
+.sp-folder .sheet .lbl { font: 400 12px var(--font-m); letter-spacing: .12em; text-transform: uppercase; opacity: .6; }
+.sp-folder .sheet .th { font: 400 15px var(--font-m); }
+.sp-folder .sheet .w { font: 700 34px/1.1 var(--font-d); text-transform: uppercase; letter-spacing: .04em; overflow-wrap: anywhere; }
+.sp-folder .sheet .hint { font: 400 12.5px/1.4 var(--font-m); opacity: .7; max-width: 250px; }
+.sp-folder .sheet .sp-stamp { font-size: 34px; }
+.sp-folder .front { position: absolute; inset: 0; border-radius: 4px 14px 14px 14px; background: linear-gradient(180deg, var(--manila), #dcc38c);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--paper-ink);
+  transform-origin: 50% 100%; transition: transform .38s cubic-bezier(.2,1,.3,1); box-shadow: inset 0 2px 0 rgba(255,255,255,.4); }
+.sp-folder .front .sp-stamp { font-size: 20px; }
+.sp-folder .front .nm { font: 400 13px var(--font-m); letter-spacing: .08em; }
+.sp-folder .front .press { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; background: rgba(42,33,24,.12); font: 800 13px var(--font-b); }
+.sp-folder .front .press .ic { font-size: 18px; }
+.sp-folder.open .front { transform: translateY(78%) rotateX(8deg); }
+.sp-folder.open .sheet { transform: translateY(-12px); }
+.sp-folder.wobble .front { animation: spWob .6s ease-in-out 2; }
+@keyframes spWob { 25% { transform: rotate(-1.5deg); } 75% { transform: rotate(1.5deg); } }
+
+.sp-ask { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); }
+.sp-ask small { display: block; font: 400 11px var(--font-m); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.sp-ask b { font: 700 18px var(--font-d); letter-spacing: .03em; }
+.sp-crew { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.sp-clock { min-width: 64px; text-align: right; font: 400 18px var(--font-m); color: var(--manila); }
+.sp-tips ol { font-size: 13.5px; }
+
+/* ---------- розкриття ---------- */
+.sp-case { position: relative; padding: 22px 16px 18px; border-radius: 8px; background: var(--paper); color: var(--paper-ink); text-align: center; box-shadow: 0 18px 40px rgba(0,0,0,.5);
+  animation: ppIn .5s cubic-bezier(.2,.9,.3,1.2) both; }
+.sp-case .lbl { font: 400 12px var(--font-m); letter-spacing: .12em; text-transform: uppercase; opacity: .6; }
+.sp-case .w { margin: 4px 0 2px; font: 700 36px/1.1 var(--font-d); text-transform: uppercase; overflow-wrap: anywhere; }
+.sp-case .th { font: 400 14px var(--font-m); }
+.sp-case > .sp-stamp { position: absolute; top: -14px; right: 10px; font-size: 16px; background: var(--paper); }
+.sp-spylist { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
+.sp-spy { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; animation: ppIn .5s cubic-bezier(.2,.9,.3,1.2) both .5s; }
+.sp-spy b { font: 700 16px var(--font-d); letter-spacing: .03em; }
+.sp-spy .sp-stamp { position: absolute; top: 36px; font-size: 13px; padding: 2px 6px; border-width: 2px; background: rgba(20,22,27,.6); }
+.sp-me { text-align: center; font: 700 15px var(--font-b); }
+.sp-me.spy { color: var(--accent); }
+</style>
 </head>
 <body>
-<div class="page">
-<div class="pad">
+<div id="app"><div class="pp-wrap">
+  <section class="pp-view pp-center hidden" id="v-locked"><span class="pp-big-ic" data-ic="lock"></span><div class="pp-note" style="font-size:16px">Увійди в профіль, щоб грати з друзями</div></section>
+  <section class="pp-view pp-center hidden" id="v-waiting"><span class="pp-big-ic" data-ic="hourglass"></span><div class="pp-note" style="font-size:16px">Допит уже йде — приєднаєшся до наступного кола автоматично</div></section>
 
-  <div id="view-locked" class="hidden">
-    <h2>🕵️ Шпигун</h2>
-    <div class="status-line">Увійди в профіль (кнопка зверху), щоб грати з друзями</div>
-  </div>
+  <section class="pp-view hidden" id="v-entry">
+    <div class="pp-hero"><span data-emblem></span><h1>Шпи<span>гун</span></h1><p>У всіх одне секретне слово, а шпигун його не знає. Розпитуйте одне одного й вичисліть чужого.</p></div>
+    <div class="pp-card"><div class="pp-h"><span data-ic="users"></span> Активні кімнати</div><div class="rooms-list" id="activeRoomsList"></div></div>
+    <div class="pp-or">або за кодом</div>
+    <div class="pp-join"><input class="pp-field" id="roomCodeInput" maxlength="5" placeholder="КОД" autocomplete="off" /><button class="pp-btn" id="joinRoomBtn">Увійти</button></div>
+    <button class="pp-btn pp-primary pp-block pp-big" id="createRoomBtn">Створити кімнату</button>
+  </section>
 
-  <div id="view-room-entry" class="hidden">
-    <h2>🕵️ Шпигун</h2>
-    <div class="status-line">Обери активну кімнату або введи код друга</div>
-    <div class="rooms-list" id="activeRoomsList"></div>
-    <div class="divider">або вручну</div>
-    <input class="text-input" id="roomCodeInput" maxlength="5" placeholder="КОД КІМНАТИ" />
-    <button class="primary-btn" id="joinRoomBtn">Приєднатись</button>
-    <div class="divider">або</div>
-    <button class="secondary-btn" id="createRoomBtn">Створити нову кімнату</button>
-  </div>
+  <section class="pp-view hidden" id="v-lobby">
+    <div class="pp-lobby-head"><span data-emblem></span><div class="t"><b>Шпи<span>гун</span></b><small id="lobbyStatus"></small></div>
+      <div class="pp-code"><small>Код кімнати</small><b id="roomCodeDisplay"></b></div></div>
+    <div class="pp-card"><div class="pp-h"><span data-ic="users"></span> Агенти <span class="cnt" id="lobbyCount"></span></div>
+      <div class="pp-players" id="playersList"></div>
+      <div class="pp-note" style="margin-top:10px">Торкнись своєї аватарки, щоб змінити персонажа</div></div>
+    <div class="pp-card hidden" id="hostPanel"><div class="pp-h">Налаштування</div>
+      <div class="pp-label">Тема слова</div><div class="sp-themes" id="themeSeg"></div>
+      <div class="pp-label">Шпигунів у колі</div><div class="pp-seg" id="spySeg"></div>
+      <button class="pp-btn pp-primary pp-block pp-big" id="startBtn" style="margin-top:18px"><span data-ic="play"></span> Почати допит</button>
+      <div class="pp-err" id="startHint"></div></div>
+    <div class="pp-card pp-waithost hidden" id="waitHostLobby"></div>
+    <details class="pp-card pp-rules"><summary>Як грати</summary><ol>
+      <li>Кожен відкриває своє досьє: там тема й секретне слово. У шпигуна — лише штамп «ШПИГУН».</li>
+      <li>По черзі ставте одне одному питання про слово — так, щоб свої зрозуміли, а шпигун ні.</li>
+      <li>Шпигун слухає й прикидається своїм. Його мета — вгадати слово.</li>
+      <li>Коли готові — домовтесь, хто шпигун, і ведучий розкриває досьє.</li></ol></details>
+    <button class="pp-btn pp-ghost pp-block hidden" id="resetBtn"><span data-ic="refresh"></span> Скинути гру</button>
+  </section>
 
-  <div id="view-waiting" class="hidden">
-    <h2>🕵️ Шпигун</h2>
-    <div class="status-line">Раунд триває — приєднаєшся автоматично, коли він завершиться</div>
-  </div>
-
-  <div id="view-lobby" class="hidden">
-    <h2>🕵️ Шпигун</h2>
-    <div class="room-code-display" id="roomCodeDisplay"></div>
-    <div class="status-line" id="lobbyStatus"></div>
-    <div class="players-list" id="playersList"></div>
-
-    <div class="host-panel hidden" id="hostPanel">
-      <label>Тема</label>
-      <select id="themeSelect"></select>
-      <label>Кількість шпигунів</label>
-      <select id="spyCountSelect"></select>
-      <button class="primary-btn" id="startBtn">Почати раунд</button>
-      <div class="hint-text" id="startHint"></div>
-      <button class="secondary-btn hidden" id="resetBtn">🔄 Скинути гру</button>
+  <section class="pp-view hidden" id="v-play">
+    <div class="pp-topbar">
+      <div class="pp-round"><small>Коло</small><b id="roundNo"></b></div>
+      <div class="pp-stagetitle">Допит</div>
+      <div class="sp-clock" id="clock">0:00</div>
     </div>
-  </div>
-
-  <div id="view-active" class="hidden">
-    <h2>🕵️ Обговорення</h2>
-    <div class="status-line">Затисни коло, щоб побачити свою картку</div>
-    <div class="reveal-circle" id="revealCircle">
-      <div class="prompt">Затисни, щоб побачити</div>
-      <div class="card-content" id="cardContent"></div>
+    <div class="sp-folder" id="folder" aria-label="Затисни, щоб відкрити досьє">
+      <div class="tab"></div><div class="back"></div>
+      <div class="sheet" id="cardContent"></div>
+      <div class="front"><span class="sp-stamp">Цілком таємно</span><span class="nm" id="folderName"></span>
+        <span class="press"><span data-ic="eye"></span> Затисни, щоб відкрити</span></div>
     </div>
-    <button class="primary-btn hidden" id="finishRoundBtn">Завершити обговорення й розкрити</button>
-  </div>
+    <div class="pp-note">Відпусти — і папка закриється. Не показуй екран сусідам.</div>
+    <div class="sp-ask" id="askBox"></div>
+    <div class="pp-card"><div class="pp-h"><span data-ic="users"></span> У колі <span class="cnt" id="crewCount"></span></div><div class="sp-crew" id="crew"></div></div>
+    <details class="pp-card pp-rules sp-tips"><summary>Підказки для допиту</summary><ol>
+      <li>Питай так, щоб відповідь була зрозуміла лише тим, хто знає слово: «Де його найчастіше бачиш?», «Воно дороге?»</li>
+      <li>Не називай слово прямо й не будь занадто конкретним — шпигун теж слухає.</li>
+      <li>Шпигуну: відповідай розмито, ловись на чужих відповідях і склади пазл.</li></ol></details>
+    <div class="pp-hostbar hidden" id="hostBar"><button class="pp-btn pp-primary" id="finishRoundBtn"><span data-ic="eye"></span> Розсекретити</button></div>
+  </section>
 
-  <div id="view-reveal" class="hidden">
-    <h2>🎭 Розкрито!</h2>
-    <div class="reveal-box">
-      <div class="theme" id="revealTheme"></div>
-      <div class="word" id="revealWord"></div>
-      <div class="spies" id="revealSpies"></div>
-    </div>
-    <button class="primary-btn hidden" id="nextRoundBtn">Нове коло</button>
-  </div>
-
-</div>
-</div>
+  <section class="pp-view hidden" id="v-reveal">
+    <h2 class="pp-sumtitle"><span class="sp-stamp in" style="font-size:26px">Розсекречено</span></h2>
+    <div class="sp-case" id="caseBox"></div>
+    <div class="pp-card"><div class="pp-h" id="spiesTitle">Шпигун</div><div class="sp-spylist" id="spiesList"></div></div>
+    <div class="sp-me" id="meLine"></div>
+    <div class="pp-hostbar hidden" id="revealBar"><button class="pp-btn pp-primary" id="nextRoundBtn">Нове коло</button></div>
+    <div class="pp-note hidden" id="waitHostReveal">Чекаємо на ведучого…</div>
+  </section>
+</div></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
@@ -200,187 +170,188 @@
 <script src="js/core/login.js"></script>
 <script src="js/promts/spy-words.js"></script>
 <script src="js/core/online-engine.js"></script>
+<script src="js/quiplash-avatars.js"></script>
+<script src="js/quiplash-sounds.js"></script>
 <script src="js/spy-game.js"></script>
 <script src="js/core/room-code-ui.js"></script>
+<script src="js/party-ui.js"></script>
 <script src="js/core/reactions.js"></script>
 <script src="js/core/help.js"></script>
 <script src="js/core/back-button.js"></script>
 <script src="js/core/refresh-button.js"></script>
 <script>
 (function () {
-  const VIEWS = ["locked", "room-entry", "waiting", "lobby", "active", "reveal"];
+  const G = window.SpyGame;
+  const { esc, icon } = window.PartyUI;
+  const $ = (id) => document.getElementById(id);
+  const sfx = (n) => { try { window.QuiplashSfx && QuiplashSfx.play(n); } catch (e) {} };
+  const buzz = (p) => { try { window.QuiplashSfx && QuiplashSfx.vibrate(p); } catch (e) {} };
+  const plural = (n, one, few, many) => n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? few : many;
+  const EMBLEM = `<svg class="pp-emblem" viewBox="0 0 120 120" aria-hidden="true">
+    <path d="M18 54c4-20 16-30 42-30s38 10 42 30z" fill="#2a2d35"/><path d="M8 56c10-5 30-8 52-8s42 3 52 8c-6 5-28 8-52 8S14 61 8 56z" fill="#3a3e48"/>
+    <rect x="22" y="47" width="76" height="7" fill="#e23b4a"/>
+    <circle cx="42" cy="80" r="15" fill="none" stroke="#e6cf9c" stroke-width="6"/><circle cx="78" cy="80" r="15" fill="none" stroke="#e6cf9c" stroke-width="6"/>
+    <path d="M57 79q3-4 6 0" fill="none" stroke="#e6cf9c" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="42" cy="80" r="9" fill="rgba(230,207,156,.18)"/><circle cx="78" cy="80" r="9" fill="rgba(230,207,156,.18)"/>
+    <path d="M38 100q22 12 44 0" fill="none" stroke="#e6cf9c" stroke-width="4" stroke-linecap="round" opacity=".6"/></svg>`;
+  document.querySelectorAll("[data-ic]").forEach((el) => { el.outerHTML = icon(el.dataset.ic); });
+  document.querySelectorAll("[data-emblem]").forEach((el) => { el.outerHTML = EMBLEM; });
+
+  const avatar = (room, name, opts) => window.PartyUI.avatar(room, name, opts);
+  const sig = {};
+  function paint(id, key, html) { if (sig[id] === key) return false; sig[id] = key; $(id).innerHTML = html; return true; }
+
+  const VIEWS = ["locked", "entry", "waiting", "lobby", "play", "reveal"];
+  let curView = null;
   function showView(name) {
-    VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name));
+    if (curView === name) return;
+    curView = name;
+    VIEWS.forEach((v) => $("v-" + v).classList.toggle("hidden", v !== name));
+    document.body.dataset.view = name === "play" || name === "reveal" ? "round" : name;
+    window.scrollTo(0, 0);
   }
 
-  function escapeHtml(s) {
-    const d = document.createElement("div");
-    d.textContent = s || "";
-    return d.innerHTML;
-  }
+  let lastState = null, lastCtx = null, reactionsMounted = false, lastPhase = null, lastRound = null;
 
-  let lastPhase = null;
-  let themeSelectBuilt = false;
+  // ---------------- лобі ----------------
+  $("themeSeg").innerHTML = `<button class="rnd" data-v="random">Випадкова тема</button>` +
+    SPY_THEMES.map((t) => `<button data-v="${esc(t.name)}">${esc(t.name)}</button>`).join("");
+  $("themeSeg").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-v]");
+    if (!b || !lastState) return;
+    G.updateSettings(b.dataset.v, Number((lastState.settings || {}).spyCount) || 1); sfx("pop");
+  });
+  $("spySeg").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-v]");
+    if (!b || !lastState) return;
+    G.updateSettings((lastState.settings || {}).theme || "random", Number(b.dataset.v)); sfx("pop");
+  });
 
   function renderLobby(state, ctx) {
-    const conn = window.SpyGame.connectedEntries(state.players);
-    const hostName = window.SpyGame.computeHost(state.players);
+    const conn = G.connectedEntries(state.players).map(([n]) => n);
+    const hostName = G.computeHost(state.players), me = ctx.username, players = state.players || {};
+    $("roomCodeDisplay").textContent = ctx.roomId || "";
+    $("lobbyStatus").textContent = `Онлайн: ${conn.length} · мінімум ${G.MIN_PLAYERS}`;
+    $("lobbyCount").textContent = conn.length;
+    const names = Object.keys(players).sort((a, b) => conn.includes(b) - conn.includes(a));
+    const key = names.map((n) => [n, players[n].character, conn.includes(n), n === hostName].join(":")).join("|") + "#" + me;
+    if (paint("playersList", key, names.map((n) => {
+      const mine = n === me;
+      return `<button class="pp-pl ${mine ? "me" : ""} ${conn.includes(n) ? "" : "off"}" ${mine ? 'data-me="1"' : "disabled"}>${avatar(state, n, { size: "lg", mood: mine ? "happy" : "idle" })}
+        <span class="nm">${esc(n)}</span>${n === hostName ? `<span class="tag">${icon("crown")}</span>` : ""}${mine ? `<span class="swap">${icon("swap")}</span>` : ""}</button>`;
+    }).join("") || '<div class="pp-note">Ще нікого немає</div>')) {
+      const mine = $("playersList").querySelector("[data-me]");
+      if (mine) mine.addEventListener("click", () => { G.cycleAvatar(); sfx("pop"); });
+    }
+    $("hostPanel").classList.toggle("hidden", !ctx.host);
+    $("resetBtn").classList.toggle("hidden", !ctx.host || !(state.round && state.round.number));
+    $("waitHostLobby").classList.toggle("hidden", !!ctx.host);
+    if (!ctx.host) {
+      paint("waitHostLobby", "w" + hostName + (players[hostName] || {}).character,
+        `${hostName ? avatar(state, hostName, { size: "md", mood: "write" }) : ""}<div class="pp-note"><b style="color:var(--ink)">${esc(hostName || "Ведучий")}</b> готує досьє.<br>Почнемо, щойно ведучий натисне «Почати допит».</div>`);
+      return;
+    }
+    const s = state.settings || {}, theme = s.theme || "random";
+    $("themeSeg").querySelectorAll("button").forEach((b) => b.classList.toggle("selected", b.dataset.v === theme));
+    const max = G.maxSpyCount(conn.length), cur = Math.min(Number(s.spyCount) || 1, max);
+    paint("spySeg", "m" + max, Array.from({ length: max }, (_, i) => `<button data-v="${i + 1}">${i + 1}</button>`).join(""));
+    $("spySeg").querySelectorAll("button").forEach((b) => b.classList.toggle("selected", Number(b.dataset.v) === cur));
+    const enough = conn.length >= G.MIN_PLAYERS;
+    $("startBtn").disabled = !enough;
+    $("startHint").textContent = enough ? "" : `Потрібно ще ${G.MIN_PLAYERS - conn.length} ${plural(G.MIN_PLAYERS - conn.length, "агент", "агенти", "агентів")}`;
+  }
 
-    document.getElementById("roomCodeDisplay").textContent = ctx.roomId || "";
-    document.getElementById("lobbyStatus").innerHTML =
-      `<span class="pulse-dot"></span> Гравців онлайн: ${conn.length} (потрібно мінімум ${window.SpyGame.MIN_PLAYERS})`;
-
-    const allNames = Object.keys(state.players || {});
-    document.getElementById("playersList").innerHTML =
-      allNames
-        .map((n) => {
-          const online = conn.some(([cn]) => cn === n);
-          return `<div class="player-chip ${online ? "" : "offline"}">
-            <span>${escapeHtml(n)}</span>
-            ${n === hostName ? '<span class="badge">ВЕДУЧИЙ</span>' : ""}
-          </div>`;
-        })
-        .join("") || '<div class="status-line">Ще нікого немає</div>';
-
-    const hostPanel = document.getElementById("hostPanel");
-    hostPanel.classList.toggle("hidden", !ctx.host);
-    document.getElementById("resetBtn").classList.toggle("hidden", !ctx.host || !(state.round && state.round.number));
-
-    if (ctx.host) {
-      const themeSelect = document.getElementById("themeSelect");
-      if (!themeSelectBuilt) {
-        themeSelect.innerHTML =
-          `<option value="random">🎲 Випадкова</option>` +
-          SPY_THEMES.map((t) => `<option value="${escapeHtml(t.name)}">${escapeHtml(t.name)}</option>`).join("");
-        themeSelectBuilt = true;
-      }
-      themeSelect.value = state.settings.theme;
-
-      const max = window.SpyGame.maxSpyCount(conn.length);
-      const spySelect = document.getElementById("spyCountSelect");
-      const opts = [];
-      for (let i = 1; i <= max; i++) opts.push(i);
-      spySelect.innerHTML = opts.map((n) => `<option value="${n}">${n}</option>`).join("");
-      spySelect.value = Math.min(state.settings.spyCount || 1, max);
-
-      const startBtn = document.getElementById("startBtn");
-      const enough = conn.length >= window.SpyGame.MIN_PLAYERS;
-      startBtn.disabled = !enough;
-      document.getElementById("startHint").textContent = enough
-        ? ""
-        : `Потрібно ще ${window.SpyGame.MIN_PLAYERS - conn.length} гравців(я)`;
+  // ---------------- допит ----------------
+  function renderPlay(state, ctx) {
+    const r = state.round || {}, card = (state.cards || {})[ctx.username];
+    $("roundNo").textContent = r.number || 1;
+    $("folderName").textContent = "Справа №" + String(r.number || 1).padStart(3, "0") + " · агент " + ctx.username;
+    paint("cardContent", (r.number || 0) + "|" + JSON.stringify(card || null), !card ? '<div class="hint">Досьє не знайдено — зачекай наступного кола</div>'
+      : card.isSpy
+        ? `<span class="lbl">Твоя роль</span><span class="sp-stamp">Шпигун</span><span class="hint">Слова ти не знаєш. Слухай відповіді, прикидайся своїм і спробуй вгадати.</span>`
+        : `<span class="lbl">Тема</span><span class="th">${esc(card.themeName)}</span><span class="lbl" style="margin-top:8px">Секретне слово</span><span class="w">${esc(card.word)}</span>`);
+    const names = Object.keys(state.cards || {});
+    const asker = r.firstAsker && names.includes(r.firstAsker) ? r.firstAsker : names.slice().sort()[(r.number || 0) % Math.max(1, names.length)];
+    paint("askBox", "a" + asker + ((state.players || {})[asker] || {}).character,
+      asker ? `${avatar(state, asker, { size: "md", mood: "write" })}<div><small>Перше питання ставить</small><b>${esc(asker)}${asker === ctx.username ? " (ти)" : ""}</b></div>` : "");
+    const conn = G.connectedEntries(state.players).map(([n]) => n);
+    $("crewCount").textContent = names.length;
+    paint("crew", names.map((n) => n + ((state.players || {})[n] || {}).character + conn.includes(n)).join("|"),
+      names.map((n) => avatar(state, n, { size: "md", cls: conn.includes(n) ? "" : "off" })).join(""));
+    $("hostBar").classList.toggle("hidden", !ctx.host);
+    if (lastRound !== r.number) {
+      lastRound = r.number;
+      const f = $("folder"); f.classList.remove("open", "wobble"); void f.offsetWidth; f.classList.add("wobble");
     }
   }
 
-  function renderActive(state, ctx) {
-    document.getElementById("finishRoundBtn").classList.toggle("hidden", !ctx.host);
-    const card = state.cards && state.cards[ctx.username];
-    const contentEl = document.getElementById("cardContent");
-    if (!card) { contentEl.innerHTML = ""; return; }
-    contentEl.innerHTML = card.isSpy
-      ? `<div class="spy-label">🕵️ Ти шпигун</div>`
-      : `<div class="theme">${escapeHtml(card.themeName)}</div><div class="word">${escapeHtml(card.word)}</div>`;
+  // секундомір обговорення
+  function tickClock() {
+    const s = lastState;
+    if (!s || s.phase !== "active" || !s.round || !s.round.startedAt) { $("clock").textContent = "—"; return; }
+    const sec = Math.max(0, Math.floor((G.now() - s.round.startedAt) / 1000));
+    $("clock").textContent = Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0");
   }
+  setInterval(tickClock, 1000);
 
+  // папка: затисни — відкрилась, відпустив — закрилась
+  const folder = $("folder");
+  const openF = (e) => { if (e) e.preventDefault(); if (!folder.classList.contains("open")) { folder.classList.add("open"); folder.classList.remove("wobble"); buzz(12); } };
+  const closeF = () => folder.classList.remove("open");
+  folder.addEventListener("pointerdown", openF);
+  ["pointerup", "pointercancel", "pointerleave"].forEach((ev) => folder.addEventListener(ev, closeF));
+  folder.addEventListener("contextmenu", (e) => e.preventDefault());
+  document.addEventListener("visibilitychange", closeF);
+
+  // ---------------- розкриття ----------------
   function renderReveal(state, ctx) {
-    document.getElementById("revealTheme").textContent = state.round.themeName || "";
-    document.getElementById("revealWord").textContent = state.round.word || "";
-    const spyNames = (state.round.spyUsernames || []);
-    document.getElementById("revealSpies").innerHTML =
-      spyNames.length
-        ? `Шпигун(и): <b>${spyNames.map(escapeHtml).join(", ")}</b>`
-        : "";
-    document.getElementById("nextRoundBtn").classList.toggle("hidden", !ctx.host);
+    const r = state.round || {}, spies = r.spyUsernames || [];
+    paint("caseBox", JSON.stringify([r.number, r.word, r.themeName]),
+      `<span class="sp-stamp">Справа закрита</span><div class="lbl">Секретне слово</div><div class="w">${esc(r.word || "")}</div><div class="th">тема: ${esc(r.themeName || "")}</div>`);
+    $("spiesTitle").textContent = spies.length > 1 ? "Шпигуни" : "Шпигун";
+    paint("spiesList", JSON.stringify(spies.map((n) => [n, ((state.players || {})[n] || {}).character])),
+      spies.map((n) => `<div class="sp-spy">${avatar(state, n, { size: "xl", mood: "shock" })}<span class="sp-stamp in">Шпигун</span><b>${esc(n)}</b></div>`).join("") || '<div class="pp-note">—</div>');
+    const wasSpy = spies.includes(ctx.username), wasIn = !!(state.cards || {})[ctx.username];
+    $("meLine").className = "sp-me" + (wasSpy ? " spy" : "");
+    $("meLine").textContent = !wasIn ? "" : wasSpy ? "Ти був шпигуном. Вгадав слово?" : "Ти був своїм. Вичислили?";
+    $("revealBar").classList.toggle("hidden", !ctx.host);
+    $("waitHostReveal").classList.toggle("hidden", !!ctx.host);
   }
 
   function onState(state, ctx) {
+    lastState = state; lastCtx = ctx;
     if (!ctx.username) { showView("locked"); return; }
-    if (!reactionsMounted && window.GameReactions && window.SpyGame.roomRef) {
-      reactionsMounted = true;
-      window.GameReactions.mount(window.SpyGame.roomRef, ctx.username);
-    }
-
+    if (!reactionsMounted && window.GameReactions && G.roomRef) { reactionsMounted = true; window.GameReactions.mount(G.roomRef, ctx.username); }
     const iAmIn = state.players && state.players[ctx.username];
-    if (!iAmIn && state.phase === "active") { showView("waiting"); return; }
-
-    if (state.phase !== "active") {
-      document.getElementById("revealCircle").classList.remove("showing");
-    }
-
-    switch (state.phase) {
-      case "lobby":
-        showView("lobby");
-        renderLobby(state, ctx);
-        break;
-      case "active":
-        showView("active");
-        renderActive(state, ctx);
-        break;
-      case "reveal":
-        showView("reveal");
-        renderReveal(state, ctx);
-        break;
-    }
+    if (!iAmIn && state.phase === "active") { showView("waiting"); lastPhase = state.phase; return; }
+    if (state.phase !== "active") closeF();
+    if (state.phase === "active" && lastPhase && lastPhase !== "active") { sfx("whoosh"); buzz(25); }
+    if (state.phase === "reveal" && lastPhase === "active") { sfx("drum"); setTimeout(() => sfx("vs"), 450); }
+    if (state.phase === "lobby") { showView("lobby"); renderLobby(state, ctx); }
+    else if (state.phase === "active") { showView("play"); renderPlay(state, ctx); tickClock(); }
+    else if (state.phase === "reveal") { showView("reveal"); renderReveal(state, ctx); }
     lastPhase = state.phase;
   }
 
-  document.getElementById("themeSelect").addEventListener("change", () => pushSettings());
-  document.getElementById("spyCountSelect").addEventListener("change", () => pushSettings());
-  function pushSettings() {
-    const theme = document.getElementById("themeSelect").value;
-    const spyCount = Number(document.getElementById("spyCountSelect").value);
-    window.SpyGame.updateSettings(theme, spyCount);
-  }
+  $("startBtn").addEventListener("click", () => { if (lastState) G.startRound(lastState); });
+  $("finishRoundBtn").addEventListener("click", () => { if (confirm("Розсекретити досьє для всіх?")) G.revealSpies(); });
+  $("nextRoundBtn").addEventListener("click", () => G.nextRound());
+  $("resetBtn").addEventListener("click", () => { if (confirm("Скинути гру для всіх?")) G.resetAll(); });
 
-  document.getElementById("startBtn").addEventListener("click", () => {
-    window.SpyGame.startRound(lastState);
-  });
-  document.getElementById("finishRoundBtn").addEventListener("click", () => window.SpyGame.revealSpies());
-  document.getElementById("nextRoundBtn").addEventListener("click", () => window.SpyGame.nextRound());
-  document.getElementById("resetBtn").addEventListener("click", () => {
-    if (confirm("Скинути гру для всіх?")) window.SpyGame.resetAll();
-  });
-
-  const circle = document.getElementById("revealCircle");
-  const show = () => circle.classList.add("showing");
-  const hide = () => circle.classList.remove("showing");
-  circle.addEventListener("touchstart", show, { passive: true });
-  circle.addEventListener("touchend", hide);
-  circle.addEventListener("touchcancel", hide);
-  circle.addEventListener("mousedown", show);
-  circle.addEventListener("mouseup", hide);
-  circle.addEventListener("mouseleave", hide);
-
-  let lastState = null;
-  let reactionsMounted = false;
-
-  function beginGame(username, roomId) {
-    window.SpyGame.onStateChange = (state, ctx) => { lastState = state; onState(state, ctx); };
-    window.SpyGame.start(username, roomId);
-  }
-
+  function beginGame(user, roomId) { G.onStateChange = onState; G.start(user, roomId); }
   const session = window.AppAuth && window.AppAuth.getSession();
   if (session && window.rtdbReady) {
     RoomCodeUI.mount({
-      containerId: "activeRoomsList",
-      codeInputId: "roomCodeInput",
-      joinBtnId: "joinRoomBtn",
-      createBtnId: "createRoomBtn",
-      watchActiveRooms: window.SpyGame.watchActiveRooms,
-      renderRoomItem: (r) => `
-        <div class="room-item-head">
-          <span class="room-item-title">Кімната ${RoomCodeUI.escapeHtml(r.roomId)}</span>
-          <span class="room-item-phase">${r.phase === "lobby" ? "Лобі" : "Гра триває"}</span>
-        </div>
-        <div class="room-item-count">Онлайн: ${r.connectedCount} / ${r.playerCount}</div>`,
+      containerId: "activeRoomsList", codeInputId: "roomCodeInput", joinBtnId: "joinRoomBtn", createBtnId: "createRoomBtn",
+      watchActiveRooms: G.watchActiveRooms,
+      emptyListHtml: '<div class="hint-text">Активних кімнат поки нема — створи нову</div>',
+      renderRoomItem: (r) => `<div class="pp-room"><b>${esc(r.roomId)}</b><small>${icon("users")} ${r.connectedCount}/${r.playerCount}</small>
+        <span class="st ${r.phase === "lobby" ? "" : "live"}">${r.phase === "lobby" ? "Лобі" : "Допит"}</span></div>`,
       onEnter: (roomId) => beginGame(session.username, roomId),
     });
-    showView("room-entry");
-  } else {
-    showView("locked");
-  }
-
-  window.addEventListener("beforeunload", () => { if (window.SpyGame) window.SpyGame.stop(); });
+    showView("entry");
+  } else showView("locked");
+  window.addEventListener("beforeunload", () => G.stop());
 })();
 </script>
 </body>
