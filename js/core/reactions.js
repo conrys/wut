@@ -84,7 +84,7 @@
     wrap.className = "reactions-wrap";
     wrap.innerHTML = `
       <div class="reactions-row" id="reactionsRow"></div>
-      <button type="button" class="reactions-toggle" id="reactionsToggle">😀</button>
+      <button type="button" class="reactions-toggle" id="reactionsToggle" aria-label="Реакції"><svg viewBox="0 0 24 24" aria-hidden="true" style="width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5c.9 1.3 2.1 2 3.5 2s2.6-.7 3.5-2M9 9.5h.01M15 9.5h.01"/></svg></button>
     `;
     // У шапці (поруч із профілем) кнопка нічого не перекриває; плаваюча
     // знизу-справа раніше лягала на «Почати гру» і праві краї кнопок.

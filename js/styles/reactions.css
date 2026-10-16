@@ -54,3 +54,6 @@
 .reactions-wrap.in-header .reactions-row {
   position: absolute; top: 44px; right: 0; z-index: var(--z-sticky, 999);
 }
+
+/* значок кнопки реакцій — SVG, колір як у тексту шапки */
+.reactions-toggle { color: var(--ink, var(--text, #f4f5f1)); }
