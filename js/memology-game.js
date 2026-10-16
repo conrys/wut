@@ -27,6 +27,11 @@
   const HAND_SIZE = 6;
   const SWAP_COST = 1;
   const DECK_RESET_COOLDOWN_ROUNDS = 4;
+  const AVATAR_STORAGE_PREFIX = "games41_quiplash_avatar_"; // профіль аватара з Смішліста
+  // монстрики Сміхлиста (js/quiplash-avatars.js) — підключати ДО цього файлу
+  const QA = () => window.QuiplashAvatars;
+  const CHARACTERS = QA() ? QA().COUNT : 8;
+  const charColor = (c) => (QA() ? QA().color(c) : "#ff4d4d");
 
   const ROOM_SCHEMA = {
     phase: "lobby", // lobby | active
@@ -46,6 +51,43 @@
 
   let username = null;
   let onStateChange = () => {};
+  let latestState = null;
+  let avatarAsked = false;
+
+  // ------------------------- аватари (як у Дилемах) -------------------------
+  function takenChars(state) {
+    return new Set(Object.entries((state && state.players) || {}).filter(([n]) => n !== username).map(([, p]) => Number(p && p.character)));
+  }
+  function avatarFor(state) {
+    const taken = takenChars(state);
+    let want = null;
+    try {
+      const raw = window.localStorage && window.localStorage.getItem(AVATAR_STORAGE_PREFIX + username);
+      const profile = raw ? JSON.parse(raw) : null;
+      if (profile && profile.character >= 1 && profile.character <= CHARACTERS) want = Number(profile.character);
+    } catch (e) { /* немає localStorage — беремо за чергою */ }
+    if (want && !taken.has(want)) return { character: want, color: charColor(want) };
+    const idx = Object.keys((state && state.players) || {}).length;
+    for (let i = 0; i < CHARACTERS; i++) {
+      const c = ((want || idx) + i) % CHARACTERS + 1;
+      if (!taken.has(c)) return { character: c, color: charColor(c) };
+    }
+    const c = (idx % CHARACTERS) + 1;
+    return { character: c, color: charColor(c) };
+  }
+  // Тап по своїй аватарці в лобі — наступний вільний персонаж (без дублів).
+  function cycleAvatar() {
+    const state = latestState, me = state && state.players && state.players[username];
+    if (!me || state.phase !== "lobby" || !Engine.roomRef) return;
+    const taken = takenChars(state), cur = Number(me.character) || 1;
+    for (let i = 1; i <= CHARACTERS; i++) {
+      const c = (cur - 1 + i) % CHARACTERS + 1;
+      if (taken.has(c)) continue;
+      Engine.roomRef.child("players/" + username).update({ character: c, color: charColor(c) });
+      try { localStorage.setItem(AVATAR_STORAGE_PREFIX + username, JSON.stringify({ character: c, color: charColor(c) })); } catch (e) {}
+      return;
+    }
+  }
 
   function shuffle(arr) {
     const a = arr.slice();
@@ -234,7 +276,15 @@
     Engine.onStateChange = (type, data) => {
       if (type !== "room-update") return;
       const state = data.room;
+      latestState = state;
       const me = state.players && state.players[username];
+
+      // у гравця ще нема монстрика (щойно зайшов) — призначаємо один раз
+      if (me && !me.character && !avatarAsked) {
+        avatarAsked = true;
+        Engine.roomRef.child("players/" + username).update(avatarFor(state));
+      }
+      if (me && me.character) avatarAsked = false;
 
       // активна гра й моя рука неповна (щойно стартувала гра, приєднався
       // посеред неї, або тільки-но подав картку) — добираю сам собі
@@ -282,7 +332,7 @@
     if (!roomId) return Promise.resolve();
     const keptPlayers = {};
     connectedEntries(state.players).forEach(([name, p]) => {
-      keptPlayers[name] = { joinedAt: p.joinedAt, lastSeen: p.lastSeen, score: 0, hand: [] };
+      keptPlayers[name] = { joinedAt: p.joinedAt, lastSeen: p.lastSeen, score: 0, hand: [], character: p.character || null, color: p.color || null };
     });
     return Engine.forceResetRoom(roomId, ROOM_SCHEMA, () => ({ players: keptPlayers })).then(() => {
       return Engine.joinRoom(roomId, { asPlayer: true });
@@ -402,6 +452,7 @@
     MIN_PLAYERS,
     HAND_SIZE,
     SWAP_COST,
+    cycleAvatar,
     connectedEntries,
     computeHost: Engine.computeHost,
     deckResetCost,

@@ -1,250 +1,249 @@
+<!-- Гра: Мемологія — ситуація + мем з руки, голосуємо за найсмішніший. Світла тема, жовто-червоні дудли. -->
 <!DOCTYPE html>
 <html lang="uk">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<meta name="theme-color" content="#fffaf0" />
 <title>Мемологія</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
-<style>
-  :root { --bg: #14161a; --tile-bg: #22252b; --text-light: #f4f5f1; --text-muted: #8b909c; --accent: #38cfa0;
-          --font-d: 'Unbounded', 'Inter', sans-serif; }
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none;
-      -webkit-user-select: none; -webkit-touch-callout: none; }
-    html, body { 
-      margin: 0; padding: 0; min-height: 100dvh; 
-      background-color: var(--bg);
-      /* дудл-візерунок: смайли, рамки фото, серце, блискавка, бульбашка — ледь помітно */
-      background-image: 
-        radial-gradient(circle at 50% -20%, rgba(56, 207, 160, 0.15) 0%, transparent 50%),
-        url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240' fill='none' stroke='%2338cfa0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' opacity='.09'><g transform='rotate(-12 40 42)'><circle cx='40' cy='42' r='15'/><circle cx='34' cy='38' r='1.2'/><circle cx='46' cy='38' r='1.2'/><path d='M32 47q8 7 16 0'/></g><g transform='rotate(8 160 40)'><rect x='144' y='28' width='34' height='26' rx='3'/><path d='M147 50l9-10 7 7 5-5 8 8'/><circle cx='170' cy='36' r='2.5'/></g><path d='M120 112c-6-8-18-4-15 5 2 6 15 15 15 15s13-9 15-15c3-9-9-13-15-5z' transform='rotate(-6 120 120)'/><path d='M38 132l-10 20h10l-6 18 16-24H38l6-14z'/><g transform='rotate(-8 186 150)'><path d='M170 138h32a5 5 0 0 1 5 5v16a5 5 0 0 1-5 5h-20l-9 8v-8h-3a5 5 0 0 1-5-5v-16a5 5 0 0 1 5-5z'/><path d='M178 151h1M186 151h1M194 151h1'/></g><g transform='rotate(10 104 205)'><circle cx='104' cy='205' r='15'/><path d='M96 197l5 5M101 197l-5 5M107 197l5 5M112 197l-5 5M97 208h14q-1 8-7 8t-7-8z'/></g><path d='M214 82l2.5 5.5 6 .6-4.5 4 1.3 6-5.3-3-5.3 3 1.3-6-4.5-4 6-.6z'/><path d='M88 30q4-6 8 0t8 0 8 0'/><circle cx='222' cy='218' r='3'/><circle cx='18' cy='90' r='2.5'/></svg>");
-      background-size: 100% 100%, 240px 240px;
-      background-attachment: fixed;
-      font-family: 'Inter', sans-serif; 
-      color: var(--text-light); 
-      overflow-x: hidden; 
-      touch-action: manipulation; 
-    }
-  .page { max-width: 480px; margin: 0 auto; padding: 0 16px 30px; display: flex;
-      flex-direction: column; min-height: 100dvh; }
-  .hidden { display: none !important; }
-
-  h2 { font-family: var(--font-d); font-size: 20px; margin: 0 0 14px; text-align: center; }
-  h3 { font-family: var(--font-d); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
-       color: var(--text-muted); margin: 0 0 10px; }
-  .status-line { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 14px; }
-  .pulse-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
-      margin-right: 6px; animation: pulse 1.4s infinite; }
-  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
-
-  .card { background: var(--tile-bg); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
-  .players-list { display: flex; flex-direction: column; gap: 8px; }
-  .player-chip { display: flex; justify-content: space-between; align-items: center;
-      background: #1b1e24; border-radius: 10px; padding: 10px 14px; font-size: 14px; margin-bottom: 6px; }
-  .player-chip.offline { opacity: 0.4; }
-  .badge { font-size: 10px; font-weight: 700; background: var(--accent); color: #0e2318;
-      padding: 3px 8px; border-radius: 10px; }
-
-  button.primary-btn { width: 100%; border: none; border-radius: 20px; padding: 12px; font-weight: 700;
-      font-size: 14px; cursor: pointer; background: var(--accent); color: #0e2318; margin-top: 10px; }
-  button.primary-btn:disabled { opacity: 0.35; cursor: default; }
-  button.secondary-btn { width: 100%; border: none; border-radius: 20px; padding: 10px; font-weight: 700;
-      font-size: 13px; cursor: pointer; background: #272729; color: var(--text-light);
-      border: 1px solid rgba(255,255,255,0.12); margin-top: 8px; }
-  .hint-text { font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 6px; min-height: 16px; }
-  .err-msg { color: #ff6b6b; font-size: 13px; text-align: center; min-height: 18px; }
-
-  /* --------- активна гра --------- */
-  .sidebar-toggle-btn {
-    align-self: flex-end; background: var(--tile-bg); color: var(--text-light); border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 999px; padding: 8px 14px; font-size: 13px; font-weight: 600; margin-bottom: 10px;
-  }
-  .prompt-box {
-    background: var(--tile-bg); border: 1px solid var(--accent); border-radius: 16px;
-    padding: 20px; text-align: center; font-size: 17px; font-weight: 600; line-height: 1.35; margin-bottom: 14px;
-    box-shadow: 0 8px 28px rgba(56, 207, 160, 0.12);
-  }
-  .waiting-count { text-align: center; color: var(--text-muted); font-size: 13px; margin-bottom: 10px; }
-
-  .hand-grid, .vote-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-  .card-thumb {
-    position: relative; border-radius: 12px; overflow: hidden; border: 2px solid rgba(255,255,255,0.08);
-    aspect-ratio: 1 / 1; background: var(--tile-bg);
-  }
-  .card-thumb { transition: transform 0.15s ease, border-color 0.15s ease; }
-  .card-thumb:active { transform: scale(0.97); }
-  .card-thumb.selected { transform: translateY(-3px) rotate(-1.5deg); }
-  .card-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .card-thumb.selected, .card-thumb.voted-mine { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
-  .card-thumb.disabled { opacity: 0.4; pointer-events: none; }
-
-  .vote-card { display: flex; flex-direction: column; gap: 6px; }
-  .vote-card .author-tag { text-align: center; font-size: 12px; color: var(--text-muted);
-      display: flex; align-items: center; justify-content: center; gap: 6px; }
-  .vote-card .vote-count { font-family: var(--font-d); font-weight: 700; color: var(--accent); font-size: 13px; }
-  .winner-crown { width: 15px; height: 15px; fill: #ffcf4a; flex: none; }
-  .ico { width: 15px; height: 15px; vertical-align: -3px; margin-right: 4px; fill: none; stroke: currentColor;
-      stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-
-  /* --------- сайдбар --------- */
-  .sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 95; }
-  .sidebar {
-    position: fixed; top: 0; right: 0; bottom: 0; width: min(320px, 86vw); z-index: 96;
-    background: var(--bg); border-left: 1px solid rgba(255,255,255,0.08);
-    padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
-    display: flex; flex-direction: column; gap: 14px; overflow-y: auto;
-    transform: translateX(100%); transition: transform 0.28s ease;
-  }
-  .sidebar.open { transform: translateX(0); }
-  .sidebar-header { display: flex; align-items: center; justify-content: space-between; }
-  .sidebar-close-btn { background: var(--tile-bg); color: var(--text-light); border: none;
-      border-radius: 50%; width: 30px; height: 30px; font-size: 14px; }
-  .deck-hint { text-align: center; color: var(--text-muted); font-size: 11px; margin-top: 6px; }
-  .credits-link { display: block; margin-top: auto; text-decoration: underline; color: var(--text-muted); }
-
-  /* --------- модалки обміну --------- */
-  .modal-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 90;
-    display: flex; align-items: center; justify-content: center; padding: 20px;
-  }
-  .modal-card { width: 100%; max-width: 400px; max-height: 80vh; overflow-y: auto;
-      background: var(--tile-bg); border-radius: 16px; padding: 18px; }
-  .swap-selected-preview { display: flex; align-items: center; gap: 10px; margin-top: 10px;
-      background: #1b1e24; border-radius: 12px; padding: 8px 12px; }
-  .swap-selected-preview .card-thumb { width: 52px; height: 52px; flex: none; }
-  .swap-selected-preview .swap-selected-label { font-size: 12px; color: var(--text-muted); flex: 1; }
-  .swap-change-btn { background: none; border: none; color: var(--accent); font-size: 12px;
-      text-decoration: underline; padding: 4px; }
-  .target-picker { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
-  .target-picker button { border: none; border-radius: 12px; padding: 10px; font-weight: 700;
-      background: var(--accent); color: #0e2318; }
-
-  /* --------- вхід у кімнату --------- */
-  input.text-input { width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 10px;
-      border: 1px solid rgba(255,255,255,0.15); background: #1b1d22; color: var(--text-light);
-      font-size: 16px; letter-spacing: 0.08em; text-align: center; text-transform: uppercase; }
-  input.text-input:focus { outline: 1px solid var(--accent); }
-  .divider { display: flex; align-items: center; gap: 10px; width: 100%; margin: 18px 0;
-      color: var(--text-muted); font-size: 12px; }
-  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: rgba(255,255,255,0.1); }
-  .room-code-display { font-family: var(--font-d); font-size: 22px; letter-spacing: 0.12em;
-      background: var(--tile-bg); border: 1px dashed rgba(255,255,255,0.15); border-radius: 10px;
-      padding: 10px 16px; margin-bottom: 14px; text-align: center; }
-  .rooms-list { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-bottom: 4px; }
-  .room-item { background: var(--tile-bg); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px;
-      padding: 12px 14px; cursor: pointer; }
-  .room-item:active { border-color: var(--accent); }
-  .room-item-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-  .room-item-title { font-family: var(--font-d); font-size: 15px; letter-spacing: 0.05em; }
-  .room-item-phase { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 10px;
-      background: #1b1d22; color: var(--text-muted); }
-  .room-item-count { font-size: 12px; color: var(--text-muted); }
-</style>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800;900&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="js/styles/party-shared.css">
 <link rel="stylesheet" href="js/styles/game-header.css">
 <script src="js/core/game-header.js" defer></script>
+<style>
+:root {
+  --bg: #fffaf0; --panel: #ffffff; --panel-2: #fff1cf; --ink: #1f1a17; --muted: rgba(31,26,23,.58); --line: rgba(31,26,23,.14);
+  --accent: #ff4d3d; --accent-ink: #ffffff; --yellow: #ffc93c; --good: #18a865; --bad: #e5352b;
+  --font-d: 'Unbounded', 'Nunito', sans-serif; --font-b: 'Nunito', sans-serif;
+  --hdr-bg: rgba(255,250,240,.88);
+  --edge: 2px solid var(--ink); --pop: 3px 3px 0 var(--ink); --pop-lg: 5px 5px 0 var(--ink);
+}
+/* дудл-візерунок: жовті й червоні смайли, рамки, серця, блискавки, бульбашки, зірки */
+body { background-color: var(--bg);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260' fill='none' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg stroke='%23ffc93c' opacity='.75'%3E%3Cg transform='rotate(-12 42 44)'%3E%3Ccircle cx='42' cy='44' r='16'/%3E%3Cpath d='M35 40h.1M49 40h.1M34 49q8 8 16 0'/%3E%3C/g%3E%3Cpath d='M42 140l-11 22h11l-6 20 18-27H42l7-15z'/%3E%3Cpath d='M228 92l3 6.4 7 .7-5.2 4.7 1.5 6.9-6.3-3.6-6.3 3.6 1.5-6.9-5.2-4.7 7-.7z'/%3E%3Cg transform='rotate(9 112 222)'%3E%3Ccircle cx='112' cy='222' r='16'/%3E%3Cpath d='M103 214l5 5M108 214l-5 5M116 214l5 5M121 214l-5 5M104 226h16q-1 9-8 9t-8-9z'/%3E%3C/g%3E%3Cpath d='M150 128q5-7 10 0t10 0 10 0'/%3E%3C/g%3E%3Cg stroke='%23ff4d3d' opacity='.55'%3E%3Cg transform='rotate(8 172 42)'%3E%3Crect x='154' y='28' width='38' height='30' rx='3'/%3E%3Cpath d='M158 54l10-11 8 8 6-6 9 9'/%3E%3Ccircle cx='183' cy='37' r='3'/%3E%3C/g%3E%3Cpath d='M126 120c-7-9-20-4-17 6 2 7 17 17 17 17s15-10 17-17c3-10-10-15-17-6z' transform='rotate(-8 126 128)'/%3E%3Cg transform='rotate(-8 205 170)'%3E%3Cpath d='M186 156h36a6 6 0 0 1 6 6v17a6 6 0 0 1-6 6h-22l-10 9v-9h-4a6 6 0 0 1-6-6v-17a6 6 0 0 1 6-6z'/%3E%3Cpath d='M196 170h.1M205 170h.1M214 170h.1'/%3E%3C/g%3E%3Cpath d='M78 74q6-10 14-2M86 64l-2 9 9-1'/%3E%3Ccircle cx='238' cy='238' r='4'/%3E%3Ccircle cx='20' cy='98' r='3'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 260px 260px; background-attachment: fixed; }
+.ic { stroke-width: 2.4; }
+
+/* ---------- загальна «наліпкова» стилістика ---------- */
+.pp-card { background: var(--panel); border: var(--edge); box-shadow: var(--pop); }
+.pp-h { color: var(--ink); opacity: .7; }
+.pp-btn { border: var(--edge); background: var(--panel); box-shadow: var(--pop); font-weight: 800; }
+.pp-btn:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
+.pp-primary { background: var(--accent); color: var(--accent-ink); border: var(--edge); font-weight: 900; }
+.pp-ghost { background: var(--panel); color: var(--ink); }
+.pp-field { background: var(--panel); border: var(--edge); color: var(--ink); }
+.pp-field:focus { border-color: var(--accent); }
+.pp-hero h1 { font-weight: 900; letter-spacing: -.01em; }
+.pp-hero h1 span { color: var(--accent); }
+.pp-hero h1 i { font-style: normal; background: var(--yellow); padding: 0 8px; border-radius: 8px; border: var(--edge); display: inline-block; transform: rotate(-3deg); }
+.pp-hero p { color: var(--muted); font-weight: 700; }
+.pp-code b { color: var(--accent); }
+.pp-lobby-head .t b span { color: var(--accent); }
+.pp-pl.me { background: var(--panel-2); outline: 2px dashed var(--accent); }
+.pp-pl .tag { color: var(--yellow); filter: drop-shadow(0 1px 0 var(--ink)); }
+.pp-room .st.live { background: var(--accent); color: #fff; }
+.rooms-list .room-item { background: var(--panel-2); border: 2px solid transparent; }
+.rooms-list .room-item:active { border-color: var(--ink); }
+.pp-wait .dots i.on { background: var(--accent); }
+.pp-err { color: var(--bad); font-weight: 700; }
+.pp-big-ic { color: var(--accent); }
+
+/* ---------- верхня панель гри ---------- */
+.mm-menu { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 12px; border-radius: 999px; border: var(--edge); background: var(--yellow);
+  box-shadow: var(--pop); font: 900 14px var(--font-d); color: var(--ink); }
+.mm-menu:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
+.pp-stagetitle { color: var(--ink); font-size: 13px; }
+
+/* ---------- ситуація: жовтий стікер зі скотчем ---------- */
+.mm-prompt { position: relative; margin: 6px 4px 2px; padding: 22px 18px 18px; border: var(--edge); border-radius: 6px; background: var(--yellow); box-shadow: var(--pop-lg);
+  text-align: center; transform: rotate(-1.2deg); }
+.mm-prompt::before { content: ""; position: absolute; top: -12px; left: 50%; width: 86px; height: 22px; margin-left: -43px; transform: rotate(3deg);
+  background: rgba(255,255,255,.7); border: 1px solid rgba(31,26,23,.18); }
+.mm-prompt small { display: block; font: 800 10px var(--font-d); letter-spacing: .18em; text-transform: uppercase; opacity: .6; }
+.mm-prompt b { display: block; margin-top: 6px; font: 800 19px/1.3 var(--font-d); text-wrap: balance; }
+.mm-prompt.in { animation: mmDrop .55s cubic-bezier(.2,1.3,.4,1) both; }
+@keyframes mmDrop { from { opacity: 0; transform: translateY(-24px) rotate(-6deg) scale(.95); } }
+.mm-sub { text-align: center; font-weight: 800; font-size: 14px; color: var(--muted); }
+
+/* ---------- мем-картки ---------- */
+.mm-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.mm-grid.two { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.mm-meme { position: relative; display: block; width: 100%; padding: 0; aspect-ratio: 1 / 1; border: var(--edge); border-radius: 10px; overflow: hidden;
+  background: var(--panel-2); box-shadow: var(--pop); transition: transform .18s cubic-bezier(.3,1.5,.5,1), box-shadow .18s; }
+.mm-meme img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+.mm-grid .mm-meme:nth-child(3n+1) { transform: rotate(-1.2deg); } .mm-grid .mm-meme:nth-child(3n+2) { transform: rotate(.8deg); }
+.mm-meme:active { transform: scale(.96) !important; }
+.mm-meme.mine { cursor: default; opacity: .55; }
+.mm-meme.picked { outline: 4px solid var(--accent); outline-offset: 2px; }
+.mm-meme .lbl { position: absolute; left: 6px; bottom: 6px; padding: 3px 8px; border-radius: 999px; border: var(--edge); background: var(--panel);
+  font: 900 11px var(--font-b); color: var(--ink); }
+.mm-meme.picked .lbl { background: var(--accent); color: #fff; }
+.mm-grid.enter .mm-meme { animation: mmDeal .4s cubic-bezier(.2,1.3,.4,1) both; }
+.mm-grid.enter .mm-meme:nth-child(2) { animation-delay: .05s; } .mm-grid.enter .mm-meme:nth-child(3) { animation-delay: .1s; }
+.mm-grid.enter .mm-meme:nth-child(4) { animation-delay: .15s; } .mm-grid.enter .mm-meme:nth-child(5) { animation-delay: .2s; }
+.mm-grid.enter .mm-meme:nth-child(6) { animation-delay: .25s; } .mm-grid.enter .mm-meme:nth-child(n+7) { animation-delay: .3s; }
+@keyframes mmDeal { from { opacity: 0; transform: translateY(20px) rotate(6deg) scale(.9); } }
+
+/* мій мем у грі (поки чекаємо) */
+.mm-sent { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 6px 0; }
+.mm-sent .mm-meme { width: 58%; max-width: 230px; transform: rotate(3deg); box-shadow: var(--pop-lg); }
+.mm-sent b { font: 800 15px var(--font-d); }
+
+/* ---------- результат ---------- */
+.mm-win { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.mm-win .mm-meme { width: 78%; max-width: 300px; transform: rotate(-2deg); box-shadow: var(--pop-lg); animation: mmWin .7s cubic-bezier(.2,1.4,.4,1) both .2s; }
+@keyframes mmWin { from { opacity: 0; transform: scale(.6) rotate(-12deg); } }
+.mm-win .crown { position: absolute; top: -18px; left: 50%; width: 46px; height: 46px; margin-left: -23px; z-index: 2; color: var(--ink); fill: var(--yellow); }
+.mm-winwrap { position: relative; width: 100%; display: flex; justify-content: center; padding-top: 14px; }
+.mm-who { display: flex; align-items: center; justify-content: center; gap: 8px; font: 800 15px var(--font-b); }
+.mm-who .v { padding: 2px 10px; border-radius: 999px; border: var(--edge); background: var(--yellow); font: 900 14px var(--font-d); }
+.mm-who .v.z { background: var(--panel); color: var(--muted); }
+.mm-voters { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; min-height: 26px; }
+.mm-tie { font: 800 13px var(--font-d); color: var(--accent); text-transform: uppercase; letter-spacing: .08em; }
+.mm-rest { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px 12px; }
+.mm-rest .it { display: flex; flex-direction: column; gap: 6px; animation: ppIn .45s cubic-bezier(.2,.9,.3,1.2) both .5s; }
+.mm-rest .mm-who { font-size: 13px; gap: 5px; } .mm-rest .mm-who span.n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70px; }
+.mm-auto { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.mm-auto i { display: block; height: 100%; background: var(--accent); transform-origin: 0 50%; animation: mmAuto linear both; }
+@keyframes mmAuto { from { transform: scaleX(0); } }
+
+/* ---------- перегляд мему перед вибором ---------- */
+.mm-lb { position: fixed; inset: 0; z-index: 120; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+  background: rgba(31,26,23,.72); backdrop-filter: blur(3px); }
+.mm-lb .q { max-width: 440px; padding: 8px 14px; border-radius: 10px; border: var(--edge); background: var(--yellow); font: 800 14px/1.3 var(--font-d); text-align: center; color: var(--ink); }
+.mm-lb img { max-width: min(440px, 100%); max-height: 58vh; border: 3px solid var(--ink); border-radius: 12px; background: #fff; box-shadow: 6px 6px 0 #000; animation: mmZoom .3s cubic-bezier(.2,1.3,.4,1) both; }
+@keyframes mmZoom { from { transform: scale(.7); opacity: 0; } }
+.mm-lb .acts { display: flex; gap: 10px; width: 100%; max-width: 440px; }
+.mm-lb .acts .pp-primary { flex: 1; }
+
+/* ---------- меню (нижня шторка) ---------- */
+.mm-sheet-bg { position: fixed; inset: 0; z-index: 95; background: rgba(31,26,23,.45); }
+.mm-sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 96; max-height: 82vh; overflow-y: auto; max-width: 480px; margin: 0 auto;
+  padding: 10px 16px calc(20px + env(safe-area-inset-bottom)); border: var(--edge); border-bottom: 0; border-radius: 22px 22px 0 0; background: var(--bg);
+  display: flex; flex-direction: column; gap: 12px; transform: translateY(105%); transition: transform .3s cubic-bezier(.2,.9,.3,1); }
+.mm-sheet.open { transform: translateY(0); }
+.mm-sheet .grab { width: 44px; height: 5px; margin: 0 auto 2px; border-radius: 3px; background: var(--line); }
+.mm-sheet .hd { display: flex; align-items: center; justify-content: space-between; font: 900 18px var(--font-d); }
+.mm-x { width: 36px; height: 36px; border-radius: 50%; border: var(--edge); background: var(--panel); display: grid; place-items: center; font-size: 16px; }
+.mm-score { display: flex; flex-direction: column; gap: 6px; }
+.mm-score .r { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); }
+.mm-score .r.me { border: var(--edge); background: var(--panel-2); }
+.mm-score .r.off { opacity: .45; }
+.mm-score .r .pl { width: 22px; font: 900 13px var(--font-d); color: var(--muted); text-align: center; }
+.mm-score .r .n { flex: 1; min-width: 0; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mm-score .r .n .ic { color: var(--yellow); }
+.mm-score .r .v { font: 900 17px var(--font-d); }
+.mm-hint { text-align: center; font-size: 12px; font-weight: 700; color: var(--muted); }
+.mm-credits { display: block; text-align: center; font-size: 12px; color: var(--muted); }
+
+/* ---------- обмін ---------- */
+.mm-modal { position: fixed; inset: 0; z-index: 110; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(31,26,23,.6); }
+.mm-modal .box { width: 100%; max-width: 420px; max-height: 84vh; overflow-y: auto; padding: 16px; border: var(--edge); border-radius: 18px; background: var(--bg); box-shadow: var(--pop-lg);
+  display: flex; flex-direction: column; gap: 12px; }
+.mm-modal h3 { margin: 0; font: 900 16px var(--font-d); }
+.mm-modal .sel { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); }
+.mm-modal .sel .mm-meme { width: 56px; flex: none; transform: none; box-shadow: none; }
+.mm-modal .sel span { flex: 1; font-size: 13px; font-weight: 700; color: var(--muted); }
+.mm-modal .sel button { border: 0; background: none; color: var(--accent); font-weight: 800; text-decoration: underline; }
+.mm-targets { display: flex; flex-direction: column; gap: 8px; }
+.mm-targets button { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 4px 12px; border-radius: 12px; border: var(--edge); background: var(--panel); box-shadow: var(--pop);
+  font: 800 15px var(--font-b); text-align: left; }
+.mm-offer { width: 60%; max-width: 200px; margin: 0 auto; }
+</style>
 </head>
 <body>
-<div class="page">
+<div id="app"><div class="pp-wrap">
+  <section class="pp-view pp-center hidden" id="v-locked"><span class="pp-big-ic" data-ic="lock"></span><div class="pp-note" style="font-size:16px">Увійди в профіль, щоб грати з друзями</div></section>
 
-  <div id="view-locked" class="hidden">
-    <h2>Мемологія</h2>
-    <div class="status-line">Увійди в профіль (кнопка зверху), щоб грати з друзями</div>
-  </div>
+  <section class="pp-view hidden" id="v-entry">
+    <div class="pp-hero"><span data-emblem></span><h1><span>Мемо</span><i>логія</i></h1><p>Ситуація на столі — у кожного руки з мемами. Кидай найвлучніший і голосуй за найсмішніший.</p></div>
+    <div class="pp-card"><div class="pp-h"><span data-ic="users"></span> Активні кімнати</div><div class="rooms-list" id="activeRoomsList"></div></div>
+    <div class="pp-or">або за кодом</div>
+    <div class="pp-join"><input class="pp-field" id="roomCodeInput" maxlength="5" placeholder="КОД" autocomplete="off" /><button class="pp-btn" id="joinRoomBtn">Увійти</button></div>
+    <button class="pp-btn pp-primary pp-block pp-big" id="createRoomBtn">Створити кімнату</button>
+  </section>
 
-  <div id="view-room-entry" class="hidden">
-    <h2>Мемологія</h2>
-    <div class="status-line">Обери активну кімнату або введи код друга</div>
-    <div class="rooms-list" id="activeRoomsList"></div>
-    <div class="divider">або вручну</div>
-    <input class="text-input" id="roomCodeInput" maxlength="5" placeholder="КОД КІМНАТИ" />
-    <button class="primary-btn" id="joinRoomBtn">Приєднатись</button>
-    <div class="divider">або</div>
-    <button class="secondary-btn" id="createRoomBtn">Створити нову кімнату</button>
-  </div>
+  <section class="pp-view hidden" id="v-lobby">
+    <div class="pp-lobby-head"><span data-emblem></span><div class="t"><b><span>Мемо</span>логія</b><small id="lobbyStatus"></small></div>
+      <div class="pp-code"><small>Код кімнати</small><b id="roomCodeDisplay"></b></div></div>
+    <div class="pp-card"><div class="pp-h"><span data-ic="users"></span> Гравці <span class="cnt" id="lobbyCount"></span></div>
+      <div class="pp-players" id="playersList"></div>
+      <div class="pp-note" style="margin-top:10px">Торкнись своєї аватарки, щоб змінити персонажа</div></div>
+    <div class="pp-err hidden" id="deckWarning"></div>
+    <div class="pp-card hidden" id="hostPanel">
+      <button class="pp-btn pp-primary pp-block pp-big" id="startBtn"><span data-ic="play"></span> Почати гру</button>
+      <div class="pp-err" id="startHint"></div></div>
+    <div class="pp-card pp-waithost hidden" id="waitHostLobby"></div>
+    <details class="pp-card pp-rules"><summary>Як грати</summary><ol>
+      <li>Кожне коло — нова ситуація. У тебе в руці 6 мемів.</li>
+      <li>Торкнись мему, щоб роздивитись, і кинь той, що пасує найкраще.</li>
+      <li>Коли всі кинули — голосуємо анонімно за найсмішніший (за свій не можна).</li>
+      <li>Кожен голос — 1 бал автору мему. Рука сама добирається до 6.</li>
+      <li>У меню можна обмінятись мемом з другом (−1 бал) або змінити всю руку.</li></ol></details>
+    <button class="pp-btn pp-ghost pp-block hidden" id="resetBtn"><span data-ic="refresh"></span> Скинути гру</button>
+  </section>
 
-  <div id="view-lobby" class="hidden">
-    <h2>Мемологія</h2>
-    <div class="room-code-display" id="roomCodeDisplay"></div>
-    <div class="status-line" id="lobbyStatus"></div>
-    <div class="card"><h3>Гравці</h3><div class="players-list" id="playersList"></div></div>
-    <div class="err-msg hidden" id="deckWarning"></div>
-    <div class="card hidden" id="hostPanel">
-      <button class="primary-btn" id="startBtn">Почати гру</button>
-      <div class="hint-text" id="startHint"></div>
+  <section class="pp-view hidden" id="v-play">
+    <div class="pp-topbar">
+      <div class="pp-round"><small>Коло</small><b id="roundNo"></b></div>
+      <div class="pp-stagetitle" id="stageTitle"></div>
+      <button class="mm-menu" id="menuBtn"><span data-ic="star"></span><span id="myScore">0</span></button>
     </div>
-    <button class="secondary-btn hidden" id="resetBtn"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 14-5.3L20 9M20 4v5h-5M20 12a8 8 0 0 1-14 5.3L4 15M4 20v-5h5"/></svg> Скинути гру</button>
-  </div>
+    <div class="mm-prompt" id="promptCard"><small>Ситуація</small><b id="promptText"></b></div>
+    <div class="pp-stage" id="stage"></div>
+    <div class="pp-wait" id="waitInfo"></div>
+    <div class="pp-hostbar hidden" id="hostBar">
+      <button class="pp-btn pp-ghost hidden" id="forceAdvanceBtn">Не чекати</button>
+      <button class="pp-btn pp-primary hidden" id="nextRoundBtn">Наступне коло</button></div>
+  </section>
+</div></div>
 
-  <div id="view-active" class="hidden" style="flex:1; display:flex; flex-direction:column;">
-    <button class="sidebar-toggle-btn" id="sidebarToggleBtn">☰ Табло</button>
-    <div class="prompt-box" id="promptBox">—</div>
-
-    <div class="hidden" id="submittingStage">
-      <div class="waiting-count" id="submitWaitingLine"></div>
-      <div class="hand-grid" id="handGrid"></div>
-    </div>
-
-    <div class="hidden" id="votingStage">
-      <div class="waiting-count" id="voteWaitingLine">Оберіть найсмішнішу картку</div>
-      <div class="vote-grid" id="voteGrid"></div>
-    </div>
-
-    <div class="hidden" id="revealStage">
-      <div class="vote-grid" id="revealGrid"></div>
-      <button class="primary-btn hidden" id="nextRoundBtn">Наступне коло</button>
-      <div class="status-line hidden" id="waitHostLine">Чекаємо на ведучого...</div>
-    </div>
-
-    <div class="hidden" id="hostActivePanel" style="margin-top:14px;">
-      <button class="secondary-btn" id="forceAdvanceBtn">Пропустити очікування</button>
-      <button class="secondary-btn" id="resetBtn2"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 14-5.3L20 9M20 4v5h-5M20 12a8 8 0 0 1-14 5.3L4 15M4 20v-5h5"/></svg> Скинути гру</button>
-    </div>
-  </div>
-
+<!-- меню: рахунок + керування рукою -->
+<div class="mm-sheet-bg hidden" id="sheetBg"></div>
+<div class="mm-sheet" id="sheet" aria-hidden="true">
+  <div class="grab"></div>
+  <div class="hd">Рахунок <button class="mm-x" id="sheetClose" aria-label="Закрити"><span data-ic="x"></span></button></div>
+  <div class="mm-score" id="scoreList"></div>
+  <button class="pp-btn pp-block" id="openSwapBtn"><span data-ic="swap"></span> Обміняти мем (−<span id="swapCostLabel">1</span> бал)</button>
+  <button class="pp-btn pp-block" id="fullResetBtn"><span data-ic="refresh"></span> <span id="fullResetLabel">Змінити всю руку</span></button>
+  <div class="mm-hint" id="fullResetHint"></div>
+  <button class="pp-btn pp-ghost pp-block hidden" id="resetBtn2"><span data-ic="flag"></span> Скинути гру для всіх</button>
+  <a class="mm-credits" href="memes/credits.json" target="_blank" rel="noopener">Частина фото — з вільними ліцензіями: автори й ліцензії</a>
 </div>
 
-<!-- сайдбар: табло + керування колодою -->
-<div class="hidden sidebar-overlay" id="sidebarOverlay"></div>
-<div class="sidebar" id="sidebar">
-  <div class="sidebar-header"><h3 style="margin:0;">Меню</h3><button class="sidebar-close-btn" id="sidebarCloseBtn">✕</button></div>
-  <div class="card"><h3>Рахунок</h3><div id="scoreList"></div></div>
-  <div class="card">
-    <h3>Керування колодою</h3>
-    <button class="secondary-btn" id="openSwapBtn" style="margin-top:0;"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 14-5.3L20 9M20 4v5h-5M20 12a8 8 0 0 1-14 5.3L4 15M4 20v-5h5"/></svg> Обміняти картку (−<span id="swapCostLabel">1</span> бал)</button>
-    <button class="secondary-btn" id="fullResetBtn"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="12" height="15" rx="2"/><path d="M8 3h11a2 2 0 0 1 2 2v13"/></svg> <span id="fullResetLabel">Змінити всю колоду</span></button>
-    <div class="deck-hint" id="fullResetHint"></div>
-  </div>
-  <a class="deck-hint credits-link" href="memes/credits.json" target="_blank" rel="noopener">Фото з вільними ліцензіями: автори й ліцензії</a>
+<!-- перегляд мему перед вибором / голосом -->
+<div class="mm-lb hidden" id="lightbox">
+  <div class="q" id="lbPrompt"></div>
+  <img id="lbImg" alt="мем" />
+  <div class="acts"><button class="pp-btn" id="lbCancel">Назад</button><button class="pp-btn pp-primary pp-big" id="lbOk"></button></div>
 </div>
 
-<!-- модалка: я пропоную обмін -->
-<div class="hidden modal-overlay" id="swapModal">
-  <div class="modal-card" id="swapModalCard">
-    <h3 id="swapStepLabel" style="text-transform:none; font-size:15px; color:var(--text-light);">Крок 1: оберіть свою картку</h3>
-    <div class="hand-grid" id="swapHandGrid"></div>
-    <div class="hidden swap-selected-preview" id="swapSelectedPreview"></div>
-    <div class="hidden target-picker" id="swapTargetPicker"></div>
-    <div class="hidden status-line" id="swapWaitingBox" style="margin-top:12px;"></div>
-    <button class="secondary-btn" id="swapCancelBtn">Скасувати</button>
-  </div>
-</div>
+<!-- обмін: я пропоную -->
+<div class="mm-modal hidden" id="swapModal"><div class="box" id="swapModalCard">
+  <h3 id="swapStepLabel">Крок 1: який мем віддаєш?</h3>
+  <div class="mm-grid" id="swapHandGrid"></div>
+  <div class="sel hidden" id="swapSelectedPreview"></div>
+  <div class="mm-targets hidden" id="swapTargetPicker"></div>
+  <div class="pp-note hidden" id="swapWaitingBox"></div>
+  <button class="pp-btn pp-ghost pp-block" id="swapCancelBtn">Скасувати</button>
+</div></div>
 
-<!-- модалка: мені надійшов запит -->
-<div class="hidden modal-overlay" id="incomingSwapModal">
-  <div class="modal-card">
-    <div id="incomingSwapConfirmStep">
-      <h3 style="text-transform:none; font-size:15px; color:var(--text-light);">Запит на обмін</h3>
-      <div class="status-line" id="incomingSwapText"></div>
-      <div class="hand-grid" id="incomingSwapOfferedCard" style="grid-template-columns:1fr; max-width:160px; margin:12px auto;"></div>
-      <button class="primary-btn" id="incomingSwapAcceptBtn">Підтвердити</button>
-      <button class="secondary-btn" id="incomingSwapDeclineBtn">Скасувати</button>
-    </div>
-    <div class="hidden" id="incomingSwapChooseStep">
-      <h3 style="text-transform:none; font-size:15px; color:var(--text-light);">Яку картку віддаєте?</h3>
-      <div class="hand-grid" id="incomingSwapHandGrid"></div>
-    </div>
+<!-- обмін: мені надійшов запит -->
+<div class="mm-modal hidden" id="incomingSwapModal"><div class="box">
+  <div id="incomingSwapConfirmStep" style="display:flex;flex-direction:column;gap:12px">
+    <h3>Запит на обмін</h3>
+    <div class="pp-waithost" id="incomingSwapText"></div>
+    <div class="mm-offer" id="incomingSwapOfferedCard"></div>
+    <button class="pp-btn pp-primary pp-block" id="incomingSwapAcceptBtn">Погодитись</button>
+    <button class="pp-btn pp-ghost pp-block" id="incomingSwapDeclineBtn">Відмовити</button>
   </div>
-</div>
+  <div class="hidden" id="incomingSwapChooseStep" style="display:flex;flex-direction:column;gap:12px">
+    <h3>Який мем віддаєш натомість?</h3>
+    <div class="mm-grid" id="incomingSwapHandGrid"></div>
+  </div>
+</div></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
@@ -257,416 +256,420 @@
 <script src="js/promts/memology-prompts.js"></script>
 <script src="js/promts/memology-cards.js"></script>
 <script src="js/core/online-engine.js"></script>
+<script src="js/quiplash-avatars.js"></script>
+<script src="js/quiplash-sounds.js"></script>
 <script src="js/memology-game.js"></script>
 <script src="js/core/room-code-ui.js"></script>
+<script src="js/party-ui.js"></script>
 <script src="js/core/reactions.js"></script>
 <script src="js/core/help.js"></script>
 <script src="js/core/back-button.js"></script>
 <script src="js/core/refresh-button.js"></script>
 <script>
 (function () {
-  const VIEWS = ["locked", "room-entry", "lobby", "active"];
+  const G = window.MemologyGame;
+  const { esc, icon } = window.PartyUI;
+  const $ = (id) => document.getElementById(id);
+  const sfx = (n) => { try { window.QuiplashSfx && QuiplashSfx.play(n); } catch (e) {} };
+  const buzz = (p) => { try { window.QuiplashSfx && QuiplashSfx.vibrate(p); } catch (e) {} };
+  const AUTO_NEXT_MS = 9000;
+  const CROWN = '<svg class="crown" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>';
+  const EMBLEM = `<svg class="pp-emblem" viewBox="0 0 120 120" aria-hidden="true">
+    <g transform="rotate(-8 60 60)"><rect x="22" y="16" width="76" height="88" rx="6" fill="#fff" stroke="#1f1a17" stroke-width="4"/>
+      <rect x="31" y="25" width="58" height="52" rx="3" fill="#ffc93c" stroke="#1f1a17" stroke-width="3"/>
+      <circle cx="60" cy="51" r="17" fill="#fff" stroke="#1f1a17" stroke-width="3"/>
+      <path d="M51 46l5 3-5 3M69 46l-5 3 5 3" fill="none" stroke="#1f1a17" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M50 56h20q-2 9-10 9t-10-9z" fill="#ff4d3d" stroke="#1f1a17" stroke-width="2.4" stroke-linejoin="round"/>
+      <path d="M36 88h30M36 95h18" stroke="#1f1a17" stroke-width="3.4" stroke-linecap="round"/></g>
+    <path d="M100 18l3 7 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z" fill="#ff4d3d" stroke="#1f1a17" stroke-width="2.4" stroke-linejoin="round"/></svg>`;
+  document.querySelectorAll("[data-ic]").forEach((el) => { el.outerHTML = icon(el.dataset.ic); });
+  document.querySelectorAll("[data-emblem]").forEach((el) => { el.outerHTML = EMBLEM; });
+
+  const avatar = (room, name, opts) => window.PartyUI.avatar(room, name, opts);
+  const cardUrl = (cardId) => "memes/" + encodeURIComponent(cardId);
+  const meme = (cardId, extra, label) =>
+    `<button class="mm-meme ${extra || ""}" data-card="${esc(cardId)}"><img src="${cardUrl(cardId)}" alt="мем" loading="lazy" />${label ? `<span class="lbl">${label}</span>` : ""}</button>`;
+  const plural = (n, one, few, many) => n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? few : many;
+  const sig = {};
+  function paint(id, key, html) { if (sig[id] === key) return false; sig[id] = key; $(id).innerHTML = html; return true; }
+
+  const VIEWS = ["locked", "entry", "lobby", "play"];
+  let curView = null;
   function showView(name) {
-    VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name));
+    if (curView === name) return;
+    curView = name;
+    VIEWS.forEach((v) => $("v-" + v).classList.toggle("hidden", v !== name));
+    document.body.dataset.view = name === "play" ? "round" : name;
+    window.scrollTo(0, 0);
   }
-  function escapeHtml(s) {
-    const d = document.createElement("div");
-    d.textContent = s || "";
-    return d.innerHTML;
+
+  let lastState = null, lastCtx = null, username = null, reactionsMounted = false;
+  let pendingSubmit = null, pendingVote = null; // оптимістично, до підтвердження з бази
+  let lastRoundKey = null, lastSub = null;
+
+  // ---------------- меню-шторка ----------------
+  const sheet = $("sheet"), sheetBg = $("sheetBg");
+  function openSheet() { sheet.classList.add("open"); sheet.setAttribute("aria-hidden", "false"); sheetBg.classList.remove("hidden"); }
+  function closeSheet() { sheet.classList.remove("open"); sheet.setAttribute("aria-hidden", "true"); sheetBg.classList.add("hidden"); }
+  $("menuBtn").addEventListener("click", openSheet);
+  $("sheetClose").addEventListener("click", closeSheet);
+  sheetBg.addEventListener("click", closeSheet);
+
+  // ---------------- перегляд мему ----------------
+  const lb = $("lightbox");
+  let lbAction = null;
+  function openLightbox(cardId, okText, action) {
+    lbAction = action;
+    $("lbImg").src = cardUrl(cardId);
+    $("lbPrompt").textContent = (lastState && lastState.round && lastState.round.promptText) || "";
+    $("lbOk").textContent = okText;
+    $("lbCancel").classList.toggle("hidden", !action);
+    lb.classList.remove("hidden");
+    sfx("pop");
   }
-  function cardUrl(cardId) { return "memes/" + encodeURIComponent(cardId); }
+  function closeLightbox() { lb.classList.add("hidden"); lbAction = null; }
+  $("lbCancel").addEventListener("click", closeLightbox);
+  lb.addEventListener("click", (e) => { if (e.target === lb) closeLightbox(); });
+  $("lbOk").addEventListener("click", () => { const a = lbAction; closeLightbox(); if (a) a(); });
 
-  let lastState = null;
-  let reactionsMounted = false;
-  let username = null;
-  let mySubmittedCardId = null;
-  let myVotedFor = null;
-  let lastPromptText = null;
-  let revealAutoTimer = null;
-  let revealAutoScheduledFor = null;
-
-  // ---- сайдбар ----
-  const sidebar = document.getElementById("sidebar");
-  const sidebarOverlay = document.getElementById("sidebarOverlay");
-  document.getElementById("sidebarToggleBtn").addEventListener("click", () => { sidebar.classList.add("open"); sidebarOverlay.classList.remove("hidden"); });
-  document.getElementById("sidebarCloseBtn").addEventListener("click", closeSidebar);
-  sidebarOverlay.addEventListener("click", closeSidebar);
-  function closeSidebar() { sidebar.classList.remove("open"); sidebarOverlay.classList.add("hidden"); }
-
-  // ------------------------- лобі -------------------------
+  // ---------------- лобі ----------------
   function renderLobby(state, ctx) {
-    const conn = window.MemologyGame.connectedEntries(state.players);
-    const hostName = window.MemologyGame.computeHost(state.players);
-
-    document.getElementById("roomCodeDisplay").textContent = ctx.roomId || window.MemologyGame.roomId || "";
-    document.getElementById("lobbyStatus").innerHTML =
-      `<span class="pulse-dot"></span> Гравців онлайн: ${conn.length} (потрібно мінімум ${window.MemologyGame.MIN_PLAYERS})`;
-
-    const allNames = Object.keys(state.players || {});
-    document.getElementById("playersList").innerHTML =
-      allNames.map((n) => {
-        const online = conn.some(([cn]) => cn === n);
-        return `<div class="player-chip ${online ? "" : "offline"}"><span>${escapeHtml(n)}</span>${n === hostName ? '<span class="badge">ВЕДУЧИЙ</span>' : ""}</div>`;
-      }).join("") || '<div class="status-line">Ще нікого немає</div>';
-
-    const deckWarning = document.getElementById("deckWarning");
-    if (!MEMOLOGY_CARD_IDS.length) {
-      deckWarning.textContent = "Список карток порожній — запусти generate-card-list.js локально й задеплой заново";
-      deckWarning.classList.remove("hidden");
-    } else {
-      deckWarning.classList.add("hidden");
+    const conn = G.connectedEntries(state.players).map(([n]) => n);
+    const hostName = G.computeHost(state.players), me = ctx.username, players = state.players || {};
+    $("roomCodeDisplay").textContent = G.roomId || "";
+    $("lobbyStatus").textContent = `Онлайн: ${conn.length} · мінімум ${G.MIN_PLAYERS}`;
+    $("lobbyCount").textContent = conn.length;
+    const names = Object.keys(players).sort((a, b) => conn.includes(b) - conn.includes(a));
+    const key = names.map((n) => [n, players[n].character, conn.includes(n), n === hostName].join(":")).join("|") + "#" + me;
+    if (paint("playersList", key, names.map((n) => {
+      const mine = n === me;
+      return `<button class="pp-pl ${mine ? "me" : ""} ${conn.includes(n) ? "" : "off"}" ${mine ? 'data-me="1"' : "disabled"}>${avatar(state, n, { size: "lg", mood: mine ? "happy" : "idle" })}
+        <span class="nm">${esc(n)}</span>${n === hostName ? `<span class="tag">${icon("crown")}</span>` : ""}${mine ? `<span class="swap">${icon("swap")}</span>` : ""}</button>`;
+    }).join("") || '<div class="pp-note">Ще нікого немає</div>')) {
+      const mine = $("playersList").querySelector("[data-me]");
+      if (mine) mine.addEventListener("click", () => { G.cycleAvatar(); sfx("pop"); });
     }
-
-    document.getElementById("hostPanel").classList.toggle("hidden", !ctx.host);
-    document.getElementById("resetBtn").classList.toggle("hidden", !ctx.host);
-
-    if (ctx.host) {
-      const enough = conn.length >= window.MemologyGame.MIN_PLAYERS && MEMOLOGY_CARD_IDS.length > 0;
-      document.getElementById("startBtn").disabled = !enough;
-      document.getElementById("startHint").textContent = conn.length < window.MemologyGame.MIN_PLAYERS
-        ? `Потрібно ще ${window.MemologyGame.MIN_PLAYERS - conn.length} гравців(я)` : "";
-    }
-  }
-
-  // ------------------------- активна гра -------------------------
-  function renderActive(state, ctx) {
-    if (!state.round) return;
-    document.getElementById("promptBox").textContent = state.round.promptText;
-
-    if (state.round.promptText !== lastPromptText) {
-      lastPromptText = state.round.promptText;
-      mySubmittedCardId = null;
-      myVotedFor = null;
-      clearRevealAutoTimer();
-    }
-
-    const me = state.players[ctx.username];
-    const myHand = (me && me.hand) || [];
-    const conn = window.MemologyGame.connectedEntries(state.players);
-
-    document.getElementById("hostActivePanel").classList.toggle("hidden", !ctx.host);
-    document.getElementById("swapCostLabel").textContent = window.MemologyGame.SWAP_COST;
-
-    const fullResetBtn = document.getElementById("fullResetBtn");
-    const fullResetHint = document.getElementById("fullResetHint");
-    const cost = window.MemologyGame.deckResetCost(state);
-    const roundsLeft = window.MemologyGame.deckResetRoundsLeft(state);
-    if (roundsLeft > 0) {
-      fullResetBtn.disabled = true;
-      fullResetHint.textContent = `Доступно ще через ${roundsLeft} ${roundsLeft === 1 ? "коло" : "кола"}`;
-    } else {
-      fullResetBtn.disabled = false;
-      fullResetHint.textContent = `Коштує ${cost} бал(ів) — тільки ваша рука скидається`;
-    }
-    document.getElementById("fullResetLabel").textContent = `Змінити всю колоду (−${cost})`;
-
-    const submittingStage = document.getElementById("submittingStage");
-    const votingStage = document.getElementById("votingStage");
-    const revealStage = document.getElementById("revealStage");
-    [submittingStage, votingStage, revealStage].forEach((el) => el.classList.add("hidden"));
-
-    if (state.round.subPhase === "submitting") {
-      submittingStage.classList.remove("hidden");
-      const submittedCount = Object.keys(state.round.submissions || {}).length;
-      document.getElementById("submitWaitingLine").textContent = `Подали відповідь: ${submittedCount} з ${conn.length}`;
-      renderHand(state, myHand);
-    } else if (state.round.subPhase === "voting") {
-      votingStage.classList.remove("hidden");
-      const votedCount = Object.keys(state.round.votes || {}).length;
-      document.getElementById("voteWaitingLine").textContent = myVotedFor
-        ? `Голос зараховано. Проголосувало: ${votedCount} з ${conn.length}`
-        : `Оберіть найсмішнішу картку (${votedCount} з ${conn.length} вже проголосували)`;
-      renderVoting(state);
-    } else if (state.round.subPhase === "reveal") {
-      revealStage.classList.remove("hidden");
-      renderReveal(state, ctx);
-      scheduleAutoNextRound(state, ctx);
-    }
-
-    const sorted = Object.entries(state.players || {}).sort((a, b) => (b[1].score || 0) - (a[1].score || 0));
-    const hostName = window.MemologyGame.computeHost(state.players);
-    document.getElementById("scoreList").innerHTML = sorted.map(([name, p]) => {
-      const online = conn.some(([n]) => n === name);
-      return `<div class="player-chip ${online ? "" : "offline"}"><span>${escapeHtml(name)}${name === hostName ? ' <span class="badge">ВЕДУЧИЙ</span>' : ""}</span><span>${p.score || 0}</span></div>`;
-    }).join("");
-  }
-
-  function renderHand(state, myHand) {
-    const grid = document.getElementById("handGrid");
-    if (!myHand.length && mySubmittedCardId) {
-      grid.innerHTML = '<div class="status-line" style="grid-column: 1 / -1;">Відповідь подано. Чекаємо на інших...</div>';
+    const noCards = !MEMOLOGY_CARD_IDS.length;
+    $("deckWarning").textContent = noCards ? "Список мемів порожній — запусти generate-card-list.js і задеплой заново" : "";
+    $("deckWarning").classList.toggle("hidden", !noCards);
+    $("hostPanel").classList.toggle("hidden", !ctx.host);
+    $("resetBtn").classList.toggle("hidden", !ctx.host);
+    $("waitHostLobby").classList.toggle("hidden", !!ctx.host);
+    if (!ctx.host) {
+      paint("waitHostLobby", "w" + hostName + (players[hostName] || {}).character,
+        `${hostName ? avatar(state, hostName, { size: "md", mood: "write" }) : ""}<div class="pp-note"><b style="color:var(--ink)">${esc(hostName || "Ведучий")}</b> скоро почне гру.<br>Поки торкнись аватарки й обери монстрика.</div>`);
       return;
     }
-    grid.innerHTML = myHand.map((cardId) =>
-      `<div class="card-thumb ${mySubmittedCardId ? "disabled" : ""}" data-card="${escapeHtml(cardId)}"><img src="${cardUrl(cardId)}" alt="картка" loading="lazy" /></div>`
-    ).join("");
-    grid.querySelectorAll(".card-thumb[data-card]").forEach((el) => {
-      el.addEventListener("click", () => {
-        if (mySubmittedCardId) return;
-        mySubmittedCardId = el.dataset.card;
-        window.MemologyGame.submitCard(state, mySubmittedCardId);
-        renderHand(state, myHand);
-      });
-    });
+    const enough = conn.length >= G.MIN_PLAYERS && !noCards;
+    $("startBtn").disabled = !enough;
+    $("startHint").textContent = conn.length < G.MIN_PLAYERS ? `Потрібно ще ${G.MIN_PLAYERS - conn.length} ${plural(G.MIN_PLAYERS - conn.length, "гравець", "гравці", "гравців")}` : "";
   }
 
-  function renderVoting(state) {
-    const grid = document.getElementById("voteGrid");
-    const submissions = state.round.submissions || {};
-    // фіксований порядок з game.js (рахується один раз хостом при переході
-    // у voting) — резервний варіант на випадок, якщо його з якоїсь причини
-    // ще немає в стані (стара кімната/перехідний момент)
-    const order = (state.round.votingOrder && state.round.votingOrder.length)
-      ? state.round.votingOrder
-      : Object.keys(submissions);
-    const cardOrder = order.filter((u) => submissions[u] !== undefined).map((u) => submissions[u]);
-    grid.innerHTML = cardOrder.map((cardId) => {
-      const isMine = cardId === mySubmittedCardId;
-      return `<div class="vote-card">
-        <div class="card-thumb ${myVotedFor === cardId ? "voted-mine" : ""} ${isMine ? "disabled" : ""}" data-card="${escapeHtml(cardId)}">
-          <img src="${cardUrl(cardId)}" alt="картка" loading="lazy" />
-        </div>
-        ${isMine ? '<div class="author-tag">Ваша картка</div>' : ""}
-      </div>`;
-    }).join("");
-    if (myVotedFor !== null) return;
-    grid.querySelectorAll(".card-thumb[data-card]").forEach((el) => {
-      if (el.classList.contains("disabled")) return;
-      el.addEventListener("click", () => {
-        if (myVotedFor !== null) return;
-        const cardId = el.dataset.card;
-        myVotedFor = cardId;
-        window.MemologyGame.castVote(state, cardId);
-        renderVoting(state);
-      });
-    });
+  // ---------------- гра ----------------
+  function waitWho(state, names, text) {
+    if (!names.length) return "";
+    return `<div class="who">${names.map((n) => avatar(state, n, { size: "sm", mood: "write" })).join("")}</div><div>${text}</div>`;
   }
 
-  function renderReveal(state, ctx) {
-    const grid = document.getElementById("revealGrid");
-    const tally = state.round.tally || {};
-    const entries = Object.entries(state.round.submissions || {}).map(([author, cardId]) => ({
+  function renderPlay(state, ctx) {
+    const r = state.round;
+    if (!r) return;
+    const me = ctx.username, players = state.players || {};
+    const conn = G.connectedEntries(players).map(([n]) => n);
+    const subs = r.submissions || {}, votes = r.votes || {};
+    const roundKey = (state.roundNumber || 0) + "|" + r.promptText;
+
+    if (roundKey !== lastRoundKey) {
+      if (lastRoundKey) sfx("whoosh");
+      lastRoundKey = roundKey; lastSub = null; pendingSubmit = null; pendingVote = null;
+      closeLightbox();
+      $("promptText").textContent = r.promptText;
+      const c = $("promptCard"); c.classList.remove("in"); void c.offsetWidth; c.classList.add("in");
+    }
+    if (r.subPhase !== lastSub) {
+      if (lastSub === "submitting" && r.subPhase === "voting") { sfx("ding"); buzz(20); }
+      if (r.subPhase === "reveal" && lastSub) {
+        sfx("drum");
+        const tally = r.tally || {}, max = Math.max(0, ...Object.values(tally));
+        if (max > 0 && tally[me] === max) setTimeout(() => { sfx("fanfare"); buzz([30, 40, 30]); }, 600);
+      }
+      if (lastSub) closeLightbox();
+      lastSub = r.subPhase;
+    }
+
+    $("roundNo").textContent = state.roundNumber || 1;
+    $("myScore").textContent = (players[me] && players[me].score) || 0;
+    const mySub = subs[me] || pendingSubmit;
+    const myVote = votes[me] || pendingVote;
+
+    if (r.subPhase === "submitting") {
+      const left = conn.filter((n) => subs[n] === undefined);
+      if (!mySub) {
+        $("stageTitle").textContent = "Обери мем";
+        const hand = (players[me] && players[me].hand) || [];
+        paint("stage", "hand|" + roundKey + "|" + hand.join(","),
+          `<div class="mm-sub">Торкнись, щоб роздивитись</div><div class="mm-grid enter" id="handGrid">${hand.map((c) => meme(c)).join("")}</div>` +
+          (hand.length < G.HAND_SIZE ? '<div class="pp-note">Добираємо меми в руку…</div>' : ""));
+      } else {
+        $("stageTitle").textContent = "Чекаємо інших";
+        paint("stage", "sent|" + roundKey + "|" + mySub,
+          `<div class="mm-sent">${meme(mySub)}<b>Твій мем у грі</b></div>`);
+      }
+      paint("waitInfo", "s|" + left.join(",") + Object.keys(subs).length,
+        `<div class="dots">${conn.map((n) => `<i class="${subs[n] !== undefined ? "on" : ""}"></i>`).join("")}</div>` +
+        (left.length ? waitWho(state, left, `Ще обирають: ${left.length}`) : "<div>Усі кинули мем</div>"));
+    } else if (r.subPhase === "voting") {
+      $("stageTitle").textContent = myVote ? "Голос зараховано" : "Голосуємо";
+      const order = (r.votingOrder && r.votingOrder.length) ? r.votingOrder : Object.keys(subs);
+      const cards = order.filter((u) => subs[u] !== undefined).map((u) => ({ author: u, card: subs[u] }));
+      paint("stage", "vote|" + roundKey + "|" + cards.map((c) => c.card).join(",") + "|" + myVote,
+        `<div class="mm-sub">${myVote ? "Чекаємо, поки проголосують усі" : "Який мем найсмішніший? Свій обрати не можна"}</div>` +
+        `<div class="mm-grid two enter" id="voteGrid">${cards.map((c) => {
+          if (c.author === me) return meme(c.card, "mine", "твій");
+          if (myVote === c.author) return meme(c.card, "picked", "твій голос");
+          return meme(c.card, myVote ? "mine" : "");
+        }).join("")}</div>`);
+      const left = conn.filter((n) => !votes[n]);
+      paint("waitInfo", "v|" + left.join(","),
+        `<div class="dots">${conn.map((n) => `<i class="${votes[n] ? "on" : ""}"></i>`).join("")}</div>` +
+        (left.length ? waitWho(state, left, `Ще голосують: ${left.length}`) : "<div>Усі проголосували</div>"));
+    } else if (r.subPhase === "reveal") {
+      $("stageTitle").textContent = "Результат";
+      renderReveal(state, ctx, roundKey);
+      paint("waitInfo", "r", "");
+    }
+
+    // панель ведучого
+    const host = !!ctx.host;
+    $("forceAdvanceBtn").classList.toggle("hidden", !(host && (r.subPhase === "submitting" || r.subPhase === "voting")));
+    $("forceAdvanceBtn").textContent = r.subPhase === "voting" ? "Показати результат" : "Не чекати решту";
+    $("nextRoundBtn").classList.toggle("hidden", !(host && r.subPhase === "reveal"));
+    $("hostBar").classList.toggle("hidden", !host);
+
+    renderSheet(state, ctx, conn);
+  }
+
+  function renderReveal(state, ctx, roundKey) {
+    const r = state.round, tally = r.tally || {}, votes = r.votes || {};
+    const entries = Object.entries(r.submissions || {}).map(([author, cardId]) => ({
       author, cardId, votes: tally[author] || 0,
-    })).sort((a, b) => b.votes - a.votes);
-    const maxVotes = Math.max(0, ...entries.map((e) => e.votes));
-    grid.innerHTML = entries.map((e) =>
-      `<div class="vote-card">
-        <div class="card-thumb"><img src="${cardUrl(e.cardId)}" alt="картка" loading="lazy" /></div>
-        <div class="author-tag">${e.votes === maxVotes && maxVotes > 0 ? '<svg class="winner-crown" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/></svg>' : ""}${escapeHtml(e.author)} <span class="vote-count">+${e.votes}</span></div>
-      </div>`
-    ).join("");
-    document.getElementById("nextRoundBtn").classList.toggle("hidden", !ctx.host);
-    document.getElementById("waitHostLine").classList.toggle("hidden", ctx.host);
+      voters: Object.keys(votes).filter((v) => votes[v] === author),
+    })).sort((a, b) => b.votes - a.votes || (a.author < b.author ? -1 : 1));
+    const max = Math.max(0, ...entries.map((e) => e.votes));
+    const winners = max > 0 ? entries.filter((e) => e.votes === max) : [];
+    const top = winners[0] || entries[0];
+    const rest = entries.filter((e) => e !== top);
+    const voters = (e) => `<div class="mm-voters">${e.voters.map((v) => avatar(state, v, { size: "xs", still: true })).join("")}</div>`;
+    const who = (e, mood) => `<div class="mm-who">${avatar(state, e.author, { size: "sm", mood, still: !mood })}<span class="n">${esc(e.author)}</span><span class="v ${e.votes ? "" : "z"}">+${e.votes}</span></div>`;
+    paint("stage", "rev|" + roundKey + "|" + JSON.stringify(tally),
+      (top ? `<div class="mm-win">${winners.length > 1 ? `<div class="mm-tie">Нічия · ${winners.length} ${plural(winners.length, "переможець", "переможці", "переможців")}</div>` : ""}
+        <div class="mm-winwrap">${max > 0 ? CROWN : ""}${meme(top.cardId)}</div>${who(top, max > 0 ? "happy" : "")}${voters(top)}</div>` : "") +
+      (rest.length ? `<div class="mm-rest">${rest.map((e) => `<div class="it">${meme(e.cardId)}${who(e, e.votes === max && max > 0 ? "happy" : "")}${voters(e)}</div>`).join("")}</div>` : "") +
+      `<div class="mm-auto"><i style="animation-duration:${AUTO_NEXT_MS}ms"></i></div><div class="pp-note">Наступне коло стартує саме${ctx.host ? "" : " — чекаємо ведучого"}</div>`);
+    scheduleAutoNext(roundKey);
   }
 
-  function clearRevealAutoTimer() {
-    if (revealAutoTimer) { clearTimeout(revealAutoTimer); revealAutoTimer = null; }
-    revealAutoScheduledFor = null;
+  let autoTimer = null, autoFor = null;
+  function scheduleAutoNext(key) {
+    if (autoFor === key) return;
+    if (autoTimer) clearTimeout(autoTimer);
+    autoFor = key;
+    autoTimer = setTimeout(() => {
+      autoTimer = null;
+      if (lastCtx && lastCtx.host && lastState && lastState.round && lastState.round.subPhase === "reveal") G.nextRound(lastState);
+    }, AUTO_NEXT_MS);
   }
-  function scheduleAutoNextRound(state, ctx) {
-    const key = state.round.promptText;
-    if (revealAutoScheduledFor === key) return;
-    clearRevealAutoTimer();
-    revealAutoScheduledFor = key;
-    revealAutoTimer = setTimeout(() => {
-      if (ctx.host) window.MemologyGame.nextRound(state);
-      revealAutoTimer = null;
-    }, 4500);
+
+  // кліки по мемах — один делегований обробник
+  $("stage").addEventListener("click", (e) => {
+    const el = e.target.closest(".mm-meme[data-card]");
+    if (!el || el.classList.contains("mine") || el.classList.contains("picked")) return;
+    const state = lastState, r = state && state.round, cardId = el.dataset.card;
+    if (!r) return;
+    if (r.subPhase === "submitting" && el.closest("#handGrid") && !pendingSubmit && !(r.submissions || {})[username]) {
+      openLightbox(cardId, "Кинути цей мем", () => {
+        const s = lastState;
+        if (!s || !s.round || s.round.subPhase !== "submitting") return;
+        pendingSubmit = cardId; G.submitCard(s, cardId); sfx("pop"); buzz(15); renderPlay(s, lastCtx);
+      });
+    } else if (r.subPhase === "voting" && el.closest("#voteGrid") && !pendingVote && !(r.votes || {})[username]) {
+      const author = Object.keys(r.submissions || {}).find((u) => r.submissions[u] === cardId);
+      if (!author || author === username) return;
+      openLightbox(cardId, "Голосую за цей", () => {
+        const s = lastState;
+        if (!s || !s.round || s.round.subPhase !== "voting") return;
+        pendingVote = author; G.castVote(s, cardId); sfx("pop"); buzz(15); renderPlay(s, lastCtx);
+      });
+    } else if (r.subPhase === "reveal") {
+      openLightbox(cardId, "Закрити", null);
+    }
+  });
+
+  // ---------------- меню: рахунок + рука ----------------
+  function renderSheet(state, ctx, conn) {
+    const players = state.players || {}, hostName = G.computeHost(players);
+    const sorted = Object.entries(players).sort((a, b) => (b[1].score || 0) - (a[1].score || 0) || (a[0] < b[0] ? -1 : 1));
+    paint("scoreList", JSON.stringify(sorted.map(([n, p]) => [n, p.score || 0, p.character, conn.includes(n)])) + ctx.username,
+      sorted.map(([n, p], i) => `<div class="r ${n === ctx.username ? "me" : ""} ${conn.includes(n) ? "" : "off"}"><span class="pl">${i + 1}</span>${avatar(state, n, { size: "sm", still: true })}
+        <span class="n">${esc(n)} ${n === hostName ? icon("crown", "fill") : ""}</span><span class="v">${p.score || 0}</span></div>`).join(""));
+    $("swapCostLabel").textContent = G.SWAP_COST;
+    const cost = G.deckResetCost(state), roundsLeft = G.deckResetRoundsLeft(state);
+    $("fullResetBtn").disabled = roundsLeft > 0;
+    $("fullResetLabel").textContent = `Змінити всю руку (−${cost})`;
+    $("fullResetHint").textContent = roundsLeft > 0
+      ? `Знову можна через ${roundsLeft} ${plural(roundsLeft, "коло", "кола", "кіл")}`
+      : `Нові 6 мемів за ${cost} ${plural(cost, "бал", "бали", "балів")}`;
+    $("resetBtn2").classList.toggle("hidden", !ctx.host);
   }
 
   function onState(state, ctx) {
-    lastState = state;
+    lastState = state; lastCtx = ctx;
     if (!ctx.username) { showView("locked"); return; }
-    if (!reactionsMounted && window.GameReactions && window.MemologyGame.roomRef) {
-      reactionsMounted = true;
-      window.GameReactions.mount(window.MemologyGame.roomRef, ctx.username);
-    }
-    if (state.phase === "lobby") { showView("lobby"); renderLobby(state, ctx); return; }
-    showView("active");
-    renderActive(state, ctx);
+    if (!reactionsMounted && window.GameReactions && G.roomRef) { reactionsMounted = true; window.GameReactions.mount(G.roomRef, ctx.username); }
+    if (state.phase === "lobby") { lastRoundKey = null; lastSub = null; closeLightbox(); showView("lobby"); renderLobby(state, ctx); return; }
+    showView("play");
+    renderPlay(state, ctx);
   }
 
-  document.getElementById("startBtn").addEventListener("click", () => window.MemologyGame.startGame(lastState));
-  document.getElementById("resetBtn").addEventListener("click", () => { if (confirm("Скинути гру для всіх?")) window.MemologyGame.resetAll(lastState); });
-  document.getElementById("resetBtn2").addEventListener("click", () => { if (confirm("Скинути гру для всіх?")) window.MemologyGame.resetAll(lastState); });
-  document.getElementById("forceAdvanceBtn").addEventListener("click", () => window.MemologyGame.forceAdvance(lastState));
-  document.getElementById("nextRoundBtn").addEventListener("click", () => window.MemologyGame.nextRound(lastState));
-  document.getElementById("fullResetBtn").addEventListener("click", () => {
-    if (!lastState) return;
-    const cost = window.MemologyGame.deckResetCost(lastState);
-    if (window.MemologyGame.deckResetRoundsLeft(lastState) > 0) return;
-    if (confirm(`Змінити ВАШУ колоду коштуватиме ${cost} бал(ів). Точно?`)) window.MemologyGame.resetMyDeck(lastState);
+  const confirmReset = () => { if (confirm("Скинути гру для всіх?")) { closeSheet(); G.resetAll(lastState); } };
+  $("startBtn").addEventListener("click", () => { G.startGame(lastState); sfx("whoosh"); });
+  $("resetBtn").addEventListener("click", confirmReset);
+  $("resetBtn2").addEventListener("click", confirmReset);
+  $("forceAdvanceBtn").addEventListener("click", () => G.forceAdvance(lastState));
+  $("nextRoundBtn").addEventListener("click", () => G.nextRound(lastState));
+  $("fullResetBtn").addEventListener("click", () => {
+    if (!lastState || G.deckResetRoundsLeft(lastState) > 0) return;
+    const cost = G.deckResetCost(lastState);
+    if (confirm(`Нова рука коштуватиме ${cost} ${plural(cost, "бал", "бали", "балів")}. Точно?`)) { G.resetMyDeck(lastState); closeSheet(); sfx("whoosh"); }
   });
 
-  // ---- обмін карткою: я пропоную ----
-  const swapModal = document.getElementById("swapModal");
-  const swapModalCard = document.getElementById("swapModalCard");
-  const swapHandGrid = document.getElementById("swapHandGrid");
-  const swapSelectedPreview = document.getElementById("swapSelectedPreview");
-  const swapTargetPicker = document.getElementById("swapTargetPicker");
-  const swapStepLabel = document.getElementById("swapStepLabel");
-  const swapWaitingBox = document.getElementById("swapWaitingBox");
-  const swapCancelBtn = document.getElementById("swapCancelBtn");
+  // ---------------- обмін: я пропоную ----------------
+  const swapModal = $("swapModal"), swapModalCard = $("swapModalCard"), swapHandGrid = $("swapHandGrid");
+  const swapSelectedPreview = $("swapSelectedPreview"), swapTargetPicker = $("swapTargetPicker");
+  const swapStepLabel = $("swapStepLabel"), swapWaitingBox = $("swapWaitingBox"), swapCancelBtn = $("swapCancelBtn");
   let swapSelectedCard = null;
   let pendingOutgoingSwap = null; // { requestId, targetUsername }
 
-  document.getElementById("openSwapBtn").addEventListener("click", () => {
-    closeSidebar();
+  function swapStep1() {
     swapSelectedCard = null;
-    swapTargetPicker.classList.add("hidden"); swapTargetPicker.innerHTML = "";
+    swapStepLabel.textContent = "Крок 1: який мем віддаєш?";
     swapSelectedPreview.classList.add("hidden");
+    swapTargetPicker.classList.add("hidden"); swapTargetPicker.innerHTML = "";
     swapWaitingBox.classList.add("hidden");
     swapHandGrid.classList.remove("hidden");
-    swapStepLabel.textContent = "Крок 1: оберіть свою картку";
+    const me = lastState.players[username];
+    swapHandGrid.innerHTML = ((me && me.hand) || []).map((c) => meme(c)).join("");
+    swapModalCard.scrollTop = 0;
+  }
+  $("openSwapBtn").addEventListener("click", () => {
+    if (!lastState || !lastState.players[username]) return;
+    closeSheet();
     swapCancelBtn.textContent = "Скасувати";
-    renderSwapHandGrid();
+    swapStep1();
     swapModal.classList.remove("hidden");
+  });
+  swapHandGrid.addEventListener("click", (e) => {
+    const el = e.target.closest(".mm-meme[data-card]");
+    if (!el) return;
+    swapSelectedCard = el.dataset.card;
+    swapStepLabel.textContent = "Крок 2: з ким мінятись?";
+    swapHandGrid.classList.add("hidden");
+    swapSelectedPreview.innerHTML = `${meme(swapSelectedCard)}<span>Віддаєш цей мем</span><button id="swapChangeCardBtn">Змінити</button>`;
+    swapSelectedPreview.classList.remove("hidden");
+    $("swapChangeCardBtn").addEventListener("click", swapStep1);
+    const others = Object.entries(lastState.players).filter(([n, p]) => G.connectedEntries({ [n]: p }).length && n !== username && p.hand && p.hand.length > 0);
+    swapTargetPicker.classList.remove("hidden");
+    swapTargetPicker.innerHTML = others.length
+      ? others.map(([n]) => `<button data-target="${esc(n)}">${avatar(lastState, n, { size: "sm", still: true })}${esc(n)}</button>`).join("")
+      : '<div class="pp-note">Немає з ким мінятись</div>';
     swapModalCard.scrollTop = 0;
   });
+  swapTargetPicker.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-target]");
+    if (!btn) return;
+    const target = btn.dataset.target;
+    const reqId = G.requestSwap(lastState, swapSelectedCard, target);
+    if (!reqId) { alert("Не вдалось надіслати запит — можливо, хтось уже чекає на обмін. Спробуй ще раз"); return; }
+    pendingOutgoingSwap = { requestId: reqId, targetUsername: target };
+    swapHandGrid.classList.add("hidden"); swapSelectedPreview.classList.add("hidden"); swapTargetPicker.classList.add("hidden");
+    swapWaitingBox.classList.remove("hidden");
+    swapWaitingBox.textContent = `Чекаємо відповіді від ${target}…`;
+    swapStepLabel.textContent = "Крок 3: очікування";
+    swapCancelBtn.textContent = "Скасувати запит";
+    sfx("pop");
+  });
   swapCancelBtn.addEventListener("click", () => {
-    if (pendingOutgoingSwap) { window.MemologyGame.cancelSwap(pendingOutgoingSwap.requestId); pendingOutgoingSwap = null; }
+    if (pendingOutgoingSwap) { G.cancelSwap(pendingOutgoingSwap.requestId); pendingOutgoingSwap = null; }
     swapModal.classList.add("hidden");
   });
 
-  function renderSwapHandGrid() {
-    const me = lastState.players[username];
-    const myHand = (me && me.hand) || [];
-    swapHandGrid.innerHTML = myHand.map((cardId) =>
-      `<div class="card-thumb ${swapSelectedCard === cardId ? "selected" : ""}" data-card="${escapeHtml(cardId)}"><img src="${cardUrl(cardId)}" alt="картка" loading="lazy" /></div>`
-    ).join("");
-    swapHandGrid.querySelectorAll(".card-thumb[data-card]").forEach((el) => {
-      el.addEventListener("click", () => {
-        swapSelectedCard = el.dataset.card;
-        swapStepLabel.textContent = "Крок 2: з ким мінятись?";
-        swapHandGrid.classList.add("hidden");
-        renderSwapSelectedPreview();
-        renderSwapTargetPicker();
-        swapModalCard.scrollTop = 0;
-      });
-    });
-  }
-  function renderSwapSelectedPreview() {
-    swapSelectedPreview.innerHTML = `
-      <div class="card-thumb"><img src="${cardUrl(swapSelectedCard)}" alt="картка" /></div>
-      <div class="swap-selected-label">Ваша картка для обміну</div>
-      <button class="swap-change-btn" id="swapChangeCardBtn">Змінити</button>`;
-    swapSelectedPreview.classList.remove("hidden");
-    document.getElementById("swapChangeCardBtn").addEventListener("click", () => {
-      swapSelectedCard = null;
-      swapStepLabel.textContent = "Крок 1: оберіть свою картку";
-      swapSelectedPreview.classList.add("hidden");
-      swapTargetPicker.classList.add("hidden"); swapTargetPicker.innerHTML = "";
-      swapHandGrid.classList.remove("hidden");
-      renderSwapHandGrid();
-      swapModalCard.scrollTop = 0;
-    });
-  }
-  function renderSwapTargetPicker() {
-    const others = Object.entries(lastState.players).filter(([n, p]) => window.MemologyGame.connectedEntries({ [n]: p }).length && n !== username && p.hand && p.hand.length > 0);
-    swapTargetPicker.classList.remove("hidden");
-    swapTargetPicker.innerHTML = others.length
-      ? others.map(([n]) => `<button data-target="${escapeHtml(n)}">${escapeHtml(n)}</button>`).join("")
-      : '<div class="status-line">Немає доступних гравців для обміну</div>';
-    swapTargetPicker.querySelectorAll("button[data-target]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const reqId = window.MemologyGame.requestSwap(lastState, swapSelectedCard, btn.dataset.target);
-        if (!reqId) { alert("Не вдалось надіслати запит — спробуй ще раз"); return; }
-        pendingOutgoingSwap = { requestId: reqId, targetUsername: btn.dataset.target };
-        swapHandGrid.classList.add("hidden"); swapSelectedPreview.classList.add("hidden"); swapTargetPicker.classList.add("hidden");
-        swapWaitingBox.classList.remove("hidden");
-        swapWaitingBox.textContent = `Очікуємо відповіді від ${btn.dataset.target}...`;
-        swapStepLabel.textContent = "Крок 3: очікування";
-        swapCancelBtn.textContent = "Скасувати запит";
-      });
-    });
-  }
-
-  // ---- обмін карткою: мені надійшов запит ----
-  const incomingSwapModal = document.getElementById("incomingSwapModal");
-  const incomingSwapText = document.getElementById("incomingSwapText");
-  const incomingSwapOfferedCard = document.getElementById("incomingSwapOfferedCard");
-  const incomingSwapConfirmStep = document.getElementById("incomingSwapConfirmStep");
-  const incomingSwapChooseStep = document.getElementById("incomingSwapChooseStep");
-  const incomingSwapHandGrid = document.getElementById("incomingSwapHandGrid");
+  // ---------------- обмін: мені надійшов запит ----------------
+  const incomingSwapModal = $("incomingSwapModal");
   let shownIncomingReqId = null;
-
   function checkIncomingSwap(state) {
-    if (!state.pendingSwaps) { incomingSwapModal.classList.add("hidden"); shownIncomingReqId = null; return; }
-    const entry = Object.entries(state.pendingSwaps).find(([, r]) => r.targetUsername === username);
+    const entry = Object.entries(state.pendingSwaps || {}).find(([, r]) => r.targetUsername === username);
     if (!entry) {
-      if (shownIncomingReqId && pendingOutgoingSwap === null) incomingSwapModal.classList.add("hidden");
+      if (shownIncomingReqId) incomingSwapModal.classList.add("hidden");
       shownIncomingReqId = null;
       return;
     }
     const [reqId, req] = entry;
-    if (shownIncomingReqId === reqId) return; // вже показано
+    if (shownIncomingReqId === reqId) return;
     shownIncomingReqId = reqId;
-    incomingSwapText.textContent = `${req.fromUsername} пропонує обмін карткою:`;
-    incomingSwapOfferedCard.innerHTML = `<img src="${cardUrl(req.myCardId)}" alt="картка" style="width:100%;"/>`;
-    incomingSwapConfirmStep.classList.remove("hidden");
-    incomingSwapChooseStep.classList.add("hidden");
+    $("incomingSwapText").innerHTML = `${avatar(state, req.fromUsername, { size: "md", mood: "happy" })}<div class="pp-note"><b style="color:var(--ink)">${esc(req.fromUsername)}</b> пропонує свій мем в обмін на один з твоїх</div>`;
+    $("incomingSwapOfferedCard").innerHTML = meme(req.myCardId);
+    $("incomingSwapConfirmStep").classList.remove("hidden");
+    $("incomingSwapChooseStep").classList.add("hidden");
     incomingSwapModal.classList.remove("hidden");
-
-    document.getElementById("incomingSwapDeclineBtn").onclick = () => {
-      window.MemologyGame.respondSwap(state, reqId, false);
+    sfx("chime"); buzz(30);
+    $("incomingSwapDeclineBtn").onclick = () => {
+      G.respondSwap(lastState, reqId, false);
       incomingSwapModal.classList.add("hidden"); shownIncomingReqId = null;
     };
-    document.getElementById("incomingSwapAcceptBtn").onclick = () => {
-      incomingSwapConfirmStep.classList.add("hidden");
-      incomingSwapChooseStep.classList.remove("hidden");
-      const me = state.players[username];
-      incomingSwapHandGrid.innerHTML = (me.hand || []).map((cardId) =>
-        `<div class="card-thumb" data-card="${escapeHtml(cardId)}"><img src="${cardUrl(cardId)}" alt="картка" loading="lazy" /></div>`
-      ).join("");
-      incomingSwapHandGrid.querySelectorAll(".card-thumb[data-card]").forEach((el) => {
-        el.addEventListener("click", () => {
-          window.MemologyGame.respondSwap(state, reqId, true, el.dataset.card);
-          incomingSwapModal.classList.add("hidden"); shownIncomingReqId = null;
-        });
-      });
+    $("incomingSwapAcceptBtn").onclick = () => {
+      $("incomingSwapConfirmStep").classList.add("hidden");
+      $("incomingSwapChooseStep").classList.remove("hidden");
+      const me = lastState.players[username];
+      const grid = $("incomingSwapHandGrid");
+      grid.innerHTML = ((me && me.hand) || []).map((c) => meme(c)).join("");
+      grid.onclick = (e) => {
+        const el = e.target.closest(".mm-meme[data-card]");
+        if (!el) return;
+        G.respondSwap(lastState, reqId, true, el.dataset.card);
+        incomingSwapModal.classList.add("hidden"); shownIncomingReqId = null; sfx("pop");
+      };
     };
   }
 
-  document.addEventListener("selectstart", (e) => e.preventDefault());
+  document.addEventListener("selectstart", (e) => { if (!e.target.closest || !e.target.closest("input")) e.preventDefault(); });
 
-  function beginGame(username_, roomId) {
-    username = username_;
-    window.MemologyGame.onStateChange = (state, ctx) => {
+  function beginGame(user, roomId) {
+    username = user;
+    G.onStateChange = (state, ctx) => {
       onState(state, ctx);
       if (state.phase === "active") checkIncomingSwap(state);
-      // мій вихідний запит скасовано ззовні (інший гравець вже не в списку) — закриваємо очікування
-      if (pendingOutgoingSwap && (!state.pendingSwaps || !state.pendingSwaps[pendingOutgoingSwap.requestId])) {
+      // мій вихідний запит зник (відповіли або скасовано) — закриваємо очікування
+      if (pendingOutgoingSwap && !(state.pendingSwaps || {})[pendingOutgoingSwap.requestId]) {
         pendingOutgoingSwap = null;
-        if (!swapModal.classList.contains("hidden") && swapWaitingBox && !swapWaitingBox.classList.contains("hidden")) {
-          swapModal.classList.add("hidden");
-        }
+        if (!swapModal.classList.contains("hidden") && !swapWaitingBox.classList.contains("hidden")) swapModal.classList.add("hidden");
       }
     };
-    window.MemologyGame.start(username_, roomId);
+    G.start(user, roomId);
   }
 
   const session = window.AppAuth && window.AppAuth.getSession();
   if (session && window.rtdbReady) {
     RoomCodeUI.mount({
-      containerId: "activeRoomsList",
-      codeInputId: "roomCodeInput",
-      joinBtnId: "joinRoomBtn",
-      createBtnId: "createRoomBtn",
-      watchActiveRooms: window.MemologyGame.watchActiveRooms,
-      renderRoomItem: (r) => `
-        <div class="room-item-head">
-          <span class="room-item-title">Кімната ${RoomCodeUI.escapeHtml(r.roomId)}</span>
-          <span class="room-item-phase">${r.phase === "lobby" ? "Лобі" : "Гра триває"}</span>
-        </div>
-        <div class="room-item-count">Онлайн: ${r.connectedCount} / ${r.playerCount}</div>`,
+      containerId: "activeRoomsList", codeInputId: "roomCodeInput", joinBtnId: "joinRoomBtn", createBtnId: "createRoomBtn",
+      watchActiveRooms: G.watchActiveRooms,
+      emptyListHtml: '<div class="hint-text">Активних кімнат поки нема — створи нову</div>',
+      renderRoomItem: (r) => `<div class="pp-room"><b>${esc(r.roomId)}</b><small>${icon("users")} ${r.connectedCount}/${r.playerCount}</small>
+        <span class="st ${r.phase === "lobby" ? "" : "live"}">${r.phase === "lobby" ? "Лобі" : "Гра йде"}</span></div>`,
       onEnter: (roomId) => beginGame(session.username, roomId),
     });
-    showView("room-entry");
-  } else {
-    showView("locked");
-  }
-
-  window.addEventListener("beforeunload", () => { if (window.MemologyGame) window.MemologyGame.stop(); });
+    showView("entry");
+  } else showView("locked");
+  window.addEventListener("beforeunload", () => { if (G) G.stop(); });
 })();
 </script>
 </body>
