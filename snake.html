@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
   <title>Змійка</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&family=Press+Start+2P&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
+  <meta name="theme-color" content="#12062b" />
   <style>
     :root {
       --bg: #14161a;
@@ -82,15 +83,38 @@
     .room-item-title { font-weight: 700; }
     .room-item-count { color: var(--text-muted); font-size: 12px; }
     .divider { font-size: 12px; color: var(--text-muted); margin: 10px 0; }
+    /* ===== тема «неон 80-х»: синтвейв-обрій, неонова сітка, Press Start 2P для цифр ===== */
+    :root { --bg: #12062b; --tile-bg: rgba(40, 16, 80, .7); --text-light: #f4ecff; --text-muted: #a99bd0; --accent: #00f0ff; }
+    html, body { background:
+      linear-gradient(180deg, transparent 58%, rgba(255,62,200,.0) 58%),
+      radial-gradient(60% 30% at 50% 60%, rgba(255,62,200,.35), transparent 70%),
+      linear-gradient(180deg, #12062b 0%, #2a0b4f 55%, #12062b 100%) fixed; font-family: 'Manrope', sans-serif; }
+    body::before { content: ""; position: fixed; left: -50%; right: -50%; bottom: 0; height: 42vh; z-index: -1; pointer-events: none;
+      background: repeating-linear-gradient(90deg, rgba(0,240,255,.35) 0 2px, transparent 2px 60px), repeating-linear-gradient(0deg, rgba(255,62,200,.35) 0 2px, transparent 2px 36px);
+      transform: perspective(300px) rotateX(60deg); transform-origin: 50% 100%; mask-image: linear-gradient(180deg, transparent, #000 40%); -webkit-mask-image: linear-gradient(180deg, transparent, #000 40%); }
+    .sn-title { font: 400 22px/1.2 'Press Start 2P', monospace; color: #ff3ec8; text-shadow: 0 0 6px #ff3ec8, 0 0 18px rgba(255,62,200,.7), 3px 3px 0 #00f0ff; margin: -30px 0 18px; letter-spacing: .04em; }
+    .sb-pill { font: 400 9px/1.6 'Press Start 2P', monospace; background: rgba(0,0,0,.35); border: 1px solid rgba(0,240,255,.5); color: #bff9ff; }
+    .icon-btn { background: rgba(0,0,0,.35); border-color: rgba(255,62,200,.55); color: #ff9ae6; box-shadow: 0 0 10px rgba(255,62,200,.35); }
+    canvas { border: 2px solid #00f0ff; border-radius: 6px; box-shadow: 0 0 0 1px rgba(0,240,255,.3), 0 0 24px rgba(0,240,255,.45), 0 0 60px rgba(255,62,200,.25); }
+    .ctrl-btn { background: rgba(20,6,45,.8); border: 2px solid #ff3ec8; color: #ff9ae6; box-shadow: 0 0 12px rgba(255,62,200,.35), inset 0 0 10px rgba(255,62,200,.2); }
+    .ctrl-btn:active { background: rgba(255,62,200,.3); color: #fff; }
+    .msg { font-weight: 700; color: var(--text-muted); }
+    .modal { background: linear-gradient(180deg, #2a0b4f, #12062b); border: 2px solid #00f0ff; box-shadow: 0 0 30px rgba(0,240,255,.35); }
+    .modal h3 { font: 400 13px/1.5 'Press Start 2P', monospace; color: #ff3ec8; text-shadow: 0 0 8px rgba(255,62,200,.7); }
+    .modal .btn-primary { background: linear-gradient(180deg, #00f0ff, #00a6c7); color: #12062b; font-weight: 800; box-shadow: 0 0 14px rgba(0,240,255,.45); }
+    .modal .btn-secondary { background: transparent; border-color: rgba(255,62,200,.6) !important; color: #ff9ae6; }
+    .size-btn, input.text-input, .room-item { background: rgba(0,0,0,.35); border-color: rgba(0,240,255,.35); }
+    .size-btn.active { border-color: #ff3ec8; background: rgba(255,62,200,.18); color: #ff9ae6; }
   </style>
 <link rel="stylesheet" href="js/styles/game-header.css">
 <script src="js/core/game-header.js" defer></script>
 </head>
 <body>
 <div class="page">
+  <div class="sn-title">ЗМІЙКА</div>
   <div class="top-bar">
     <div class="scoreboard" id="scoreboard"></div>
-    <button class="icon-btn" id="settingsBtn" title="Налаштування">⚙️</button>
+    <button class="icon-btn" id="settingsBtn" title="Налаштування" aria-label="Налаштування"><svg viewBox="0 0 24 24" aria-hidden="true" style="width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
   </div>
 
   <canvas id="board" width="330" height="330"></canvas>
@@ -107,7 +131,7 @@
 <!-- Модальне вікно налаштувань -->
 <div class="overlay" id="settingsOverlay">
   <div class="modal">
-    <h3>⚙️ Керування</h3>
+    <h3>Керування</h3>
     <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">Розмір кнопок:</div>
     <div class="size-options">
       <button class="size-btn" data-size="S">Малі</button>
@@ -121,7 +145,7 @@
 
 <div class="overlay" id="roomEntryOverlay">
   <div class="modal">
-    <h3>🐍 Мультиплеєр</h3>
+    <h3>Мультиплеєр</h3>
     <div class="rooms-list" id="activeRoomsList"></div>
     <div class="divider">або вручну</div>
     <input class="text-input" id="roomCodeInput" maxlength="5" placeholder="КОД КІМНАТИ" />
@@ -133,7 +157,7 @@
 
 <div class="overlay" id="deadOverlay">
   <div class="modal">
-    <h3 id="deadTitle">💀 Ти вибув</h3>
+    <h3 id="deadTitle">Ти вибув</h3>
     <button class="btn-primary" id="respawnBtn">Приєднатись знову</button>
     <button class="btn-secondary" id="leaveBtn">Вийти в меню</button>
   </div>
@@ -221,7 +245,7 @@
         soloAlive = false;
         clearInterval(soloTimer);
         if (window.AppScore) window.AppScore.sendScore("snake", soloScore);
-        document.getElementById("deadTitle").textContent = `💀 Рахунок: ${soloScore}`;
+        document.getElementById("deadTitle").textContent = `Гру закінчено · ${soloScore}`;
         deadOverlay.classList.add("open");
         return;
       }
@@ -234,8 +258,8 @@
 
     function renderSolo() {
       clearCanvas();
-      drawCell(soloFood, "#e0b84c");
-      soloBody.forEach((c, i) => drawCell(c, i === 0 ? "#38cfa0" : "rgba(56,207,160,0.6)"));
+      drawCell(soloFood, "#ff3ec8");
+      soloBody.forEach((c, i) => drawCell(c, i === 0 ? "#00f0ff" : "rgba(0,240,255,0.6)"));
       scoreboardEl.innerHTML = `<span class="sb-pill">Рахунок: ${soloScore}</span>`;
     }
 
@@ -284,17 +308,22 @@
 
     // ---------------- рендер ----------------
     function clearCanvas() {
-      ctx.fillStyle = "#22252b";
+      ctx.fillStyle = "#0b0420";
       ctx.fillRect(0, 0, 330, 330);
+      // неонова сітка поля
+      ctx.strokeStyle = "rgba(0,240,255,0.07)"; ctx.lineWidth = 1;
+      for (let i = 1; i < GRID; i++) { ctx.beginPath(); ctx.moveTo(i * CELL + .5, 0); ctx.lineTo(i * CELL + .5, 330); ctx.moveTo(0, i * CELL + .5); ctx.lineTo(330, i * CELL + .5); ctx.stroke(); }
     }
     function drawCell(c, color) {
       ctx.fillStyle = color;
+      ctx.shadowColor = color; ctx.shadowBlur = 8; // неонове світіння
       ctx.fillRect(c.x * CELL + 1, c.y * CELL + 1, CELL - 2, CELL - 2);
+      ctx.shadowBlur = 0;
     }
 
     function renderRoom(room) {
       clearCanvas();
-      if (room.food) drawCell(room.food, "#e0b84c");
+      if (room.food) drawCell(room.food, "#ff3ec8");
       const names = Object.keys(room.players || {}).sort(
         (a, b) => (room.players[a].joinedAt || 0) - (room.players[b].joinedAt || 0)
       );
@@ -378,7 +407,7 @@
           }
           renderRoom(data.room);
           if (me && !me.alive) {
-            document.getElementById("deadTitle").textContent = `💀 Рахунок: ${me.score || 0}`;
+            document.getElementById("deadTitle").textContent = `Ти вибув · ${me.score || 0}`;
             if (!deadOverlay.classList.contains("open")) {
               if (window.AppScore) window.AppScore.sendScore("snake", me.score || 0);
               deadOverlay.classList.add("open");
