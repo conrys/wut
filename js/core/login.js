@@ -328,14 +328,15 @@
   function gameLabel(gameName) {
     return GAME_LABELS[gameName] || (gameName.charAt(0).toUpperCase() + gameName.slice(1));
   }
+  // іконка гри — її обкладинка (img/<гра>_logo.png), а не емодзі
+  const COVER_FILE = { memology: "meme_logo.png", roulette: "roulette_logo.svg", dilemmas: "dilemmas_logo.svg" };
   function gameIcon(gameName) {
-    return GAME_ICONS[gameName] || "🎮";
+    const file = COVER_FILE[gameName] || (gameName + "_logo.png");
+    return `<img src="img/${file}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`;
   }
 
   function medalFor(rank) {
-    if (rank === 1) return "🥇";
-    if (rank === 2) return "🥈";
-    if (rank === 3) return "🥉";
+    if (rank >= 1 && rank <= 3) return `<span class="medal m${rank}">${rank}</span>`;
     return `#${rank}`;
   }
 
@@ -391,9 +392,9 @@
         height: 36px;
         border-radius: 50% !important;
         background: rgba(255, 255, 255, 0.08);
-        color: var(--text, #f4f5f1);
-        border: 1px solid var(--line, rgba(255, 255, 255, 0.15));
-        font-family: var(--font-display, 'Space Grotesk', sans-serif);
+        color: #f4f5f1;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        font-family: 'Space Grotesk', sans-serif;
         font-size: 14px;
         font-weight: 700;
         touch-action: manipulation;
@@ -416,52 +417,52 @@
       /* ---------- Спільна база для всіх оверлеїв цього модуля ---------- */
       .auth-overlay, .menu-overlay, .profile-overlay {
         position: fixed; inset: 0;
-        background: var(--scrim-strong, rgba(0,0,0,0.82));
-        backdrop-filter: blur(var(--blur-panel, 12px));
-        -webkit-backdrop-filter: blur(var(--blur-panel, 12px));
+        background: rgba(0,0,0,0.82);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
         display: none; align-items: center; justify-content: center;
-        z-index: var(--z-modal, 9999); padding: 20px;
+        z-index: 9999; padding: 20px;
       }
       .auth-overlay.open, .menu-overlay.open, .profile-overlay.open { display: flex; }
 
       .auth-modal, .menu-card, .profile-modal {
-        background: var(--surface-1, #22252b);
-        border: 1px solid var(--line, rgba(255,255,255,0.08));
-        border-radius: var(--radius-lg, 20px);
+        background: #22252b;
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 20px;
         padding: 22px;
         width: 100%; max-width: 320px;
-        color: var(--text, #f4f5f1);
-        font-family: var(--font-body, 'Inter', sans-serif);
+        color: #f4f5f1;
+        font-family: 'Inter', sans-serif;
       }
       .auth-modal h3, .profile-modal h3 {
-        font-family: var(--font-display, 'Space Grotesk', sans-serif); margin: 0 0 14px; font-size: 20px;
+        font-family: 'Space Grotesk', sans-serif; margin: 0 0 14px; font-size: 20px;
       }
       .auth-modal input {
         width: 100%; box-sizing: border-box; margin-bottom: 10px;
-        padding: 10px 12px; border-radius: var(--radius-sm, 8px); border: 1px solid var(--line, rgba(255,255,255,0.15));
-        background: var(--bg, #14161a); color: var(--text, #f4f5f1); font-size: 14px;
+        padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15);
+        background: #12141b; color: #f4f5f1; font-size: 14px;
       }
       .auth-modal .row { display: flex; gap: 8px; margin-top: 6px; }
       .auth-modal button {
-        flex: 1; border: none; border-radius: var(--radius-sm, 8px); padding: 10px;
+        flex: 1; border: none; border-radius: 8px; padding: 10px;
         font-weight: 600; font-size: 13px; cursor: pointer; touch-action: manipulation;
       }
-      .auth-primary { background: var(--accent, #38cfa0); color: #0e2318; }
+      .auth-primary { background: #ffc93c; color: #0e2318; }
       .auth-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
       .auth-tab {
-        flex: 1; text-align: center; padding: 6px; border-radius: var(--radius-sm, 8px);
-        font-size: 12px; font-weight: 600; color: var(--text-muted, #8b909c); cursor: pointer;
+        flex: 1; text-align: center; padding: 6px; border-radius: 8px;
+        font-size: 12px; font-weight: 600; color: #9aa0ad; cursor: pointer;
       }
-      .auth-tab.active { background: var(--bg, #14161a); color: var(--accent, #38cfa0); }
-      .auth-error { color: var(--danger, #ff6b6b); font-size: 12px; min-height: 16px; margin-bottom: 6px; }
-      .auth-close, .menu-close { text-align: center; margin-top: 10px; font-size: 12px; color: var(--text-muted, #8b909c); cursor: pointer; }
+      .auth-tab.active { background: #12141b; color: #ffc93c; }
+      .auth-error { color: #ff6b6b; font-size: 12px; min-height: 16px; margin-bottom: 6px; }
+      .auth-close, .menu-close { text-align: center; margin-top: 10px; font-size: 12px; color: #9aa0ad; cursor: pointer; }
       /* Окрема, добре видима кнопка — попередній варіант (дрібний сірий
          текст) на телефоні легко губився й давав замалий тап-таргет. */
       .profile-close {
         display: block; width: 100%; box-sizing: border-box; text-align: center;
-        margin-top: 14px; padding: 12px; border-radius: var(--radius-sm, 8px);
-        background: rgba(255,255,255,0.08); border: 1px solid var(--line, rgba(255,255,255,0.15));
-        color: var(--text, #f4f5f1); font-size: 14px; font-weight: 600;
+        margin-top: 14px; padding: 12px; border-radius: 8px;
+        background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+        color: #f4f5f1; font-size: 14px; font-weight: 600;
         cursor: pointer; touch-action: manipulation;
       }
       .profile-close:active { opacity: 0.6; }
@@ -469,18 +470,18 @@
       /* ---------- Меню профілю (Мій профіль / Налаштування / Вихід) ---------- */
       .menu-card { max-width: 300px; padding: 16px; }
       .menu-user {
-        font-family: var(--font-display, 'Space Grotesk', sans-serif); font-weight: 700; font-size: 15px;
-        padding: 4px 6px 14px; border-bottom: 1px solid var(--line, rgba(255,255,255,0.08)); margin-bottom: 10px;
+        font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 15px;
+        padding: 4px 6px 14px; border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 10px;
         display: flex; align-items: center; gap: 8px;
       }
       .menu-item {
         display: block; width: 100%; box-sizing: border-box; text-align: left;
-        background: rgba(255,255,255,0.05); border: 1px solid var(--line, rgba(255,255,255,0.1));
-        color: var(--text, #f4f5f1); border-radius: var(--radius-sm, 8px); padding: 12px 14px; margin-bottom: 8px;
+        background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+        color: #f4f5f1; border-radius: 8px; padding: 12px 14px; margin-bottom: 8px;
         font-size: 14px; font-weight: 600; cursor: pointer; touch-action: manipulation;
       }
       .menu-item:active { opacity: 0.6; }
-      .menu-item-danger { color: var(--danger, #ff6b6b); }
+      .menu-item-danger { color: #ff6b6b; }
 
       /* ---------- Мій профіль ---------- */
       .profile-modal { max-width: 400px; max-height: 88vh; overflow-y: auto; }
@@ -489,23 +490,23 @@
       .profile-avatar {
         width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0;
         display: flex; align-items: center; justify-content: center;
-        font-family: var(--font-display, 'Space Grotesk', sans-serif);
+        font-family: 'Space Grotesk', sans-serif;
         font-size: 22px; font-weight: 700; color: #0e1013;
       }
       .profile-head-text h3 { margin: 0; }
-      .profile-username { color: var(--text-muted, #8b909c); font-size: 13px; }
-      .profile-joined { color: var(--text-muted, #8b909c); font-size: 11px; margin-top: 2px; }
+      .profile-username { color: #9aa0ad; font-size: 13px; }
+      .profile-joined { color: #9aa0ad; font-size: 11px; margin-top: 2px; }
 
       .rating-card {
         display: flex; align-items: center; justify-content: space-between;
         background: linear-gradient(135deg, rgba(217,180,92,0.16), rgba(217,180,92,0.03));
         border: 1px solid rgba(217,180,92,0.35);
-        border-radius: var(--radius-md, 14px); padding: 12px 16px; margin-bottom: 14px;
+        border-radius: 14px; padding: 12px 16px; margin-bottom: 14px;
       }
-      .rating-card .rating-label { font-size: 12px; color: var(--text-muted, #8b909c); text-transform: uppercase; letter-spacing: 0.04em; }
+      .rating-card .rating-label { font-size: 12px; color: #9aa0ad; text-transform: uppercase; letter-spacing: 0.04em; }
       .rating-card .rating-value {
-        font-family: var(--font-display, 'Space Grotesk', sans-serif); font-weight: 700; font-size: 26px;
-        color: var(--accent, #d9b45c);
+        font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 26px;
+        color: #ffc93c;
       }
 
       /* Wordle — окремо, це стрік днів, а не рекорд/місце в топі, тому
@@ -513,31 +514,31 @@
       .wordle-streak {
         display: flex; align-items: center; gap: 8px;
         background: rgba(255,107,107,0.1); border: 1px solid rgba(255,107,107,0.3);
-        border-radius: var(--radius-md, 14px); padding: 10px 14px; margin-bottom: 14px;
+        border-radius: 14px; padding: 10px 14px; margin-bottom: 14px;
         font-size: 13px; font-weight: 600;
       }
       .wordle-streak .wordle-streak-fire { font-size: 16px; }
       .wordle-streak .wordle-streak-value {
-        font-family: var(--font-display, 'Space Grotesk', sans-serif); font-weight: 700; color: #ff8a65;
+        font-family: 'Space Grotesk', sans-serif; font-weight: 700; color: #ff8a65;
       }
 
       .trophy-row { display: flex; gap: 8px; margin-bottom: 18px; }
       .trophy {
-        flex: 1; background: var(--bg, #14161a); border-radius: var(--radius-md, 14px); padding: 12px 6px;
-        text-align: center; border: 1px solid var(--line, rgba(255,255,255,0.08));
+        flex: 1; background: #12141b; border-radius: 14px; padding: 12px 6px;
+        text-align: center; border: 1px solid rgba(255,255,255,0.08);
       }
       .trophy-icon { display: block; font-size: 22px; margin-bottom: 4px; }
-      .trophy-count { font-family: var(--font-display, 'Space Grotesk', sans-serif); font-weight: 700; font-size: 16px; }
+      .trophy-count { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 16px; }
 
       .profile-section-title {
         font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
-        color: var(--text-muted, #8b909c); margin: 18px 0 8px;
+        color: #9aa0ad; margin: 18px 0 8px;
       }
       .profile-section-title:first-of-type { margin-top: 0; }
 
       .profile-row {
         display: flex; align-items: center; gap: 10px;
-        padding: 9px 8px; border-radius: var(--radius-sm, 8px); margin-bottom: 4px;
+        padding: 9px 8px; border-radius: 8px; margin-bottom: 4px;
         font-size: 14px; border: 1px solid transparent;
       }
       .profile-row.rank-1 { background: rgba(217,180,92,0.14); border-color: rgba(217,180,92,0.3); }
@@ -547,38 +548,65 @@
       .profile-row .game-icon { font-size: 16px; flex-shrink: 0; }
       .profile-row .game-info { flex: 1; min-width: 0; }
       .profile-row .game-name { display: block; }
-      .profile-row .game-meta { display: block; font-size: 11px; color: var(--text-muted, #8b909c); }
-      .profile-row .game-score { font-family: var(--font-display, 'Space Grotesk', sans-serif); font-weight: 700; color: var(--accent, #38cfa0); flex-shrink: 0; }
+      .profile-row .game-meta { display: block; font-size: 11px; color: #9aa0ad; }
+      .profile-row .game-score { font-family: 'Space Grotesk', sans-serif; font-weight: 700; color: #ffc93c; flex-shrink: 0; }
 
-      .profile-empty { color: var(--text-muted, #8b909c); font-size: 13px; text-align: center; padding: 20px 0; }
+      .profile-empty { color: #9aa0ad; font-size: 13px; text-align: center; padding: 20px 0; }
       .profile-unplayed { display: flex; flex-wrap: wrap; gap: 8px; }
       .profile-unplayed a {
         display: flex; align-items: center; gap: 6px;
-        background: rgba(255,255,255,0.05); border: 1px solid var(--line, rgba(255,255,255,0.1));
+        background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
         border-radius: 999px; padding: 7px 12px; font-size: 12.5px; font-weight: 600;
-        color: var(--text, #f4f5f1); text-decoration: none; touch-action: manipulation;
+        color: #f4f5f1; text-decoration: none; touch-action: manipulation;
       }
       .profile-unplayed a:active { opacity: 0.6; }
 
-      .auth-hint { color: var(--text-muted, #8b909c); font-size: 12px; line-height: 1.4; margin: -2px 0 10px; }
+      .auth-hint { color: #9aa0ad; font-size: 12px; line-height: 1.4; margin: -2px 0 10px; }
       .auth-notice {
-        background: rgba(255,184,77,0.12); border: 1px solid rgba(255,184,77,0.35); color: var(--text, #f4f5f1);
-        border-radius: var(--radius-sm, 8px); padding: 8px 10px; font-size: 12px; margin-bottom: 10px; display: none;
+        background: rgba(255,184,77,0.12); border: 1px solid rgba(255,184,77,0.35); color: #f4f5f1;
+        border-radius: 8px; padding: 8px 10px; font-size: 12px; margin-bottom: 10px; display: none;
       }
       .auth-notice.show { display: block; }
       .auth-modal input { font-size: 16px; } /* ≥16px — iOS не зумить сторінку при фокусі */
       .auth-cta {
-        display: block; margin: 14px auto 0; padding: 12px 18px; border: none; border-radius: var(--radius-sm, 8px);
-        background: var(--accent, #38cfa0); color: #0e2318; font-weight: 700; font-size: 15px;
+        display: block; margin: 14px auto 0; padding: 12px 18px; border: none; border-radius: 8px;
+        background: #ffc93c; color: #0e2318; font-weight: 700; font-size: 15px;
         cursor: pointer; touch-action: manipulation;
       }
       .auth-cta:active { opacity: 0.7; }
       .guest-badge {
         display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; font-size: 10px; font-weight: 700;
-        text-transform: uppercase; letter-spacing: .04em; background: rgba(255,255,255,0.1); color: var(--text-muted, #8b909c);
+        text-transform: uppercase; letter-spacing: .04em; background: rgba(255,255,255,0.1); color: #9aa0ad;
         vertical-align: middle;
       }
-    `;
+    
+      /* ---------- оновлений вигляд (не залежить від теми сторінки) ---------- */
+      .auth-overlay, .menu-overlay, .profile-overlay { background: rgba(6,8,14,0.7); }
+      .auth-modal, .menu-card, .profile-modal { background: linear-gradient(180deg, #242836, #171a22); border-color: rgba(255,255,255,0.09);
+        box-shadow: 0 24px 60px rgba(0,0,0,.55); animation: lgIn .28s cubic-bezier(.2,1.2,.4,1) both; color: #f4f5f1; }
+      @keyframes lgIn { from { opacity: 0; transform: translateY(12px) scale(.97); } }
+      .auth-modal input:focus { outline: none; border-color: #ffc93c; }
+      .auth-primary { background: linear-gradient(180deg, #ffd96a, #e8ad1f); color: #2a1c00; font-weight: 800 !important; }
+      .auth-tabs { background: #12141b; padding: 4px; border-radius: 12px; }
+      .auth-tab.active { background: #2b303d; color: #ffc93c; }
+      .menu-item { display: flex; align-items: center; gap: 10px; }
+      .menu-item svg, .lg-ico { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+      .menu-item svg { color: #ffc93c; } .menu-item-danger svg { color: #ff6b6b; }
+      .profile-avatar { box-shadow: 0 0 0 3px rgba(255,255,255,.12), 0 8px 20px rgba(0,0,0,.4); }
+      .rating-card { background: linear-gradient(135deg, rgba(255,201,60,0.18), rgba(255,201,60,0.03)); border-color: rgba(255,201,60,0.4); }
+      .trophy { background: #12141b; }
+      .trophy-icon { display: grid; place-items: center; margin: 0 auto 4px; }
+      .medal { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; font: 800 11px 'Inter', sans-serif; color: #2a1c00;
+        box-shadow: inset 0 -2px 0 rgba(0,0,0,.2); }
+      .medal.m1 { background: linear-gradient(135deg, #ffe08a, #e0a91c); } .medal.m2 { background: linear-gradient(135deg, #f1f3f6, #a9b0bb); color: #23262d; }
+      .medal.m3 { background: linear-gradient(135deg, #f0b98a, #b0682f); color: #2e1606; }
+      .trophy-icon .medal { width: 30px; height: 30px; font-size: 13px; }
+      .profile-row .game-icon img, .profile-unplayed a img { width: 26px; height: 26px; border-radius: 7px; object-fit: cover; display: block; background: #2a2e3a; }
+      .profile-unplayed a img { width: 20px; height: 20px; border-radius: 5px; }
+      .profile-row .game-score { color: #ffc93c; }
+      .wordle-streak .lg-ico { color: #ff8a65; }
+      .auth-pill svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+`;
     document.head.appendChild(style);
 
     pillEl = document.createElement("div");
@@ -679,11 +707,11 @@
     menuEl.className = "menu-overlay";
     menuEl.innerHTML = `
       <div class="menu-card">
-        <div class="menu-user"><span id="menuAvatar">👤</span> <span id="menuUsername"></span></div>
-        <button type="button" class="menu-item" data-action="profile">🏆 Мій профіль</button>
-        <button type="button" class="menu-item" data-action="save">💾 Зберегти профіль</button>
-        <button type="button" class="menu-item" data-action="settings">⚙ Налаштування</button>
-        <button type="button" class="menu-item menu-item-danger" data-action="logout">🚪 Вихід</button>
+        <div class="menu-user"><span id="menuAvatar"></span> <span id="menuUsername"></span></div>
+        <button type="button" class="menu-item" data-action="profile"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v4a5 5 0 0 1-10 0zM7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3M12 13v4M8 20h8M9 17h6"/></svg>Мій профіль</button>
+        <button type="button" class="menu-item" data-action="save"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h8V3M8 21v-7h8v7"/></svg>Зберегти профіль</button>
+        <button type="button" class="menu-item" data-action="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Налаштування</button>
+        <button type="button" class="menu-item menu-item-danger" data-action="logout"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h5v16h-5M10 8l-4 4 4 4M6 12h10"/></svg>Вихід</button>
         <div class="menu-close" id="menuCloseBtn">Закрити</div>
       </div>
     `;
@@ -726,12 +754,12 @@
           <span class="rating-value" id="profileRating">0</span>
         </div>
         <div class="trophy-row">
-          <div class="trophy"><span class="trophy-icon">🥇</span><span class="trophy-count" id="goldCount">0</span></div>
-          <div class="trophy"><span class="trophy-icon">🥈</span><span class="trophy-count" id="silverCount">0</span></div>
-          <div class="trophy"><span class="trophy-icon">🥉</span><span class="trophy-count" id="bronzeCount">0</span></div>
+          <div class="trophy"><span class="trophy-icon"><span class="medal m1">1</span></span><span class="trophy-count" id="goldCount">0</span></div>
+          <div class="trophy"><span class="trophy-icon"><span class="medal m2">2</span></span><span class="trophy-count" id="silverCount">0</span></div>
+          <div class="trophy"><span class="trophy-icon"><span class="medal m3">3</span></span><span class="trophy-count" id="bronzeCount">0</span></div>
         </div>
         <div class="wordle-streak" id="wordleStreakRow" style="display:none;">
-          <span class="wordle-streak-fire">🔥</span>
+          <span class="wordle-streak-fire"><svg class="lg-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c1 4 5 5.5 5 10a5 5 0 0 1-10 0c0-2.4 1.3-3.8 2.5-5 .3 1.6 1 2.6 2 3 0-3-.5-5.5.5-8z"/></svg></span>
           <span>Wordle — стрік <span class="wordle-streak-value" id="wordleStreakValue">0</span> днів поспіль</span>
         </div>
         <div class="profile-section-title">Мої рахунки</div>
@@ -848,7 +876,7 @@
 
     if (session.guest) {
       listEl.innerHTML = '<div class="profile-empty">Гостьовий профіль не зберігає рекорди.<br>Збережи його як акаунт — і рахунки почнуть записуватись.</div>' +
-        '<button type="button" class="auth-cta" id="profileSaveBtn">💾 Зберегти профіль</button>';
+        '<button type="button" class="auth-cta" id="profileSaveBtn">Зберегти профіль</button>';
       listEl.querySelector("#profileSaveBtn").addEventListener("click", () => {
         closeProfile();
         openModal("save");
@@ -925,7 +953,7 @@
       pillEl.style.background = colorForName(session.username);
       pillEl.style.color = "#0e1013";
     } else {
-      pillEl.textContent = "👤";
+      pillEl.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c.8-4.2 4-6.5 8-6.5s7.2 2.3 8 6.5"/></svg>';
       pillEl.title = "Увійти";
       pillEl.style.background = "rgba(255, 255, 255, 0.08)";
       pillEl.style.color = "#f4f5f1";
