@@ -50,6 +50,45 @@
 
   let username = null;
   let onStateChange = () => {};
+
+  // ------------------------- аватари (монстрики Сміхлиста, як у Дилемах) -------------------------
+  const AVATAR_STORAGE_PREFIX = "games41_quiplash_avatar_";
+  const QA = () => window.QuiplashAvatars; // підключати ДО цього файлу
+  const CHARACTERS = QA() ? QA().COUNT : 8;
+  const charColor = (c) => (QA() ? QA().color(c) : "#3d6df2");
+  function takenChars(room) {
+    return new Set(Object.entries((room && room.players) || {}).filter(([n]) => n !== username).map(([, p]) => Number(p && p.character)));
+  }
+  function avatarFor(room) {
+    const taken = takenChars(room);
+    let want = null;
+    try {
+      const raw = window.localStorage && window.localStorage.getItem(AVATAR_STORAGE_PREFIX + username);
+      const profile = raw ? JSON.parse(raw) : null;
+      if (profile && profile.character >= 1 && profile.character <= CHARACTERS) want = Number(profile.character);
+    } catch (e) { /* немає localStorage */ }
+    if (want && !taken.has(want)) return { character: want, color: charColor(want) };
+    const idx = Object.keys((room && room.players) || {}).length;
+    for (let i = 0; i < CHARACTERS; i++) {
+      const c = ((want || idx) + i) % CHARACTERS + 1;
+      if (!taken.has(c)) return { character: c, color: charColor(c) };
+    }
+    const c = (idx % CHARACTERS) + 1;
+    return { character: c, color: charColor(c) };
+  }
+  // Тап по своїй аватарці в лобі — наступний вільний персонаж (без дублів).
+  function cycleAvatar() {
+    const room = engine.latestRoom, me = room && room.players && room.players[username];
+    if (!me || room.phase !== "lobby") return;
+    const taken = takenChars(room), cur = Number(me.character) || 1;
+    for (let i = 1; i <= CHARACTERS; i++) {
+      const c = (cur - 1 + i) % CHARACTERS + 1;
+      if (taken.has(c)) continue;
+      engine.roomRef.child("players/" + username).update({ character: c, color: charColor(c) });
+      try { localStorage.setItem(AVATAR_STORAGE_PREFIX + username, JSON.stringify({ character: c, color: charColor(c) })); } catch (e) {}
+      return;
+    }
+  }
   let advancing = false;
 
   function buildFreshRoom() { return { players: {}, lobbySettings: { drawSeconds: DEFAULT_DRAW_SECONDS } }; }
@@ -129,7 +168,7 @@
   function maybeJoinAsPlayer(room) {
     if (room.players && room.players[username]) return;
     if (room.phase !== "lobby") return;
-    engine.becomePlayer({});
+    engine.becomePlayer(avatarFor(room));
   }
 
   // ------------------------- ігрова логіка (роздача/ротація) -------------------------
@@ -307,6 +346,7 @@
     MAX_DRAWING_BYTES,
     DEFAULT_DRAW_SECONDS, MIN_DRAW_SECONDS, MAX_DRAW_SECONDS,
     updateLobbySettings,
+    cycleAvatar,
     bookEntries,
     loadDrawing,
     connectedNames,
