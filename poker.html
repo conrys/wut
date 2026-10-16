@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
 <title>Покер</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&family=Yeseva+One&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#070b16" />
 <style>
   :root {
     --bg: #0d1712; --tile-bg: #16241c; --text-light: #eef5ef; --text-muted: #7fa08d;
@@ -212,6 +213,59 @@
       font-weight: 700; font-size: 14px; cursor: pointer; margin-bottom: 4px; }
   .primary-btn { background: linear-gradient(180deg, #57e08c, var(--accent-dark)); color: #0c2116; }
   .secondary-btn { background: var(--rail-light); color: var(--text-light); border: 1px solid rgba(255,255,255,0.1); }
+  /* ===== тема «Лас-Вегас»: нічний зал, смарагдове сукно, шкіряний борт із золотом, Yeseva One + Manrope ===== */
+  :root { --bg: #070b16; --tile-bg: rgba(20, 28, 48, .85); --text-light: #f5f1e6; --text-muted: #9aa6c4;
+    --accent: #f4c542; --accent-dark: #b88a12; --felt-1: #157a4c; --felt-2: #063a24; --rail: #3a1e10; --rail-light: #26314f; }
+  html, body { background-image:
+      radial-gradient(40% 30% at 15% 0%, rgba(244,197,66,.18), transparent 70%),
+      radial-gradient(40% 30% at 85% 0%, rgba(120,140,255,.14), transparent 70%),
+      radial-gradient(circle, rgba(255,255,255,0.025) 1px, transparent 1px) !important;
+    background-size: 100% 100%, 100% 100%, 22px 22px !important; font-family: 'Manrope', sans-serif; }
+  .pk-hero { text-align: center; padding: 14px 0 6px; }
+  .pk-hero svg { width: 104px; height: 104px; display: block; margin: 0 auto 2px; filter: drop-shadow(0 10px 20px rgba(0,0,0,.6)); }
+  .pk-hero h2 { margin: 0; font: 400 42px 'Yeseva One', serif; letter-spacing: .04em; color: var(--accent); text-shadow: 0 0 24px rgba(244,197,66,.35); }
+  .pk-hero p { margin: 4px 0 0; font-size: 13px; color: var(--text-muted); }
+  .table-brand { font-family: 'Yeseva One', serif; font-weight: 400; color: var(--accent); letter-spacing: .08em; }
+  .pot-row { font-family: 'Manrope', sans-serif; font-weight: 800; }
+  .table-oval { border: 12px solid var(--rail);
+    background: radial-gradient(ellipse at 50% 40%, #1d9a61 0%, var(--felt-1) 35%, var(--felt-2) 85%);
+    box-shadow: 0 0 0 2px #c99a2e, 0 0 0 5px #2a1409, 0 14px 34px rgba(0,0,0,.6), inset 0 0 50px rgba(0,0,0,.45); }
+  .table-oval::before { border: 1.5px solid rgba(244,197,66,.28); }
+  .table-wordmark { font-family: 'Yeseva One', serif; font-weight: 400; font-size: 24px; color: rgba(244,197,66,.12); letter-spacing: .18em; }
+  .dealer-chip-center, .seat-chip-token { background: radial-gradient(circle at 35% 30%, #fff, #f4c542 55%, #b88a12); }
+  .dealer-chip-center { color: #2a1c00; }
+  .seat-avatar { font-family: 'Yeseva One', serif; font-weight: 400; background: linear-gradient(160deg, #2b3760, #141b33); border-color: rgba(244,197,66,.3); }
+  .seat-avatar svg { width: 22px; height: 22px; fill: none; stroke: #f5f1e6; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .seat-pos.acting .seat-avatar { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(244,197,66,.35), 0 0 18px rgba(244,197,66,.45); animation: pkAct 1.4s ease-in-out infinite; }
+  @keyframes pkAct { 50% { box-shadow: 0 0 0 5px rgba(244,197,66,.2), 0 0 26px rgba(244,197,66,.55); } }
+  .seat-tag { font-family: 'Manrope', sans-serif; font-weight: 800; background: rgba(7,11,22,.8); border-color: rgba(244,197,66,.2); }
+  .seat-bet-label { color: var(--accent); }
+  .card { box-shadow: 0 3px 8px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.9); }
+  .card.back { background:
+      repeating-linear-gradient(45deg, rgba(244,197,66,.18) 0 2px, transparent 2px 6px),
+      repeating-linear-gradient(-45deg, rgba(244,197,66,.18) 0 2px, transparent 2px 6px),
+      linear-gradient(160deg, #1d3d9a, #0c1a4a); border: 2px solid #f5f1e6; }
+  .card.back::before { border: 1px solid rgba(244,197,66,.55); background-image: none; }
+  .card.back::after { color: #f4c542; }
+  .result-banner { background: linear-gradient(180deg, rgba(244,197,66,.18), rgba(20,28,48,.9)); border-color: var(--accent); font-weight: 700; animation: pkPop .5s cubic-bezier(.2,1.4,.4,1) both; }
+  @keyframes pkPop { from { opacity: 0; transform: scale(.85); } }
+  .my-info b { font-family: 'Yeseva One', serif; font-weight: 400; color: var(--accent); font-size: 15px; }
+  .raise-row { border: 1px solid rgba(244,197,66,.18); }
+  .raise-row .amount { font-family: 'Manrope', sans-serif; font-weight: 800; color: var(--accent); }
+  .stepper-btn.plus { background: rgba(244,197,66,.18); color: var(--accent); }
+  .quick-row button:active { background: rgba(244,197,66,.18); color: var(--accent); }
+  .action-buttons button { font-family: 'Manrope', sans-serif; font-weight: 800; font-size: 14px; }
+  .action-buttons button.primary { background: linear-gradient(180deg, #ffd96a, #d4a020); color: #2a1c00; box-shadow: 0 6px 18px rgba(244,197,66,.3); }
+  .combo-hint-btn svg { width: 13px; height: 13px; vertical-align: -2px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+  .combo-hint-btn:active { color: var(--accent); border-color: var(--accent); }
+  .card.combo-hl { box-shadow: 0 0 0 2px var(--accent), 0 2px 10px rgba(244,197,66,.6); }
+  .my-combo-banner { color: var(--accent); background: rgba(244,197,66,.1); border-color: rgba(244,197,66,.3); }
+  .combo-row.mine { background: rgba(244,197,66,.12); border-color: rgba(244,197,66,.3); }
+  .combo-row.mine .cr-name, .combo-row .cr-mine-tag { color: var(--accent); }
+  .modal-box { background: linear-gradient(180deg, #141c33, #0b1022); }
+  .primary-btn { background: linear-gradient(180deg, #ffd96a, #d4a020); color: #2a1c00; font-family: 'Manrope', sans-serif; font-weight: 800; }
+  .secondary-btn { font-family: 'Manrope', sans-serif; font-weight: 800; }
+  .room-item { border-color: rgba(244,197,66,.16); }
 </style>
 <link rel="stylesheet" href="js/styles/game-header.css">
 <script src="js/core/game-header.js" defer></script>
@@ -220,12 +274,12 @@
 <div class="page">
 
   <div id="view-locked" class="hidden">
-    <h2>♠️ Покер</h2>
+    <div class="pk-hero"><svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="46" fill="#d42f4a" stroke="#fff" stroke-width="5" stroke-dasharray="14 10"/><circle cx="60" cy="60" r="32" fill="#7a1022"/><circle cx="60" cy="60" r="32" fill="none" stroke="#f4c542" stroke-width="2"/><text x="60" y="73" text-anchor="middle" font-size="38" fill="#f4c542" font-family="Georgia, serif">&#9824;</text></svg><h2>Покер</h2><p>Техаський холдем · з друзями й ботами</p></div>
     <div class="status-line">Увійди в профіль (кнопка зверху), щоб сісти за стіл</div>
   </div>
 
   <div id="view-room-entry" class="hidden">
-    <h2>♠️ Покер</h2>
+    <div class="pk-hero"><svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="46" fill="#d42f4a" stroke="#fff" stroke-width="5" stroke-dasharray="14 10"/><circle cx="60" cy="60" r="32" fill="#7a1022"/><circle cx="60" cy="60" r="32" fill="none" stroke="#f4c542" stroke-width="2"/><text x="60" y="73" text-anchor="middle" font-size="38" fill="#f4c542" font-family="Georgia, serif">&#9824;</text></svg><h2>Покер</h2><p>Техаський холдем · з друзями й ботами</p></div>
     <div class="status-line">Обери активний стіл або введи код друга</div>
     <div class="rooms-list" id="activeRoomsList"></div>
     <div class="divider">або вручну</div>
@@ -254,7 +308,7 @@
     <div class="my-seat">
       <div class="my-hole-cards" id="myHoleCards"></div>
       <div class="combo-hint-row hidden" id="comboHintRow">
-        <button class="combo-hint-btn" id="comboHintBtn">❔ Яка в мене комбінація</button>
+        <button class="combo-hint-btn" id="comboHintBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M9.5 9.3a2.6 2.6 0 0 1 5 .9c0 1.8-2.5 2.2-2.5 3.8M12 17v.2"/></svg> Яка в мене комбінація</button>
       </div>
       <div class="my-info">Твій стек: <b id="myStack">0</b></div>
 
@@ -344,8 +398,8 @@
 
   function initialsOf(state, seatKey) {
     const s = state.seats[seatKey];
-    if (s.occupantType === "bot") return "🤖";
-    return (s.username || "?").slice(0, 1).toUpperCase();
+    if (s.occupantType === "bot") return '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 8V5M9 13h.01M15 13h.01M9.5 16h5"/><circle cx="12" cy="4" r="1"/></svg>';
+    return escapeHtml((s.username || "?").slice(0, 1).toUpperCase());
   }
 
   let username = null;
@@ -437,7 +491,7 @@
       avatarWrap.className = "avatar-wrap";
       const avatar = document.createElement("div");
       avatar.className = "seat-avatar";
-      avatar.textContent = initialsOf(state, k);
+      avatar.innerHTML = initialsOf(state, k);
       avatarWrap.appendChild(avatar);
 
       const idxBadge = document.createElement("div");
