@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
   <title>Тетріс</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <meta name="theme-color" content="#2b2620" />
   <style>
     :root {
       --shell-bg: #1c1f1a;
@@ -146,6 +149,39 @@
       font-weight: bold;
     }
     .board-wrap { position: relative; }
+    /* ===== тема «Brick Game 9999 in 1»: жовтий пластик, рамка з індикатором, LCD, круглі кнопки ===== */
+    html, body { background:
+      radial-gradient(70% 50% at 50% 0%, rgba(255,214,90,.16), transparent 70%),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.02) 0 2px, transparent 2px 7px),
+      linear-gradient(180deg, #2b2620, #17140f) !important; font-family: 'Press Start 2P', 'Courier New', monospace; }
+    .console { margin-top: 6px; padding: 14px 16px 20px; border-radius: 26px 26px 60px 26px;
+      background: linear-gradient(160deg, #ffd84a, #f2b91c 45%, #d99a0c);
+      box-shadow: inset 0 3px 0 rgba(255,255,255,.55), inset 0 -6px 0 rgba(120,70,0,.35), 0 16px 40px rgba(0,0,0,.55); }
+    .top-row { color: #5a3a00; font: 400 11px 'Press Start 2P', monospace; letter-spacing: .06em; margin-bottom: 10px; }
+    .top-row span::after { content: "  9999 IN 1"; color: #b5730a; font-size: 8px; }
+    .top-row button { border: 0; border-radius: 999px; padding: 7px 12px; background: #3a2a10; color: #ffd84a; font: 400 9px 'Press Start 2P', monospace;
+      box-shadow: inset 0 -2px 0 rgba(0,0,0,.4); }
+    .screen { position: relative; border: 0; border-radius: 10px 10px 30px 10px; padding: 18px 12px 14px; background: #2c2f33;
+      box-shadow: inset 0 2px 0 rgba(255,255,255,.12), inset 0 -2px 0 rgba(0,0,0,.4), 0 2px 0 rgba(255,255,255,.3); }
+    .screen::before { content: ""; position: absolute; top: 7px; left: 12px; width: 7px; height: 7px; border-radius: 50%; background: #ff3b30; box-shadow: 0 0 8px #ff3b30; }
+    .screen::after { content: "BATTERY"; position: absolute; top: 6px; left: 24px; font: 400 6px 'Press Start 2P', monospace; color: #8a8d92; }
+    #board, #nextCanvas { border-color: #8f9a80; box-shadow: inset 0 0 18px rgba(0,0,0,.25); }
+    .board-wrap::after { content: ""; position: absolute; inset: 3px; pointer-events: none;
+      background: repeating-linear-gradient(0deg, rgba(0,0,0,.035) 0 1px, transparent 1px 3px), repeating-linear-gradient(90deg, rgba(0,0,0,.035) 0 1px, transparent 1px 3px); }
+    .sidebar { color: #c9d1bd; }
+    .panel-label { font: 400 8px 'Press Start 2P', monospace; letter-spacing: .04em; color: #9fa98f; border-bottom-color: #59624d; }
+    .panel-value { font: 400 15px 'Press Start 2P', monospace; color: #c9d1bd; text-shadow: 0 0 6px rgba(201,209,189,.35); }
+    .controls { gap: 12px; margin-top: 18px; }
+    .controls { justify-items: center; }
+    .ctrl-btn { width: 60px; height: 60px; padding: 0; border-radius: 50%; font-size: 20px; color: #5a3a00;
+      background: radial-gradient(circle at 35% 30%, #fff1a0, #f6c52a 55%, #c88d0a); box-shadow: 0 5px 0 #8a5c00, 0 8px 14px rgba(0,0,0,.35); }
+    .ctrl-btn:active { background: radial-gradient(circle at 35% 30%, #ffe680, #e0ad15 55%, #b07a05); transform: translateY(4px); box-shadow: 0 1px 0 #8a5c00; }
+    #btnRotate { background: radial-gradient(circle at 35% 30%, #ff9a8a, #e5392b 55%, #a51d12); color: #fff; box-shadow: 0 5px 0 #6e130b, 0 8px 14px rgba(0,0,0,.35); }
+    .ctrl-btn--wide { width: 100%; height: auto; border-radius: 999px; min-height: 52px; font: 400 11px 'Press Start 2P', monospace; letter-spacing: .04em; }
+    .ctrl-btn--orange { background: linear-gradient(180deg, #3a2a10, #22180a); color: #ffd84a; box-shadow: 0 5px 0 #0d0904, 0 8px 14px rgba(0,0,0,.35); }
+    .ctrl-btn--orange:active { background: #22180a; }
+    #overlay { font-family: 'Press Start 2P', monospace; font-size: 11px; line-height: 1.6; }
+    #overlay #overlayBtn { width: auto; height: auto; border-radius: 999px; font: 400 10px 'Press Start 2P', monospace; }
   </style>
 <link rel="stylesheet" href="js/styles/game-header.css">
 <script src="js/core/game-header.js" defer></script>
@@ -194,10 +230,10 @@
       </div>
     </div>
     <div class="controls">
-      <button class="ctrl-btn" id="btnLeft">◀</button>
-      <button class="ctrl-btn" id="btnRotate">⟳</button>
-      <button class="ctrl-btn" id="btnRight">▶</button>
-      <button class="ctrl-btn" id="btnDown">▼</button>
+      <button class="ctrl-btn" id="btnLeft" aria-label="Ліворуч">◀</button>
+      <button class="ctrl-btn" id="btnRotate" aria-label="Повернути">⟳</button>
+      <button class="ctrl-btn" id="btnRight" aria-label="Праворуч">▶</button>
+      <button class="ctrl-btn" id="btnDown" aria-label="Вниз">▼</button>
       <button class="ctrl-btn ctrl-btn--wide ctrl-btn--orange" id="btnHardDrop">⤓ СКИНУТИ ВНИЗ</button>
     </div>
   </div>
