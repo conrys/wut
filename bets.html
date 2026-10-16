@@ -1,149 +1,110 @@
-<!-- Гра: Ставки -->
+<!-- Гра: Ставки — букмекерська контора: сукно, купон, фішки -->
 <!DOCTYPE html>
 <html lang="uk">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
 <title>Ставки</title>
-<link rel="stylesheet" href="js/styles/teli-style.css" />
-<style>
-  .timer-range { display: block; width: 100%; accent-color: var(--accent); margin-bottom: 12px; }
-  /* аватари (персонажі зі Смішліста: img/char1..8.svg) */
-  .av { position: relative; display: inline-flex; flex: none; align-items: center; justify-content: center; width: 44px; height: 44px;
-    border-radius: 50%; background: var(--c, #888); border: 2px solid rgba(255,255,255,0.35); box-sizing: border-box; overflow: visible; transition: opacity .25s; }
-  .av img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
-  .av.sm { width: 30px; height: 30px; }
-  .av.dim { opacity: 0.3; }
-  .av .tick { display: none; position: absolute; right: -4px; bottom: -4px; width: 17px; height: 17px; border-radius: 50%; background: #38cfa0; color: #06231a;
-    font-size: 11px; font-weight: 800; line-height: 17px; text-align: center; }
-  .av.voted .tick { display: block; }
-  .av-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 12px 0; }
-  .av-pulse { animation: avPulse 1s ease-in-out infinite; }
-  @keyframes avPulse { 50% { opacity: 0.65; transform: scale(1.06); } }
-
-  /* етап раунду */
-  .pt-head { text-align: center; margin-bottom: 8px; }
-  .pt-head .mode { font-weight: 800; font-size: 15px; }
-  .pt-head .rn { font-size: 12px; color: var(--text-muted, #8b909c); }
-  .pt-text { text-align: center; font-size: 19px; font-weight: 800; line-height: 1.3; padding: 16px 12px; margin: 8px 0 12px; background: var(--bg-tile, #20242c); border-radius: 14px; }
-  .pt-hint { text-align: center; font-size: 14px; margin: 6px 0 10px; }
-  .pt-roles { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 8px 0; }
-  .pt-role { display: flex; align-items: center; gap: 8px; background: var(--bg-tile, #20242c); padding: 6px 10px; border-radius: 12px; font-size: 13px; }
-  .pt-role small { display: block; font-size: 10px; color: var(--text-muted, #8b909c); text-transform: uppercase; letter-spacing: .05em; }
-  .pt-names { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-  .pt-name { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px; border-radius: 12px; border: 2px solid transparent; background: var(--bg-tile, #20242c);
-    color: inherit; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; word-break: break-word; }
-  .pt-name.selected { border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,0.25); }
-  .pt-name.self { opacity: 0.85; }
-  .pt-choices { display: grid; gap: 8px; }
-  .pt-choice { padding: 18px 10px; border-radius: 14px; border: 2px solid transparent; font: inherit; font-size: 17px; font-weight: 800; color: #fff; background: #3a4a7a; cursor: pointer; }
-  .pt-choice:nth-child(1) { background: #2a9d6e; } .pt-choice:nth-child(2) { background: #cf4a5c; }
-  .pt-choice.selected { border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,0.3); }
-  .pt-timer { text-align: center; font-weight: 700; font-size: 14px; color: #ffb454; margin: 8px 0; }
-  .pt-wait { text-align: center; margin: 10px 0; font-size: 13px; }
-  .pt-headline { text-align: center; font-size: 21px; font-weight: 800; margin: 10px 0; }
-  .pt-bar { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: 13px; }
-  .pt-bar .lbl { width: 92px; flex: none; display: flex; align-items: center; gap: 6px; font-weight: 700; overflow: hidden; }
-  .pt-bar .track { flex: 1; height: 14px; border-radius: 7px; background: rgba(255,255,255,0.1); overflow: hidden; }
-  .pt-bar .track i { display: block; height: 100%; background: #4a86e8; border-radius: 7px; transition: width .6s; }
-  .pt-bar .val { width: 24px; text-align: right; font-weight: 800; }
-  .pt-lines { text-align: center; font-size: 13px; line-height: 1.5; margin: 8px 0; }
-  .pt-drink { text-align: center; border-radius: 16px; padding: 18px 10px; margin: 12px 0; font-size: 24px; font-weight: 900; background: linear-gradient(135deg, #e0503c, #f08a3c); color: #fff; animation: ptPop .5s ease; }
-  .pt-drink small { display: block; font-size: 12px; font-weight: 600; margin-top: 4px; opacity: .9; }
-  @keyframes ptPop { 0% { transform: scale(.6); opacity: 0; } 70% { transform: scale(1.08); } 100% { transform: scale(1); opacity: 1; } }
-  .pt-others { text-align: center; font-size: 13px; margin: 8px 0; color: var(--text-muted, #8b909c); }
-  .pt-modes { display: grid; gap: 8px; margin-bottom: 12px; }
-  .pt-mode { text-align: left; padding: 10px 12px; border-radius: 12px; border: 2px solid transparent; background: var(--bg-tile, #20242c); color: inherit; font: inherit; cursor: pointer; }
-  .pt-mode b { display: block; font-size: 15px; margin-bottom: 2px; }
-  .pt-mode span { font-size: 12px; color: var(--text-muted, #8b909c); line-height: 1.35; }
-  .pt-mode.selected { border-color: var(--accent); }
-  .pt-rank { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 10px; margin-bottom: 4px; background: var(--bg-tile, #20242c); font-size: 14px; }
-  .pt-rank .n { flex: 1; font-weight: 700; } .pt-rank .v { font-weight: 800; }
-  .pt-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .pt-cols h4 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted, #8b909c); }
-  .seg { display: flex; gap: 6px; margin-bottom: 12px; }
-  .seg .btn { flex: 1; padding: 8px 6px; font-size: 13px; }
-  .seg .btn.selected { background: var(--accent); color: #0e2419; border-color: var(--accent); }
-  .rules-list { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.5; }
-  .rules-list li { margin-bottom: 6px; }
-  .seg { display: flex; gap: 6px; margin-bottom: 12px; }
-  .seg .btn { flex: 1; padding: 8px 6px; font-size: 13px; }
-  .seg .btn.selected { background: var(--accent); color: #0e2419; border-color: var(--accent); }
-</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="js/styles/party-shared.css">
 <link rel="stylesheet" href="js/styles/game-header.css">
 <script src="js/core/game-header.js" defer></script>
+<style>
+:root {
+  --bg: #08261a; --panel: rgba(0,0,0,.22); --panel-2: rgba(255,255,255,.08);
+  --ink: #f3f7ee; --muted: rgba(235,245,230,.62); --line: rgba(242,193,78,.25);
+  --accent: #f2c14e; --accent-ink: #2a1d02; --good: #9be36b; --bad: #ff6b5b;
+  --chip-do: #e8a530; --chip-quit: #d9443e; --ticket: #fbf6e8; --ticket-ink: #1d1a12;
+  --font-d: 'Oswald', 'Arial Narrow', sans-serif; --font-b: 'Manrope', sans-serif;
+  --hdr-bg: rgba(6,30,20,.8);
+  --drink-bg: linear-gradient(135deg, #b8322c, #e0703a);
+}
+/* сукно */
+body { background:
+  radial-gradient(110% 70% at 50% 25%, rgba(60,170,110,.35), transparent 70%),
+  radial-gradient(140% 100% at 50% 50%, transparent 55%, rgba(0,0,0,.6) 100%),
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='6'%3E%3Cpath d='M0 6L6 0' stroke='%23000' stroke-opacity='.08'/%3E%3C/svg%3E"),
+  #0d4a30 fixed; }
+.pp-card { background: rgba(0,0,0,.24); border-color: rgba(242,193,78,.22); }
+.pp-hero h1, .pp-lobby-head .t b, .pp-sumtitle { text-transform: uppercase; letter-spacing: .04em; color: var(--accent); text-shadow: 0 3px 0 rgba(0,0,0,.35); }
+.pp-hero h1 { font-size: 44px; }
+.pp-primary { background: linear-gradient(180deg, #ffd56e, #e0a428); box-shadow: 0 4px 0 #8f6512, 0 8px 18px rgba(0,0,0,.35); text-transform: uppercase; letter-spacing: .06em; }
+.pp-primary:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 #8f6512; }
+.pp-stagetitle { color: var(--accent); letter-spacing: .14em; }
+.pp-round b, .pp-timer span { font-family: var(--font-d); }
+
+/* купон */
+.bt-coupon { position: relative; padding: 14px 16px 16px; border-radius: 6px; background: var(--ticket); color: var(--ticket-ink);
+  box-shadow: 0 10px 22px rgba(0,0,0,.4); }
+.bt-ctop { display: flex; justify-content: space-between; align-items: center; font: 600 12px var(--font-d); letter-spacing: .12em; text-transform: uppercase; color: rgba(29,26,18,.55); }
+.bt-ctop b { color: #0d4a30; }
+.bt-live { display: inline-flex; align-items: center; gap: 5px; color: #c0352e; }
+.bt-live::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; animation: btBlink 1s steps(2) infinite; }
+@keyframes btBlink { 50% { opacity: .2; } }
+.bt-perf { position: relative; margin: 12px -16px; border-top: 2px dashed rgba(29,26,18,.22); }
+.bt-perf::before, .bt-perf::after { content: ""; position: absolute; top: -9px; width: 16px; height: 16px; border-radius: 50%; background: #0c4630; }
+.bt-perf::before { left: -8px; } .bt-perf::after { right: -8px; }
+.bt-event { display: flex; align-items: center; gap: 10px; }
+.bt-event small { display: block; font: 700 10px var(--font-b); letter-spacing: .14em; text-transform: uppercase; color: rgba(29,26,18,.5); }
+.bt-event b { font: 700 22px var(--font-d); text-transform: uppercase; }
+.bt-task { margin-top: 10px; font: 800 19px/1.35 var(--font-b); text-wrap: pretty; }
+.bt-coupon.sm .bt-task { font-size: 15px; }
+
+/* фішки */
+.bt-chips { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 8px 4px 0; }
+.bt-chip { position: relative; aspect-ratio: 1; border: 0; border-radius: 50%; padding: 0; background: none; transition: transform .25s cubic-bezier(.3,1.6,.5,1), filter .2s; }
+.bt-chip .disc { position: absolute; inset: 0; border-radius: 50%; display: grid; place-items: center; text-align: center;
+  background: radial-gradient(circle, var(--c) 0 52%, #fff 52% 55%, var(--c) 55% 100%);
+  box-shadow: 0 6px 0 color-mix(in srgb, var(--c) 60%, #000), 0 12px 18px rgba(0,0,0,.45), inset 0 0 0 3px rgba(0,0,0,.15); }
+.bt-chip .disc::before { content: ""; position: absolute; inset: 5%; border-radius: 50%; border: 9px dashed rgba(255,255,255,.92); }
+.bt-chip .disc span { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; color: #fff; text-shadow: 0 2px 0 rgba(0,0,0,.3); }
+.bt-chip .disc .ic { font-size: 26px; }
+.bt-chip .disc b { font: 700 19px var(--font-d); letter-spacing: .06em; text-transform: uppercase; }
+.bt-chip.do { --c: var(--chip-do); } .bt-chip.quit { --c: var(--chip-quit); }
+.bt-chip:active { transform: scale(.94); }
+.bt-chip.selected { transform: translateY(-10px) rotate(-8deg); filter: drop-shadow(0 0 16px rgba(255,214,110,.7)); }
+.bt-chip em { position: absolute; left: 50%; bottom: -14px; transform: translateX(-50%) scale(0); padding: 3px 10px; border-radius: 4px; background: var(--accent); color: var(--accent-ink);
+  font: 700 11px var(--font-d); font-style: normal; letter-spacing: .1em; white-space: nowrap; transition: transform .25s cubic-bezier(.2,1.6,.4,1); }
+.bt-chip.selected em { transform: translateX(-50%) scale(1); }
+.bt-chips.voted .bt-chip:not(.selected) { filter: grayscale(.6) brightness(.7); }
+
+/* рішення жертви */
+.bt-decide { display: grid; gap: 10px; }
+.bt-decide button { min-height: 64px; border-radius: 14px; font: 700 22px var(--font-d); letter-spacing: .06em; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 10px; transition: transform .15s; }
+.bt-decide .do { border: 0; background: linear-gradient(180deg, #ffd56e, #e0a428); color: #2a1d02; box-shadow: 0 4px 0 #8f6512; }
+.bt-decide .quit { border: 2px solid var(--chip-quit); background: rgba(217,68,62,.12); color: #ff8d86; }
+.bt-decide button.selected { outline: 3px solid #fff; outline-offset: 3px; }
+.bt-decide button:active { transform: scale(.97); }
+.bt-spot { text-align: center; padding: 6px 0; }
+.bt-spot b { display: block; margin-top: 6px; font: 700 26px var(--font-d); text-transform: uppercase; }
+.bt-spot small { color: var(--muted); }
+.bt-count { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; padding: 4px 12px; border-radius: 999px; background: rgba(0,0,0,.3); font: 600 14px var(--font-d); letter-spacing: .06em; }
+
+/* табло результату */
+.bt-board { position: relative; text-align: center; padding: 16px 12px; border-radius: 14px; background: #111; border: 3px solid #2a2a2a;
+  box-shadow: inset 0 0 0 2px #000, 0 10px 20px rgba(0,0,0,.45); overflow: hidden; }
+.bt-board::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(255,255,255,.04) 0 1px, transparent 1px 3px); pointer-events: none; }
+.bt-board small { font: 600 11px var(--font-d); letter-spacing: .2em; text-transform: uppercase; color: #8a8a8a; }
+.bt-board .res { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 6px; }
+.bt-board b { font: 700 30px/1 var(--font-d); text-transform: uppercase; letter-spacing: .04em; animation: btFlap .7s steps(6) both .5s; }
+.bt-board.do b { color: #ffd56e; text-shadow: 0 0 14px rgba(255,213,110,.6); }
+.bt-board.quit b { color: #ff6b5b; text-shadow: 0 0 14px rgba(255,107,91,.6); }
+@keyframes btFlap { 0% { opacity: 0; transform: rotateX(90deg); } 100% { opacity: 1; transform: none; } }
+.bt-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.bt-col { padding: 10px 8px; border-radius: 12px; background: rgba(0,0,0,.25); border: 2px solid transparent; text-align: center; }
+.bt-col h4 { margin: 0 0 8px; font: 600 13px var(--font-d); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.bt-col .who { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; min-height: 32px; }
+.bt-col .tag { margin-top: 8px; font: 700 13px var(--font-d); letter-spacing: .08em; text-transform: uppercase; }
+.bt-col.win { border-color: var(--accent); background: rgba(242,193,78,.12); }
+.bt-col.win .tag { color: var(--accent); } .bt-col.lose .tag { color: #ff8d86; }
+.bt-col.lose { opacity: .8; }
+.bt-col .empty { font-size: 12px; color: var(--muted); }
+</style>
 </head>
 <body>
-<div class="wrap">
-  <div class="title-block" id="titleBlock"><h1>🎲 Ставки</h1></div>
-
-  <div class="hidden stage-center" id="view-locked">
-    <div class="empty-state"><div class="empty-icon">🔒</div><div class="status-line">Увійди в профіль, щоб грати з друзями</div></div>
-  </div>
-
-  <div class="hidden stage-center" id="view-waiting">
-    <div class="empty-state"><div class="empty-icon">⏳</div><div class="status-line">Раунд іде — приєднаєшся до наступного набору</div></div>
-  </div>
-
-  <div class="hidden stage" id="view-room-entry">
-    <div class="status-line">Обери активну кімнату або введи код друга</div>
-    <div class="card rooms-list" id="activeRoomsList"></div>
-    <div class="divider">або вручну</div>
-    <input class="field" id="roomCodeInput" maxlength="5" placeholder="КОД КІМНАТИ" style="text-align:center; text-transform:uppercase; letter-spacing:0.1em;" />
-    <button class="btn btn-primary btn-block" id="joinRoomBtn">Приєднатись</button>
-    <div class="divider">або</div>
-    <button class="btn btn-block" id="createRoomBtn">Створити нову кімнату</button>
-  </div>
-
-  <!-- ЛОБІ: вибір режиму -->
-  <div class="hidden stage" id="view-lobby">
-    <div class="room-code-display" id="roomCodeDisplay"></div>
-    <div class="status-line" id="lobbyStatus"></div>
-    <div class="card">
-      <h3>Гравці</h3>
-      <div id="playersList"></div>
-    </div>
-    <div class="card hidden" id="hostPanel">
-      <label style="display:block; font-size:12px; color:var(--text-muted,#8b909c); margin-bottom:6px;">Режим</label>
-      <div class="pt-modes" id="modeList"></div>
-      <label for="betSecondsSlider" style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted,#8b909c); margin:12px 0 6px;">Час на ставки <output id="betSecondsValue">60 с</output></label>
-      <input class="timer-range" id="betSecondsSlider" type="range" min="20" max="120" step="1" value="60" aria-label="Час на ставки" />
-      <label for="decideSecondsSlider" style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted,#8b909c); margin:12px 0 6px;">Час на рішення <output id="decideSecondsValue">60 с</output></label>
-      <input class="timer-range" id="decideSecondsSlider" type="range" min="20" max="120" step="1" value="60" aria-label="Час на рішення" />
-      <label style="display:block; font-size:12px; color:var(--text-muted,#8b909c); margin-bottom:6px;">Гострота</label>
-      <div class="seg" id="levelSeg"></div>
-      <button class="btn btn-primary btn-block" id="startBtn">Почати</button>
-      <div class="err-msg" id="startHint"></div>
-    </div>
-    <div class="status-line hidden" id="waitHostLobby">Очікуємо, поки ведучий налаштує гру...</div>
-    <button class="btn btn-block hidden" id="resetBtn" style="opacity:0.6;">Скинути вечір</button>
-  </div>
-
-  <!-- РАУНД -->
-  <div class="hidden stage" id="view-round">
-    <div class="pt-head"><div class="mode" id="modeTitle"></div><div class="rn" id="roundLabel"></div></div>
-    <div class="pt-text" id="stageText"></div>
-    <div class="pt-roles" id="stageRoles"></div>
-    <div class="pt-hint" id="stageHint"></div>
-    <div id="inputArea"></div>
-    <div class="pt-timer hidden" id="stageTimer"></div>
-    <div class="pt-wait" id="waitInfo"></div>
-    <div id="revealArea"></div>
-    <button class="btn btn-primary btn-block hidden" id="hostNextBtn">Далі</button>
-    <button class="btn btn-block hidden" id="endSetBtn" style="opacity:0.6; margin-top:8px;">Завершити набір</button>
-  </div>
-
-  <!-- ПІДСУМОК -->
-  <div class="hidden stage" id="view-summary">
-    <div class="waiting-count">Підсумок набору</div>
-    <div class="pt-cols">
-      <div><h4>🥃 Ковтки (вечір)</h4><div id="sumDrinks"></div></div>
-      <div><h4>⭐ Бали (вечір)</h4><div id="sumPoints"></div></div>
-    </div>
-    <button class="btn btn-primary btn-block hidden" id="toLobbyBtn" style="margin-top:12px;">Повернутись у лобі</button>
-        <div class="status-line hidden" id="waitHostSummary">Очікуємо ведучого в лобі...</div>
-  </div>
-</div>
+<div id="app"></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
@@ -154,213 +115,94 @@
 <link rel="stylesheet" href="js/styles/reactions.css">
 <script src="js/core/login.js"></script>
 <script src="js/core/online-engine.js"></script>
+<script src="js/quiplash-avatars.js"></script>
+<script src="js/quiplash-sounds.js"></script>
 <script src="js/promts/party-seed.js"></script>
 <script src="js/party-modes.js"></script>
 <script>window.PartyConfig = { mode: "bets", gameKey: "party_bets" };</script>
 <script src="js/party-game.js"></script>
 <script src="js/core/room-code-ui.js"></script>
+<script src="js/party-ui.js"></script>
 <script src="js/core/reactions.js"></script>
 <script src="js/core/help.js"></script>
 <script src="js/core/back-button.js"></script>
 <script>
 (function () {
-  const VIEWS = ["locked", "room-entry", "waiting", "lobby", "round", "summary"];
-  function showView(name) {
-    VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name));
-    document.getElementById("titleBlock").classList.toggle("hidden", name === "round" || name === "summary");
-  }
-  function escapeHtml(s) {
-    return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  }
-  const G = window.PartyGame;
-  const MODES = window.PartyModes.MODES;
-  if (window.PartyConfig && window.PartyConfig.mode) {
-    document.getElementById("modeList").classList.add("hidden");
-    document.getElementById("modeList").previousElementSibling.textContent = `${MODES[window.PartyConfig.mode].icon} ${MODES[window.PartyConfig.mode].title}`;
-  }
-  let lastRoom = null, lastCtx = null, reactionsMounted = false;
-  let builtStageId = null;   // id етапу, для якого вже збудовано кнопки введення (щоб не збивати виділення)
+  const { esc, icon } = window.PartyUI;
+  const betsWord = (n) => { const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? "ставка" : a >= 2 && a <= 4 && (b < 12 || b > 14) ? "ставки" : "ставок"; };
 
-  function avatarHtml(room, name, opts) {
-    const p = (room.players && room.players[name]) || {};
-    const cls = ["av", opts && opts.small ? "sm" : ""].filter(Boolean).join(" ");
-    return `<span class="${cls}" style="--c:${escapeHtml(p.color || "#888")}" title="${escapeHtml(name)}"><img src="img/char${Number(p.character) || 1}.svg" alt="" /></span>`;
+  function coupon(c, victim, small) {
+    return `<div class="bt-coupon ${small ? "sm" : ""}"><div class="bt-ctop"><span>Купон № <b>${c.room.roundNo + 1}</b></span>
+        ${c.st.kind === "reveal" ? "<span>Розраховано</span>" : '<span class="bt-live">Наживо</span>'}</div>
+      <div class="bt-perf"></div>
+      <div class="bt-event">${c.avatar(victim, { size: "md", mood: c.st.kind === "reveal" ? "idle" : "shock" })}<div><small>Подія для</small><b>${esc(victim)}</b></div></div>
+      <div class="bt-task">${esc(c.st.text || "")}</div></div>`;
   }
 
-  // ---------------- лобі ----------------
-  function segButtons(containerId, items, current, onPick) {
-    const el = document.getElementById(containerId);
-    if (el.dataset.built !== "1") {
-      el.innerHTML = items.map(([val, label]) => `<button class="btn" data-val="${val}">${escapeHtml(label)}</button>`).join("");
-      el.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => onPick(Number(b.dataset.val))));
-      el.dataset.built = "1";
-    }
-    el.querySelectorAll("button").forEach((b) => b.classList.toggle("selected", Number(b.dataset.val) === Number(current)));
-  }
-  function renderTimerSlider(inputId, outputId, current, fallback) {
-    const value = Math.min(G.MAX_TIMER_SECONDS, Math.max(G.MIN_TIMER_SECONDS, Number(current) || fallback));
-    document.getElementById(inputId).value = value;
-    document.getElementById(outputId).textContent = `${value} с`;
-  }
-  function renderTallyList(room, which) {
-    const t = (room.tally && room.tally[which]) || {};
-    return Object.entries(t).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).map(([n, v]) =>
-      `<div class="pt-rank">${avatarHtml(room, n, { small: true })}<span class="n">${escapeHtml(n)}</span><span class="v">${v}</span></div>`).join("") ||
-      '<div class="status-line" style="text-align:left;">поки порожньо</div>';
-  }
-  function renderLobby(room, ctx) {
-    const conn = G.connectedNames(room.players), hostName = G.computeHost(room.players);
-    document.getElementById("roomCodeDisplay").textContent = G.roomId || "";
-    document.getElementById("lobbyStatus").innerHTML = `<span class="pulse-dot"></span> Гравців онлайн: ${conn.length}`;
-    document.getElementById("playersList").innerHTML = Object.keys(room.players || {}).map((n) =>
-      `<div class="player-chip ${conn.includes(n) ? "" : "offline"}"><span style="display:flex;align-items:center;gap:10px;">${avatarHtml(room, n, { small: true })}${escapeHtml(n)}</span>${n === hostName ? '<span class="badge">ВЕДУЧИЙ</span>' : ""}</div>`).join("") || '<div class="status-line">Ще нікого немає</div>';
-    document.getElementById("hostPanel").classList.toggle("hidden", !ctx.host);
-    document.getElementById("resetBtn").classList.toggle("hidden", !ctx.host);
-    document.getElementById("waitHostLobby").classList.toggle("hidden", !!ctx.host);
-    if (!ctx.host) return;
-    const s = room.settings || {};
-    const list = document.getElementById("modeList");
-    list.innerHTML = window.PartyModes.ORDER.map((id) => {
-      const m = MODES[id];
-      return `<button class="pt-mode ${s.mode === id ? "selected" : ""}" data-mode="${id}"><b>${m.icon} ${escapeHtml(m.title)}</b><span>${escapeHtml(m.desc)}</span></button>`;
-    }).join("");
-    list.querySelectorAll("[data-mode]").forEach((b) => b.addEventListener("click", () => G.updateSettings({ mode: b.dataset.mode })));
-    renderTimerSlider("betSecondsSlider", "betSecondsValue", s.betSeconds, G.DEFAULT_TIMER_SECONDS);
-    renderTimerSlider("decideSecondsSlider", "decideSecondsValue", s.decideSeconds, G.DEFAULT_TIMER_SECONDS);
-    segButtons("levelSeg", [1, 2, 3].map((n) => [n, Array(n).fill("🌶️").join(" ")]), s.level || G.DEFAULT_LEVEL, (n) => G.updateSettings({ level: n }));
-    const mode = MODES[s.mode], enough = mode && conn.length >= mode.minPlayers;
-    document.getElementById("startBtn").disabled = !enough;
-    document.getElementById("startHint").textContent = !mode ? "Обери режим" : enough ? "" : `Потрібно мінімум ${mode.minPlayers} гравців онлайн`;
-  }
+  window.PartyUI.mount({
+    title: "Ставки",
+    tagline: "Хтось отримує завдання, решта ставить: зробить чи здасться",
+    emblem: `<svg class="pp-emblem" viewBox="0 0 120 120" aria-hidden="true"><g transform="translate(44 46) rotate(-12)"><circle r="33" fill="#a8701a" cy="3"/><circle r="33" fill="#e8a530"/><circle r="29" fill="none" stroke="#fff" stroke-width="8" stroke-dasharray="11.4 11.4"/><circle r="19" fill="#a8701a"/><circle r="19" fill="none" stroke="#fff" stroke-width="2" stroke-dasharray="3 3" opacity=".85"/><circle r="13" fill="#e8a530"/></g><g transform="translate(74 72) rotate(8)"><circle r="33" fill="#8f2622" cy="3"/><circle r="33" fill="#d9443e"/><circle r="29" fill="none" stroke="#fff" stroke-width="8" stroke-dasharray="11.4 11.4"/><circle r="19" fill="#8f2622"/><circle r="19" fill="none" stroke="#fff" stroke-width="2" stroke-dasharray="3 3" opacity=".85"/><circle r="13" fill="#d9443e"/></g></svg>`,
+    rules: [
+      "Кожен раунд хтось стає «подією» й отримує завдання.",
+      "Решта таємно ставить фішку: зробить чи здасться.",
+      "Потім «подія» вирішує: виконує завдання вголос або здається і п'є.",
+      "Вгадав — +1 бал. Не вгадав — ковток.",
+    ],
+    sliders: [{ key: "betSeconds", label: "Час на ставки" }, { key: "decideSeconds", label: "Час на рішення" }],
+    stageTitle: (c) => ({ bet: "Ставки приймаються", decide: "Рішення" }[(c.st.data || {}).step] || "Розрахунок"),
 
-  // ---------------- раунд ----------------
-  function waitingAvatars(room, names) { return names.map((n) => avatarHtml(room, n, { small: true })).join(" "); }
-
-  function renderRound(room, ctx) {
-    const st = room.stage, mode = MODES[room.mode] || { title: "", icon: "" };
-    document.getElementById("modeTitle").textContent = `${mode.icon} ${mode.title}`;
-    document.getElementById("roundLabel").textContent = `Раунд ${room.roundNo + 1} з ${room.totalRounds}`;
-    document.getElementById("stageText").textContent = st.text || "";
-    document.getElementById("stageText").classList.toggle("hidden", !st.text);
-    document.getElementById("stageRoles").innerHTML = (st.roles || []).map((r) =>
-      `<div class="pt-role">${avatarHtml(room, r.name)}<span><small>${escapeHtml(r.label)}</small>${escapeHtml(r.name)}</span></div>`).join("");
-    document.getElementById("stageHint").textContent = st.hint || "";
-    const isReveal = st.kind === "reveal";
-    const inputArea = document.getElementById("inputArea"), revealArea = document.getElementById("revealArea");
-    revealArea.classList.toggle("hidden", !isReveal);
-    inputArea.classList.toggle("hidden", isReveal);
-    const waiting = G.waitingNames(room);
-    const expect = st.expect || [];
-    const mine = G.inputOf(room, ctx.username);
-    const iExpected = expect.includes(ctx.username);
-
-    if (isReveal) {
-      document.getElementById("stageHint").textContent = "";
-      const bars = st.bars || [], maxV = Math.max(1, ...bars.map((b) => b.value));
-      const pen = st.penalties || {};
-      const drinkBanner = pen[ctx.username]
-        ? `<div class="pt-drink">🥃 Ковток!${pen[ctx.username] > 1 ? " ×" + pen[ctx.username] : ""}<small>або будь-який напій — у своєму темпі</small></div>` : "";
-      const drinkers = Object.keys(pen).filter((n) => n !== ctx.username);
-      revealArea.innerHTML = `<div class="pt-headline">${escapeHtml(st.headline || "")}</div>` +
-        bars.map((b) => `<div class="pt-bar"><span class="lbl">${b.name ? avatarHtml(room, b.name, { small: true }) + escapeHtml(b.name) : escapeHtml(b.label)}</span><span class="track"><i style="width:${Math.round((b.value / maxV) * 100)}%"></i></span><span class="val">${b.value}</span></div>`).join("") +
-        `<div class="pt-lines">${(st.lines || []).map((l) => `<div>${escapeHtml(l)}</div>`).join("")}</div>` + drinkBanner +
-        (drinkers.length ? `<div class="pt-others">🥃 П'ють: ${drinkers.map(escapeHtml).join(", ")}</div>` : "") +
-        ((st.capped || []).length ? `<div class="pt-others">Ліміт набору (${G.SET_CAP}): ${(st.capped).map(escapeHtml).join(", ")} без доданого ковтка</div>` : "");
-      document.getElementById("waitInfo").textContent = "";
-      document.getElementById("stageTimer").classList.add("hidden");
-    } else if (st.kind === "pick-name" && iExpected) {
-      if (builtStageId !== st.id) {
-        builtStageId = st.id;
-        inputArea.innerHTML = '<div class="pt-names">' + st.names.map((n) =>
-          `<button class="pt-name ${n === ctx.username ? "self" : ""}" data-name="${escapeHtml(n)}">${avatarHtml(room, n)}${escapeHtml(n)}</button>`).join("") + "</div>";
-        inputArea.querySelectorAll("[data-name]").forEach((b) => b.addEventListener("click", () => G.answer(b.dataset.name)));
+    build(c) {
+      const { st } = c, d = st.data || {}, victim = d.victim;
+      if (st.kind === "choice" && d.step === "bet") {
+        if (!c.iExpected) {
+          return coupon(c, victim) + `<div class="bt-spot">${c.avatar(victim, { size: "xl", mood: "shock" })}<b>На тебе ставлять!</b>
+            <small>Готуйся: скоро вирішиш — робиш чи здаєшся</small></div>`;
+        }
+        return coupon(c, victim) +
+          `<div class="bt-chips"><button class="bt-chip do" data-answer="do"><span class="disc"><span>${icon("bolt")}<b>Зробить</b></span></span><em>Ставка прийнята</em></button>
+            <button class="bt-chip quit" data-answer="quit"><span class="disc"><span>${icon("flagWhite")}<b>Здасться</b></span></span><em>Ставка прийнята</em></button></div>`;
       }
-      inputArea.querySelectorAll("[data-name]").forEach((b) => b.classList.toggle("selected", b.dataset.name === mine));
-    } else if (st.kind === "choice" && iExpected) {
-      if (builtStageId !== st.id) {
-        builtStageId = st.id;
-        inputArea.innerHTML = '<div class="pt-choices">' + st.options.map((o) => `<button class="pt-choice" data-opt="${escapeHtml(o.id)}">${escapeHtml(o.label)}</button>`).join("") + "</div>";
-        inputArea.querySelectorAll("[data-opt]").forEach((b) => b.addEventListener("click", () => G.answer(b.dataset.opt)));
+      if (st.kind === "choice" && d.step === "decide") {
+        const n = Object.keys(d.bets || {}).length;
+        if (!c.iExpected) {
+          return coupon(c, victim, true) + `<div class="bt-spot">${c.avatar(victim, { size: "xl", mood: "write" })}<b>Рішення за ${esc(victim)}</b>
+            <span class="bt-count">${icon("chip")} ${n} ${betsWord(n)} на кону</span></div>`;
+        }
+        return coupon(c, victim) + `<div class="pp-note">На тебе ${n} ${betsWord(n)}. Виконуй завдання вголос — або здавайся.</div>
+          <div class="bt-decide"><button class="do" data-answer="do">${icon("bolt")} Роблю</button><button class="quit" data-answer="quit">${icon("flagWhite")} Здаюсь і п'ю</button></div>`;
       }
-      inputArea.querySelectorAll("[data-opt]").forEach((b) => b.classList.toggle("selected", b.dataset.opt === mine));
-    } else {
-      builtStageId = null;
-      inputArea.innerHTML = "";
-    }
-    if (!isReveal) {
-      let info = "";
-      if (expect.length) {
-        const answered = expect.length - waiting.length;
-        info = iExpected ? `Відповіли ${answered} з ${expect.length}` : `Відповідають: ${answered} з ${expect.length}`;
-        if (waiting.length && waiting.length <= 4) info += `<br>${waitingAvatars(room, waiting)}`;
+      if (st.kind === "reveal") {
+        const done = d.decision === "do", bets = d.bets || {};
+        const side = (k) => Object.keys(bets).filter((n) => bets[n] === k);
+        const col = (k, title) => {
+          const names = side(k), win = k === d.decision;
+          return `<div class="bt-col ${win ? "win" : "lose"}"><h4>${title}</h4><div class="who">${names.length
+            ? names.map((n) => c.avatar(n, { size: "sm", mood: win ? "happy" : "sad", still: true })).join("") : '<span class="empty">нікого</span>'}</div>
+            <div class="tag">${names.length ? (win ? "+1 бал" : "ковток") : "—"}</div></div>`;
+        };
+        return coupon(c, victim, true) +
+          `<div class="bt-board ${done ? "do" : "quit"}"><small>Результат події</small><div class="res">${c.avatar(victim, { size: "md", mood: done ? "happy" : "sad" })}<b>${done ? "Зробив(ла)!" : "Здався(лась)"}</b></div></div>` +
+          `<div class="bt-cols">${col("do", "Ставили «зробить»")}${col("quit", "Ставили «здасться»")}</div>` +
+          (done ? "" : `<div class="pp-note">${esc(victim)} здався(лась) — і теж п'є</div>`);
       }
-      document.getElementById("waitInfo").innerHTML = info;
-      updateTimer();
-    }
-    const showHost = ctx.host;
-    const nextBtn = document.getElementById("hostNextBtn");
-    nextBtn.classList.toggle("hidden", !showHost);
-    nextBtn.textContent = isReveal ? (room.roundNo + 1 >= room.totalRounds ? "Підсумок" : "Далі") : (st.kind === "show" ? "Далі" : "Показати результат зараз");
-    document.getElementById("endSetBtn").classList.toggle("hidden", !showHost);
-  }
-
-  function updateTimer() {
-    const el = document.getElementById("stageTimer"), room = lastRoom;
-    if (!room || room.phase !== "round" || !room.stage || room.stage.kind === "reveal" || !room.stage.endsAt) { el.classList.add("hidden"); return; }
-    el.classList.remove("hidden");
-    el.textContent = `⏳ ${Math.max(0, Math.ceil((room.stage.endsAt - G.now()) / 1000))} с`;
-  }
-
-  // ---------------- підсумок ----------------
-  function renderSummary(room, ctx) {
-    document.getElementById("sumDrinks").innerHTML = renderTallyList(room, "drinks");
-    document.getElementById("sumPoints").innerHTML = renderTallyList(room, "points");
-    document.getElementById("toLobbyBtn").classList.toggle("hidden", !ctx.host);
-    document.getElementById("waitHostSummary").classList.toggle("hidden", !!ctx.host);
-  }
-
-  function onState(room, ctx) {
-    lastRoom = room; lastCtx = ctx;
-    if (!ctx.username) { showView("locked"); return; }
-    if (!reactionsMounted && window.GameReactions && G.roomRef) { reactionsMounted = true; window.GameReactions.mount(G.roomRef, ctx.username); }
-    const iAmIn = room.players && room.players[ctx.username];
-    if (room.phase === "round") {
-      if (!iAmIn || !(room.order || []).includes(ctx.username)) { showView("waiting"); return; }
-      showView("round"); renderRound(room, ctx);
-    } else if (room.phase === "summary") { showView("summary"); renderSummary(room, ctx); }
-    else { builtStageId = null; showView("lobby"); renderLobby(room, ctx); }
-  }
-
-  document.getElementById("startBtn").addEventListener("click", () => G.startSet(lastRoom));
-  for (const [inputId, outputId, key] of [
-    ["betSecondsSlider", "betSecondsValue", "betSeconds"],
-    ["decideSecondsSlider", "decideSecondsValue", "decideSeconds"],
-  ]) {
-    const input = document.getElementById(inputId);
-    input.addEventListener("input", () => { document.getElementById(outputId).textContent = `${input.value} с`; });
-    input.addEventListener("change", () => G.updateSettings({ [key]: Number(input.value) }));
-  }
-  document.getElementById("resetBtn").addEventListener("click", () => { if (confirm("Скинути вечір (рахунок теж)?")) G.resetAll(); });
-  document.getElementById("hostNextBtn").addEventListener("click", () => G.skip());
-  document.getElementById("endSetBtn").addEventListener("click", () => { if (confirm("Завершити набір?")) G.endSet(); });
-  document.getElementById("toLobbyBtn").addEventListener("click", () => G.toLobby());
-  setInterval(updateTimer, 500);
-
-  function beginGame(username_, roomId) { G.onStateChange = onState; G.start(username_, roomId); }
-  const session = window.AppAuth && window.AppAuth.getSession();
-  if (session && window.rtdbReady) {
-    RoomCodeUI.mount({
-      containerId: "activeRoomsList", codeInputId: "roomCodeInput", joinBtnId: "joinRoomBtn", createBtnId: "createRoomBtn",
-      watchActiveRooms: G.watchActiveRooms,
-      renderRoomItem: (r) => `
-        <div class="player-chip"><span>Кімната ${RoomCodeUI.escapeHtml(r.roomId)}</span>
-        <span class="badge">${r.phase === "lobby" ? "Лобі" : r.phase === "summary" ? "Підсумок" : "Гра триває"}</span></div>
-        <div class="status-line" style="text-align:left; font-size:12px;">Онлайн: ${r.connectedCount} / ${r.playerCount}</div>`,
-      onEnter: (roomId) => beginGame(session.username, roomId),
-    });
-    showView("room-entry");
-  } else { showView("locked"); }
-  window.addEventListener("beforeunload", () => { if (window.PartyGame) G.stop(); });
+      return coupon(c, victim);
+    },
+    update(el, c) {
+      const ch = el.querySelector(".bt-chips");
+      if (ch) ch.classList.toggle("voted", !!c.mine);
+    },
+    onStage(c) {
+      const d = c.st.data || {};
+      if (c.st.kind === "reveal") {
+        c.sfx("drum");
+        const won = (c.st.points || {})[c.me], lost = (c.st.penalties || {})[c.me];
+        setTimeout(() => c.sfx(won ? "fanfare" : lost ? "wah" : "ding"), 800);
+        if (lost) c.buzz([60, 40, 60]);
+      } else if (d.step === "decide") c.sfx("vs");
+      else c.sfx("whoosh");
+    },
+  });
 })();
 </script>
 </body>

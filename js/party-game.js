@@ -32,7 +32,10 @@
   const ABANDON_MS = 15 * 60 * 1000;
   const AVATAR_STORAGE_PREFIX = "games41_quiplash_avatar_";
   const AVATAR_COLORS = ["#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#9b59b6", "#1abc9c", "#e67e22", "#ff6fa5"];
-  const CHARACTERS = 8;
+  // монстрики Сміхлиста (js/quiplash-avatars.js), якщо підключені; старий party.html — 8 img/char*.svg
+  const QA = () => window.QuiplashAvatars;
+  const CHARACTERS = QA() ? QA().COUNT : 8;
+  const charColor = (c) => (QA() ? QA().color(c) : AVATAR_COLORS[(c - 1) % AVATAR_COLORS.length]);
 
   const SCHEMA = {
     phase: "lobby",
@@ -73,16 +76,38 @@
   }
 
   // ------------------------- аватари (як у Смішлісті) -------------------------
+  function takenChars(room) {
+    return new Set(Object.entries((room && room.players) || {}).filter(([n]) => n !== username).map(([, p]) => Number(p && p.character)));
+  }
   function avatarFor(room) {
+    const taken = takenChars(room);
+    let want = null;
     try {
       const raw = window.localStorage && window.localStorage.getItem(AVATAR_STORAGE_PREFIX + username);
       const profile = raw ? JSON.parse(raw) : null;
-      if (profile && profile.character >= 1 && profile.character <= CHARACTERS) {
-        return { character: profile.character, color: profile.color || AVATAR_COLORS[(profile.character - 1) % AVATAR_COLORS.length] };
-      }
+      if (profile && profile.character >= 1 && profile.character <= CHARACTERS) want = Number(profile.character);
     } catch (e) { /* немає localStorage — беремо за чергою */ }
+    if (want && !taken.has(want)) return { character: want, color: charColor(want) };
     const idx = Object.keys((room && room.players) || {}).length;
-    return { character: (idx % CHARACTERS) + 1, color: AVATAR_COLORS[(idx + Math.floor(idx / CHARACTERS)) % AVATAR_COLORS.length] };
+    for (let i = 0; i < CHARACTERS; i++) {
+      const c = ((want || idx) + i) % CHARACTERS + 1;
+      if (!taken.has(c)) return { character: c, color: charColor(c) };
+    }
+    const c = (idx % CHARACTERS) + 1;
+    return { character: c, color: charColor(c) };
+  }
+  // Тап по своїй аватарці в лобі — наступний вільний персонаж (без дублів).
+  function cycleAvatar(step) {
+    const room = engine.latestRoom, me = room && room.players && room.players[username];
+    if (!me || room.phase === "round") return;
+    const taken = takenChars(room), cur = Number(me.character) || 1, dir = step < 0 ? -1 : 1;
+    for (let i = 1; i <= CHARACTERS; i++) {
+      const c = ((cur - 1 + dir * i) % CHARACTERS + CHARACTERS) % CHARACTERS + 1;
+      if (taken.has(c)) continue;
+      engine.roomRef.child("players/" + username).update({ character: c, color: charColor(c) });
+      try { localStorage.setItem(AVATAR_STORAGE_PREFIX + username, JSON.stringify({ character: c, color: charColor(c) })); } catch (e) {}
+      return;
+    }
   }
 
   // ------------------------- список активних кімнат -------------------------
@@ -325,7 +350,8 @@
     now: () => engine.now(),
     inputOf, waitingNames,
     watchActiveRooms,
-    start, stop, startSet, updateSettings, answer, skip, endSet, toLobby, resetAll,
+    start, stop, startSet, updateSettings, answer, skip, endSet, toLobby, resetAll, cycleAvatar,
+    get username() { return username; },
     get roomId() { return engine.currentRoomId; },
     get roomRef() { return engine.roomRef; },
     set onStateChange(fn) { onStateChange = fn; },
