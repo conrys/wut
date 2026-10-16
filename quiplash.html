@@ -17,32 +17,48 @@ textarea, input { -webkit-user-select: text; user-select: text; font-family: var
 .hidden { display: none !important; }
 button { font-family: var(--ql-font); }
 
-/* шапка: один рядок, напівпрозора, без дублювання імені (воно є в профілі праворуч) */
-#gameHeader.game-header--fixed { background: rgba(20,17,43,0.78); border-bottom: 2px solid rgba(255,255,255,0.08);
-  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: max(6px, env(safe-area-inset-top)) 10px 6px; gap: 6px; }
-#gameHeader .slot-left, #gameHeader .slot-center, #gameHeader .slot-right { flex-wrap: nowrap; gap: 6px; }
-#gameHeader .slot-right { justify-content: flex-end; }
-#gameHeader button, #gameHeader a { font-family: var(--ql-font); }
+/* ---------- шапка: одна смуга ----------
+   лобі/вхід:  ◀ Назад | — | 😀 🐞 профіль
+   під час гри: ◀ | раунд · пара | таймер ⏸ 😀  (жук і профіль ховаються) */
+#gameHeader.game-header--fixed { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: rgba(20,17,43,0.82); border-bottom: 2px solid rgba(255,255,255,0.08);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: max(8px, env(safe-area-inset-top)) 12px 8px; }
+#gameHeader .slot-left, #gameHeader .slot-center, #gameHeader .slot-right { flex-wrap: nowrap; gap: 8px; align-items: center; }
+#gameHeader .slot-left { flex: 0 0 auto; }
+#gameHeader .slot-center { flex: 1 1 auto; min-width: 0; justify-content: center; }
+#gameHeader .slot-right { flex: 0 0 auto; justify-content: flex-end; }
+#gameHeader #top-bar { display: flex; align-items: center; gap: 8px; }
+/* усі круглі кнопки шапки — одного розміру й стилю */
+#gameHeader .app-back-btn, #gameHeader .auth-pill, #gameHeader .notes-header-btn, #gameHeader .reactions-toggle, #gameHeader .icon-btn {
+  box-sizing: border-box; height: 38px; min-height: 38px; border-radius: 999px; border: 2px solid rgba(255,255,255,0.22);
+  background: rgba(255,255,255,0.08); color: #fff; font-family: var(--ql-font); font-weight: 800; box-shadow: none; margin: 0; }
+#gameHeader .auth-pill, #gameHeader .notes-header-btn, #gameHeader .reactions-toggle, #gameHeader .icon-btn {
+  width: 38px; min-width: 38px; max-width: 38px; max-height: 38px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+#gameHeader .app-back-btn { padding: 0 14px; font-size: 14px; }
+#gameHeader .auth-pill { background: var(--teal); color: var(--ink); border-color: var(--ink); }
 #gameHeader .reactions-wrap.in-header { position: relative; right: auto; bottom: auto; }
-#gameHeader .reactions-toggle { width: 38px; height: 38px; min-width: 38px; min-height: 38px; max-width: 38px; max-height: 38px; }
+#gameHeader .reactions-row { z-index: 5; }
+body:not(.playing) .hdr-play { display: none !important; }
+#gameHeader .slot-right > .hdr-tools { order: 1; } #gameHeader .slot-right > #top-bar { order: 2; } #gameHeader .slot-right > .reactions-wrap { order: 3; }
+body.playing .hdr-play { display: flex; }
+body.playing #gameHeader #top-bar { display: none; }
+body.playing #gameHeader .app-back-btn { width: 38px; padding: 0; font-size: 0; }
+body.playing #gameHeader .app-back-btn::before { content: "◀"; font-size: 14px; }
+.hdr-round { display: flex; flex-direction: column; align-items: center; line-height: 1.1; min-width: 0; }
+.hdr-round .ql-chip { white-space: nowrap; font-size: 12px; padding: 4px 10px; }
+#hud-phase { font-weight: 700; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; margin-top: 2px; }
+.hdr-tools { align-items: center; gap: 8px; }
+.hdr-tools .ql-timer { width: 38px; height: 38px; }
+.hdr-tools .ql-timer::before { inset: 4px; }
+.hdr-tools .ql-timer span { font-size: 14px; }
+.hdr-tools .ql-timer.hidden-timer { display: none; }
+.icon-btn { width: 38px; height: 38px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.22); background: rgba(255,255,255,0.08);
+  color: #fff; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; }
 
-.wrap { position: relative; z-index: 2; max-width: 520px; margin: 0 auto; padding: 10px 16px calc(28px + env(safe-area-inset-bottom)); }
+.wrap { position: relative; z-index: 2; max-width: 520px; margin: 0 auto; padding: 12px 16px calc(28px + env(safe-area-inset-bottom)); }
 .screen { text-align: center; }
 .hint { color: var(--muted); font-size: 15px; font-weight: 600; margin: 6px 0 14px; line-height: 1.35; }
 h1, h2 { margin: 0 0 10px; }
-
-/* HUD під шапкою: раунд · таймер · пауза */
-#hud { position: relative; z-index: 20; display: flex; align-items: center; justify-content: space-between;
-  gap: 10px; margin: 0 0 12px; padding: 6px 6px 6px 8px; background: rgba(20,17,43,0.72); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-  border: 2px solid rgba(255,255,255,0.1); border-radius: 999px; }
-#hud .left { display: flex; align-items: center; gap: 8px; min-width: 0; }
-#hud .ql-chip { white-space: nowrap; flex-shrink: 0; font-size: 12px; padding: 5px 10px; }
-#hud-phase { font-weight: 700; font-size: 13px; min-width: 0; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#hud .right { display: flex; align-items: center; gap: 8px; }
-.icon-btn { width: 40px; height: 40px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.35); background: rgba(255,255,255,0.08);
-  color: #fff; font-size: 16px; display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; }
-#hud .ql-timer { width: 46px; height: 46px; }
-#hud .ql-timer span { font-size: 17px; }
 
 #pause-overlay { position: fixed; inset: 0; z-index: 800; display: flex; align-items: center; justify-content: center; padding: 24px;
   background: rgba(10,8,28,0.86); backdrop-filter: blur(4px); }
@@ -185,9 +201,10 @@ h1, h2 { margin: 0 0 10px; }
 </head>
 <body data-scene="entry">
 <div id="gameHeader" class="game-header game-header--fixed">
-  <div class="slot-left"></div>
-  <div class="slot-center"></div>
-  <div class="slot-right"><div id="top-bar"></div></div>
+  <div class="slot-left" data-header-slot="left"></div>
+  <div class="slot-center" data-header-slot="center"><div class="hdr-play hdr-round"><span class="ql-chip" id="hud-round"></span><span id="hud-phase"></span></div></div>
+  <div class="slot-right" data-header-slot="right"><div class="hdr-play hdr-tools"><div class="ql-timer hidden-timer" id="hud-timer"><span>0</span></div>
+    <button class="icon-btn" id="pause-btn" title="Пауза">⏸</button></div><div id="top-bar"></div></div>
 </div>
 
 <div class="ql-bg" aria-hidden="true"></div>
@@ -198,6 +215,7 @@ h1, h2 { margin: 0 0 10px; }
     <h2>Пауза</h2>
     <p class="hint" id="pause-by-text" style="color:#6b6496"></p>
     <button class="ql-btn pink" id="resume-btn">Продовжити</button>
+    <button class="ql-btn ghost" id="exit-btn" style="margin-top:12px;color:var(--ink);border-color:var(--ink)">Вийти в меню</button>
   </div>
 </div>
 
@@ -210,13 +228,6 @@ h1, h2 { margin: 0 0 10px; }
 </div>
 
 <main class="wrap">
-  <div id="hud" class="hidden">
-    <div class="left"><span class="ql-chip" id="hud-round"></span><span id="hud-phase"></span></div>
-    <div class="right">
-      <div class="ql-timer hidden-timer" id="hud-timer"><span>0</span></div>
-      <button class="icon-btn" id="pause-btn" title="Пауза">⏸</button>
-    </div>
-  </div>
 
   <section id="screen-locked" class="screen hidden">
     <div class="ql-logo entry-logo bob"><span>Сміх</span><span>лист</span></div>
@@ -299,7 +310,7 @@ h1, h2 { margin: 0 0 10px; }
   };
   function renderHud(state) {
     const visible = state.phase !== "lobby" && state.phase !== "game_over";
-    $("hud").classList.toggle("hidden", !visible);
+    document.body.classList.toggle("playing", visible);
     if (!visible) return;
     const final = (G.ROUND_PLAN[state.round - 1] || "classic") === "image";
     $("hud-round").textContent = final ? "Фінал" : `Раунд ${state.round}/${G.TOTAL_ROUNDS}`;
@@ -716,6 +727,7 @@ h1, h2 { margin: 0 0 10px; }
 
   $("pause-btn").onclick = () => G.setPause(!(lastState && lastState.paused));
   $("resume-btn").onclick = () => G.setPause(false);
+  $("exit-btn").onclick = () => { const b = document.getElementById("backBtn"); if (b) b.click(); else location.href = "index.html"; };
   // кінець раунду: оновлюємо «Наступний раунд за N с»
   setInterval(() => { if (lastState && lastState.phase === "round_end" && $("end-hint")) renderRoundEnd(lastState); }, 500);
 
