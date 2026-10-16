@@ -65,6 +65,45 @@
 
   function now() { return Engine.now(); }
 
+  // ------------------------- аватари (монстрики Сміхлиста, як у Дилемах) -------------------------
+  const AVATAR_STORAGE_PREFIX = "games41_quiplash_avatar_";
+  const QA = () => window.QuiplashAvatars; // підключати ДО цього файлу
+  const CHARACTERS = QA() ? QA().COUNT : 8;
+  const charColor = (c) => (QA() ? QA().color(c) : "#ffcc33");
+  function takenChars(room) {
+    return new Set(Object.entries((room && room.players) || {}).filter(([n]) => n !== username).map(([, p]) => Number(p && p.character)));
+  }
+  function avatarFor(room) {
+    const taken = takenChars(room);
+    let want = null;
+    try {
+      const raw = window.localStorage && window.localStorage.getItem(AVATAR_STORAGE_PREFIX + username);
+      const profile = raw ? JSON.parse(raw) : null;
+      if (profile && profile.character >= 1 && profile.character <= CHARACTERS) want = Number(profile.character);
+    } catch (e) { /* немає localStorage */ }
+    if (want && !taken.has(want)) return { character: want, color: charColor(want) };
+    const idx = Object.keys((room && room.players) || {}).length;
+    for (let i = 0; i < CHARACTERS; i++) {
+      const c = ((want || idx) + i) % CHARACTERS + 1;
+      if (!taken.has(c)) return { character: c, color: charColor(c) };
+    }
+    const c = (idx % CHARACTERS) + 1;
+    return { character: c, color: charColor(c) };
+  }
+  // Тап по своїй аватарці в лобі — наступний вільний персонаж (без дублів).
+  function cycleAvatar() {
+    const room = Engine.latestRoom, me = room && room.players && room.players[username];
+    if (!me || (room.phase !== "lobby" && room.phase !== "countdown")) return;
+    const taken = takenChars(room), cur = Number(me.character) || 1;
+    for (let i = 1; i <= CHARACTERS; i++) {
+      const c = (cur - 1 + i) % CHARACTERS + 1;
+      if (taken.has(c)) continue;
+      Engine.roomRef.child("players/" + username).update({ character: c, color: charColor(c) });
+      try { localStorage.setItem(AVATAR_STORAGE_PREFIX + username, JSON.stringify({ character: c, color: charColor(c) })); } catch (e) {}
+      return;
+    }
+  }
+
   // ------------------------- допоміжні -------------------------
   function connectedEntries(players) {
     return Object.entries(players || {}).filter(([, p]) => Engine.isConnected(p));
@@ -127,7 +166,7 @@
 
       if (!state.players || !state.players[username]) {
         if (state.phase === "lobby") {
-          Engine.becomePlayer({ score: 0 });
+          Engine.becomePlayer({ score: 0, ...avatarFor(state) });
         } else {
           onStateChange(state, { username, host: false, isActive: false, spectating: true });
           return;
@@ -153,7 +192,8 @@
     return Engine.getOrCreateRoom(roomId, ROOM_SCHEMA, () => ({ board: buildFreshBoard() })).then(({ room }) => {
       const alreadyIn = !!(room.players && room.players[username]);
       const canJoinAsPlayer = alreadyIn || room.phase === "lobby" || room.phase === "countdown";
-      return Engine.joinRoom(roomId, { asPlayer: canJoinAsPlayer, extra: { score: 0 } });
+      // хто вже в кімнаті (перезайшов) — рахунок і монстрик лишаються як були
+      return Engine.joinRoom(roomId, { asPlayer: canJoinAsPlayer, extra: alreadyIn ? {} : { score: 0, ...avatarFor(room) } });
     });
   }
 
@@ -210,7 +250,7 @@
     const roomId = Engine.currentRoomId;
     if (!roomId) return Promise.resolve();
     return Engine.forceResetRoom(roomId, ROOM_SCHEMA, () => ({ board: buildFreshBoard() })).then(() => {
-      return Engine.joinRoom(roomId, { extra: { score: 0 } });
+      return Engine.joinRoom(roomId, { extra: { score: 0, ...avatarFor(Engine.latestRoom) } });
     });
   }
 
@@ -366,6 +406,7 @@
     start,
     stop,
     selectQuestion,
+    cycleAvatar,
     submitAnswer,
     forceStart,
     skipQuestion,

@@ -1,200 +1,156 @@
+<!-- Гра: Квіз («Своя гра») — дошка тем, хід по колу. Тема: телешоу, сцена з прожекторами. -->
 <!DOCTYPE html>
 <html lang="uk">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
-<title>Quiz</title>
+<meta name="theme-color" content="#0a1452" />
+<title>Квіз</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --bg: #0a0e2e;                 /* було --bg-void */
-    --surface-1: #131a4d;          /* було --bg-panel */
-    --surface-2: #202a70;          /* було --bg-tile */
-    --line: rgba(255, 200, 71, 0.18); /* було --border-soft */
-
-    --text: #f4f1ff;               /* було --text-primary */
-    --text-muted: #8b90c4;
-
-    --accent: #ffc847;             /* було --gold */
-    --correct: #35d399;
-    --danger: #ff5c7c;             /* було --wrong */
-
-    --font-display: 'Space Grotesk', sans-serif;
-    --font-body: 'Inter', sans-serif;
-
-    --radius-xs: 4px;
-    --radius-sm: 8px;
-    --radius-md: 14px;
-    --radius-lg: 20px;
-    --radius-pill: 999px;
-
-    --scrim: rgba(0,0,0,0.31);
-    --scrim-strong: rgba(0,0,0,0.82);
-    --blur-panel: 12px;
-    --blur-bg: 3px;
-
-    --z-bg-scene: 0;
-    --z-content: 1;
-    --z-sticky: 10;
-    --z-banner: 20;
-    --z-sidebar: 90;
-    --z-modal: 100;
-    --z-pause: 500;
-    --z-fx: 900;
-    --z-toast: 999;
-  }
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
-  html, body { margin: 0; padding: 0; min-height: 100dvh; background: var(--bg);
-    background-image: radial-gradient(circle at 15% 10%, rgba(123,97,255,0.16), transparent 45%), radial-gradient(circle at 85% 90%, rgba(255,200,71,0.10), transparent 40%);
-    color: var(--text); font-family: var(--font-body); overflow-x: hidden; touch-action: manipulation; }
-  .page { max-width: 480px; margin: 0 auto; min-height: 100dvh; position: relative;
-      z-index: 0; overflow: hidden; display: flex; flex-direction: column; }
-  .pad { flex: 1; display: flex; flex-direction: column; align-items: center;
-      padding: 0 18px calc(30px + env(safe-area-inset-bottom)); }
-  .hidden { display: none !important; }
-  h2 { font-family: var(--font-display); font-size: 20px; margin: 0 0 14px; text-align: center; }
-  .status-line { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 14px; }
-  .pulse-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-right: 6px; animation: pulse 1.4s infinite; }
-  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
-  .my-score { font-family: var(--font-display); font-size: 54px; color: var(--accent); }
-
-  .panel { width: 100%; background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--radius-md); padding: 16px; margin-bottom: 14px; }
-  .scoreboard { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-bottom: 14px; }
-  .score-row { display: flex; justify-content: space-between; align-items: center; background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--radius-md); padding: 8px 14px; font-size: 14px; }
-  .score-row.is-active { border-color: var(--accent); background: linear-gradient(90deg, rgba(255,200,71,0.14), var(--surface-1)); }
-  .score-row .points { font-family: var(--font-display); font-weight: 700; color: var(--accent); }
-  .score-row .points.negative { color: var(--danger); }
-  .badge-turn { font-size: 10px; background: var(--accent); color: #201400; padding: 2px 8px; border-radius: var(--radius-pill); font-weight: 700; margin-left: 6px; }
-  .dot-offline { width: 7px; height: 7px; border-radius: 50%; background: var(--danger); display: inline-block; margin-right: 4px; }
-
-  button.primary-btn { width: 100%; border: none; border-radius: var(--radius-lg); padding: 12px; font-weight: 700; font-size: 14px;
-    cursor: pointer; background: var(--accent); color: #1a1200; margin-top: 10px; font-family: var(--font-display); }
-  button.secondary-btn { width: 100%; border: none; border-radius: var(--radius-lg); padding: 10px; font-weight: 700; font-size: 13px;
-    cursor: pointer; background: var(--surface-2); color: var(--text); border: 1px solid var(--line); margin-top: 8px; }
-
-  .select-cat { text-align: left; margin-bottom: 10px; }
-  .select-cat .cat-name { color: var(--text-muted); font-size: 13px; margin-bottom: 6px; }
-  .select-cat .vals { display: flex; gap: 8px; flex-wrap: wrap; }
-  .val-btn { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 14px;
-    font-family: var(--font-display); font-weight: 700; color: var(--accent); font-size: 15px; }
-  .val-btn.played { opacity: 0.25; color: var(--text-muted); }
-
-  .answer-value { font-family: var(--font-display); font-size: 18px; color: var(--accent); text-align: center; }
-  .answer-timer { font-family: var(--font-display); font-size: 40px; margin: 6px 0; text-align: center; }
-  .answer-timer.urgent { color: var(--danger); }
-  .answer-q { font-size: 18px; font-weight: 600; line-height: 1.4; margin: 10px 0 18px; text-align: center; }
-  .answer-options { display: grid; gap: 10px; width: 100%; }
-  .opt-btn { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-md); padding: 16px;
-    font-size: 16px; font-weight: 600; text-align: left; color: var(--text); display: flex; align-items: center; gap: 10px; width: 100%; }
-  .opt-btn .letter { font-family: var(--font-display); color: var(--accent); font-weight: 700; }
-  .opt-btn.chosen { border-color: var(--accent); background: rgba(255,200,71,0.18); }
-  .opt-btn.locked { opacity: 0.5; }
-  .opt-btn.is-correct { border-color: var(--correct); background: rgba(53,211,153,0.2); }
-  .opt-btn.is-wrong-choice { border-color: var(--danger); background: rgba(255,92,124,0.2); }
-
-  .result-banner { text-align: center; padding: 20px; border-radius: var(--radius-md); width: 100%; }
-  .result-banner.correct { background: rgba(53,211,153,0.15); border: 1px solid var(--correct); }
-  .result-banner.wrong { background: rgba(255,92,124,0.15); border: 1px solid var(--danger); }
-  .result-banner .title { font-family: var(--font-display); font-size: 22px; font-weight: 700; margin-bottom: 6px; }
-
-  .podium-row { display: flex; align-items: center; justify-content: space-between; background: var(--surface-2);
-    border-radius: var(--radius-md); padding: 12px 18px; border: 1px solid var(--line); width: 100%; margin-bottom: 8px; }
-  .podium-row.win { border-color: var(--accent); background: linear-gradient(90deg, rgba(255,200,71,0.18), var(--surface-2)); }
-  .podium-rank { font-family: var(--font-display); font-weight: 700; width: 32px; color: var(--text-muted); }
-  .podium-row.win .podium-rank { color: var(--accent); }
-  .podium-name { flex: 1; font-weight: 600; }
-  .podium-score { font-family: var(--font-display); font-weight: 700; color: var(--accent); }
-
-  .host-controls { width: 100%; margin-top: 6px; }
-  .host-controls .eyebrow { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); text-align: center; margin-bottom: 8px; opacity: 0.8; }
-  .host-controls .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
-  .host-controls button { flex: 1; min-width: 90px; }
-  .danger-btn { background: transparent !important; border: 1px solid var(--danger) !important; color: var(--danger) !important; }
-
-  /* --------- вхід у кімнату --------- */
-  input.text-input { width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: var(--radius-md);
-    border: 1px solid var(--line); background: var(--surface-2); color: var(--text);
-    font-size: 16px; letter-spacing: 0.08em; text-align: center; text-transform: uppercase; }
-  input.text-input:focus { outline: 1px solid var(--accent); }
-  .divider { display: flex; align-items: center; gap: 10px; width: 100%; margin: 18px 0; color: var(--text-muted); font-size: 12px; }
-  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
-  .rooms-list { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-bottom: 4px; }
-  .room-item { background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--radius-md); padding: 12px 14px; cursor: pointer; }
-  .room-item:active { border-color: var(--accent); }
-  .room-item-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-  .room-item-title { font-family: var(--font-display); font-size: 15px; letter-spacing: 0.05em; }
-  .room-item-phase { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: var(--radius-pill); background: var(--surface-2); color: var(--text-muted); }
-  .room-item-count { font-size: 12px; color: var(--text-muted); }
-</style>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="js/styles/party-shared.css">
 <link rel="stylesheet" href="js/styles/game-header.css">
 <script src="js/core/game-header.js" defer></script>
+<style>
+:root {
+  --bg: #0a1452; --panel: rgba(255,255,255,.07); --panel-2: rgba(255,255,255,.12); --ink: #f3f6ff; --muted: rgba(220,228,255,.65); --line: rgba(255,255,255,.16);
+  --accent: #ffcc33; --accent-ink: #2a1c00; --good: #2fe08a; --bad: #ff5468; --cell: #1736b8; --cell-2: #0f2690;
+  --font-d: 'Russo One', 'Manrope', sans-serif; --font-b: 'Manrope', sans-serif;
+  --hdr-bg: rgba(10,20,82,.85);
+}
+/* тло: сцена — два прожектори і промені */
+body { background:
+  conic-gradient(from 200deg at 10% -10%, transparent 0 8deg, rgba(255,214,90,.10) 8deg 20deg, transparent 20deg 360deg),
+  conic-gradient(from 130deg at 90% -10%, transparent 0 8deg, rgba(120,170,255,.12) 8deg 20deg, transparent 20deg 360deg),
+  radial-gradient(80% 50% at 50% 110%, rgba(23,54,184,.7), transparent 70%), #0a1452 fixed; }
+.pp-hero h1, .pp-lobby-head .t b { text-transform: uppercase; font-weight: 400; letter-spacing: .03em; }
+.pp-hero h1 span, .pp-lobby-head .t b span { color: var(--accent); }
+.pp-primary { box-shadow: 0 6px 24px rgba(255,204,51,.35); font-weight: 400; text-transform: uppercase; }
+.pp-code b { color: var(--accent); }
+.pp-stagetitle { font-weight: 400; }
+
+/* табло рахунку */
+.qz-scores { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; margin: 0 -16px; padding-left: 16px; padding-right: 16px; scrollbar-width: none; }
+.qz-scores::-webkit-scrollbar { display: none; }
+.qz-chip { flex: none; display: flex; align-items: center; gap: 6px; padding: 4px 10px 4px 4px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); transition: background .3s, border-color .3s; }
+.qz-chip.on { background: rgba(255,204,51,.16); border-color: var(--accent); }
+.qz-chip.off { opacity: .4; }
+.qz-chip .n { max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 800; }
+.qz-chip .v { font: 400 14px var(--font-d); color: var(--accent); }
+.qz-chip .v.neg { color: var(--bad); }
+
+.qz-countdown { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px; border-radius: 20px; background: rgba(255,204,51,.12); border: 1px solid rgba(255,204,51,.5); }
+.qz-countdown b { font: 400 54px/1 var(--font-d); color: var(--accent); }
+.qz-countdown small { font-size: 13px; font-weight: 700; color: var(--muted); }
+
+/* хто ходить */
+.qz-turn { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); }
+.qz-turn small { display: block; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.qz-turn b { font: 400 18px var(--font-d); }
+.qz-turn .flag { margin-left: auto; padding: 4px 10px; border-radius: 999px; background: var(--bad); color: #fff; font: 800 11px var(--font-b); letter-spacing: .04em; display: flex; align-items: center; gap: 4px; }
+
+/* дошка */
+.qz-board { display: flex; flex-direction: column; gap: 6px; }
+.qz-row { display: grid; grid-template-columns: 1fr repeat(5, 46px); gap: 5px; align-items: stretch; }
+.qz-cat { display: flex; align-items: center; padding: 0 8px; border-radius: 10px; background: var(--cell-2); font: 800 12.5px/1.15 var(--font-b); text-transform: uppercase; letter-spacing: .02em; overflow-wrap: anywhere; min-height: 46px; }
+.qz-cell { min-height: 46px; padding: 0; border-radius: 10px; border: 0; background: linear-gradient(180deg, #2349d8, var(--cell)); color: var(--accent);
+  font: 400 15px var(--font-d); box-shadow: inset 0 -3px 0 rgba(0,0,0,.25); transition: transform .12s; }
+.qz-cell:active:not(:disabled) { transform: scale(.92); }
+.qz-cell:disabled { opacity: 1; cursor: default; }
+.qz-cell.played { background: rgba(255,255,255,.04); color: transparent; box-shadow: none; }
+.qz-board.watch .qz-cell:not(.played) { filter: saturate(.8); }
+.qz-hint { text-align: center; font-size: 13px; font-weight: 700; color: var(--muted); }
+
+/* питання */
+.qz-meta { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.qz-meta span { padding: 4px 12px; border-radius: 999px; background: var(--panel-2); font: 800 12px var(--font-b); }
+.qz-meta .val { background: var(--accent); color: var(--accent-ink); font: 400 13px var(--font-d); }
+.qz-q { padding: 20px 16px; border-radius: 20px; background: linear-gradient(180deg, #2349d8, #142d9e); text-align: center; font: 800 19px/1.35 var(--font-b);
+  box-shadow: 0 16px 40px rgba(0,0,0,.35), inset 0 0 0 2px rgba(255,255,255,.12); text-wrap: balance; }
+.qz-q.in { animation: qzIn .5s cubic-bezier(.2,1.3,.4,1) both; }
+@keyframes qzIn { from { opacity: 0; transform: scale(.85); } }
+.qz-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.qz-opt { display: flex; align-items: center; gap: 8px; min-height: 64px; padding: 8px 10px; border-radius: 14px; border: 2px solid var(--line); background: var(--panel);
+  color: var(--ink); font: 700 14px/1.25 var(--font-b); text-align: left; transition: transform .15s, background .25s, border-color .25s, opacity .25s; }
+.qz-opt .l { flex: none; width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: var(--panel-2); font: 400 14px var(--font-d); color: var(--accent); }
+.qz-opt:active:not(:disabled) { transform: scale(.96); }
+.qz-opt:disabled { cursor: default; opacity: 1; }
+.qz-opts.watch .qz-opt { opacity: .85; }
+.qz-opt.chosen { border-color: var(--accent); background: rgba(255,204,51,.18); animation: qzPulse .7s ease-in-out infinite alternate; }
+@keyframes qzPulse { to { box-shadow: 0 0 22px rgba(255,204,51,.45); } }
+.qz-opt.right { border-color: var(--good); background: rgba(47,224,138,.2); animation: none; }
+.qz-opt.right .l { background: var(--good); color: #052414; }
+.qz-opt.wrong { border-color: var(--bad); background: rgba(255,84,104,.2); animation: qzShake .4s; }
+.qz-opt.wrong .l { background: var(--bad); color: #fff; }
+.qz-opt.dim { opacity: .4; }
+@keyframes qzShake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+.qz-res { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; animation: ppPop .5s cubic-bezier(.2,1.4,.4,1) both; }
+.qz-res.ok { background: rgba(47,224,138,.16); border: 1px solid var(--good); }
+.qz-res.bad { background: rgba(255,84,104,.14); border: 1px solid var(--bad); }
+.qz-res b { display: block; font: 400 20px var(--font-d); }
+.qz-res.ok b { color: var(--good); } .qz-res.bad b { color: var(--bad); }
+.qz-res small { display: block; font-size: 13px; color: var(--muted); line-height: 1.4; }
+
+/* фінал */
+.qz-final .pp-pod.p1 .col { background: var(--accent); color: var(--accent-ink); }
+.qz-final .pp-pod .col { font-weight: 400; font-size: 18px; }
+</style>
 </head>
 <body>
-<div class="page">
-<div class="pad">
+<div id="app"><div class="pp-wrap">
+  <section class="pp-view pp-center hidden" id="v-locked"><span class="pp-big-ic" data-ic="lock"></span><div class="pp-note" style="font-size:16px">Увійди в профіль, щоб грати з друзями</div></section>
+  <section class="pp-view hidden" id="v-spectate">
+    <div class="pp-note" style="font-size:15px">Гра вже йде — приєднаєшся до наступної. Поки дивись табло:</div>
+    <div class="qz-scores" id="specScores"></div>
+  </section>
 
-  <div id="view-locked" class="hidden">
-    <h2>🎯 Quiz</h2>
-    <div class="status-line">Увійди в профіль (кнопка зверху), щоб грати з друзями</div>
-  </div>
+  <section class="pp-view hidden" id="v-entry">
+    <div class="pp-hero"><span data-emblem></span><h1>Своя <span>гра</span></h1><p>Дошка тем, питання від 100 до 500. Відповідаєш по черзі — помилка коштує половину вартості.</p></div>
+    <div class="pp-card"><div class="pp-h"><span data-ic="users"></span> Активні кімнати</div><div class="rooms-list" id="activeRoomsList"></div></div>
+    <div class="pp-or">або за кодом</div>
+    <div class="pp-join"><input class="pp-field" id="roomCodeInput" maxlength="5" placeholder="КОД" autocomplete="off" /><button class="pp-btn" id="joinRoomBtn">Увійти</button></div>
+    <button class="pp-btn pp-primary pp-block pp-big" id="createRoomBtn">Створити кімнату</button>
+  </section>
 
-  <div id="view-room-entry" class="hidden">
-    <h2>🎯 Quiz</h2>
-    <div class="status-line">Обери активну кімнату або введи код друга</div>
-    <div class="rooms-list" id="activeRoomsList"></div>
-    <div class="divider">або вручну</div>
-    <input class="text-input" id="roomCodeInput" maxlength="5" placeholder="КОД КІМНАТИ" />
-    <button class="primary-btn" id="joinRoomBtn">Приєднатись</button>
-    <div class="divider">або</div>
-    <button class="secondary-btn" id="createRoomBtn">Створити нову кімнату</button>
-  </div>
+  <section class="pp-view hidden" id="v-lobby">
+    <div class="pp-lobby-head"><span data-emblem></span><div class="t"><b>Своя <span>гра</span></b><small id="lobbyStatus"></small></div>
+      <div class="pp-code"><small>Код кімнати</small><b id="roomCodeDisplay"></b></div></div>
+    <div class="qz-countdown hidden" id="countdownBox"><b id="countdownNum"></b><small>до початку гри</small></div>
+    <div class="pp-card"><div class="pp-h"><span data-ic="users"></span> Гравці <span class="cnt" id="lobbyCount"></span></div>
+      <div class="pp-players" id="playersList"></div>
+      <div class="pp-note" style="margin-top:10px">Торкнись своєї аватарки, щоб змінити персонажа</div></div>
+    <div class="pp-note" id="lobbyHint"></div>
+    <details class="pp-card pp-rules"><summary>Як грати</summary><ol>
+      <li>Гравці ходять по черзі: обираєш тему й вартість, відповідаєш на питання.</li>
+      <li>Правильно — отримуєш вартість, неправильно — втрачаєш половину.</li>
+      <li>Другий раунд — та сама дошка, але бали подвоєні.</li>
+      <li>Хто сильно відстає, може отримати «наздоганяюче» питання з подвійними балами.</li></ol></details>
+  </section>
 
-  <div id="view-status" class="hidden">
-    <h2>🎯 Quiz <span id="roomCodeLabel" style="font-size:12px; color: var(--text-muted);"></span></h2>
-    <div class="my-score" id="myScore">0</div>
-    <div class="status-line" id="statusLine"><span class="pulse-dot"></span> Очікуємо…</div>
-    <div class="scoreboard" id="scoreboardStatus"></div>
-  </div>
-
-  <div id="view-select" class="hidden" style="width:100%;">
-    <h2>🎯 Твій хід <span id="roundBadge" style="font-size:12px; color: var(--accent);"></span></h2>
-    <div class="status-line" id="catchUpBanner" style="display:none; color: var(--accent); font-weight:700;">🔥 Наздоганяюче питання — бали x2!</div>
-    <div class="status-line">Вибери категорію та вартість</div>
-    <div id="selectBoard" style="width:100%;"></div>
-  </div>
-
-  <div id="view-answer" class="hidden" style="width:100%;">
-    <div class="answer-value" id="answerMeta">Категорія · 300</div>
-    <div class="answer-timer" id="answerTimer">30</div>
-    <div class="answer-q" id="answerQ"></div>
-    <div class="answer-options" id="answerOptions"></div>
-  </div>
-
-  <div id="view-result" class="hidden" style="width:100%; display:flex; flex-direction:column; align-items:center;">
-    <div class="result-banner" id="resultBanner">
-      <div class="title" id="resultTitle">✅ Правильно!</div>
-      <div id="resultDetail" style="color: var(--text-muted); font-size:14px;"></div>
+  <section class="pp-view hidden" id="v-game">
+    <div class="pp-topbar">
+      <div class="pp-round"><small>Раунд</small><b id="roundNo"></b></div>
+      <div class="pp-stagetitle" id="stageTitle"></div>
+      <div class="pp-timer off" id="timer"><svg viewBox="0 0 44 44"><circle class="trk" cx="22" cy="22" r="19"/><circle class="bar" cx="22" cy="22" r="19"/></svg><span></span></div>
     </div>
-  </div>
+    <div class="qz-scores" id="scores"></div>
+    <div class="qz-turn" id="turnBox"></div>
+    <div class="pp-stage" id="stage"></div>
+  </section>
 
-  <div id="view-end" class="hidden" style="width:100%; display:flex; flex-direction:column; align-items:center;">
-    <h2>🏆 Гру завершено</h2>
-    <div id="podium" style="width:100%;"></div>
-  </div>
+  <section class="pp-view hidden qz-final" id="v-end">
+    <h2 class="pp-sumtitle">Гру завершено</h2>
+    <div class="pp-card"><div class="pp-h"><span data-ic="star"></span> Підсумок</div><div id="podium"></div></div>
+  </section>
 
-  <div id="hostControls" class="host-controls hidden">
-    <div class="eyebrow">Гост-контролі</div>
-    <div class="btn-row">
-      <button class="secondary-btn hidden" id="btnForceStart">Почати зараз</button>
-      <button class="secondary-btn hidden" id="btnSkip">Пропустити питання</button>
-      <button class="secondary-btn hidden" id="btnNextTurn">Наступний хід</button>
-    </div>
-    <button class="secondary-btn danger-btn" id="btnReset">🔄 Скинути гру</button>
+  <div class="pp-hostbar hidden" id="hostControls">
+    <button class="pp-btn pp-ghost" id="btnReset"><span data-ic="refresh"></span></button>
+    <button class="pp-btn pp-primary hidden" id="btnForceStart">Почати зараз</button>
+    <button class="pp-btn pp-primary hidden" id="btnSkip">Пропустити питання</button>
+    <button class="pp-btn pp-primary hidden" id="btnNextTurn">Наступний хід</button>
   </div>
-
-</div>
-</div>
+</div></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
@@ -206,8 +162,11 @@
 <script src="js/core/login.js"></script>
 <script src="js/promts/quiz-topics.js"></script>
 <script src="js/core/online-engine.js"></script>
+<script src="js/quiplash-avatars.js"></script>
+<script src="js/quiplash-sounds.js"></script>
 <script src="js/quiz-game.js"></script>
 <script src="js/core/room-code-ui.js"></script>
+<script src="js/party-ui.js"></script>
 <script src="js/core/reactions.js"></script>
 <script src="js/core/score-connect.js"></script>
 <script src="js/core/records.js"></script>
@@ -215,268 +174,216 @@
 <script src="js/core/back-button.js"></script>
 <script>
 (function () {
-  const VIEWS = ["locked", "room-entry", "status", "select", "answer", "result", "end"];
+  const Q = window.QuizGame;
+  const { esc, icon } = window.PartyUI;
+  const $ = (id) => document.getElementById(id);
+  const sfx = (n) => { try { window.QuiplashSfx && QuiplashSfx.play(n); } catch (e) {} };
+  const buzz = (p) => { try { window.QuiplashSfx && QuiplashSfx.vibrate(p); } catch (e) {} };
+  const EMBLEM = `<svg class="pp-emblem" viewBox="0 0 120 120" aria-hidden="true">
+    <rect x="14" y="26" width="92" height="68" rx="10" fill="#1736b8" stroke="#ffcc33" stroke-width="4"/>
+    <g fill="#ffcc33" font-family="Russo One, sans-serif" font-size="15" text-anchor="middle">
+      <text x="37" y="50">100</text><text x="83" y="50">200</text><text x="37" y="80">300</text><text x="83" y="80">500</text></g>
+    <path d="M60 30v60M18 60h84" stroke="#0a1452" stroke-width="4"/>
+    <circle cx="96" cy="22" r="13" fill="#ff5468"/><path d="M92 17q4-5 8 0-1 4-4 5v3M96 29v.5" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg>`;
+  document.querySelectorAll("[data-ic]").forEach((el) => { el.outerHTML = icon(el.dataset.ic); });
+  document.querySelectorAll("[data-emblem]").forEach((el) => { el.outerHTML = EMBLEM; });
+  const avatar = (room, name, opts) => window.PartyUI.avatar(room, name, opts);
+  const sig = {};
+  function paint(id, key, html) { if (sig[id] === key) return false; sig[id] = key; $(id).innerHTML = html; return true; }
+
+  const VIEWS = ["locked", "spectate", "entry", "lobby", "game", "end"];
+  let curView = null;
   function showView(name) {
-    VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name));
-  }
-  function escapeHtml(s) {
-    const d = document.createElement("div");
-    d.textContent = s || "";
-    return d.innerHTML;
-  }
-
-  function renderScoreboard(state, into) {
-    const sorted = Object.entries(state.players || {}).sort((a, b) => (b[1].score || 0) - (a[1].score || 0));
-    into.innerHTML = sorted
-      .map(([name, p]) => {
-        const online = window.QuizGame.connectedEntries(state.players).some(([n]) => n === name);
-        const pts = p.score || 0;
-        return `<div class="score-row ${name === state.currentPlayerUsername ? "is-active" : ""}">
-          <div>${!online ? '<span class="dot-offline"></span>' : ""}${escapeHtml(name)}${name === state.currentPlayerUsername ? '<span class="badge-turn">ХІД</span>' : ""}</div>
-          <div class="points ${pts < 0 ? "negative" : ""}">${pts}</div>
-        </div>`;
-      })
-      .join("");
+    if (curView === name) return;
+    curView = name;
+    VIEWS.forEach((v) => $("v-" + v).classList.toggle("hidden", v !== name));
+    document.body.dataset.view = name === "game" || name === "end" ? "round" : name;
+    window.scrollTo(0, 0);
   }
 
-  function questionValueFor(state, ci, qi) {
-    const base = window.QuizGame.QUIZ_TOPICS[ci].questions[qi].value;
-    const roundMult = state.round === 2 ? window.QuizGame.ROUND2_VALUE_MULTIPLIER : 1;
-    const catchUpMult = state.isCatchUpTurn ? window.QuizGame.CATCHUP_VALUE_MULTIPLIER : 1;
-    return base * roundMult * catchUpMult;
+  let lastState = null, lastCtx = null, reactionsMounted = false, scoreSentForGame = false;
+  let answeredKey = null, lastPhase = null, lastQKey = null, lastTick = null;
+
+  function valueFor(state, ci, qi) {
+    const base = Q.QUIZ_TOPICS[ci].questions[qi].value;
+    return base * (state.round === 2 ? Q.ROUND2_VALUE_MULTIPLIER : 1) * (state.isCatchUpTurn ? Q.CATCHUP_VALUE_MULTIPLIER : 1);
+  }
+  function scoresHtml(state) {
+    const conn = Q.connectedEntries(state.players).map(([n]) => n);
+    return Object.entries(state.players || {}).sort((a, b) => (b[1].score || 0) - (a[1].score || 0)).map(([n, p]) =>
+      `<div class="qz-chip ${n === state.currentPlayerUsername ? "on" : ""} ${conn.includes(n) ? "" : "off"}">${avatar(state, n, { size: "sm", still: n !== state.currentPlayerUsername })}<span class="n">${esc(n)}</span><span class="v ${(p.score || 0) < 0 ? "neg" : ""}">${p.score || 0}</span></div>`).join("");
   }
 
-  function renderSelectBoard(state) {
-    document.getElementById("roundBadge").textContent = `· Раунд ${state.round || 1}/${window.QuizGame.TOTAL_ROUNDS}`;
-    document.getElementById("catchUpBanner").style.display = state.isCatchUpTurn ? "" : "none";
-    const el = document.getElementById("selectBoard");
-    el.innerHTML = state.board
-      .map((t, ci) => {
-        const btns = t.questions
-          .map((q, qi) => {
-            const value = questionValueFor(state, ci, qi);
-            return q.played
-              ? `<span class="val-btn played">—</span>`
-              : `<button class="val-btn" data-ci="${ci}" data-qi="${qi}">${value}</button>`;
-          })
-          .join("");
-        return `<div class="select-cat"><div class="cat-name">${escapeHtml(t.name)}</div><div class="vals">${btns}</div></div>`;
-      })
-      .join("");
-    el.querySelectorAll("button[data-ci]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        window.QuizGame.selectQuestion(Number(btn.dataset.ci), Number(btn.dataset.qi));
-      });
-    });
-  }
-
-  let answeredThisQuestion = false;
-  let lastQKey = null;
-
-  function renderAnswerView(state) {
-    const { categoryIndex, questionIndex } = state.currentQuestion;
-    const q = window.QuizGame.QUIZ_TOPICS[categoryIndex].questions[questionIndex];
-    const key = `${categoryIndex}-${questionIndex}`;
-    if (key !== lastQKey) { answeredThisQuestion = false; lastQKey = key; }
-
-    const displayValue = questionValueFor(state, categoryIndex, questionIndex);
-    document.getElementById("answerMeta").textContent = `${state.board[categoryIndex].name} · ${displayValue}${state.isCatchUpTurn ? " 🔥" : ""}`;
-    if (state.phase === "questionActive") {
-      const remaining = Math.max(0, Math.ceil((state.phaseDeadline - window.QuizGame.now()) / 1000));
-      const timerEl = document.getElementById("answerTimer");
-      timerEl.textContent = remaining;
-      timerEl.classList.toggle("urgent", remaining <= 5);
+  // ---------------- лобі ----------------
+  function renderLobby(state, ctx) {
+    const conn = Q.connectedEntries(state.players).map(([n]) => n);
+    const hostName = Q.computeHost(state.players), me = ctx.username, players = state.players || {};
+    $("roomCodeDisplay").textContent = Q.roomId || "";
+    $("lobbyStatus").textContent = `Онлайн: ${conn.length} · мінімум ${Q.MIN_PLAYERS}`;
+    $("lobbyCount").textContent = conn.length;
+    const names = Object.keys(players).sort((a, b) => conn.includes(b) - conn.includes(a));
+    const key = names.map((n) => [n, players[n].character, conn.includes(n), n === hostName].join(":")).join("|") + "#" + me;
+    if (paint("playersList", key, names.map((n) => {
+      const mine = n === me;
+      return `<button class="pp-pl ${mine ? "me" : ""} ${conn.includes(n) ? "" : "off"}" ${mine ? 'data-me="1"' : "disabled"}>${avatar(state, n, { size: "lg", mood: mine ? "happy" : "idle" })}
+        <span class="nm">${esc(n)}</span>${n === hostName ? `<span class="tag">${icon("crown")}</span>` : ""}${mine ? `<span class="swap">${icon("swap")}</span>` : ""}</button>`;
+    }).join("") || '<div class="pp-note">Ще нікого немає</div>')) {
+      const mine = $("playersList").querySelector("[data-me]");
+      if (mine) mine.addEventListener("click", () => { Q.cycleAvatar(); sfx("pop"); });
     }
-    document.getElementById("answerQ").textContent = q.text;
-
-    const locked = answeredThisQuestion || !!state.pendingAnswer || state.phase === "evaluating";
-    const grid = document.getElementById("answerOptions");
-    grid.innerHTML = q.options
-      .map((opt, i) => `<button class="opt-btn ${locked ? "locked" : ""}" data-i="${i}"><span class="letter">${String.fromCharCode(65 + i)}</span>${escapeHtml(opt)}</button>`)
-      .join("");
-
-    if (!locked) {
-      grid.querySelectorAll("button[data-i]").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          if (answeredThisQuestion) return;
-          answeredThisQuestion = true;
-          [...grid.children].forEach((b) => b.classList.add("locked"));
-          btn.classList.add("chosen");
-          window.QuizGame.submitAnswer(Number(btn.dataset.i));
-        });
-      });
-    }
+    const cd = state.phase === "countdown";
+    $("countdownBox").classList.toggle("hidden", !cd);
+    $("lobbyHint").textContent = cd ? "" : conn.length < Q.MIN_PLAYERS ? `Гра стартує сама, щойно буде ${Q.MIN_PLAYERS} гравці` : "";
+    updateCountdown();
+  }
+  function updateCountdown() {
+    const s = lastState;
+    if (!s || s.phase !== "countdown") return;
+    const left = Math.max(0, Math.ceil((s.phaseDeadline - Q.now()) / 1000));
+    if ($("countdownNum").textContent !== String(left)) { $("countdownNum").textContent = left; if (left <= 3 && left > 0) sfx("tick"); }
   }
 
-  function renderResultView(state) {
+  // ---------------- гра ----------------
+  function renderGame(state, ctx) {
+    const me = ctx.username, active = state.currentPlayerUsername, mine = active === me;
+    $("roundNo").innerHTML = `${state.round || 1}<i>/${Q.TOTAL_ROUNDS}</i>`;
+    paint("scores", JSON.stringify([state.players, active]), scoresHtml(state));
+    const phase = state.phase;
+    $("stageTitle").textContent = phase === "categorySelect" ? "Вибір питання" : phase === "questionActive" ? "Питання" : phase === "evaluating" ? "Перевіряємо…" : "Результат";
+    paint("turnBox", [active, (state.players[active] || {}).character, phase, state.isCatchUpTurn, mine].join("|"),
+      active ? `${avatar(state, active, { size: "md", mood: phase === "questionActive" ? "write" : phase === "resultDisplay" ? (state.lastEvaluation && state.lastEvaluation.correct ? "happy" : "sad") : "idle" })}
+        <div><small>${phase === "categorySelect" ? "Обирає питання" : "Відповідає"}</small><b>${mine ? "Ти" : esc(active)}</b></div>
+        ${state.isCatchUpTurn ? `<span class="flag">${icon("bolt")} бали ×2</span>` : ""}` : "");
+
+    if (phase === "categorySelect") {
+      paint("stage", "board|" + JSON.stringify(state.board) + "|" + mine + "|" + state.round + state.isCatchUpTurn,
+        `<div class="qz-hint">${mine ? "Твій хід — обери тему й вартість" : `${esc(active || "—")} обирає питання…`}</div>
+        <div class="qz-board ${mine ? "" : "watch"}">${(state.board || []).map((t, ci) => `<div class="qz-row"><div class="qz-cat">${esc(t.name)}</div>${t.questions.map((q, qi) =>
+          q.played ? '<button class="qz-cell played" disabled>·</button>' : `<button class="qz-cell" data-ci="${ci}" data-qi="${qi}" ${mine ? "" : "disabled"}>${valueFor(state, ci, qi)}</button>`).join("")}</div>`).join("")}</div>`);
+      return;
+    }
+    const cq = state.currentQuestion;
+    if (!cq) return;
+    const q = Q.QUIZ_TOPICS[cq.categoryIndex].questions[cq.questionIndex];
+    const qKey = `${state.round}-${cq.categoryIndex}-${cq.questionIndex}`;
     const ev = state.lastEvaluation;
-    if (!ev) return;
-    const banner = document.getElementById("resultBanner");
-    banner.className = "result-banner " + (ev.correct ? "correct" : "wrong");
-    document.getElementById("resultTitle").textContent = ev.correct
-      ? `✅ Правильно! +${ev.pointsAwarded}`
-      : `❌ Неправильно (${ev.pointsAwarded})`;
-    const { categoryIndex, questionIndex } = state.currentQuestion || {};
-    const q = categoryIndex !== undefined ? window.QuizGame.QUIZ_TOPICS[categoryIndex].questions[questionIndex] : null;
-    document.getElementById("resultDetail").textContent = q ? `Правильна відповідь: ${q.options[q.correctIndices[0]]}. ${q.answerText || ""}` : "";
+    const chosen = phase === "questionActive" ? (state.pendingAnswer ? state.pendingAnswer.selectedIndex : answeredKey === qKey ? myPick : null)
+      : ev ? ev.selectedIndex : null;
+    const showResult = phase === "resultDisplay" && ev;
+    const canAnswer = mine && phase === "questionActive" && !state.pendingAnswer && answeredKey !== qKey;
+    const optCls = (i) => {
+      if (showResult) return q.correctIndices.includes(i) ? "right" : i === chosen ? "wrong" : "dim";
+      return i === chosen ? "chosen" : "";
+    };
+    const fresh = qKey !== lastQKey;
+    paint("stage", ["q", qKey, phase, chosen, canAnswer].join("|"),
+      `<div class="qz-meta"><span>${esc(state.board[cq.categoryIndex].name)}</span><span class="val">${valueFor(state, cq.categoryIndex, cq.questionIndex)}</span></div>
+      <div class="qz-q ${fresh ? "in" : ""}">${esc(q.text)}</div>
+      <div class="qz-opts ${canAnswer ? "" : "watch"}">${q.options.map((o, i) => `<button class="qz-opt ${optCls(i)}" data-i="${i}" ${canAnswer ? "" : "disabled"}><span class="l">${String.fromCharCode(65 + i)}</span><span>${esc(o)}</span></button>`).join("")}</div>` +
+      (showResult ? `<div class="qz-res ${ev.correct ? "ok" : "bad"}">${avatar(state, ev.playerName, { size: "md", mood: ev.correct ? "happy" : "sad" })}<div>
+          <b>${ev.selectedIndex == null ? "Час вийшов" : ev.correct ? "Правильно!" : "Неправильно"} ${ev.pointsAwarded > 0 ? "+" : ""}${ev.pointsAwarded}</b>
+          <small>${esc(q.answerText || ("Правильна відповідь: " + q.options[q.correctIndices[0]]))}</small></div></div>` : "") +
+      (phase === "questionActive" && !mine ? `<div class="qz-hint">Підказувати не можна — ${esc(active)} думає сам(а)</div>` : "") +
+      (phase === "questionActive" && mine && !canAnswer ? `<div class="qz-hint">Відповідь прийнято — чекаємо на перевірку</div>` : ""));
+    if (fresh) lastQKey = qKey;
+  }
+  let myPick = null;
+
+  $("stage").addEventListener("click", (e) => {
+    const cell = e.target.closest(".qz-cell[data-ci]");
+    if (cell && !cell.disabled) { Q.selectQuestion(Number(cell.dataset.ci), Number(cell.dataset.qi)); sfx("pop"); buzz(12); return; }
+    const opt = e.target.closest(".qz-opt[data-i]");
+    if (opt && !opt.disabled && lastState && lastState.currentQuestion) {
+      const cq = lastState.currentQuestion;
+      answeredKey = `${lastState.round}-${cq.categoryIndex}-${cq.questionIndex}`;
+      myPick = Number(opt.dataset.i);
+      Q.submitAnswer(myPick); sfx("pop"); buzz(15);
+      renderGame(lastState, lastCtx);
+    }
+  });
+
+  const RING = 2 * Math.PI * 19;
+  function updateTimer() {
+    const el = $("timer"), s = lastState;
+    if (!s || s.phase !== "questionActive" || !s.phaseDeadline || !s.currentQuestion) { el.className = "pp-timer off"; return; }
+    const q = Q.QUIZ_TOPICS[s.currentQuestion.categoryIndex].questions[s.currentQuestion.questionIndex];
+    const total = (q.timeLimit || 30) * 1000, left = Math.max(0, s.phaseDeadline - Q.now()), sec = Math.ceil(left / 1000);
+    const bar = el.querySelector(".bar");
+    bar.style.strokeDasharray = RING; bar.style.strokeDashoffset = RING * (1 - left / total);
+    el.querySelector("span").textContent = sec;
+    el.className = "pp-timer" + (sec <= 5 ? " urgent" : "");
+    if (sec <= 5 && sec > 0 && sec !== lastTick && !s.pendingAnswer) { lastTick = sec; sfx("tick"); }
   }
 
+  // ---------------- фінал ----------------
   function renderEnd(state) {
-    const sorted = Object.entries(state.players || {}).sort((a, b) => (b[1].score || 0) - (a[1].score || 0));
-    document.getElementById("podium").innerHTML = sorted
-      .map(([name, p], i) => `<div class="podium-row ${i === 0 ? "win" : ""}">
-        <div class="podium-rank">${i + 1}${i === 0 ? " 👑" : ""}</div>
-        <div class="podium-name">${escapeHtml(name)}</div>
-        <div class="podium-score">${p.score || 0}</div>
-      </div>`)
-      .join("");
+    const list = Object.entries(state.players || {}).map(([n, p]) => [n, p.score || 0]).sort((a, b) => b[1] - a[1]);
+    const top = list.slice(0, 3);
+    const place = (i) => 1 + top.filter(([, v]) => v > top[i][1]).length;
+    const slot = (i) => top[i] ? `<div class="pp-pod p${place(i)}">${avatar(state, top[i][0], { size: place(i) > 1 ? "md" : "lg", mood: place(i) === 1 ? "happy" : "idle" })}<span class="nm">${esc(top[i][0])}</span><div class="col">${top[i][1]}</div></div>` : "<div></div>";
+    paint("podium", JSON.stringify(list), `<div class="pp-podium">${slot(1)}${slot(0)}${slot(2)}</div>` +
+      (list.length > 3 ? `<div class="pp-rest">${list.slice(3).map(([n, v]) => `<div>${avatar(state, n, { size: "xs", still: true })}<span class="n">${esc(n)}</span><span class="v">${v}</span></div>`).join("")}</div>` : ""));
   }
 
   function updateHostControls(state, ctx) {
-    const panel = document.getElementById("hostControls");
-    panel.classList.toggle("hidden", !ctx.host);
-    if (!ctx.host) return;
-    document.getElementById("btnForceStart").classList.toggle("hidden", !(state.phase === "lobby" || state.phase === "countdown"));
-    document.getElementById("btnSkip").classList.toggle("hidden", state.phase !== "questionActive");
-    document.getElementById("btnNextTurn").classList.toggle("hidden", !(state.phase === "evaluating" || state.phase === "resultDisplay"));
+    const panel = $("hostControls"), ph = state.phase;
+    const host = !!ctx.host && !ctx.spectating;
+    $("btnForceStart").classList.toggle("hidden", !(ph === "lobby" || ph === "countdown"));
+    $("btnSkip").classList.toggle("hidden", ph !== "questionActive");
+    $("btnNextTurn").classList.toggle("hidden", !(ph === "evaluating" || ph === "resultDisplay"));
+    panel.classList.toggle("hidden", !host);
   }
 
   function onState(state, ctx) {
+    const prev = lastPhase;
+    lastState = state; lastCtx = ctx;
     if (!ctx.username) { showView("locked"); return; }
-    if (!reactionsMounted && window.GameReactions && window.QuizGame.roomRef) {
-      reactionsMounted = true;
-      window.GameReactions.mount(window.QuizGame.roomRef, ctx.username);
-    }
-
-    document.getElementById("myScore").textContent = (state.players[ctx.username] || {}).score || 0;
-    document.getElementById("roomCodeLabel").textContent = window.QuizGame.roomId ? `· ${window.QuizGame.roomId}` : "";
+    if (!reactionsMounted && window.GameReactions && Q.roomRef) { reactionsMounted = true; window.GameReactions.mount(Q.roomRef, ctx.username); }
     updateHostControls(state, ctx);
+    if (ctx.spectating) { showView("spectate"); paint("specScores", JSON.stringify(state.players), scoresHtml(state)); return; }
 
-    if (ctx.spectating) {
-      showView("status");
-      document.getElementById("statusLine").textContent = "Гра вже триває — приєднаєшся, коли почнеться нова";
-      renderScoreboard(state, document.getElementById("scoreboardStatus"));
-      return;
+    const ph = state.phase;
+    if (ph !== prev) {
+      if (ph === "questionActive") { sfx("whoosh"); if (state.currentPlayerUsername === ctx.username) buzz(25); }
+      else if (ph === "evaluating") sfx("drum");
+      else if (ph === "resultDisplay" && state.lastEvaluation) sfx(state.lastEvaluation.correct ? "ding" : "wah");
+      else if (ph === "categorySelect" && state.currentPlayerUsername === ctx.username && prev) { sfx("chime"); buzz(30); }
+      else if (ph === "game_over") sfx("fanfare");
     }
+    lastPhase = ph;
 
-    switch (state.phase) {
-      case "lobby": {
-        showView("status");
-        scoreSentForGame = false;
-        const conn = window.QuizGame.connectedEntries(state.players).length;
-        document.getElementById("statusLine").innerHTML = `<span class="pulse-dot"></span> Очікуємо гравців (${conn}/${window.QuizGame.MIN_PLAYERS})`;
-        renderScoreboard(state, document.getElementById("scoreboardStatus"));
-        break;
+    if (ph === "lobby" || ph === "countdown") { scoreSentForGame = false; showView("lobby"); renderLobby(state, ctx); }
+    else if (ph === "game_over") {
+      showView("end"); renderEnd(state);
+      if (!scoreSentForGame) {
+        scoreSentForGame = true;
+        const me = state.players && state.players[ctx.username];
+        if (me && window.AppScore && window.AppScore.sendScore) window.AppScore.sendScore("quiz", me.score || 0);
       }
-      case "countdown": {
-        showView("status");
-        const left = Math.max(0, Math.ceil((state.phaseDeadline - window.QuizGame.now()) / 1000));
-        document.getElementById("statusLine").textContent = `Гра почнеться через ${left} с`;
-        renderScoreboard(state, document.getElementById("scoreboardStatus"));
-        break;
-      }
-      case "categorySelect": {
-        if (ctx.isActive) {
-          showView("select");
-          renderSelectBoard(state);
-        } else {
-          showView("status");
-          document.getElementById("statusLine").textContent = `Хід гравця: ${state.currentPlayerUsername || "—"}`;
-          renderScoreboard(state, document.getElementById("scoreboardStatus"));
-        }
-        break;
-      }
-      case "questionActive":
-      case "evaluating": {
-        if (ctx.isActive) {
-          showView("answer");
-          renderAnswerView(state);
-        } else {
-          showView("status");
-          document.getElementById("statusLine").textContent = `Відповідає: ${state.currentPlayerUsername || "—"}`;
-          renderScoreboard(state, document.getElementById("scoreboardStatus"));
-        }
-        break;
-      }
-      case "resultDisplay": {
-        if (ctx.isActive) {
-          showView("result");
-          renderResultView(state);
-        } else {
-          showView("status");
-          document.getElementById("statusLine").textContent = `${state.currentPlayerUsername || "—"} щойно відповідав(-ла)`;
-          renderScoreboard(state, document.getElementById("scoreboardStatus"));
-        }
-        break;
-      }
-      case "game_over": {
-        showView("end");
-        renderEnd(state);
-        if (!scoreSentForGame) {
-          scoreSentForGame = true;
-          const me = state.players && state.players[ctx.username];
-          if (me && window.AppScore && window.AppScore.sendScore) {
-            window.AppScore.sendScore("quiz", me.score || 0);
-          }
-        }
-        break;
-      }
-    }
+    } else { showView("game"); renderGame(state, ctx); }
+    updateTimer();
   }
 
-  document.getElementById("btnForceStart").addEventListener("click", () => window.QuizGame.forceStart());
-  document.getElementById("btnSkip").addEventListener("click", () => window.QuizGame.skipQuestion());
-  document.getElementById("btnNextTurn").addEventListener("click", () => window.QuizGame.forceNextTurn());
-  document.getElementById("btnReset").addEventListener("click", () => {
-    if (confirm("Скинути гру для всіх?")) window.QuizGame.resetGame();
-  });
+  $("btnForceStart").addEventListener("click", () => Q.forceStart());
+  $("btnSkip").addEventListener("click", () => Q.skipQuestion());
+  $("btnNextTurn").addEventListener("click", () => Q.forceNextTurn());
+  $("btnReset").addEventListener("click", () => { if (confirm("Скинути гру для всіх?")) Q.resetGame(); });
+  setInterval(() => { updateTimer(); updateCountdown(); }, 250);
 
-  let lastState = null;
-  let reactionsMounted = false;
-  let scoreSentForGame = false; // дедуп: щоб не слати рахунок повторно на кожен рендер game_over
-  setInterval(() => {
-    if (!lastState) return;
-    if (lastState.phase === "countdown") {
-      const el = document.getElementById("statusLine");
-      if (el && !document.getElementById("view-status").classList.contains("hidden")) {
-        const left = Math.max(0, Math.ceil((lastState.phaseDeadline - window.QuizGame.now()) / 1000));
-        el.textContent = `Гра почнеться через ${left} с`;
-      }
-    }
-    if (lastState.phase === "questionActive" && !document.getElementById("view-answer").classList.contains("hidden")) {
-      const remaining = Math.max(0, Math.ceil((lastState.phaseDeadline - window.QuizGame.now()) / 1000));
-      const timerEl = document.getElementById("answerTimer");
-      if (timerEl) { timerEl.textContent = remaining; timerEl.classList.toggle("urgent", remaining <= 5); }
-    }
-  }, 250);
-
-  function beginGame(username, roomId) {
-    window.QuizGame.onStateChange = (state, ctx) => { lastState = state; onState(state, ctx); };
-    window.QuizGame.start(username, roomId);
-  }
-
+  function beginGame(username, roomId) { Q.onStateChange = onState; Q.start(username, roomId); }
   const session = window.AppAuth && window.AppAuth.getSession();
   if (session && window.rtdbReady) {
     RoomCodeUI.mount({
-      containerId: "activeRoomsList",
-      codeInputId: "roomCodeInput",
-      joinBtnId: "joinRoomBtn",
-      createBtnId: "createRoomBtn",
-      watchActiveRooms: window.QuizGame.watchActiveRooms,
-      renderRoomItem: (r) => `
-        <div class="room-item-head">
-          <span class="room-item-title">Кімната ${RoomCodeUI.escapeHtml(r.roomId)}</span>
-          <span class="room-item-phase">${r.phase === "lobby" || r.phase === "countdown" ? "Лобі" : "Гра триває"}</span>
-        </div>
-        <div class="room-item-count">Онлайн: ${r.connectedCount} / ${r.playerCount}</div>`,
+      containerId: "activeRoomsList", codeInputId: "roomCodeInput", joinBtnId: "joinRoomBtn", createBtnId: "createRoomBtn",
+      watchActiveRooms: Q.watchActiveRooms,
+      emptyListHtml: '<div class="hint-text">Активних кімнат поки нема — створи нову</div>',
+      renderRoomItem: (r) => `<div class="pp-room"><b>${esc(r.roomId)}</b><small>${icon("users")} ${r.connectedCount}/${r.playerCount}</small>
+        <span class="st ${r.phase === "lobby" || r.phase === "countdown" ? "" : "live"}">${r.phase === "lobby" || r.phase === "countdown" ? "Лобі" : "Гра йде"}</span></div>`,
       onEnter: (roomId) => beginGame(session.username, roomId),
     });
-    showView("room-entry");
-  } else {
-    showView("locked");
-  }
-
-  window.addEventListener("beforeunload", () => { if (window.QuizGame) window.QuizGame.stop(); });
+    showView("entry");
+  } else showView("locked");
+  window.addEventListener("beforeunload", () => Q.stop());
 })();
 </script>
 </body>
