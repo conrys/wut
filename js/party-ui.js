@@ -70,6 +70,28 @@
     return `<span class="pav ${opts.size || ""} ${opts.cls || ""}" title="${esc(name)}">${inner}${opts.badge || ""}</span>`;
   }
 
+  // ---------------- подіум підсумку ----------------
+  function podium(room, which, mood) {
+    const t = (room.tally && room.tally[which]) || {};
+    const list = Object.entries(t).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1));
+    if (!list.length) return '<div class="pp-note">поки порожньо</div>';
+    const top = list.slice(0, 3);
+    // однаковий рахунок — однакове місце (і висота стовпчика)
+    const place = (i) => 1 + top.filter(([, v]) => v > top[i][1]).length;
+    const slot = (i) => top[i] ? `<div class="pp-pod p${place(i)}">${avatar(room, top[i][0], { size: place(i) > 1 ? "md" : "lg", mood: place(i) > 1 ? "idle" : mood })}<span class="nm">${esc(top[i][0])}</span><div class="col">${top[i][1]}</div></div>` : "<div></div>";
+    return `<div class="pp-podium">${slot(1)}${slot(0)}${slot(2)}</div>` +
+      (list.length > 3 ? `<div class="pp-rest">${list.slice(3).map(([n, v]) => `<div>${avatar(room, n, { size: "xs", still: true })}<span class="n">${esc(n)}</span><span class="v">${v}</span></div>`).join("")}</div>` : "");
+  }
+  // Ковток / бали / хто ще п'є — для етапу-результату (st.penalties, st.points, st.capped)
+  function drinkHtml(room, st, me, cap) {
+    const pen = st.penalties || {}, pts = st.points || {}, mineSips = pen[me];
+    const others = Object.keys(pen).filter((n) => n !== me);
+    return (mineSips ? `<div class="pp-drink">${glassSvg()}<div><b>Ковток!${mineSips > 1 ? " ×" + mineSips : ""}</b><small>або будь-який напій — у своєму темпі</small></div></div>` : "") +
+      (pts[me] ? `<div class="pp-gain">+${pts[me]} ${pts[me] === 1 ? "бал" : pts[me] < 5 ? "бали" : "балів"}</div>` : "") +
+      (others.length ? `<div class="pp-drinkers">${icon("glass")} П'ють:${others.map((n) => avatar(room, n, { size: "sm", mood: "shock", still: true })).join("")}</div>` : "") +
+      ((st.capped || []).length ? `<div class="pp-note">Ліміт ${cap || 6} ковтків за набір: ${st.capped.map(esc).join(", ")} — без доданого</div>` : "");
+  }
+
   // ---------------- розмітка ----------------
   function skeleton(cfg) {
     return `<div class="pp-wrap">
@@ -251,13 +273,7 @@
       } else paint("waitInfo", "none", "");
       // ковток / бали
       if (isReveal) {
-        const pen = st.penalties || {}, pts = st.points || {}, mineSips = pen[c.me];
-        const others = Object.keys(pen).filter((n) => n !== c.me);
-        paint("drinkArea", "r" + st.id,
-          (mineSips ? `<div class="pp-drink">${glassSvg()}<div><b>Ковток!${mineSips > 1 ? " ×" + mineSips : ""}</b><small>або будь-який напій — у своєму темпі</small></div></div>` : "") +
-          (pts[c.me] ? `<div class="pp-gain">+${pts[c.me]} ${pts[c.me] === 1 ? "бал" : "бали"}</div>` : "") +
-          (others.length ? `<div class="pp-drinkers">${icon("glass")} П'ють:${others.map((n) => avatar(room, n, { size: "sm", mood: "shock", still: true })).join("")}</div>` : "") +
-          ((st.capped || []).length ? `<div class="pp-note">Ліміт ${G.SET_CAP} ковтків за набір: ${st.capped.map(esc).join(", ")} — без доданого</div>` : ""));
+        paint("drinkArea", "r" + st.id, drinkHtml(room, st, c.me, G.SET_CAP));
       } else paint("drinkArea", "none", "");
 
       $("hostBar").classList.toggle("hidden", !ctx.host);
@@ -285,17 +301,6 @@
     }
 
     // ---------------- підсумок ----------------
-    function podium(room, which, mood) {
-      const t = (room.tally && room.tally[which]) || {};
-      const list = Object.entries(t).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1));
-      if (!list.length) return '<div class="pp-note">поки порожньо</div>';
-      const top = list.slice(0, 3);
-      // однаковий рахунок — однакове місце (і висота стовпчика)
-      const place = (i) => 1 + top.filter(([, v]) => v > top[i][1]).length;
-      const slot = (i) => top[i] ? `<div class="pp-pod p${place(i)}">${avatar(room, top[i][0], { size: place(i) > 1 ? "md" : "lg", mood: place(i) > 1 ? "idle" : mood })}<span class="nm">${esc(top[i][0])}</span><div class="col">${top[i][1]}</div></div>` : "<div></div>";
-      return `<div class="pp-podium">${slot(1)}${slot(0)}${slot(2)}</div>` +
-        (list.length > 3 ? `<div class="pp-rest">${list.slice(3).map(([n, v]) => `<div>${avatar(room, n, { size: "xs", still: true })}<span class="n">${esc(n)}</span><span class="v">${v}</span></div>`).join("")}</div>` : "");
-    }
     function renderSummary(room, ctx) {
       const t = room.tally || {};
       paint("sumDrinks", "d" + JSON.stringify(t.drinks || {}), podium(room, "drinks", "shock"));
@@ -343,5 +348,5 @@
     window.addEventListener("beforeunload", () => G.stop());
   }
 
-  window.PartyUI = { mount, icon, esc, avatar, glassSvg };
+  window.PartyUI = { mount, icon, esc, avatar, glassSvg, podium, drinkHtml };
 })();
