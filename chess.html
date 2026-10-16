@@ -6,14 +6,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
 <title>Шахи</title>
 <link rel="stylesheet" href="js/styles/teli-style.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#1b130d" />
 <style>
   :root {
-    --board-light: #e9d8b4;
-    --board-dark: #8a6a4a;
-    --board-select: rgba(217, 180, 92, 0.55);
-    --board-lastmove: rgba(217, 180, 92, 0.28);
-    --board-check: rgba(217, 90, 90, 0.55);
-    --board-dot: rgba(30, 20, 10, 0.35);
+    /* тема «шаховий клуб»: горіхове дерево, класична дошка, золото */
+    --board-light: #f0d9b5;
+    --board-dark: #b58863;
+    --board-select: rgba(20, 110, 60, 0.45);
+    --board-lastmove: rgba(205, 210, 106, 0.55);
+    --board-check: rgba(220, 40, 40, 0.6);
+    --board-dot: rgba(20, 30, 10, 0.32);
+    --bg-void: #1b130d; --bg-panel: rgba(46, 31, 21, 0.86); --bg-tile: #3b2a1d;
+    --accent: #e0b25a; --text-primary: #f6ecdc; --text-muted: #c2ab8e; --border-soft: rgba(224, 178, 90, 0.24);
+    --font-display: 'Cormorant Garamond', Georgia, serif; --font-body: 'Manrope', sans-serif;
     --radius-xs: 4px;
     --radius-sm: 8px;
     --radius-md: 14px;
@@ -63,6 +71,7 @@
   .turn-bar .swatch { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
   .turn-bar .swatch.w { background: #eee; border: 1px solid #999; }
   .turn-bar .swatch.b { background: #222; border: 1px solid #555; }
+  .turn-bar .kimg { width: 26px; height: 26px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
 
   .board-wrap { width: 100%; max-width: 420px; margin: 0 auto; }
   .board {
@@ -97,6 +106,47 @@
   .sq .coord.file { bottom: 2px; right: 4px; }
   .sq.light .coord { color: var(--board-dark); }
   .sq.dark .coord { color: var(--board-light); }
+
+  /* ---- тема: тло-горіх, дерев'яна рамка дошки ---- */
+  html, body { background:
+    radial-gradient(70% 45% at 50% 0%, rgba(224,178,90,.14), transparent 70%),
+    repeating-linear-gradient(97deg, rgba(255,255,255,.018) 0 2px, transparent 2px 9px),
+    repeating-linear-gradient(93deg, rgba(0,0,0,.08) 0 1px, transparent 1px 23px),
+    linear-gradient(180deg, #2a1c12, #1b130d) fixed; }
+  .title-block { text-align: center; margin-bottom: 6px; }
+  .title-block svg { width: 74px; height: 74px; display: block; margin: 0 auto 4px; filter: drop-shadow(0 6px 14px rgba(0,0,0,.5)); }
+  .logo { font-size: 38px; font-weight: 700; letter-spacing: .04em; }
+  .logo span { color: var(--accent); }
+  .title-block .sub { font-size: 13px; color: var(--text-muted); }
+  .card { background: var(--bg-panel); box-shadow: 0 10px 28px rgba(0,0,0,.35); }
+  .card h3 { font-family: var(--font-body); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--text-muted); margin: 0 0 10px; }
+  .btn { font-family: var(--font-body); font-weight: 700; transition: transform .12s; }
+  .btn:active:not(:disabled) { transform: scale(.97); }
+  .btn-primary { background: linear-gradient(180deg, #ecc472, #c9973c); color: #2a1a06; font-family: var(--font-body); font-weight: 800; box-shadow: 0 6px 18px rgba(224,178,90,.3); }
+  .field { background: rgba(0,0,0,.25); }
+  .mode-card { display: flex; align-items: center; gap: 14px; background: var(--bg-panel); box-shadow: 0 8px 22px rgba(0,0,0,.3); transition: transform .15s, border-color .2s; }
+  .mode-card:active { transform: scale(.98); border-color: var(--accent); }
+  .mode-card .mico { flex: none; width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; background: rgba(224,178,90,.12); }
+  .mode-card .mico img { width: 38px; height: 38px; }
+  .mode-card .mtitle { font-size: 22px; }
+  .role-slot { background: var(--bg-tile); border-width: 2px; }
+  .role-slot .csw img, .clock-chip .cc-label img { width: 26px; height: 26px; vertical-align: middle; }
+  .clock-chip .cc-label { display: flex; align-items: center; gap: 6px; }
+  .clock-chip .cc-time { font-family: var(--font-body); font-weight: 800; font-variant-numeric: tabular-nums; }
+  .empty-icon svg { width: 54px; height: 54px; color: var(--accent); }
+  .board-wrap { padding: 10px; border-radius: 14px; max-width: 440px;
+    background: linear-gradient(135deg, #6b4526, #3d2614 45%, #5a3a20); box-shadow: 0 18px 44px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.18), inset 0 -2px 0 rgba(0,0,0,.3); }
+  .board { border: 0; border-radius: 4px; box-shadow: 0 0 0 2px rgba(0,0,0,.35); }
+  .sq.light { background: linear-gradient(135deg, #f3dfbd, #ebd2a9); }
+  .sq.dark { background: linear-gradient(135deg, #bb8f68, #ad805a); }
+  .sq .piece { filter: drop-shadow(0 2px 2px rgba(0,0,0,.45)); }
+  .turn-bar { font-size: 15px; }
+  .turn-bar .who { font-family: var(--font-body); font-weight: 800; }
+  .move-history { gap: 6px; }
+  .move-history .mv-pair { padding: 3px 8px; border-radius: 8px; background: rgba(0,0,0,.22); }
+  .result-panel .result-box { background: linear-gradient(180deg, #3b2a1d, #2a1c12); border-color: var(--accent); animation: resIn .4s cubic-bezier(.2,1.3,.4,1) both; }
+  @keyframes resIn { from { opacity: 0; transform: scale(.85); } }
+  .result-panel .rtitle { font-size: 30px; color: var(--accent); }
 
   .promo-picker {
     position: fixed; inset: 0; background: var(--scrim-strong); z-index: 100;
@@ -135,19 +185,20 @@
 <div class="page">
 <div class="pad">
   <div class="title-block" id="titleBlock">
-    <div class="logo">♟️ <span>Шахи</span></div>
+    <svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="54" fill="#3b2a1d" stroke="#e0b25a" stroke-width="4"/><image href="img/chess/white-knight.svg" x="22" y="18" width="76" height="76"/></svg>
+    <div class="logo">Ша<span>хи</span></div><div class="sub">Онлайн з другом, удвох на одному телефоні або проти бота</div>
   </div>
 
   <!-- ВИБІР РЕЖИМУ -->
   <div class="hidden stage" id="view-mode">
     <div class="mode-grid">
-      <button class="mode-card" id="btnModeOnline">
+      <button class="mode-card" id="btnModeOnline"><span class="mico"><img src="img/chess/white-king.svg" alt=""></span><div>
         <div class="mtitle">Онлайн з другом</div>
-        <div class="mdesc">Кімната з кодом, кожен грає зі свого телефону</div>
+        <div class="mdesc">Кімната з кодом, кожен грає зі свого телефону</div></div>
       </button>
-      <button class="mode-card" id="btnModeLocal">
+      <button class="mode-card" id="btnModeLocal"><span class="mico"><img src="img/chess/black-queen.svg" alt=""></span><div>
         <div class="mtitle">Локально, по черзі</div>
-        <div class="mdesc">Один екран — із другом чи проти бота</div>
+        <div class="mdesc">Один екран — із другом чи проти бота</div></div>
       </button>
     </div>
   </div>
@@ -184,7 +235,7 @@
 
   <!-- НЕ ЗАЛОГІНЕНИЙ -->
   <div class="hidden stage-center" id="view-locked">
-    <div class="empty-state"><div class="empty-icon">🔒</div><div class="status-line">Увійди в профіль, щоб грати онлайн</div></div>
+    <div class="empty-state"><div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div><div class="status-line">Увійди в профіль, щоб грати онлайн</div></div>
     <button class="btn btn-block" id="backToModeFromLocked" style="margin-top:14px;">← Назад</button>
   </div>
 
@@ -215,8 +266,8 @@
     <div class="status-line" id="lobbyTimeControlLine"></div>
     <div class="card">
       <h3>Оберіть роль</h3>
-      <button class="role-slot" id="slotWhite"><span class="csw">♔</span><span class="cname">—</span><span class="raction"></span></button>
-      <button class="role-slot" id="slotBlack"><span class="csw">♚</span><span class="cname">—</span><span class="raction"></span></button>
+      <button class="role-slot" id="slotWhite"><span class="csw"><img src="img/chess/white-king.svg" alt=""></span><span class="cname">—</span><span class="raction"></span></button>
+      <button class="role-slot" id="slotBlack"><span class="csw"><img src="img/chess/black-king.svg" alt=""></span><span class="cname">—</span><span class="raction"></span></button>
       <div class="status-line" id="spectatorHint" style="margin-top:6px;">Не обереш роль — лишишся глядачем</div>
     </div>
     <button class="btn btn-primary btn-block hidden" id="startOnlineBtn">Почати партію</button>
@@ -226,8 +277,8 @@
   <!-- ГРА -->
   <div class="hidden stage" id="view-board">
     <div class="hidden clock-bar" id="clockBar">
-      <div class="clock-chip" id="clockWhite"><span class="cc-label">♔ Білі</span><span class="cc-time">--:--</span></div>
-      <div class="clock-chip" id="clockBlack"><span class="cc-label">♚ Чорні</span><span class="cc-time">--:--</span></div>
+      <div class="clock-chip" id="clockWhite"><span class="cc-label"><img src="img/chess/white-king.svg" alt=""> Білі</span><span class="cc-time">--:--</span></div>
+      <div class="clock-chip" id="clockBlack"><span class="cc-label"><img src="img/chess/black-king.svg" alt=""> Чорні</span><span class="cc-time">--:--</span></div>
     </div>
     <div class="turn-bar" id="turnBar"></div>
     <div class="hidden draw-offer-bar" id="drawOfferBar">
@@ -449,8 +500,8 @@
     let label = st.turn === "w" ? "Хід білих" : "Хід чорних";
     if (mode === "local" && localBot && localBot.color === st.turn) label += " — бот думає…";
     if (status.status === "check") label += " — ШАХ!";
-    else if (status.status === "checkmate") label = "♛ МАТ!";
-    bar.innerHTML = `<span class="swatch ${swatchClass}"></span><span class="who">${label}</span>`;
+    else if (status.status === "checkmate") label = "МАТ!";
+    bar.innerHTML = `<img class="kimg" src="img/chess/${swatchClass === "w" ? "white" : "black"}-king.svg" alt=""><span class="who">${label}</span>`;
   }
 
   function renderMoveHistory(st) {
