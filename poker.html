@@ -256,6 +256,10 @@
   .quick-row button:active { background: rgba(244,197,66,.18); color: var(--accent); }
   .action-buttons button { font-family: 'Manrope', sans-serif; font-weight: 800; font-size: 14px; }
   .action-buttons button.primary { background: linear-gradient(180deg, #ffd96a, #d4a020); color: #2a1c00; box-shadow: 0 6px 18px rgba(244,197,66,.3); }
+  .combo-myhand { display: flex; gap: 14px; justify-content: center; align-items: flex-end; flex-wrap: wrap; margin: -4px 0 14px; padding: 10px; border-radius: 14px; background: rgba(0,0,0,.25); }
+  .combo-myhand:empty { display: none; }
+  .cm-group small { display: block; margin-bottom: 4px; font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); text-align: center; }
+  .cm-cards { display: flex; gap: 4px; }
   .combo-hint-btn svg { width: 13px; height: 13px; vertical-align: -2px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
   .combo-hint-btn:active { color: var(--accent); border-color: var(--accent); }
   .card.combo-hl { box-shadow: 0 0 0 2px var(--accent), 0 2px 10px rgba(244,197,66,.6); }
@@ -343,6 +347,7 @@
     <div class="modal-title">Комбінації покеру</div>
     <div class="status-line" style="margin-bottom:0;">Від найсильнішої до найслабшої</div>
     <div class="my-combo-banner" id="myComboBanner"></div>
+    <div class="combo-myhand" id="comboMyHand"></div>
     <div id="comboList"></div>
   </div>
 </div>
@@ -647,6 +652,23 @@
 
   function refreshComboModal() {
     const best = currentBestHand();
+    // твоя рука + спільні карти прямо у шторці: шторка закриває низ екрана, де лежать твої карти
+    const mh = document.getElementById("comboMyHand");
+    mh.innerHTML = "";
+    if (lastMyHs && lastMyHs.holeCards) {
+      const hole = document.createElement("div"); hole.className = "cm-group";
+      hole.innerHTML = '<small>Твоя рука</small>';
+      const hc = document.createElement("div"); hc.className = "cm-cards";
+      lastMyHs.holeCards.forEach((c) => hc.appendChild(makeCardEl(c, { big: true })));
+      hole.appendChild(hc); mh.appendChild(hole);
+      if (lastCommunity.length) {
+        const tb = document.createElement("div"); tb.className = "cm-group";
+        tb.innerHTML = '<small>Стіл</small>';
+        const cc = document.createElement("div"); cc.className = "cm-cards";
+        lastCommunity.forEach((c) => cc.appendChild(makeCardEl(c, {})));
+        tb.appendChild(cc); mh.appendChild(tb);
+      }
+    }
     const banner = document.getElementById("myComboBanner");
     if (best) {
       banner.textContent = "У тебе: " + best.name;
@@ -685,7 +707,7 @@
   }
 
   function applyComboHighlight(cards) {
-    const cardEls = document.querySelectorAll("#myHoleCards .card, #communityRow .card");
+    const cardEls = document.querySelectorAll("#myHoleCards .card, #communityRow .card, #comboMyHand .card");
     cardEls.forEach((el) => {
       el.classList.remove("combo-hl", "combo-dim");
       if (!cards) return;
