@@ -179,6 +179,7 @@
 <script>
   (function () {
     const GRID = 22;
+    const LITE = !!(window.AppSettings && AppSettings.isLite && AppSettings.isLite());
     const CELL = 330 / GRID;
     const canvas = document.getElementById("board");
     const ctx = canvas.getContext("2d");
@@ -316,7 +317,7 @@
     }
     function drawCell(c, color) {
       ctx.fillStyle = color;
-      ctx.shadowColor = color; ctx.shadowBlur = 8; // неонове світіння
+      if (!LITE) { ctx.shadowColor = color; ctx.shadowBlur = 8; } // неонове світіння (у легкому режимі — без нього, це найдорожче)
       ctx.fillRect(c.x * CELL + 1, c.y * CELL + 1, CELL - 2, CELL - 2);
       ctx.shadowBlur = 0;
     }

@@ -705,7 +705,8 @@
   const ROLE_META = MG.ROLE_META;
   const pageRoot = $("pageRoot");
   const NIGHT_PHASES = ["banner_night_start", "mafia_wake", "mafia_move", "doctor_wake", "doctor_move", "sheriff_wake", "sheriff_move"];
-  const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // легкий режим (Налаштування → Графіка) теж вимикає дощ/пил/конфеті — для старих телефонів
+  const reduceMotion = (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) || !!(window.AppSettings && AppSettings.isLite && AppSettings.isLite());
 
   if (window.MafiaSounds && window.MafiaSounds.preloadAll) window.MafiaSounds.preloadAll();
   window.MafiaRoleReveal.mount($("roleRevealStage"));

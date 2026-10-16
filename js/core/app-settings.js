@@ -21,7 +21,7 @@
   const STORAGE_KEY = "app_settings";
   const LEGACY_CTRL_KEY = "snake_ctrl_size"; // для м'якої міграції старого значення
 
-  const DEFAULTS = { headerMargin: "M", controlSize: "M", soundOn: true, vibrationOn: true };
+  const DEFAULTS = { headerMargin: "M", controlSize: "M", soundOn: true, vibrationOn: true, graphics: "auto" };
 
   const HEADER_MARGINS = { S: "8px", M: "24px", L: "48px", XL: "72px", XXXXL: "100px" };
 
@@ -55,8 +55,44 @@
     localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
   }
 
+
+  // ---------------- Графіка: легкий режим для старих телефонів ----------------
+  // «Авто» вмикає легкий режим сам, якщо телефон слабкий (мало памʼяті/ядер)
+  // або в системі ввімкнено «зменшити рух». Легкий режим (клас html.lite)
+  // вимикає найважче для старого GPU: розмиття під панелями, «нерухомі» фони,
+  // що перемальовуються при прокрутці, нескінченні анімації, тіні-фільтри.
+  // Ігри можуть спитати AppSettings.isLite() (Мафія — частинки, Змійка — світіння).
+  function detectWeakDevice() {
+    try {
+      const mem = navigator.deviceMemory, cores = navigator.hardwareConcurrency;
+      const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      return !!(reduce || (mem && mem <= 3) || (cores && cores <= 4));
+    } catch (e) { return false; }
+  }
+  const WEAK_DEVICE = detectWeakDevice();
+  function isLite() {
+    const g = current && current.graphics;
+    return g === "lite" || (g !== "full" && WEAK_DEVICE);
+  }
+  const LITE_CSS = `
+    html.lite *, html.lite *::before, html.lite *::after { backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+      animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+    html.lite, html.lite body { background-attachment: scroll !important; }
+    html.lite .pav, html.lite .qa-av, html.lite .piece, html.lite .pc, html.lite .chip, html.lite svg { filter: none !important; }
+    html.lite .grain, html.lite .fog, html.lite .flicker, html.lite .scratches, html.lite .specks, html.lite .sprockets { display: none !important; }
+    html.lite body::before { animation: none !important; }
+  `;
+  function injectLiteCss() {
+    if (document.getElementById("appLiteCss")) return;
+    const st = document.createElement("style");
+    st.id = "appLiteCss"; st.textContent = LITE_CSS;
+    (document.head || document.documentElement).appendChild(st);
+  }
+
   function apply() {
     const root = document.documentElement.style;
+    injectLiteCss();
+    document.documentElement.classList.toggle("lite", isLite());
 
     root.setProperty(
       "--app-header-margin-top",
@@ -246,6 +282,8 @@
   window.AppSettings = {
     get,
     set,
+    isLite,
+    weakDevice: WEAK_DEVICE,
     isSoundOn,
     isVibrationOn,
     playSound,
@@ -381,6 +419,12 @@
         <div class="row" data-setting="soundOn">
           <button type="button" class="opt-btn" data-value="on">Увімк.</button>
           <button type="button" class="opt-btn" data-value="off">Вимк.</button>
+        </div>
+        <h4>Графіка ${WEAK_DEVICE ? "<small>(слабкий телефон — «Авто» = легка)</small>" : ""}</h4>
+        <div class="row" data-setting="graphics">
+          <button type="button" class="opt-btn" data-value="auto">Авто</button>
+          <button type="button" class="opt-btn" data-value="full">Повна</button>
+          <button type="button" class="opt-btn" data-value="lite">Легка</button>
         </div>
         <h4>Вібрація</h4>
         <div class="row" data-setting="vibrationOn">
