@@ -26,7 +26,8 @@
   const D = window.DurakRules;
 
   const SCHEMA = { phase: "lobby", hostUsername: null, state: null, lobbySettings: null, players: {} };
-  const engine = window.OnlineEngine.create(GAME_KEY, { phases: PHASES, abandonMs: ABANDON_MS });
+  // lockedHost: без host-election onBecomeHost не спрацьовує і ходи ботів (runHostTick) не робить ніхто
+  const engine = window.OnlineEngine.create(GAME_KEY, { phases: PHASES, abandonMs: ABANDON_MS, lockedHost: true });
 
   let username = null;
   let onStateChange = () => {};

@@ -17,9 +17,9 @@ node server.js                       # сайт + фейкова база на h
 # усі сторінки по черзі на екрані телефона: JS-помилки, 404, скріншоти → out/smoke
 node smoke.js
 
-# 4 «телефони» в браузері + 16 ботів = 20 гравців у Наклепі, 4 хвилини
-set BOTS=16& set BOTGAME=naklep& node mp.js naklep.html naklep 4 240        (Windows cmd)
-BOTS=16 BOTGAME=naklep node mp.js naklep.html naklep 4 240                  (bash)
+# 4 «телефони» в браузері + 16 ботів = 20 гравців у «Хто з нас?», 4 хвилини
+set BOTS=16& set BOTGAME=whofrom& node mp.js whofrom.html party_whofrom 4 240        (Windows cmd)
+BOTS=16 BOTGAME=whofrom node mp.js whofrom.html party_whofrom 4 240                  (bash)
 
 # гра без ботів: 8 «телефонів»
 node mp.js mafia.html mafia 8 240

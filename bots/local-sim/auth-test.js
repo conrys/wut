@@ -20,7 +20,7 @@ async function blank(browser) {
 
   // 1. Guest via room link: modal opens by itself, Cyrillic name with apostrophe
   const a = await blank(b);
-  await a.goto(`${BASE}/naklep.html?room=AUTH1`, { waitUntil: "load" });
+  await a.goto(`${BASE}/whofrom.html?room=AUTH1`, { waitUntil: "load" });
   await a.waitForTimeout(800);
   check("room link opens guest login", await a.isVisible(".auth-overlay.open #authUser"));
   await a.fill("#authUser", "  Мар'яна  ");
@@ -28,12 +28,12 @@ async function blank(browser) {
   await a.waitForLoadState("load"); await a.waitForTimeout(2500);
   const sA = await a.evaluate(() => window.AppAuth.getSession());
   check("guest session created", sA && sA.guest && sA.username === "Марʼяна", JSON.stringify(sA));
-  const roomA = await fetch(`${BASE}/db/naklep_rooms/AUTH1/players.json`).then((r) => r.json());
+  const roomA = await fetch(`${BASE}/db/party_whofrom_rooms/AUTH1/players.json`).then((r) => r.json());
   check("guest joined room without manual reload", roomA && roomA["Марʼяна"], Object.keys(roomA || {}).join(","));
 
   // 2. Same name, other phone → taken
   const c = await blank(b);
-  await c.goto(`${BASE}/naklep.html`, { waitUntil: "load" }); await c.waitForTimeout(800);
+  await c.goto(`${BASE}/whofrom.html`, { waitUntil: "load" }); await c.waitForTimeout(800);
   check("lock screen has login button", await c.isVisible(".auth-cta"));
   await c.click(".auth-cta");
   await c.fill("#authUser", "марʼяна");
@@ -70,7 +70,7 @@ async function blank(browser) {
   // 5. Forged legacy-style session is dropped
   const d = await blank(b);
   await d.addInitScript(() => { if (!sessionStorage.getItem("x")) { sessionStorage.setItem("x", 1); localStorage.setItem("games41_session", JSON.stringify({ username: "oldvlad", loginAt: 1 })); } });
-  await d.goto(`${BASE}/naklep.html`, { waitUntil: "load" });
+  await d.goto(`${BASE}/whofrom.html`, { waitUntil: "load" });
   await d.waitForTimeout(2500);
   check("forged session cleared", !(await d.evaluate(() => window.AppAuth.getSession())));
   check("relogin notice shown", await d.isVisible("#authNotice.show"));

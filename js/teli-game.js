@@ -8,6 +8,11 @@
 // потрібен лише щоб рівно ОДИН клієнт виконував перехід, lockedHost:true
 // дає готове host-election з міграцією без додаткового коду).
 //
+// Малюнки лежать ОКРЕМО від кімнати: teli_drawings/<кімната>/<gameId>/<книга>_<раунд>
+// (WebP data URL). У книзі — лише { type:"drawing", ref }, тож кімната лишається
+// маленькою, а телефон вантажить малюнок тільки коли його показує (loadDrawing).
+// Старі записи з малюнком прямо в content теж показуються.
+//
 // Підключати ПІСЛЯ firebase-config.js, login.js, online-engine.js,
 // draw-canvas.js.
 // ==========================================================================
@@ -17,7 +22,8 @@
   const MIN_PLAYERS = 2;
   const ABANDON_MS = 15 * 60 * 1000;
   const MAX_TEXT_LEN = 140;
-  const MAX_DRAWING_BYTES = 900000; // приблизна межа розміру data URL картинки
+  const MAX_DRAWING_BYTES = 300000; // межа data URL малюнка (WebP зазвичай 10–30 КБ)
+  const DRAWINGS_PATH = "teli_drawings";
   const DEFAULT_DRAW_SECONDS = 60;
   const MIN_DRAW_SECONDS = 20;
   const MAX_DRAW_SECONDS = 180;
@@ -163,6 +169,7 @@
   async function startGame(room) {
     const playerOrder = connectedNames(room.players);
     if (playerOrder.length < MIN_PLAYERS) return;
+    await clearDrawings();   // малюнки попередньої гри більше не потрібні
     const totalRounds = playerOrder.length;
     const books = Array.from({ length: totalRounds }, () => []);
     const assignments = buildAssignments(playerOrder, 0, totalRounds, books);
@@ -209,8 +216,14 @@
     }
 
     inFlightKey = key; // після успіху лишається до зміни раунду (інший key)
-    const entry = { type: assignment.type, content, authorName: username };
-    Promise.resolve(engine.roomRef.update({
+    // Малюнок — спершу в окремий вузол, у книгу — лише посилання на нього.
+    const ref = `${room.gameId}/${assignment.bookIndex}_${round}`;
+    const entry = assignment.type === "text"
+      ? { type: "text", content, authorName: username }
+      : { type: "drawing", ref, authorName: username };
+    const saveDrawing = assignment.type === "text" ? Promise.resolve()
+      : window.rtdb.ref(`${DRAWINGS_PATH}/${engine.currentRoomId}/${ref}`).set(content).then(() => { drawingCache.set(ref, Promise.resolve(content)); });
+    saveDrawing.then(() => engine.roomRef.update({
       [`books/${assignment.bookIndex}/${round}`]: entry,
       [`submitted/${username}`]: round + 1, // >0, щоб лишалось truthy у UI
     })).catch((error) => {
@@ -254,10 +267,39 @@
     advanceRound(room);
   }
 
+  // «Грати ще раз»: назад у лобі з тим самим складом і ведучим (раніше кімната
+  // стиралась цілком, і ведучим ставав той, хто першим зайде знову).
+  // Гравців, що вже вийшли, прибираємо.
   function resetGame() {
     const roomId = engine.currentRoomId;
-    if (!roomId) return;
-    engine.forceResetRoom(roomId, SCHEMA, buildFreshRoom);
+    const room = engine.latestRoom;
+    if (!roomId || !room) return;
+    const reset = { phase: "lobby", gameId: null, playerOrder: null, totalRounds: 0, currentRound: 0, books: null, assignments: null, submitted: null, lastActivityAt: engine.now() };
+    Object.entries(room.players || {}).forEach(([name, p]) => { if (!engine.isConnected(p)) reset[`players/${name}`] = null; });
+    engine.roomRef.update(reset);
+    clearDrawings();
+  }
+
+  // ------------------------- малюнки -------------------------
+  const drawingCache = new Map();   // ref → Promise<src>
+  // Promise<src | null> для запису книги/завдання з малюнком.
+  function loadDrawing(entry) {
+    if (!entry || entry.type !== "drawing") return Promise.resolve(null);
+    if (entry.content) return Promise.resolve(entry.content);   // старий формат: малюнок прямо в кімнаті
+    if (!entry.ref || !window.rtdb) return Promise.resolve(null);
+    if (!drawingCache.has(entry.ref)) {
+      const pr = window.rtdb.ref(`${DRAWINGS_PATH}/${engine.currentRoomId}/${entry.ref}`).get()
+        .then((s) => (s.exists() ? s.val() : null)).catch(() => null);
+      drawingCache.set(entry.ref, pr);
+      pr.then((src) => { if (!src) drawingCache.delete(entry.ref); });
+    }
+    return drawingCache.get(entry.ref);
+  }
+  function clearDrawings() {
+    drawingCache.clear();
+    const roomId = engine.currentRoomId;
+    if (!roomId || !window.rtdb) return Promise.resolve();
+    return window.rtdb.ref(`${DRAWINGS_PATH}/${roomId}`).remove().catch(() => {});
   }
 
   window.TeliGame = {
@@ -266,6 +308,7 @@
     DEFAULT_DRAW_SECONDS, MIN_DRAW_SECONDS, MAX_DRAW_SECONDS,
     updateLobbySettings,
     bookEntries,
+    loadDrawing,
     connectedNames,
     computeHost: (players) => engine.computeHost(players),
     isConnected: (p) => engine.isConnected(p),

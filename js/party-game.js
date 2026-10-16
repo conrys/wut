@@ -24,7 +24,6 @@
   const PHASES = ["lobby", "round", "summary"];
   const TICK_MS = 500;
   const SET_CAP = 6;               // ковтків на гравця за один набір
-  const ROUND_OPTIONS = [4, 6, 8, 12];
   const DEFAULT_LEVEL = 2;
   const MIN_TIMER_SECONDS = 20, MAX_TIMER_SECONDS = 120;
   const DEFAULT_TIMER_SECONDS = 60;
@@ -38,7 +37,7 @@
   const SCHEMA = {
     phase: "lobby",
     hostUsername: null,
-    settings: { mode: FIXED_MODE || "whofrom", rounds: (window.PartyModes && window.PartyModes.MODES[FIXED_MODE] && window.PartyModes.MODES[FIXED_MODE].defaultRounds) || 8, level: DEFAULT_LEVEL, courtSpeakSeconds: DEFAULT_COURT_SPEAK_SECONDS, voteSeconds: DEFAULT_TIMER_SECONDS, betSeconds: DEFAULT_TIMER_SECONDS, decideSeconds: DEFAULT_TIMER_SECONDS, courtAutoAdvance: true },
+    settings: { mode: FIXED_MODE || "whofrom", level: DEFAULT_LEVEL, courtSpeakSeconds: DEFAULT_COURT_SPEAK_SECONDS, voteSeconds: DEFAULT_TIMER_SECONDS, betSeconds: DEFAULT_TIMER_SECONDS, decideSeconds: DEFAULT_TIMER_SECONDS, courtAutoAdvance: true },
     setId: null,       // унікальний id набору
     mode: null,        // режим, що зараз грається
     order: null,       // хто грає цей набір (підключені на старті)
@@ -62,8 +61,7 @@
   const modes = () => (window.PartyModes && window.PartyModes.MODES) || {};
   function buildFreshRoom() {
     const modeId = FIXED_MODE || "whofrom";
-    const rounds = (modes()[modeId] && modes()[modeId].defaultRounds) || 8;
-    return { players: {}, settings: { mode: modeId, rounds, level: DEFAULT_LEVEL, courtSpeakSeconds: DEFAULT_COURT_SPEAK_SECONDS, voteSeconds: DEFAULT_TIMER_SECONDS, betSeconds: DEFAULT_TIMER_SECONDS, decideSeconds: DEFAULT_TIMER_SECONDS, courtAutoAdvance: true } };
+    return { players: {}, settings: { mode: modeId, level: DEFAULT_LEVEL, courtSpeakSeconds: DEFAULT_COURT_SPEAK_SECONDS, voteSeconds: DEFAULT_TIMER_SECONDS, betSeconds: DEFAULT_TIMER_SECONDS, decideSeconds: DEFAULT_TIMER_SECONDS, courtAutoAdvance: true } };
   }
   function connectedNames(players) {
     return Object.entries(players || {}).filter(([, p]) => engine.isConnected(p)).map(([n]) => n);
@@ -261,9 +259,8 @@
     const room = engine.latestRoom;
     if (!room || room.phase === "round" || !isHostNow()) return;
     const next = {};
-    if (partial && !FIXED_MODE && modes()[partial.mode]) { next.mode = partial.mode; next.rounds = modes()[partial.mode].defaultRounds; }
+    if (partial && !FIXED_MODE && modes()[partial.mode]) { next.mode = partial.mode; }
     if (FIXED_MODE && modes()[FIXED_MODE] && !room.settings?.mode) next.mode = FIXED_MODE;
-    if (partial && ROUND_OPTIONS.includes(Number(partial.rounds))) next.rounds = Number(partial.rounds);
     if (partial && [1, 2, 3].includes(Number(partial.level))) next.level = Number(partial.level);
     const courtSpeakSeconds = Number(partial && partial.courtSpeakSeconds);
     if (Number.isInteger(courtSpeakSeconds) && courtSpeakSeconds >= COURT_SPEAK_SECONDS_RANGE[0] && courtSpeakSeconds <= COURT_SPEAK_SECONDS_RANGE[1]) {
@@ -285,8 +282,10 @@
     if (!mode) return { ok: false, reason: "no-mode" };
     const names = connectedNames(room.players);
     if (names.length < mode.minPlayers) return { ok: false, reason: "not-enough-players" };
-    const draft = { players: room.players, order: names, totalRounds: settings.rounds || mode.defaultRounds, settings };
+    // Раундів стільки, скільки питань у колоді рівня: грають, доки не набридне
+    const draft = { players: room.players, order: names, totalRounds: Infinity, settings };
     const state = mode.startSet(makeCtx(draft, 0, null));
+    draft.totalRounds = state.items.length;
     const first = mode.startRound(makeCtx(draft, 0, state));
     engine.roomRef.update(commitStage(Object.assign({}, room, { stageSeq: 0 }), first, {
       phase: "round", mode: mode.id, setId: engine.now(), order: names, deck: state,
@@ -318,7 +317,7 @@
   }
 
   window.PartyGame = {
-    SET_CAP, ROUND_OPTIONS, DEFAULT_LEVEL,
+    SET_CAP, DEFAULT_LEVEL,
     DEFAULT_COURT_SPEAK_SECONDS, COURT_SPEAK_SECONDS_RANGE, MIN_TIMER_SECONDS, MAX_TIMER_SECONDS, DEFAULT_TIMER_SECONDS,
     connectedNames,
     computeHost: (players) => engine.computeHost(players),

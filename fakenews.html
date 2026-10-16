@@ -108,6 +108,79 @@
   .fn-thumb { position: relative; width: 84px; height: 84px; border-radius: 10px; overflow: hidden; background: #111; }
   .fn-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .fn-thumb button { position: absolute; top: 2px; right: 2px; width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 0; background: rgba(0,0,0,.65); color: #fff; font-size: 12px; cursor: pointer; }
+
+  /* ===== канали ефіру: картка .news.ch-<id>, заголовок завжди в .hl (обгортка .hlbox) ===== */
+  .news .hlbox.pop span { animation: fnPop .45s ease; }
+  /* 📰 Жовта преса — газетна шпальта */
+  .news.ch-tabloid { aspect-ratio: auto; background: #f3ead2; color: #1a1a1a; padding: 8px; border-radius: 6px; transform: rotate(-.4deg); box-shadow: 0 6px 18px rgba(0,0,0,.35); font-family: Georgia, "Times New Roman", serif; }
+  .tb-mast { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; border-bottom: 3px double #1a1a1a; padding-bottom: 4px; margin-bottom: 6px; font-weight: 900; font-size: 20px; text-transform: uppercase; }
+  .tb-mast small { font-size: 9px; font-weight: 700; letter-spacing: .04em; text-transform: none; font-style: italic; }
+  .tb-photo { position: relative; aspect-ratio: 16 / 10; overflow: hidden; border: 2px solid #1a1a1a; background: #222; }
+  .tb-photo img { width: 100%; height: 100%; object-fit: cover; display: block; filter: contrast(1.1) saturate(.85); }
+  .tb-stamp { position: absolute; top: 8px; left: -2px; background: #e3261f; color: #fff; font: 900 13px/1 Impact, "Arial Black", sans-serif; padding: 5px 10px; transform: rotate(-6deg); box-shadow: 2px 2px 0 #1a1a1a; letter-spacing: .03em; }
+  .tb-head { background: #ffe23a; margin-top: 6px; padding: 6px 8px; font: 900 19px/1.15 Impact, "Arial Black", sans-serif; text-transform: uppercase; min-height: 44px; word-break: break-word; }
+  .tb-head.muted { font: italic 600 15px/1.3 Georgia, serif; text-transform: none; background: #efe3b0; color: #555; }
+  .tb-sub { font-size: 11px; font-style: italic; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* 📱 Телеграм-канал — пост у месенджері */
+  .news.ch-tg { aspect-ratio: auto; background: #17212b; color: #e9eef3; border-radius: 14px 14px 14px 4px; font-family: -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .tg-top { display: flex; align-items: center; gap: 8px; padding: 8px 10px; }
+  .tg-ava { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #2aabee, #229ed9); display: flex; align-items: center; justify-content: center; font-size: 17px; flex: none; }
+  .tg-top b { display: block; font-size: 14px; color: #64b5ef; }
+  .tg-top small { display: block; font-size: 11px; color: #8b9aa8; }
+  .news.ch-tg .cnt { position: static; margin-left: auto; background: #2b5278; }
+  .tg-photo { aspect-ratio: 4 / 3; overflow: hidden; background: #0e1621; }
+  .tg-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .tg-text { padding: 8px 10px 2px; font-size: 15px; line-height: 1.3; font-weight: 600; min-height: 40px; word-break: break-word; }
+  .tg-text.muted { color: #8b9aa8; font-style: italic; font-weight: 400; }
+  .tg-foot { display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 4px 10px 8px; font-size: 12px; color: #8b9aa8; }
+  .tg-reacts span { background: #2b5278; border-radius: 12px; padding: 2px 7px; margin-right: 4px; color: #e9eef3; white-space: nowrap; }
+  /* 🎙️ Радіо — еквалайзер поверх притемненого фото */
+  .news.ch-radio { background: #1b1030; }
+  .news.ch-radio > img { filter: blur(2px) brightness(.45) saturate(.6); transform: scale(1.06); }
+  .rd-top { position: absolute; top: 8px; left: 8px; right: 8px; display: flex; align-items: center; gap: 8px; color: #fff; font-size: 11px; font-weight: 800; }
+  .rd-onair { background: #ff2d55; padding: 3px 8px; border-radius: 4px; letter-spacing: .08em; animation: rdBlink 1.4s infinite; }
+  @keyframes rdBlink { 50% { opacity: .55; } }
+  .rd-freq { opacity: .85; letter-spacing: .06em; white-space: nowrap; }
+  .news.ch-radio .cnt { position: static; margin-left: auto; }
+  .rd-eq { position: absolute; left: 0; right: 0; top: 24%; height: 26%; display: flex; align-items: flex-end; justify-content: center; gap: 4px; }
+  .rd-eq i { width: 6px; height: 30%; border-radius: 3px; background: linear-gradient(#ff2d55, #ffb454); animation: rdEq 1s ease-in-out infinite; }
+  @keyframes rdEq { 0%, 100% { height: 18%; } 50% { height: 100%; } }
+  .rd-head { position: absolute; left: 10px; right: 10px; bottom: 26px; color: #fff; font-size: 17px; font-weight: 800; line-height: 1.25; text-align: center; text-shadow: 0 2px 8px #000; word-break: break-word; }
+  .rd-head span::before { content: "«"; } .rd-head span::after { content: "»"; }
+  .rd-head.muted { font-weight: 600; font-style: italic; color: #d6cce8; }
+  .rd-head.muted span::before, .rd-head.muted span::after { content: none; }
+  .rd-tick { position: absolute; left: 0; right: 0; bottom: 0; height: 20px; background: rgba(0,0,0,.55); color: #ffb454; font-size: 10px; font-weight: 700; line-height: 20px; text-align: center; letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 8px; }
+  /* 🏆 Спорт-канал — табло і плашка коментатора */
+  .sp-board { position: absolute; top: 8px; left: 8px; display: flex; font-size: 11px; font-weight: 900; border-radius: 6px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,.4); }
+  .sp-board span { padding: 4px 7px; }
+  .sp-logo { background: #0b8a3e; color: #fff; letter-spacing: .04em; }
+  .sp-score { background: #fff; color: #111; font-variant-numeric: tabular-nums; }
+  .sp-live { background: #111; color: #ffd400; }
+  .sp-bar { position: absolute; left: 0; right: 0; bottom: 0; }
+  .sp-head { margin: 0 10px 6px; background: linear-gradient(90deg, #ffd400, #ffb000); color: #111; padding: 6px 10px; font-weight: 900; font-style: italic; font-size: 15px; line-height: 1.2; text-transform: uppercase; box-shadow: 3px 3px 0 #0b8a3e; word-break: break-word; }
+  .sp-head span { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .sp-head.muted { background: rgba(0,0,0,.65); color: #ddd; text-transform: none; font-weight: 600; box-shadow: none; }
+  .sp-tick { height: 18px; background: #0b8a3e; color: #fff; font-size: 10px; font-weight: 800; line-height: 18px; overflow: hidden; white-space: nowrap; }
+  .sp-tick span { display: inline-block; padding-left: 100%; animation: fnTick 16s linear infinite; }
+
+  /* вибір каналу в лобі: те саме фото в мініатюрі кожного каналу */
+  .fn-chan-row { margin: 10px 0 4px; }
+  .fn-chan-row .cap { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted, #8b909c); margin-bottom: 5px; }
+  .fn-chan-row .cap b { color: var(--text, #e9eef3); }
+  .fn-chans { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+  .chp { position: relative; aspect-ratio: 3 / 4; border-radius: 8px; overflow: hidden; border: 2px solid transparent; padding: 0; background: #111; cursor: pointer; color: inherit; font: inherit; }
+  .chp img { width: 100%; height: 62%; object-fit: cover; display: block; }
+  .chp .lab { position: absolute; left: 0; right: 0; bottom: 0; height: 38%; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 9px; font-weight: 800; line-height: 1.1; text-align: center; padding: 2px; }
+  .chp .lab b { font-size: 14px; line-height: 1.1; }
+  .chp.ch-tv .lab { background: #0a1028; color: #fff; border-top: 2px solid #e0332e; }
+  .chp.ch-tabloid { background: #f3ead2; }
+  .chp.ch-tabloid img { filter: contrast(1.1) saturate(.85); }
+  .chp.ch-tabloid .lab { background: #ffe23a; color: #111; font-family: Impact, "Arial Black", sans-serif; }
+  .chp.ch-tg .lab { background: #17212b; color: #64b5ef; }
+  .chp.ch-radio img { filter: brightness(.5) blur(1px); }
+  .chp.ch-radio .lab { background: #1b1030; color: #ff6b8a; }
+  .chp.ch-sport .lab { background: #0b8a3e; color: #ffd400; font-style: italic; }
+  .chp.sel { border-color: #38cfa0; box-shadow: 0 0 0 2px rgba(56,207,160,.35); }
 </style>
 <link rel="stylesheet" href="js/styles/game-header.css">
 <script src="js/core/game-header.js" defer></script>
@@ -149,13 +222,11 @@
       <input type="file" accept="image/*" id="photoInput" class="hidden" />
       <button class="btn btn-block" id="photoAddBtn">📷 Завантажити своє фото</button>
       <div class="fn-thumbs" id="myPhotos"></div>
+      <div id="myChannels"></div>
       <div class="err-msg" id="photoErr"></div>
       <div class="status-line" id="photosCount" style="text-align:left;"></div>
     </div>
-    <div class="card hidden" id="eveningBox"><h3>Вечір</h3><div id="eveningTally"></div></div>
     <div class="card hidden" id="hostPanel">
-      <label style="display:block; font-size:12px; color:var(--text-muted,#8b909c); margin-bottom:6px;">Раундів (не більше, ніж фото)</label>
-      <div class="seg" id="roundsSeg"></div>
       <label for="writeSecSlider" style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted,#8b909c); margin-bottom:6px;">Секунд на заголовок <output id="writeSecValue">60 с</output></label>
       <input class="timer-range" id="writeSecSlider" type="range" min="20" max="120" step="1" value="60" aria-label="Секунд на заголовок" />
       <label for="showSecSlider" style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted,#8b909c); margin:12px 0 6px;">Секунд на заголовок в ефірі <output id="showSecValue">20 с</output></label>
@@ -171,7 +242,8 @@
       <h3>Як це працює</h3>
       <ol class="rules-list">
         <li>Кожен отримує 6 випадкових фото й обирає 2 для гри; назви допоможуть заздалегідь придумати заголовки. Власне фото теж можна завантажити. Коли обрано два, ти автоматично «готовий».</li>
-        <li>Під кожне фото всі, і той, хто його обрав, пишуть заголовок.</li>
+        <li>Для кожного свого фото обери канал: 📺 новини, 📰 жовта преса, 📱 телеграм, 🎙️ радіо чи 🏆 спорт. Від каналу залежить, як виглядатиме ефір.</li>
+        <li>Під кожне фото всі, і той, хто його обрав, пишуть заголовок. Підказка підкаже стиль каналу.</li>
         <li>Заголовки йдуть в «ефір» анонімно, потім усі голосують за кращий (за свій не можна).</li>
         <li>Переможець отримує бонусні бали. Хто лишився без голосів («сухий гумор»), п'є, але лише якщо таких небагато. Ковток: будь-який напій, у своєму темпі; до 6 за набір.</li>
       </ol>
@@ -182,12 +254,7 @@
   <!-- РАУНД -->
   <div class="hidden stage" id="view-round">
     <div class="pt-head"><div class="mode" id="modeTitle"></div><div class="rn" id="roundLabel"></div></div>
-    <div class="news" id="newsCard">
-      <img alt="" />
-      <div class="live" id="newsLive">ТЕРМІНОВО</div>
-      <div class="cnt hidden" id="newsCnt"></div>
-      <div class="l3"><div class="l3-head" id="l3Head"><span></span></div><div class="ticker"><span id="l3Ticker">41 NEWS</span></div></div>
-    </div>
+    <div class="news" id="newsCard"></div>
     <div class="fn-photo-context hidden" id="photoContext"></div>
     <div class="pt-text hidden" id="stageText"></div>
     <div class="pt-roles hidden" id="stageRoles"></div>
@@ -306,12 +373,38 @@
         el.querySelector("[data-rm]").addEventListener("click", () => G.removePhoto(el.dataset.id));
       });
     }
+    renderMyChannels(room, ctx, picks, mineIds);
     document.getElementById("photoAddBtn").disabled = full;
     document.getElementById("pickStatus").textContent = full ? "✅ Готово: фото обрано, чекаємо інших"
       : `Обрано ${count} з ${G.MAX_PHOTOS}. ${pool.length ? "Тапни фото в добірці або завантаж своє." : "Завантаж своє фото."}`;
     if (full) document.getElementById("photoErr").textContent = "";
     const conn = G.connectedNames(room.players), ready = G.readyNames(room).length;
     document.getElementById("photosCount").textContent = `Готові: ${ready} з ${conn.length}`;
+  }
+  // Для кожного свого фото — 5 мініатюр «як це виглядатиме на каналі»; тап обирає канал.
+  function renderMyChannels(room, ctx, picks, mineIds) {
+    const box = document.getElementById("myChannels"), pool = window.FakeNewsPhotos || [];
+    const mine = picks.map((k) => ({ k: "pool", i: Number(k.slice(1)) })).concat(mineIds.map((id) => ({ k: "up", n: ctx.username, id })));
+    const keyOf = (p) => (p.k === "pool" ? "pool:" + p.i : "up:" + p.id);
+    const listKey = mine.map(keyOf).join(",");
+    if (box.dataset.list !== listKey) {
+      box.dataset.list = listKey;
+      box.innerHTML = (mine.length ? '<div class="status-line" style="text-align:left; margin-top:10px;">📡 Обери, на якому каналі вийде твоє фото</div>' : "") +
+        mine.map((p) => `<div class="fn-chan-row" data-photo="${escapeHtml(keyOf(p))}"><div class="cap"><span>${escapeHtml(G.photoTitle(p) || "Твоє фото")}</span> · <b class="cur"></b></div>
+          <div class="fn-chans">${G.CHANNELS.map((c) => `<button type="button" class="chp ch-${c.id}" data-ch="${c.id}" aria-label="${escapeHtml(c.name)}"><img alt="" /><span class="lab"><b>${c.icon}</b>${escapeHtml(c.short)}</span></button>`).join("")}</div></div>`).join("");
+      box.querySelectorAll(".fn-chan-row").forEach((row, n) => {
+        const p = mine[n];
+        const setSrc = (src) => { if (src) row.querySelectorAll("img").forEach((im) => { im.src = src; }); };
+        if (p.k === "pool") { const it = pool[p.i]; setSrc(it && (it.thumb || it.src)); } else G.loadPhoto(p).then(setSrc);
+        row.querySelectorAll(".chp").forEach((b) => b.addEventListener("click", () => G.setPhotoChannel(p, b.dataset.ch)));
+      });
+    }
+    box.querySelectorAll(".fn-chan-row").forEach((row, n) => {
+      const ch = G.photoChannel(room, ctx.username, mine[n]);
+      row.querySelectorAll(".chp").forEach((b) => b.classList.toggle("sel", b.dataset.ch === ch));
+      const info = G.CHANNELS.find((c) => c.id === ch);
+      row.querySelector(".cur").textContent = info ? `${info.icon} ${info.name}` : "канал випадковий";
+    });
   }
   async function addPhotoFromInput() {
     const input = document.getElementById("photoInput"), err = document.getElementById("photoErr");
@@ -331,15 +424,11 @@
     document.getElementById("lobbyStatus").innerHTML = `<span class="pulse-dot"></span> Гравців онлайн: ${conn.length}`;
     document.getElementById("playersList").innerHTML = Object.keys(room.players || {}).map((n) =>
       `<div class="player-chip ${conn.includes(n) ? "" : "offline"}"><span style="display:flex;align-items:center;gap:10px;">${avatarHtml(room, n, { small: true })}${escapeHtml(n)}</span><span>${G.photoCount(room, n) >= G.MAX_PHOTOS ? "✅ " : ""}${n === hostName ? '<span class="badge">ВЕДУЧИЙ</span>' : ""}</span></div>`).join("") || '<div class="status-line">Ще нікого немає</div>';
-    const hasTally = room.tally && (room.tally.drinks || room.tally.points);
-    document.getElementById("eveningBox").classList.toggle("hidden", !hasTally);
-    if (hasTally) document.getElementById("eveningTally").innerHTML = `<div class="pt-cols"><div><h4>🥃 Ковтки</h4>${renderTallyList(room, "drinks")}</div><div><h4>⭐ Бали</h4>${renderTallyList(room, "points")}</div></div>`;
     document.getElementById("hostPanel").classList.toggle("hidden", !ctx.host);
     document.getElementById("resetBtn").classList.toggle("hidden", !ctx.host);
     document.getElementById("waitHostLobby").classList.toggle("hidden", !!ctx.host);
     if (!ctx.host) return;
     const s = room.settings || {};
-    segButtons("roundsSeg", G.ROUND_OPTIONS.map((n) => [n, String(n)]), s.rounds, (n) => G.updateSettings({ rounds: n }));
     renderTimerSlider("writeSecSlider", "writeSecValue", s.writeSec, G.DEFAULT_WRITE_SEC);
     renderTimerSlider("showSecSlider", "showSecValue", s.showSec, G.DEFAULT_SHOW_SEC);
     renderTimerSlider("voteSecSlider", "voteSecValue", s.voteSec, G.DEFAULT_VOTE_SEC);
@@ -356,9 +445,59 @@
   function waitingAvatars(room, names) { return names.map((n) => avatarHtml(room, n, { small: true })).join(" "); }
 
   // ---------------- новинна картка ----------------
+  // Кожен канал: розмітка картки + підписи на кожен етап. У розмітці обов'язкові
+  // img, .hlbox > .hl (заголовок), .tag, .cnt, .tick — їх заповнює renderNews.
+  const EQ_BARS = Array.from({ length: 14 }, (_, i) => `<i style="animation-delay:-${(i * 0.37) % 1}s"></i>`).join("");
+  const CH_UI = {
+    tv: {
+      html: `<img alt="" /><div class="live tag"></div><div class="cnt hidden"></div>
+        <div class="l3"><div class="l3-head hlbox"><span class="hl"></span></div><div class="ticker"><span class="tick"></span></div></div>`,
+      tag: { write: "ТЕРМІНОВО", show: "● ЕФІР", vote: "ГОЛОСУВАННЯ", reveal: "ВИРОК ГЛЯДАЧІВ" },
+      tick: { write: () => "41 NEWS · РЕДАКЦІЯ ЧЕКАЄ НА ЗАГОЛОВКИ", show: (i) => "41 NEWS · ПРЯМИЙ ЕФІР · ЗАГОЛОВОК " + i,
+        vote: () => "41 NEWS · ГЛЯДАЧІ ОБИРАЮТЬ НАЙКРАЩИЙ ФЕЙК", reveal: (h) => "41 NEWS · " + h },
+      wait: "✍️ Тут буде твій заголовок…", ask: "🗳️ Який заголовок найкращий?",
+    },
+    tabloid: {
+      html: `<div class="tb-mast"><span>Жовта преса</span><small>щоденник пліток · №41</small></div>
+        <div class="tb-photo"><img alt="" /><div class="tb-stamp tag"></div><div class="cnt hidden"></div></div>
+        <div class="tb-head hlbox"><span class="hl"></span></div><div class="tb-sub tick"></div>`,
+      tag: { write: "СЕНСАЦІЯ!", show: "ЕКСКЛЮЗИВ!", vote: "ЧИТАЧІ ВИРІШУЮТЬ", reveal: "ГОЛОВНА ПЛІТКА" },
+      tick: { write: () => "Редакція перевіряє плітки (ні)", show: (i) => `Плітка №${i}. Джерело побажало лишитися анонімним`,
+        vote: () => "Яка плітка гучніша? Голосуйте!", reveal: (h) => h },
+      wait: "✍️ Тут буде гучний заголовок…", ask: "🗳️ Яка плітка найгучніша?",
+    },
+    tg: {
+      html: `<div class="tg-top"><span class="tg-ava">⚡</span><span><b>Терміново | 41</b><small class="tag"></small></span><span class="cnt hidden"></span></div>
+        <div class="tg-photo"><img alt="" /></div><div class="tg-text hlbox"><span class="hl"></span></div>
+        <div class="tg-foot"><span class="tg-reacts"><span>🔥 41</span><span>😱 17</span><span>🤡 6</span></span><span class="tick"></span></div>`,
+      tag: { write: "41 тис. підписників · друкує…", show: "41 тис. підписників · щойно", vote: "41 тис. підписників · опитування", reveal: "41 тис. підписників · закріплено" },
+      tick: { write: () => "👁 —", show: (i) => `👁 ${(12.4 + i * 3.1).toFixed(1)}K`, vote: () => "👁 41K", reveal: () => "👁 99K" },
+      wait: "друкує… ✍️", ask: "📊 Опитування: який пост найкращий?",
+    },
+    radio: {
+      html: `<img alt="" /><div class="rd-top"><span class="rd-onair tag"></span><span class="rd-freq">FM 104.1 · Радіо 41</span><span class="cnt hidden"></span></div>
+        <div class="rd-eq">${EQ_BARS}</div><div class="rd-head hlbox"><span class="hl"></span></div><div class="rd-tick tick"></div>`,
+      tag: { write: "У СТУДІЇ", show: "В ЕФІРІ", vote: "ДЗВІНКИ В СТУДІЮ", reveal: "ХІТ ЕФІРУ" },
+      tick: { write: () => "Диктор розминає голос…", show: (i) => `Ви слухаєте Радіо 41 · новина ${i}`, vote: () => "Телефонуйте в студію: яка новина найкраща?", reveal: (h) => h },
+      wait: "🎙️ Диктор чекає на текст…", ask: "📞 Яку новину крутити ще раз?",
+    },
+    sport: {
+      html: `<img alt="" /><div class="sp-board"><span class="sp-logo">41 SPORT</span><span class="sp-score">2 : 1</span><span class="sp-live tag"></span></div><div class="cnt hidden"></div>
+        <div class="sp-bar"><div class="sp-head hlbox"><span class="hl"></span></div><div class="sp-tick"><span class="tick"></span></div></div>`,
+      tag: { write: "РОЗМИНКА", show: "LIVE", vote: "VAR", reveal: "ФІНАЛЬНИЙ СВИСТОК" },
+      tick: { write: () => "41 SPORT · КОМАНДИ ВИХОДЯТЬ НА ПОЛЕ", show: (i) => `41 SPORT · ПРЯМА ТРАНСЛЯЦІЯ · МОМЕНТ ${i}`,
+        vote: () => "41 SPORT · ПЕРЕГЛЯДАЄМО ПОВТОРИ", reveal: (h) => "41 SPORT · " + h },
+      wait: "✍️ Коментатор готується…", ask: "📺 Який момент найкращий?",
+    },
+  };
   let lastHeadKey = null;
   function renderNews(room, st) {
-    const card = document.getElementById("newsCard"), img = card.querySelector("img");
+    const card = document.getElementById("newsCard");
+    const d = st.data || {}, chId = CH_UI[d.ch] ? d.ch : "tv", ui = CH_UI[chId];
+    if (card.dataset.ch !== chId) {   // інший канал — інша розмітка
+      card.dataset.ch = chId; card.className = "news ch-" + chId; card.innerHTML = ui.html; card.dataset.photo = ""; lastHeadKey = null;
+    }
+    const img = card.querySelector("img");
     const key = JSON.stringify(st.photo || null);
     const photoContext = document.getElementById("photoContext");
     const photoTitle = G.photoTitle(st.photo);
@@ -368,25 +507,25 @@
       card.dataset.photo = key; img.removeAttribute("src");
       G.loadPhoto(st.photo).then((src) => { if (card.dataset.photo === key && src) img.src = src; });
     }
-    const head = document.getElementById("l3Head"), span = head.querySelector("span"), cnt = document.getElementById("newsCnt");
-    let text = "", muted = false, ticker = "41 NEWS · ТІЛЬКИ ПЕРЕВІРЕНІ ФЕЙКИ", tag = "ТЕРМІНОВО", count = "";
-    const d = st.data || {};
-    if (st.kind === "write") { text = "✍️ Тут буде твій заголовок…"; muted = true; ticker = "41 NEWS · РЕДАКЦІЯ ЧЕКАЄ НА ЗАГОЛОВКИ"; }
-    else if (st.kind === "show") {
+    const kind = ["write", "show", "vote"].includes(st.kind) ? st.kind : "reveal";
+    let text = "", muted = false, count = "", tick = "";
+    if (kind === "write") { text = ui.wait; muted = true; tick = ui.tick.write(); }
+    else if (kind === "show") {
       const idx = Math.min((room.show && room.show.idx) || 0, d.texts.length - 1);
-      text = d.texts[idx]; tag = "● ЕФІР"; count = `${idx + 1} / ${d.texts.length}`; ticker = "41 NEWS · ПРЯМИЙ ЕФІР · ЗАГОЛОВОК " + (idx + 1);
-    } else if (st.kind === "vote") { text = "🗳️ Який заголовок найкращий?"; muted = true; tag = "ГОЛОСУВАННЯ"; ticker = "41 NEWS · ГЛЯДАЧІ ОБИРАЮТЬ НАЙКРАЩИЙ ФЕЙК"; }
+      text = d.texts[idx]; count = `${idx + 1} / ${d.texts.length}`; tick = ui.tick.show(idx + 1);
+    } else if (kind === "vote") { text = ui.ask; muted = true; tick = ui.tick.vote(); }
     else {
       const top = (st.results || [])[0];
-      text = top && top.v > 0 ? top.t : (st.headline || ""); tag = "ВИРОК ГЛЯДАЧІВ"; ticker = "41 NEWS · " + (st.headline || "");
+      text = top && top.v > 0 ? top.t : (st.headline || ""); tick = ui.tick.reveal(st.headline || "");
     }
-    const hk = st.id + "|" + text;
-    span.textContent = text;
+    const head = card.querySelector(".hlbox"), cnt = card.querySelector(".cnt");
+    head.querySelector(".hl").textContent = text;
     head.classList.toggle("muted", muted);
+    const hk = st.id + "|" + text;
     if (hk !== lastHeadKey) { lastHeadKey = hk; head.classList.remove("pop"); void head.offsetWidth; head.classList.add("pop"); }
-    document.getElementById("newsLive").textContent = tag;
+    card.querySelector(".tag").textContent = ui.tag[kind];
     cnt.textContent = count; cnt.classList.toggle("hidden", !count);
-    document.getElementById("l3Ticker").textContent = ticker;
+    card.querySelector(".tick").textContent = tick;
   }
 
   // ---------------- раунд ----------------

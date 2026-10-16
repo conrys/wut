@@ -35,7 +35,73 @@ const MAFIA_NIGHT_LINES = [
   "Вдень тримаємось разом, не палимось",
 ];
 
+// ---- Сміхлист: відповіді й голоси ботів ----
+const QUIPLASH_ANSWERS = [
+  "Бабусин борщ з ананасом", "Кіт у податковій", "Вайфай від сусіда", "Шкарпетки з сандалями", "Голосове на 12 хвилин",
+  "Таємний рецепт олів'є", "Будильник о 4:58", "Тещин холодець", "Пральна машинка, що співає", "Сало в шоколаді",
+  "Групповий чат батьків", "Відпустка в Жмеринці", "Робот-пилосос із депресією", "Оновлення Windows посеред гри", "Дід на самокаті",
+  "Борщ у термосі", "Квитанція за газ", "Пакет з пакетами", "Голуб із дипломом", "Сусід із перфоратором",
+];
+
+function gameActionsQuiplash(room, bots, now) {
+  const updates = {};
+  const actions = [];
+  const phase = room.phase;
+  const startedAt = room.phaseStartedAt || now;
+  const since = now - startedAt;
+  const players = room.players || {};
+  const conn = Object.entries(players).filter(([, p]) => p && p.lastSeen && now - p.lastSeen < 120000).map(([n]) => n);
+  const round = room.round || 0;
+  const matchups = Object.keys(room.matchups || {}).sort().map((k) => room.matchups[k]);
+  for (const bot of bots) {
+    if (!players[bot.name]) continue;
+    // кожен бот «думає» по-своєму: відповідає за 4–30 с, голосує за 2–12 с
+    if (phase === "answering") {
+      const thinkMs = 4000 + ((bot.index * 5300 + round * 1700) % 26000);
+      if (since < thinkMs) continue;
+      if (room.gallery) {
+        const mine = (room.gallery.answers || {})[bot.name];
+        const answerer = !Array.isArray(room.roundAnswerers) || room.roundAnswerers.includes(bot.name);
+        if (answerer && !mine) {
+          updates[`gallery/answers/${bot.name}`] = pick(QUIPLASH_ANSWERS, bot.index * 3 + round * 7);
+          actions.push(`${bot.name}: caption`);
+        }
+        continue;
+      }
+      // по одній відповіді за тік — виглядає живіше
+      const m = matchups.find((x) => (x.playerAId === bot.name && !x.answerA) || (x.playerBId === bot.name && !x.answerB));
+      if (m) {
+        const side = m.playerAId === bot.name && !m.answerA ? "A" : "B";
+        updates[`matchups/${m.id}/answer${side}`] = pick(QUIPLASH_ANSWERS, bot.index * 5 + matchups.indexOf(m) * 3 + round);
+        actions.push(`${bot.name}: answered`);
+      }
+    } else if (phase === "voting") {
+      if (room.voteRevealAt && now < room.voteRevealAt) continue;
+      const thinkMs = 2000 + ((bot.index * 2900 + (room.currentMatchupIndex || 0) * 1300) % 10000);
+      if (since < thinkMs) continue;
+      if (room.gallery) {
+        if ((room.gallery.votes || {})[bot.name]) continue;
+        const authors = Object.keys(room.gallery.answers || {}).filter((n) => n !== bot.name && room.gallery.answers[n]);
+        const target = pick(authors, bot.index + round);
+        if (target) { updates[`gallery/votes/${bot.name}`] = target; actions.push(`${bot.name}: gallery vote`); }
+        continue;
+      }
+      const m = matchups[room.currentMatchupIndex || 0];
+      if (!m || (m.votes || {})[bot.name]) continue;
+      const twoPlayer = conn.length === 2;
+      const participant = m.playerAId === bot.name || m.playerBId === bot.name;
+      if (participant && !twoPlayer) continue;
+      let choice = (bot.index + (room.currentMatchupIndex || 0)) % 3 === 0 ? "B" : "A";
+      if (twoPlayer) choice = m.playerAId === bot.name ? "B" : "A";
+      updates[`matchups/${m.id}/votes/${bot.name}`] = choice;
+      actions.push(`${bot.name}: voted ${choice}`);
+    }
+  }
+  return { updates, actions };
+}
+
 function gameActions(game, room, bots, now) {
+  if (game === "quiplash") return gameActionsQuiplash(room, bots, now);
   const updates = {};
   const actions = [];
   const players = room.players || {};
@@ -43,22 +109,6 @@ function gameActions(game, room, bots, now) {
   function set(path, value, label) {
     updates[path] = value;
     actions.push(label);
-  }
-
-  if (game === "humanbingo") {
-    if (room.phase !== "playing") return { updates, actions };
-    const names = Object.keys(players);
-    for (const bot of bots) {
-      const card = (room.cards && room.cards[bot.name]) || [];
-      const targets = names.filter((name) => name !== bot.name);
-      if (!targets.length) continue;
-      for (let i = 0; i < card.length; i++) {
-        const key = `marks/${bot.name}/${card[i]}`;
-        if (room.marks && room.marks[bot.name] && room.marks[bot.name][card[i]]) continue;
-        set(key, targets[(i + bot.index) % targets.length], `${bot.name}: marked bingo card`);
-      }
-    }
-    return { updates, actions };
   }
 
   if (game === "dilemmas") {
@@ -81,7 +131,7 @@ function gameActions(game, room, bots, now) {
     return { updates, actions };
   }
 
-  if (["whofrom", "court", "bets", "charades", "fakenews", "naklep"].includes(game)) {
+  if (["whofrom", "court", "bets", "charades", "fakenews"].includes(game)) {
     if (room.phase !== "round" || !room.stage) return { updates, actions };
     const stage = room.stage;
     const expected = stage.expect || [];
@@ -101,9 +151,10 @@ function gameActions(game, room, bots, now) {
       if (game === "charades") {
         if (stage.kind === "encode" && stage.data && stage.data.encoder === bot.name) {
           set(`inputs/${bot.name}`, `${stage.id}:e:🐱🎩`, `${bot.name}: encoded the word`);
-        } else if (stage.kind === "guess" && stage.data && Array.isArray(stage.data.answers)) {
-          const answer = stage.data.answers[0];
-          if (answer) set(`inputs/${bot.name}`, `${stage.id}:${now + bot.index}`, `${bot.name}: guessed the word`);
+        } else if (stage.kind === "guess" && stage.data && stage.data.encoder === bot.name) {
+          // відповіді звучать уголос; бот-шифрувальник «чує» двох і тисне «Готово»
+          const heard = (room.order || []).filter((name) => name !== bot.name).slice(0, 2);
+          set(`inputs/${bot.name}`, `${stage.id}:d:${heard.join("|")}`, `${bot.name}: marked ${heard.length} guessers`);
         }
         continue;
       }
@@ -120,16 +171,6 @@ function gameActions(game, room, bots, now) {
         continue;
       }
 
-      if (game === "naklep") {
-        if (stage.kind === "pick-name") {
-          const target = pick((stage.names || []).filter((name) => name !== bot.name), bot.index);
-          if (target) set(`inputs/${bot.name}`, `${stage.id}:${target}`, `${bot.name}: guessed who the fact belongs to`);
-        } else if (stage.kind === "choice") {
-          const choice = (stage.options || []).find((item) => item.id === "no") || (stage.options || [])[0];
-          if (choice) set(`inputs/${bot.name}`, `${stage.id}:${choice.id}`, `${bot.name}: answered the question`);
-        }
-        continue;
-      }
 
       if (stage.kind === "pick-name") {
         const target = pick((stage.names || []).filter((name) => name !== bot.name), bot.index + (room.roundNo || 0));
@@ -140,6 +181,30 @@ function gameActions(game, room, bots, now) {
       }
     }
     return { updates, actions };
+  }
+
+  if (game === "teli") {
+    // drawings: [{ ref, seed }] — run-tests пише їх у teli_drawings ДО оновлення кімнати
+    const drawings = [];
+    if (room.phase !== "active") return { updates, actions, drawings };
+    const round = room.currentRound;
+    const PHRASES = ["кіт на даху", "бабуся на скейті", "пес-космонавт", "борщ у космосі", "жираф у трамваї", "дракон п'є чай", "робот на риболовлі", "слон на велосипеді"];
+    for (const bot of bots) {
+      const task = room.assignments && room.assignments[bot.name];
+      if (!task || task.round !== round || (room.submitted && room.submitted[bot.name] === round + 1)) continue;
+      if (task.type === "text") {
+        const content = task.prompt && task.prompt.type === "drawing"
+          ? `схоже на «${pick(PHRASES, bot.index + round + 3)}»`
+          : pick(PHRASES, bot.index * 3 + round);
+        set(`books/${task.bookIndex}/${round}`, { type: "text", content, authorName: bot.name }, `${bot.name}: wrote «${content}»`);
+      } else {
+        const ref = `${room.gameId}/${task.bookIndex}_${round}`;
+        drawings.push({ ref, seed: (room.gameId || 1) + bot.index * 7919 + round });
+        set(`books/${task.bookIndex}/${round}`, { type: "drawing", ref, authorName: bot.name }, `${bot.name}: drew a doodle`);
+      }
+      updates[`submitted/${bot.name}`] = round + 1;
+    }
+    return { updates, actions, drawings };
   }
 
   if (game === "mafia") {

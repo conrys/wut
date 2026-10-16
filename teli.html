@@ -233,7 +233,11 @@
         ? "Тобі дали фразу — намалюй її:" : "Тобі дали малюнок — опиши його словами:";
       promptContent.innerHTML = assignment.prompt.type === "text"
         ? `<div class="prompt-text">«${escapeHtml(assignment.prompt.content)}»</div>`
-        : `<img src="${assignment.prompt.content}" alt="малюнок" />`;
+        : `<img alt="малюнок" />`;
+      if (assignment.prompt.type !== "text") {
+        const img = promptContent.querySelector("img");
+        TeliGame.loadDrawing(assignment.prompt).then((src) => { if (src && img.isConnected) img.src = src; });
+      }
     } else {
       promptPreview.classList.add("hidden");
     }
@@ -291,25 +295,36 @@
     renderTaskUI(assignment);
   }
 
+  let renderedRevealKey = null;
+  function renderRevealBook(book) {
+    const steps = book.map((entry, i) => {
+      const content = entry.type === "text"
+        ? `<div class="step-text">«${escapeHtml(entry.content)}»</div>`
+        : `<img data-step="${i}" alt="крок ${i + 1}" />`;
+      return `<div class="chain-step"><div class="step-author">${escapeHtml(entry.authorName)} ${entry.type === "text" ? "✍️" : "🎨"}</div>${content}</div>` +
+        (i < book.length - 1 ? '<div class="chain-arrow">↓</div>' : "");
+    }).join("");
+    const revealBox = document.getElementById("revealContent");
+    revealBox.innerHTML = `<div class="book-chain">${steps}</div>`;
+    revealBox.querySelectorAll("img[data-step]").forEach((img) => {
+      TeliGame.loadDrawing(book[Number(img.dataset.step)]).then((src) => { if (src && img.isConnected) img.src = src; });
+    });
+  }
   function renderReveal(room, ctx) {
     if (!sawRevealPhase) { sawRevealPhase = true; revealPageIndex = 0; }
     const books = room.books || [];
     // total беремо з totalRounds: порожня книга (нікому не дісталась) у RTDB зникає з масиву
     const total = room.totalRounds || books.length;
-    if (!total) { document.getElementById("revealContent").innerHTML = ""; return; }
+    if (!total) { document.getElementById("revealContent").innerHTML = ""; renderedRevealKey = null; return; }
     if (revealPageIndex >= total) revealPageIndex = total - 1;
     if (revealPageIndex < 0) revealPageIndex = 0;
 
     document.getElementById("revealPageLabel").textContent = `Розмова ${revealPageIndex + 1} з ${total}`;
     const book = TeliGame.bookEntries(books[revealPageIndex]);
-    const steps = book.map((entry, i) => {
-      const content = entry.type === "text"
-        ? `<div class="step-text">«${escapeHtml(entry.content)}»</div>`
-        : `<img src="${entry.content}" alt="крок ${i + 1}" />`;
-      return `<div class="chain-step"><div class="step-author">${escapeHtml(entry.authorName)} ${entry.type === "text" ? "✍️" : "🎨"}</div>${content}</div>` +
-        (i < book.length - 1 ? '<div class="chain-arrow">↓</div>' : "");
-    }).join("");
-    document.getElementById("revealContent").innerHTML = `<div class="book-chain">${steps}</div>`;
+    // Перебудовуємо лише коли змінилась сторінка чи її записи: heartbeat оновлює кімнату
+    // щодві секунди, і малюнки, що підвантажуються, інакше блимали б.
+    const revealKey = room.gameId + "|" + revealPageIndex + "|" + JSON.stringify(book);
+    if (revealKey !== renderedRevealKey) { renderedRevealKey = revealKey; renderRevealBook(book); }
 
     document.getElementById("revealPrevBtn").disabled = revealPageIndex === 0;
     document.getElementById("revealNextBtn").disabled = revealPageIndex === total - 1;
@@ -440,7 +455,7 @@
     document.getElementById("undoBtn").addEventListener("click", () => teliDrawCanvas.undo());
     document.getElementById("clearCanvasBtn").addEventListener("click", () => teliDrawCanvas.clear());
     document.getElementById("submitDrawBtn").addEventListener("click", () => {
-      const drawing = teliDrawCanvas.exportImage(TeliGame.MAX_DRAWING_BYTES);
+      const drawing = teliDrawCanvas.exportCompact(TeliGame.MAX_DRAWING_BYTES);
       const result = TeliGame.submitEntry({ drawing });
       if (result.ok) document.getElementById("submitDrawBtn").disabled = true;
       else if (!QUIET_REASONS.includes(result.reason)) {
@@ -486,7 +501,7 @@
         const text = document.getElementById("textEntryInput").value.trim() || "…";
         result = TeliGame.submitEntry({ text });
       } else if (teliDrawCanvas) {
-        result = TeliGame.submitEntry({ drawing: teliDrawCanvas.exportImage(TeliGame.MAX_DRAWING_BYTES) });
+        result = TeliGame.submitEntry({ drawing: teliDrawCanvas.exportCompact(TeliGame.MAX_DRAWING_BYTES) });
       }
       // Позначаємо крок відправленим лише після реальної спроби: якщо полотно ще
       // не створене, наступний тік (500 мс) спробує знову, а не завмре назавжди.

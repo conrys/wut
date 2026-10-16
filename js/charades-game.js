@@ -1,15 +1,17 @@
 // ==========================================================================
 // «Зіпсовані шаради» — окрема гра на спільному OnlineEngine (js/online-engine.js).
-// Самодостатня: не залежить від party-*.js / naklep-*.js / fakenews-*.js.
+// Самодостатня: не залежить від party-*.js / fakenews-*.js.
 // Кімнати: "charades_rooms". Слова: js/charades-prompts.js (window.CharadesPrompts).
 //
-// Раунд (шифрувальник змінюється по колу):
+// Набір триває, доки не скінчаться слова обраного рівня; шифрувальник іде по колу.
+// Раунд:
 //   encode — шифрувальник бачить слово й шифрує його ЛИШЕ емодзі (панель або клавіатура);
 //            може один раз замінити слово («r»);
-//   guess  — решта друкують відповідь; перший правильний +3, другий +2, далі +1;
-//   reveal — результат. Шифрувальник: +1 за кожного, хто вгадав; якщо ніхто — п'є.
-// Правильність відповіді перевіряє клієнт відгадувача (допуск на 1–2 одруківки);
-// в кімнату пишеться лише факт вгадування з серверним часом (для порядку).
+//   guess  — решта кажуть відповідь УГОЛОС; шифрувальник позначає ВСІХ, хто вгадав
+//            (можуть крикнути разом — порядку немає), і тисне «Готово» (або «Ніхто не вгадав»);
+//   reveal — результат. Кожен, хто вгадав: +3, шифрувальник +1; якщо ніхто — шифрувальник п'є.
+// Вибір шифрувальника — inputs/<шифрувальник> = "<id>:p:Ім'я|Ім'я" (живий, бачать усі)
+// або "<id>:d:…" (готово — хост закриває етап). Імена не містять "|".
 // Підключати ПІСЛЯ firebase-config.js, login.js, online-engine.js, charades-prompts.js.
 // ==========================================================================
 (function () {
@@ -18,14 +20,12 @@
   const TICK_MS = 500;
   const SET_CAP = 6;
   const MIN_PLAYERS = 3;
-  const LAPS_OPTIONS = [1, 2], DEFAULT_LAPS = 1;          // кіл: кожен шифрує по разу за коло
   const MIN_TIMER_SEC = 20, MAX_TIMER_SEC = 120;
   const DEFAULT_ENCODE_SEC = 60;
   const DEFAULT_GUESS_SEC = 60;
   const DEFAULT_LEVEL = 2;
-  const SPARE = 4;               // запасні слова для «Інше слово»
+  const GUESS_POINTS = 3, ENCODER_POINTS = 1;
   const EMOJI_MAX = 40;          // символів у шифрі
-  const GUESS_COOLDOWN_MS = 1000;
   const REVEAL_MS = 45000;
   const ABANDON_MS = 15 * 60 * 1000;
   const AVATAR_STORAGE_PREFIX = "games41_quiplash_avatar_";
@@ -35,7 +35,7 @@
   const SCHEMA = {
     phase: "lobby",
     hostUsername: null,
-    settings: { laps: DEFAULT_LAPS, level: DEFAULT_LEVEL, encodeSec: DEFAULT_ENCODE_SEC, guessSec: DEFAULT_GUESS_SEC },
+    settings: { level: DEFAULT_LEVEL, encodeSec: DEFAULT_ENCODE_SEC, guessSec: DEFAULT_GUESS_SEC },
     setId: null,
     order: null,       // хто грає цей набір; шифрувальник = order[roundNo % order.length]
     deck: null,        // { items: [{ text, alt, cat }] }
@@ -54,9 +54,8 @@
   let onStateChange = () => {};
   let tickTimer = null;
   let busy = false;
-  let lastGuessAt = 0;
 
-  function defaultSettings() { return { laps: DEFAULT_LAPS, level: DEFAULT_LEVEL, encodeSec: DEFAULT_ENCODE_SEC, guessSec: DEFAULT_GUESS_SEC }; }
+  function defaultSettings() { return { level: DEFAULT_LEVEL, encodeSec: DEFAULT_ENCODE_SEC, guessSec: DEFAULT_GUESS_SEC }; }
   function buildFreshRoom() { return { players: {}, settings: defaultSettings() }; }
   function connectedNames(players) {
     return Object.entries(players || {}).filter(([, p]) => engine.isConnected(p)).map(([n]) => n);
@@ -179,53 +178,41 @@
     const room = engine.latestRoom, st = room && room.stage;
     if (!room || room.phase !== "round" || !st || st.kind !== "encode") return { ok: false, reason: "wrong-phase" };
     if (st.data.encoder !== username || st.data.rerolled) return { ok: false, reason: "not-allowed" };
+    if (st.data.idx + 1 >= ((room.deck && room.deck.items) || []).length) return { ok: false, reason: "no-words" };   // це останнє слово
     engine.roomRef.update({ ["inputs/" + username]: st.id + ":r" });
     return { ok: true };
   }
 
-  // --- відповідь: нечітке порівняння ---
-  function norm(s) {
-    return String(s == null ? "" : s).toLowerCase().replace(/ё/g, "е").replace(/[’ʼ'`ʹ]/g, "").replace(/[^\p{L}\p{N}]+/gu, "");
+  // --- відгадування вголос: шифрувальник позначає, хто вгадав ---
+  // { names: [...] у порядку вгадування, done } з inputs шифрувальника.
+  function picksOf(room) {
+    const st = room && room.stage, d = (st && st.data) || {};
+    const v = st ? validInputs(room)[d.encoder] : undefined;
+    if (typeof v !== "string" || !/^[pd]:/.test(v)) return { names: [], done: false };
+    const allowed = (room.order || []).filter((n) => n !== d.encoder);
+    const names = [...new Set(v.slice(2).split("|").filter((n) => allowed.includes(n)))];
+    return { names, done: v[0] === "d" };
   }
-  function lev(a, b) {
-    const dp = Array.from({ length: a.length + 1 }, (_, i) => [i]);
-    for (let j = 1; j <= b.length; j++) dp[0][j] = j;
-    for (let i = 1; i <= a.length; i++) {
-      for (let j = 1; j <= b.length; j++) {
-        dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
-      }
-    }
-    return dp[a.length][b.length];
-  }
-  function matches(guess, answers) {
-    const g = norm(guess);
-    if (!g) return false;
-    return (answers || []).some((a) => {
-      const n = norm(a);
-      if (!n) return false;
-      if (g === n) return true;
-      const tol = n.length <= 4 ? 0 : n.length <= 9 ? 1 : 2;   // коротке слово — без помилок
-      return Math.abs(g.length - n.length) <= tol && lev(g, n) <= tol;
-    });
-  }
-  // Повертає { ok:true, hit } (hit — чи правильно). Правильну відповідь фіксуємо з серверним часом.
-  function guess(text) {
+  function writePicks(names, done) {
     const room = engine.latestRoom, st = room && room.stage;
     if (!room || room.phase !== "round" || !st || st.kind !== "guess") return { ok: false, reason: "wrong-phase" };
-    if (!(st.expect || []).includes(username)) return { ok: false, reason: "not-expected" };
-    if (inputOf(room, username) !== null) return { ok: false, reason: "already-solved" };
-    const t = engine.now();
-    if (Date.now() - lastGuessAt < GUESS_COOLDOWN_MS) return { ok: false, reason: "too-fast" };
-    lastGuessAt = Date.now();
-    if (!matches(text, (st.data && st.data.answers) || [])) return { ok: true, hit: false };
-    engine.roomRef.update({ ["inputs/" + username]: st.id + ":" + t });
-    return { ok: true, hit: true };
+    if (st.data.encoder !== username) return { ok: false, reason: "not-encoder" };
+    engine.roomRef.update({ ["inputs/" + username]: st.id + ":" + (done ? "d:" : "p:") + names.join("|") });
+    return { ok: true };
   }
+  // Тап по гравцю: позначає його як того, хто вгадав; повторний тап — знімає позначку.
+  function togglePick(name) {
+    const room = engine.latestRoom, cur = picksOf(room);
+    if (cur.done) return { ok: false, reason: "done" };
+    const names = cur.names.includes(name) ? cur.names.filter((n) => n !== name) : cur.names.concat(name);
+    return writePicks(names, false);
+  }
+  function finishPicks() { return writePicks(picksOf(engine.latestRoom).names, true); }
 
   // ------------------------- колода й етапи -------------------------
-  function buildItems(level, total) {
+  function buildItems(level) {
     const all = (window.CharadesPrompts || []).filter((x) => x.level <= level);
-    return shuffle(all).slice(0, total + SPARE).map((x) => ({ text: x.text, alt: x.alt || [], cat: x.cat || "" }));
+    return shuffle(all).map((x) => ({ text: x.text, alt: x.alt || [], cat: x.cat || "" }));
   }
   function encodeStage(room, idx, encoder, rerolled) {
     const items = (room.deck && room.deck.items) || [], it = items[idx % items.length];
@@ -246,23 +233,20 @@
         const emoji = v.slice(2);
         const hint = d.cat ? `${d.cat} · ${d.words} ${d.words === 1 ? "слово" : d.words < 5 ? "слова" : "слів"}` : "";
         return {
-          kind: "guess", title: "Відгадай", hint, emoji, expect: order.filter((n) => n !== d.encoder), durationMs: ms(room, "guessSec", DEFAULT_GUESS_SEC),
+          kind: "guess", title: "Відгадай", hint, emoji, expect: [d.encoder], durationMs: ms(room, "guessSec", DEFAULT_GUESS_SEC),
           data: Object.assign({}, d, { step: "guess" }),
         };
       }
       return reveal(stage, { headline: "😴 Шифрувальник не встиг", lines: [`Слово було: «${d.text}»`], durationMs: 8000, data: d, encoder: d.encoder });
     }
-    // guess → результат
-    const solves = Object.entries(inputs)
-      .filter(([n]) => order.includes(n) && n !== d.encoder)
-      .map(([n, v]) => ({ n, t: Number(v) })).filter((x) => isFinite(x.t))
-      .sort((a, b) => a.t - b.t || (a.n < b.n ? -1 : 1));
+    // guess → результат (порядок — як тапав шифрувальник)
+    const solves = picksOf(Object.assign({}, room, { stage })).names;
     const points = {}, penalties = {};
-    const results = solves.map((s, i) => { const pts = i === 0 ? 3 : i === 1 ? 2 : 1; points[s.n] = pts; return { n: s.n, pts }; });
+    const results = solves.map((n) => { points[n] = GUESS_POINTS; return { n, pts: GUESS_POINTS }; });
     const lines = [];
     if (solves.length) {
-      points[d.encoder] = (points[d.encoder] || 0) + solves.length;
-      lines.push(`${d.encoder} отримує +${solves.length} за тих, хто вгадав`);
+      points[d.encoder] = (points[d.encoder] || 0) + ENCODER_POINTS;
+      lines.push(`${d.encoder} отримує +${ENCODER_POINTS} за вдалий шифр`);
     } else {
       penalties[d.encoder] = 1;
       lines.push(`Ніхто не вгадав: ${d.encoder} п'є за надто складний ребус`);
@@ -279,7 +263,8 @@
     if (st.kind === "reveal") { if (st.endsAt && now >= st.endsAt) nextRound(); return; }
     if (st.kind === "encode" && validInputs(room)[d.encoder] === "r" && !d.rerolled) { reroll(room); return; }
     const expect = st.expect || [];
-    const allIn = expect.length > 0 && waitingNames(room).length === 0;
+    // у відгадуванні проміжні тапи ("p:") — ще не кінець, чекаємо «Готово» ("d:")
+    const allIn = st.kind === "guess" ? picksOf(room).done : expect.length > 0 && waitingNames(room).length === 0;
     if (allIn || (st.endsAt && now >= st.endsAt)) endStage(room);
   }
 
@@ -333,9 +318,10 @@
     busy = true;
     try {
       const n = cur.roundNo + 1;
-      if (n >= cur.totalRounds) { await engine.roomRef.update({ phase: "summary", stage: null, inputs: null }); return; }
       const prev = cur.stage.data, order = cur.order || [];
       const idx = prev && typeof prev.idx === "number" ? prev.idx + 1 : n;
+      // «Інше слово» теж бере слово з колоди, тож кінець — коли скінчились слова
+      if (n >= cur.totalRounds || idx >= ((cur.deck && cur.deck.items) || []).length) { await engine.roomRef.update({ phase: "summary", stage: null, inputs: null }); return; }
       await engine.roomRef.update(commitStage(cur, encodeStage(cur, idx, order[n % order.length], false), { roundNo: n }));
     } finally { busy = false; }
   }
@@ -349,7 +335,6 @@
     const room = engine.latestRoom;
     if (!room || room.phase === "round" || !isHostNow() || !partial) return;
     const next = {};
-    if (LAPS_OPTIONS.includes(Number(partial.laps))) next.laps = Number(partial.laps);
     if ([1, 2, 3].includes(Number(partial.level))) next.level = Number(partial.level);
     const encodeSec = Number(partial.encodeSec), guessSec = Number(partial.guessSec);
     if (Number.isInteger(encodeSec) && encodeSec >= MIN_TIMER_SEC && encodeSec <= MAX_TIMER_SEC) next.encodeSec = encodeSec;
@@ -362,8 +347,9 @@
     const names = connectedNames(room.players);
     if (names.length < MIN_PLAYERS) return { ok: false, reason: "not-enough-players" };
     const s = room.settings || {};
-    const total = names.length * (s.laps || DEFAULT_LAPS);        // кожен шифрує по разу за коло
-    const items = buildItems(s.level || DEFAULT_LEVEL, total);
+    const level = s.level || DEFAULT_LEVEL;
+    const items = buildItems(level);   // уся колода рівня, перемішана: скільки слів — стільки й раундів
+    const total = items.length;
     if (!items.length) return { ok: false, reason: "no-words" };
     const order = shuffle(names);
     const draft = Object.assign({}, room, { stageSeq: 0, order, deck: { items } });
@@ -394,15 +380,15 @@
   }
 
   window.CharadesGame = {
-    SET_CAP, MIN_PLAYERS, EMOJI_MAX, LAPS_OPTIONS, MIN_TIMER_SEC, MAX_TIMER_SEC,
-    DEFAULT_LAPS, DEFAULT_LEVEL, DEFAULT_ENCODE_SEC, DEFAULT_GUESS_SEC,
+    SET_CAP, MIN_PLAYERS, EMOJI_MAX, MIN_TIMER_SEC, MAX_TIMER_SEC,
+    DEFAULT_LEVEL, DEFAULT_ENCODE_SEC, DEFAULT_GUESS_SEC,
     connectedNames,
     computeHost: (players) => engine.computeHost(players),
     isConnected: (p) => engine.isConnected(p),
     now: () => engine.now(),
-    inputOf, waitingNames, checkEmoji, matches,
+    inputOf, waitingNames, checkEmoji, picksOf,
     watchActiveRooms,
-    start, stop, startSet, updateSettings, submitEmoji, rerollWord, guess, skip, endSet, toLobby, resetAll,
+    start, stop, startSet, updateSettings, submitEmoji, rerollWord, togglePick, finishPicks, skip, endSet, toLobby, resetAll,
     get roomId() { return engine.currentRoomId; },
     get roomRef() { return engine.roomRef; },
     set onStateChange(fn) { onStateChange = fn; },

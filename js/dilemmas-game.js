@@ -37,8 +37,6 @@
   const STRAGGLER_MS = DEFAULT_STRAGGLER_SECONDS * 1000;
   const REVEAL_MAX_MS = 120 * 1000; // після результату чекаємо «Далі» від хоста не довше 2 хв
   const TICK_MS = 500;
-  const ROUND_OPTIONS = [6, 10, 14];
-  const DEFAULT_ROUNDS = 10;
   const DEFAULT_LEVEL = 2;          // 1 легко · 2 з перчинкою · 3 гаряче
   const TASK_OPTIONS = 3;
   const ABANDON_MS = 15 * 60 * 1000;
@@ -49,7 +47,7 @@
   const SCHEMA = {
     phase: "lobby",
     hostUsername: null,
-    lobbySettings: { rounds: DEFAULT_ROUNDS, level: DEFAULT_LEVEL, stragglerSeconds: DEFAULT_STRAGGLER_SECONDS },
+    lobbySettings: { level: DEFAULT_LEVEL, stragglerSeconds: DEFAULT_STRAGGLER_SECONDS },
     gameId: null,       // унікальний id гри (коло 2 у тій самій кімнаті ≠ коло 1)
     order: null,        // хто грає: підключені на момент старту
     cards: null,        // [{text, kind}] — тексти лежать у кімнаті (не залежать від версії файлу на телефоні); kind: "agree" | "ok"
@@ -76,7 +74,7 @@
   let busy = false;
 
   function buildFreshRoom() {
-    return { players: {}, lobbySettings: { rounds: DEFAULT_ROUNDS, level: DEFAULT_LEVEL, stragglerSeconds: DEFAULT_STRAGGLER_SECONDS } };
+    return { players: {}, lobbySettings: { level: DEFAULT_LEVEL, stragglerSeconds: DEFAULT_STRAGGLER_SECONDS } };
   }
 
   function connectedNames(players) {
@@ -319,7 +317,6 @@
     const room = engine.latestRoom;
     if (!room || room.phase !== "lobby") return;
     const next = {};
-    if (partial && ROUND_OPTIONS.includes(Number(partial.rounds))) next.rounds = Number(partial.rounds);
     if (partial && [1, 2, 3].includes(Number(partial.level))) next.level = Number(partial.level);
     const stragglerSeconds = Number(partial && partial.stragglerSeconds);
     if (Number.isInteger(stragglerSeconds) && stragglerSeconds >= MIN_TIMER_SECONDS && stragglerSeconds <= MAX_TIMER_SECONDS) {
@@ -337,10 +334,9 @@
     if (!seed || !seed.STATEMENTS || !seed.STATEMENTS.length) return { ok: false, reason: "no-content" };
     const settings = room.lobbySettings || {};
     const level = settings.level || DEFAULT_LEVEL;
-    const rounds = settings.rounds || DEFAULT_ROUNDS;
     const pool = seed.STATEMENTS.filter((d) => d.level <= level);
     for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
-    const cards = pool.slice(0, rounds).map((d) => ({ text: d.text, kind: d.kind }));
+    const cards = pool.map((d) => ({ text: d.text, kind: d.kind }));   // уся колода рівня: грають, доки не набридне
     engine.roomRef.update({
       phase: "voting", gameId: engine.now(), order: names, cards, totalRounds: cards.length,
       currentRound: 0, votes: null, timerEndsAt: null, revealAt: null, result: null, pos: null, final: null,
@@ -368,7 +364,7 @@
 
   window.DilemmasGame = {
     MIN_PLAYERS, STEPS, STRAGGLER_MS, STRAGGLER_SHARE, MIN_TIMER_SECONDS, MAX_TIMER_SECONDS,
-    DEFAULT_STRAGGLER_SECONDS, ROUND_OPTIONS, DEFAULT_ROUNDS, DEFAULT_LEVEL,
+    DEFAULT_STRAGGLER_SECONDS, DEFAULT_LEVEL,
     connectedNames,
     computeHost: (players) => engine.computeHost(players),
     isConnected: (p) => engine.isConnected(p),

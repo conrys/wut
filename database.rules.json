@@ -91,13 +91,6 @@
         ".write": "auth != null"
       }
     },
-    "humanbingo_rooms": {
-      ".read": true,
-      "$roomId": {
-        ".read": true,
-        ".write": "auth != null"
-      }
-    },
     "dilemmas_rooms": {
       ".read": true,
       "$roomId": {
@@ -133,20 +126,6 @@
         ".write": "auth != null"
       }
     },
-    "naklep_rooms": {
-      ".read": true,
-      "$roomId": {
-        ".read": true,
-        ".write": "auth != null",
-        "facts": {
-          "$user": {
-            "$factId": {
-              ".validate": "newData.isString() && newData.val().length <= 140"
-            }
-          }
-        }
-      }
-    },
     "fakenews_rooms": {
       ".read": true,
       "$roomId": {
@@ -168,6 +147,17 @@
         "$user": {
           "$photoId": {
             ".validate": "newData.isString() && newData.val().length < 150000 && newData.val().matches(/^data:image\\/jpeg;base64,/)"
+          }
+        }
+      }
+    },
+    "teli_drawings": {
+      "$roomId": {
+        ".read": true,
+        ".write": "auth != null",
+        "$gameId": {
+          "$entry": {
+            ".validate": "newData.isString() && newData.val().length < 300000 && newData.val().matches(/^data:image\\/[a-z]+;base64,/)"
           }
         }
       }

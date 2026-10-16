@@ -175,7 +175,7 @@
       const t = now();
       if (myLobbyRef) myLobbyRef.child("lastSeen").set(t);
       if (currentRoomId && myPlayerRef && roomRef && isActivePlayer) {
-        myPlayerRef.update({ lastSeen: t, status: "active" });
+        myPlayerRef.update({ lastSeen: t, status: "active", sessionId: mySessionId });
         roomRef.child("lastActivityAt").set(t);
       }
     }
@@ -322,6 +322,10 @@
         const room = snap2.val();
         if (!room) { leaveRoomLocally(); return; }
         latestRoom = room;
+        // Повернення в кімнату (reload, вихід на головну й назад): гравець уже
+        // є в players/, тож ігри з asPlayer:false не кличуть becomePlayer — і
+        // без цього heartbeat мовчав, гравець "офлайн", ведучий іде до іншого.
+        if (!isActivePlayer && room.players && room.players[username]) becomePlayer();
         onStateChange("room-update", { room, roomId });
         if (opts.lockedHost) maybeElectHostWithLock(room, roomId);
       });
@@ -412,7 +416,12 @@
     function maybeElectHostWithLock(room, roomId) {
       const players = room.players || {};
       const hostEntry = players[room.hostUsername];
-      const hostStale = !hostEntry || !isActiveNow(hostEntry);
+      // Ведучий перезавантажив сторінку: під його ім'ям живе вже інша сесія, а
+      // закріплена (room.hostSessionId) мертва — без цього гру не вів ніхто.
+      // Перехоплює лише та сесія, що зараз пише heartbeat цього гравця.
+      const hostReloaded = !!(hostEntry && isActiveNow(hostEntry) && hostEntry.sessionId === mySessionId &&
+        room.hostSessionId && room.hostSessionId !== mySessionId);
+      const hostStale = !hostEntry || !isActiveNow(hostEntry) || hostReloaded;
       if (!hostStale) {
         // Порівняння по mySessionId, а НЕ по username — щоб дві вкладки
         // одного й того ж гравця (стара незакрита + нова після reload)
@@ -423,7 +432,8 @@
       }
       const alive = Object.entries(players).filter(([, p]) => isActiveNow(p))
         .sort((a, b) => (a[1].joinedAt || 0) - (b[1].joinedAt || 0));
-      if (alive.length && alive[0][0] === username) {
+      // після reload ведучим лишається той самий гравець, а не найдавніший у кімнаті
+      if (hostReloaded || (alive.length && alive[0][0] === username)) {
         // ВАЖЛИВО: RTDB не зберігає null (запис null == видалення шляху), тож
         // для шляху, який ще ЖОДНОГО разу не записувався, transaction() дає
         // current === null, а room.hostSessionId (звичайне звернення до

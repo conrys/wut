@@ -103,12 +103,9 @@
       <h3>Гравці</h3>
       <div id="playersList"></div>
     </div>
-    <div class="card hidden" id="eveningBox"><h3>Вечір</h3><div id="eveningTally"></div></div>
     <div class="card hidden" id="hostPanel">
       <label style="display:block; font-size:12px; color:var(--text-muted,#8b909c); margin-bottom:6px;">Режим</label>
       <div class="pt-modes" id="modeList"></div>
-      <label style="display:block; font-size:12px; color:var(--text-muted,#8b909c); margin-bottom:6px;">Раундів</label>
-      <div class="seg" id="roundsSeg"></div>
       <label for="voteSecondsSlider" style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted,#8b909c); margin:12px 0 6px;">Час на голосування <output id="voteSecondsValue">60 с</output></label>
       <input class="timer-range" id="voteSecondsSlider" type="range" min="20" max="120" step="1" value="60" aria-label="Час на голосування" />
       <label style="display:block; font-size:12px; color:var(--text-muted,#8b909c); margin-bottom:6px;">Гострота</label>
@@ -117,14 +114,6 @@
       <div class="err-msg" id="startHint"></div>
     </div>
     <div class="status-line hidden" id="waitHostLobby">Очікуємо, поки ведучий налаштує гру...</div>
-    <div class="card">
-      <h3>Як це працює</h3>
-      <ol class="rules-list">
-        <li>Кімната присвячена режиму «Хто з нас?», а рахунок ковтків і балів зберігається на весь вечір.</li>
-        <li>«Ковток» — це будь-який напій, у своєму темпі. За один набір більше 6 ковтків на людину не нараховується.</li>
-        <li>Усе на телефонах: питання, голосування й результат.</li>
-      </ol>
-    </div>
     <button class="btn btn-block hidden" id="resetBtn" style="opacity:0.6;">Скинути вечір</button>
   </div>
 
@@ -187,7 +176,6 @@
     document.getElementById("modeList").classList.add("hidden");
     document.getElementById("modeList").previousElementSibling.textContent = `${MODES[window.PartyConfig.mode].icon} ${MODES[window.PartyConfig.mode].title}`;
   }
-  const LEVEL_LABELS = { 1: "Легко", 2: "З перчинкою", 3: "Гаряче" };
   let lastRoom = null, lastCtx = null, reactionsMounted = false;
   let builtStageId = null;   // id етапу, для якого вже збудовано кнопки введення (щоб не збивати виділення)
 
@@ -224,9 +212,6 @@
     document.getElementById("lobbyStatus").innerHTML = `<span class="pulse-dot"></span> Гравців онлайн: ${conn.length}`;
     document.getElementById("playersList").innerHTML = Object.keys(room.players || {}).map((n) =>
       `<div class="player-chip ${conn.includes(n) ? "" : "offline"}"><span style="display:flex;align-items:center;gap:10px;">${avatarHtml(room, n, { small: true })}${escapeHtml(n)}</span>${n === hostName ? '<span class="badge">ВЕДУЧИЙ</span>' : ""}</div>`).join("") || '<div class="status-line">Ще нікого немає</div>';
-    const hasTally = room.tally && (room.tally.drinks || room.tally.points);
-    document.getElementById("eveningBox").classList.toggle("hidden", !hasTally);
-    if (hasTally) document.getElementById("eveningTally").innerHTML = `<div class="pt-cols"><div><h4>🥃 Ковтки</h4>${renderTallyList(room, "drinks")}</div><div><h4>⭐ Бали</h4>${renderTallyList(room, "points")}</div></div>`;
     document.getElementById("hostPanel").classList.toggle("hidden", !ctx.host);
     document.getElementById("resetBtn").classList.toggle("hidden", !ctx.host);
     document.getElementById("waitHostLobby").classList.toggle("hidden", !!ctx.host);
@@ -238,9 +223,8 @@
       return `<button class="pt-mode ${s.mode === id ? "selected" : ""}" data-mode="${id}"><b>${m.icon} ${escapeHtml(m.title)}</b><span>${escapeHtml(m.desc)}</span></button>`;
     }).join("");
     list.querySelectorAll("[data-mode]").forEach((b) => b.addEventListener("click", () => G.updateSettings({ mode: b.dataset.mode })));
-    segButtons("roundsSeg", G.ROUND_OPTIONS.map((n) => [n, String(n)]), s.rounds, (n) => G.updateSettings({ rounds: n }));
     renderTimerSlider("voteSecondsSlider", "voteSecondsValue", s.voteSeconds, G.DEFAULT_TIMER_SECONDS);
-    segButtons("levelSeg", [1, 2, 3].map((n) => [n, "🌶️".repeat(n) + " " + LEVEL_LABELS[n]]), s.level || G.DEFAULT_LEVEL, (n) => G.updateSettings({ level: n }));
+    segButtons("levelSeg", [1, 2, 3].map((n) => [n, Array(n).fill("🌶️").join(" ")]), s.level || G.DEFAULT_LEVEL, (n) => G.updateSettings({ level: n }));
     const mode = MODES[s.mode], enough = mode && conn.length >= mode.minPlayers;
     document.getElementById("startBtn").disabled = !enough;
     document.getElementById("startHint").textContent = !mode ? "Обери режим" : enough ? "" : `Потрібно мінімум ${mode.minPlayers} гравців онлайн`;

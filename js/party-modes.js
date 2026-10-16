@@ -3,8 +3,8 @@
 // тому їх можна тестувати окремо. Рушій (party-game.js) викликає їх на хості.
 //
 // Режим:
-//   id, title, icon, desc, minPlayers, defaultRounds,
-//   startSet(ctx)            → стан набору (JSON), зберігається в room.deck
+//   id, title, icon, desc, minPlayers,
+//   startSet(ctx)            → стан набору (JSON), зберігається в room.deck; items — питання (скільки їх, стільки раундів)
 //   startRound(ctx)          → перший етап раунду
 //   onEnd(ctx, stage, inputs)→ наступний етап (останній — "reveal")
 //
@@ -45,7 +45,7 @@
   // Хто з нас? — швидке голосування за ім'я
   // ------------------------------------------------------------------
   const whofrom = {
-    id: "whofrom", title: "Хто з нас?", icon: "🗳️", minPlayers: 3, defaultRounds: 8,
+    id: "whofrom", title: "Хто з нас?", icon: "🗳️", minPlayers: 3,
     desc: "Питання, усі обирають одне ім'я за таймером. Найпопулярніший п'є, а ще ті, хто проголосував самотньо.",
     startSet(ctx) { return { items: texts(SEED.WHOFROM, ctx, ctx.totalRounds) }; },
     startRound(ctx) {
@@ -80,7 +80,7 @@
   // ------------------------------------------------------------------
   const VERDICT = [{ id: "guilty", label: "🔴 Винен" }, { id: "forgive", label: "🟢 Простити" }];
   const court = {
-    id: "court", title: "Суд Лінча", icon: "⚖️", minPlayers: 3, defaultRounds: 6,
+    id: "court", title: "Суд Лінча", icon: "⚖️", minPlayers: 3,
     desc: "Двоє виправдовуються й захищають, решта виносить вирок. Винен — п'є звинувачений, простили — п'є весь суд.",
     startSet(ctx) { return { items: texts(SEED.COURT, ctx, ctx.totalRounds), seat: ctx.shuffle(ctx.order.slice()) }; },
     startRound(ctx) {
@@ -121,7 +121,7 @@
   const BET = [{ id: "do", label: "💪 Зробить" }, { id: "quit", label: "🥤 Здасться" }];
   const DECIDE = [{ id: "do", label: "💪 Роблю" }, { id: "quit", label: "🥤 Здаюсь і п'ю" }];
   const bets = {
-    id: "bets", title: "Ставки", icon: "🎲", minPlayers: 3, defaultRounds: 6,
+    id: "bets", title: "Ставки", icon: "🎲", minPlayers: 3,
     desc: "Жертві дають завдання, а інші ставлять: зробить чи здасться. Хто схибив — п'є, жертва, що здалась, теж.",
     startSet(ctx) { return { items: texts(SEED.BETS, ctx, ctx.totalRounds), seat: ctx.shuffle(ctx.order.slice()) }; },
     startRound(ctx) {

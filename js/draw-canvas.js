@@ -248,6 +248,13 @@ function createDrawCanvas(canvas, { readOnly = false, onStroke } = {}) {
       // перевірити розмір перед відправкою, а не довіряти цьому наосліп.
       return canvas.toDataURL('image/jpeg', 0.6);
     },
+    // Компактний знімок для зберігання: WebP (лінії на білому — 10–30 КБ замість
+    // 50–100 КБ PNG). Браузер без WebP повертає PNG — тоді звичайний exportImage.
+    exportCompact(maxBytes) {
+      const url = canvas.toDataURL('image/webp', 0.8);
+      if (url.startsWith('data:image/webp') && (!maxBytes || url.length <= maxBytes)) return url;
+      return this.exportImage(maxBytes);
+    },
     loadStrokes: (arr) => { history = [...(arr || [])]; redrawFromHistory(); },
     setColor: (c) => { currentColor = c; eraserOn = false; },
     setWidth: (w) => { currentWidth = w; },

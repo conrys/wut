@@ -100,6 +100,17 @@
         #dragAvatar .card:first-child { margin-top: 0; }
 
         .msg { min-height: 18px; font-size: 12px; color: var(--text-muted); margin-top: 10px; text-align: center; }
+        .msg.deadend { color: #ffb4a8; background: rgba(217,69,95,0.14); border: 1px solid rgba(217,69,95,0.35);
+            border-radius: 10px; padding: 8px 12px; font-size: 13px; }
+        @keyframes hintPulse { 0%, 100% { box-shadow: 0 0 0 2px #ffd166, 0 0 12px rgba(255,209,102,0.7); } 50% { box-shadow: 0 0 0 3px #ffd166, 0 0 22px rgba(255,209,102,0.95); } }
+        .hint-src { animation: hintPulse 0.9s ease-in-out infinite; border-radius: 6px; z-index: 5; }
+        .col.hint-dst::after, .pile-slot.hint-dst::after { content: ""; position: absolute; inset: -3px; border: 2px dashed #ffd166;
+            border-radius: 8px; pointer-events: none; }
+        .draw-toggle { display: flex; border: 1px solid rgba(255,255,255,0.14); border-radius: 12px; overflow: hidden; }
+        .draw-toggle button { background: transparent; border: none; color: var(--text-muted); font: 600 12px 'Inter', sans-serif;
+            padding: 3px 10px; cursor: pointer; }
+        .draw-toggle button.on { background: rgba(56,207,160,0.18); color: var(--text-light); }
+        .page.dealing #tableau, .page.dealing .top-row { opacity: 0.35; pointer-events: none; }
 
         .result-panel { text-align: center; margin: 8px 0 4px; }
         .result-panel .title { font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 6px; }
@@ -118,6 +129,8 @@
         .action-btn:active { background: #38cfa0; color: #14161a; transform: scale(0.97); }
         .action-btn:disabled { opacity: 0.35; pointer-events: none; }
 
+        /* кнопка довідки «?» у правому нижньому куті — не налазимо на неї */
+        @media (max-width: 440px) { .actions { padding-right: 52px; } .action-btn { padding: 12px 4px; font-size: 12px; white-space: nowrap; } }
         #winCanvas { position: fixed; inset: 0; pointer-events: none; z-index: 9000; display: none; }
     </style>
 <link rel="stylesheet" href="js/styles/game-header.css">
@@ -134,6 +147,9 @@
     <div class="stats">
         <div>⏱ <b id="timerVal">00:00</b></div>
         <div>🖱 <b id="movesVal">0</b></div>
+        <div class="draw-toggle" id="levelToggle" title="Складність">
+            <button data-level="easy">Легко</button><button data-level="normal">Норм</button><button data-level="hard">Складно</button>
+        </div>
     </div>
 
     <div class="top-row">
@@ -154,7 +170,8 @@
 
     <div class="actions">
         <button class="action-btn" id="undoBtn">↩️ Назад</button>
-        <button class="action-btn" id="newGameBtn">🔄 Нова гра</button>
+        <button class="action-btn" id="hintBtn">💡 Підказка</button>
+        <button class="action-btn" id="newGameBtn">🔄 Нова</button>
     </div>
 </div>
 
@@ -170,6 +187,7 @@
 <script src="js/core/records.js"></script>
 <script src="js/core/help.js"></script>
 <script src="js/core/back-button.js"></script>
+<script src="js/soliter-solver.js"></script>
 <script>
     (function () {
       const SUITS = ["S", "H", "D", "C"];
@@ -226,18 +244,34 @@
       }
 
       // ------------------------------------------------------------------
-      // Reverse-generation: build the deal by disassembling a solved position
-      // (all cards in the foundations) through legal reverse moves, instead of
-      // shuffling forward and hoping it happens to be solvable. Every card is
-      // popped from a foundation in strict descending rank order for its suit
-      // (K down to A) and pushed onto a tableau column (covering — and thus
-      // hiding — whatever was already on top of it) or held back for the
-      // stock. Replaying that same sequence in reverse (always send the
-      // currently-exposed top card of any pile straight to its foundation,
-      // processing suits in the ascending order this construction guarantees)
-      // is a valid win, so the deal is solvable by construction — no solver
-      // needed at generation time or during play.
+      // Роздача: звичайне тасування (як у класичній Косинці), а потім солвер
+      // (js/soliter-solver.js) перевіряє, що розклад МОЖНА виграти; ні — тасуємо
+      // ще. Раніше роздача будувалась «розбиранням» виграної позиції, і в
+      // кожній колонці глибше лежали старші карти — тузи й двійки майже завжди
+      // були під рукою, тому грати було надто легко.
       // ------------------------------------------------------------------
+      const DEAL_NODES = 30000;      // ліміт солвера на одну роздачу
+      const DEADEND_NODES = 40000;   // ліміт для перевірки глухого кута під час гри
+      // Складність: скільки карт брати з колоди і наскільки «заплутану» роздачу
+      // брати. Мірило заплутаності — скільки позицій перебрав солвер, поки
+      // знайшов виграш: ~50 — роздача йде майже по прямій, сотні й тисячі —
+      // треба думати наперед. Очки множаться на mult.
+      const LEVELS = {
+        easy:   { draw: 1, maxNodes: 60, mult: 0.6, label: "Легко" },
+        normal: { draw: 1, mult: 1, label: "Нормально" },
+        hard:   { draw: 3, minNodes: 150, mult: 1.6, label: "Складно" },
+      };
+      const LEVEL_KEY = "soliter_level";
+      let level = "normal";
+      try {
+        const saved = localStorage.getItem(LEVEL_KEY);
+        if (LEVELS[saved]) level = saved;
+        else if (localStorage.getItem("soliter_draw") === "3") level = "hard";
+      } catch (e) {}
+      let drawCount = LEVELS[level].draw;
+      let hintPlan = null, hintsUsed = 0;
+      const HINT_PENALTY = 100;
+
       function shuffleArr(arr) {
         for (let i = arr.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
@@ -246,63 +280,58 @@
         return arr;
       }
 
-      function generateDeal() {
-        const foundations = {};
-        SUITS.forEach((s) => {
-          foundations[s] = [];
-          for (let r = 1; r <= 13; r++) foundations[s].push({ suit: s, rank: r, id: `${s}_${r}`, faceUp: false });
-        });
-
-        // Build the full 52-step pop sequence first (each suit still strictly
-        // descending K..A — that's what the solve proof relies on).
-        const popSequence = [];
-        function nonEmptySuits() {
-          return SUITS.filter((s) => foundations[s].length > 0);
-        }
-        while (nonEmptySuits().length > 0) {
-          const suits = nonEmptySuits();
-          const suit = suits[Math.floor(Math.random() * suits.length)];
-          popSequence.push(foundations[suit].pop());
-        }
-
-        // Which 28 of the 52 steps land in the tableau is a plain random draw,
-        // independent of rank. Picking it greedily ("first come, first
-        // served" while a column has room) instead skewed high cards into the
-        // tableau — every suit pops highest-first, so whichever cards show up
-        // early in the sequence tend to be high, and "early" cards were always
-        // the ones grabbed by an open column. That left the stock stacked with
-        // mostly low cards, so the very first few draws were disproportionately
-        // aces and twos instead of a normal spread.
-        const tableauFlags = new Array(52).fill(false);
-        shuffleArr([...Array(52).keys()]).slice(0, 28).forEach((i) => (tableauFlags[i] = true));
-
+      function randomDeal() {
+        const deck = [];
+        SUITS.forEach((s) => { for (let r = 1; r <= 13; r++) deck.push({ suit: s, rank: r, id: `${s}_${r}`, faceUp: false }); });
+        shuffleArr(deck);
         const tableau = [[], [], [], [], [], [], []];
-        const targetSizes = [1, 2, 3, 4, 5, 6, 7];
-        let stock = [];
+        let n = 0;
+        for (let c = 0; c < 7; c++) for (let r = 0; r <= c; r++) tableau[c].push({ ...deck[n++], faceUp: r === c });
+        return { tableau, foundations: { S: [], H: [], D: [], C: [] }, stock: deck.slice(n), waste: [] };
+      }
 
-        popSequence.forEach((card, i) => {
-          if (tableauFlags[i]) {
-            const underTarget = [];
-            for (let j = 0; j < 7; j++) if (tableau[j].length < targetSizes[j]) underTarget.push(j);
-            const j = underTarget[Math.floor(Math.random() * underTarget.length)];
-            if (tableau[j].length > 0) tableau[j][tableau[j].length - 1].faceUp = false;
-            card.faceUp = true;
-            tableau[j].push(card);
-          } else {
-            card.faceUp = false;
-            stock.push(card);
-          }
+      // Солвер у фоновому Worker (щоб не підвисав інтерфейс); якщо Worker
+      // недоступний — той самий код прямо на сторінці.
+      let solverWorker = null, solverSeq = 0;
+      const solverWaiting = new Map();
+      try {
+        solverWorker = new Worker("js/soliter-solver.js");
+        solverWorker.onmessage = (e) => { const cb = solverWaiting.get(e.data.id); if (cb) { solverWaiting.delete(e.data.id); cb(e.data); } };
+        solverWorker.onerror = () => { solverWorker = null; solverWaiting.forEach((cb) => cb({ result: "unknown" })); solverWaiting.clear(); };
+      } catch (e) { solverWorker = null; }
+
+      function runSolver(st, opts) {
+        const plain = JSON.parse(JSON.stringify(st));
+        if (!solverWorker) {
+          return new Promise((res) => setTimeout(() => res(window.SoliterSolver ? window.SoliterSolver.solve(plain, opts) : { result: "unknown" }), 0));
+        }
+        return new Promise((res) => {
+          const id = ++solverSeq;
+          solverWaiting.set(id, res);
+          solverWorker.postMessage({ id, state: plain, opts });
         });
+      }
 
-        // The stock/waste cycle lets any card that isn't immediately playable
-        // just wait and come back around, so its physical order doesn't need
-        // to match the construction sequence the way each tableau column's
-        // does — freely shuffling it removes the last bit of skew (verified:
-        // 50,000/50,000 generated deals still fully solvable after this
-        // shuffle) and makes draws look properly random.
-        stock = shuffleArr(stock);
-
-        return { tableau, foundations: { S: [], H: [], D: [], C: [] }, stock, waste: [] };
+      // Повертає { deal, plan }: роздачу, яку солвер ВИГРАВ (тобто існує
+      // конкретна послідовність ходів до перемоги), і цей план — з нього
+      // беруться підказки. Невиграшні або «не та складність» — тасуємо ще.
+      async function generateDeal() {
+        const L = LEVELS[level];
+        let fallback = null;
+        for (let attempt = 0; attempt < 60; attempt++) {
+          const deal = randomDeal();
+          const r = await runSolver(deal, { drawCount: L.draw, maxNodes: DEAL_NODES, plan: true });
+          if (r.result !== "win" || !r.plan) continue;
+          if ((L.maxNodes && r.nodes > L.maxNodes) || (L.minNodes && r.nodes < L.minNodes)) { fallback = fallback || { deal, plan: r.plan }; continue; }
+          return { deal, plan: r.plan };
+        }
+        if (fallback) return fallback; // виграшна, хоч і не зовсім тієї складності
+        // практично недосяжно; будь-яка виграшна (без ліміту спроб)
+        for (;;) {
+          const deal = randomDeal();
+          const r = await runSolver(deal, { drawCount: L.draw, maxNodes: DEAL_NODES, plan: true });
+          if (r.result === "win" && r.plan) return { deal, plan: r.plan };
+        }
       }
 
       // ------------------------------------------------------------------
@@ -345,10 +374,12 @@
           state.stock = state.waste.slice().reverse().map((c) => ({ ...c, faceUp: false }));
           state.waste = [];
         } else {
-          const card = state.stock.pop();
-          card.faceUp = true;
-          card.animFlip = true;
-          state.waste.push(card);
+          for (let i = 0; i < drawCount && state.stock.length; i++) {
+            const card = state.stock.pop();
+            card.faceUp = true;
+            card.animFlip = true;
+            state.waste.push(card);
+          }
         }
         moves++;
         render();
@@ -394,6 +425,20 @@
         return true;
       }
 
+      // Повернути верхню карту з бази в колонку (легальний хід класичної Косинки).
+      function moveFoundationToTableau(suit, colIndex) {
+        const pile = state.foundations[suit];
+        if (!pile.length) return false;
+        const card = pile[pile.length - 1];
+        if (!canPlaceOnTableau(state.tableau[colIndex], card)) return false;
+        pushHistory();
+        pile.pop();
+        state.tableau[colIndex].push({ ...card, faceUp: true });
+        moves++;
+        render();
+        return true;
+      }
+
       function moveTableauToTableau(fromCol, cardIndex, toColIndex) {
         if (fromCol === toColIndex) return false;
         const col = state.tableau[fromCol];
@@ -415,11 +460,11 @@
         finished = true;
         clearInterval(timerHandle);
         const elapsedSec = Math.floor((Date.now() - startTime) / 1000);
-        const score = Math.max(50, SCORE_BASE - elapsedSec * 2 - moves);
+        const score = Math.max(50, Math.round((SCORE_BASE - elapsedSec * 2 - moves) * LEVELS[level].mult) - hintsUsed * HINT_PENALTY);
 
         document.getElementById("resultPanel").style.display = "block";
         document.getElementById("resultTitle").textContent = "🎉 Виграно!";
-        document.getElementById("resultSub").textContent = `Час: ${formatTime(elapsedSec)} · Ходів: ${moves} · Очки: ${score}`;
+        document.getElementById("resultSub").textContent = `${LEVELS[level].label} · Час: ${formatTime(elapsedSec)} · Ходів: ${moves}${hintsUsed ? ` · Підказок: ${hintsUsed}` : ""} · Очки: ${score}`;
 
         if (window.AppScore) window.AppScore.sendScore("soliter", score);
         const msgEl = document.getElementById("msg");
@@ -445,6 +490,7 @@
       // ------------------------------------------------------------------
       // Rendering
       // ------------------------------------------------------------------
+      const pageEl = document.querySelector(".page");
       const tableauEl = document.getElementById("tableau");
       const foundationsEl = document.getElementById("foundations");
       const stockSlot = document.getElementById("stockSlot");
@@ -515,7 +561,9 @@
           slot.className = "pile-slot foundation-slot";
           slot.dataset.suit = s;
           if (pile.length) {
-            slot.appendChild(makeCardEl(pile[pile.length - 1]));
+            const top = makeCardEl(pile[pile.length - 1]);
+            attachDrag(top, { source: "foundation", suit: s });
+            slot.appendChild(top);
           } else {
             slot.textContent = SUIT_SYMBOL[s];
           }
@@ -540,6 +588,32 @@
 
         document.getElementById("movesVal").textContent = String(moves);
         updateUndoButton();
+        scheduleDeadEndCheck();
+      }
+
+      // ------------------------------------------------------------------
+      // Глухий кут: після кожного ходу (з паузою) солвер у повному режимі
+      // перевіряє поточну позицію. Повідомляємо лише коли ДОВЕДЕНО, що
+      // виграти вже не можна ("lose"); «не встиг» — мовчимо.
+      // ------------------------------------------------------------------
+      let deadEndTimer = null, positionVersion = 0, deadEndShown = false;
+      function scheduleDeadEndCheck() {
+        positionVersion++;
+        if (typeof clearHint === "function") clearHint();
+        if (deadEndShown) setDeadEnd(false);
+        clearTimeout(deadEndTimer);
+        if (finished || !state) return;
+        const version = positionVersion;
+        deadEndTimer = setTimeout(async () => {
+          const r = await runSolver(state, { drawCount, maxNodes: DEADEND_NODES, complete: true });
+          if (version === positionVersion && !finished && r.result === "lose") setDeadEnd(true);
+        }, 600);
+      }
+      function setDeadEnd(on) {
+        deadEndShown = on;
+        const el = document.getElementById("msg");
+        el.classList.toggle("deadend", on);
+        el.textContent = on ? "😕 Глухий кут: цю розкладку вже не виграти. Скасуй кілька ходів ↩️ або почни нову гру." : "";
       }
 
       // ------------------------------------------------------------------
@@ -599,7 +673,11 @@
         dragAvatar.innerHTML = "";
 
         let cards = [];
-        if (activeDrag.sourceInfo.source === "waste") {
+        if (activeDrag.sourceInfo.source === "foundation") {
+          const pile = state.foundations[activeDrag.sourceInfo.suit];
+          cards = pile.length ? [pile[pile.length - 1]] : [];
+          document.querySelector(`.foundation-slot[data-suit="${activeDrag.sourceInfo.suit}"] .card`)?.classList.add("dragging-source");
+        } else if (activeDrag.sourceInfo.source === "waste") {
           cards = state.waste.length ? [state.waste[state.waste.length - 1]] : [];
           wasteSlot.querySelector(".waste-card:last-child")?.classList.add("dragging-source");
         } else {
@@ -647,7 +725,9 @@
         let ok = false;
         const { source } = activeDrag.sourceInfo;
 
-        if (target && target.type === "tableau") {
+        if (source === "foundation") {
+          ok = !!(target && target.type === "tableau") && moveFoundationToTableau(activeDrag.sourceInfo.suit, target.col);
+        } else if (target && target.type === "tableau") {
           ok = source === "waste" ? moveWasteToTableau(target.col) : moveTableauToTableau(activeDrag.sourceInfo.col, activeDrag.sourceInfo.idx, target.col);
         } else if (target && target.type === "foundation") {
           const topCard = source === "waste"
@@ -747,8 +827,20 @@
       // ------------------------------------------------------------------
       // Lifecycle
       // ------------------------------------------------------------------
-      function newGame() {
-        state = generateDeal();
+      let dealing = false;
+      async function newGame() {
+        if (dealing) return;
+        dealing = true;
+        pageEl.classList.add("dealing");
+        document.getElementById("msg").textContent = "Тасую колоду…";
+        drawCount = LEVELS[level].draw;
+        const { deal, plan } = await generateDeal();
+        dealing = false;
+        pageEl.classList.remove("dealing");
+        setDeadEnd(false);
+        state = deal;
+        hintPlan = plan;
+        hintsUsed = 0;
         historyStack = [];
         selected = null;
         finished = false;
@@ -765,7 +857,76 @@
       document.getElementById("newGameBtn").addEventListener("click", newGame);
       document.getElementById("undoBtn").addEventListener("click", undo);
 
-      const pageEl = document.querySelector(".page");
+      function renderLevelToggle() {
+        document.querySelectorAll("#levelToggle button").forEach((b) => b.classList.toggle("on", b.dataset.level === level));
+      }
+      document.querySelectorAll("#levelToggle button").forEach((b) => b.addEventListener("click", () => {
+        const next = b.dataset.level;
+        if (next === level || dealing || !LEVELS[next]) return;
+        if (moves > 0 && !finished && !confirm(`Почати нову гру («${LEVELS[next].label}»)?`)) return;
+        level = next;
+        try { localStorage.setItem(LEVEL_KEY, level); } catch (e) {}
+        renderLevelToggle();
+        newGame();
+      }));
+      renderLevelToggle();
+
+      // ------------------------------------------------------------------
+      // Підказка: наступний хід із плану солвера. Поки гравець іде за
+      // підказками, позиція збігається з кроком плану — відповідь миттєва.
+      // Зійшов з плану — солвер шукає новий план від поточної позиції.
+      // ------------------------------------------------------------------
+      let hintBusy = false, hintTimer = null;
+      function planStep() {
+        if (!hintPlan || !window.SoliterSolver) return null;
+        const sig = window.SoliterSolver.signature(state);
+        // останній збіг: навіть якби позиція в плані повторилась, підказка веде лише вперед
+        for (let i = hintPlan.length - 1; i >= 0; i--) if (hintPlan[i].sig === sig) return hintPlan[i];
+        return null;
+      }
+      function clearHint() {
+        clearTimeout(hintTimer);
+        document.querySelectorAll(".hint-src, .hint-dst").forEach((el) => el.classList.remove("hint-src", "hint-dst"));
+      }
+      function showHint(h) {
+        clearHint();
+        const src = [];
+        if (h.from.type === "stock") src.push(stockSlot);
+        else if (h.from.type === "waste") src.push(wasteSlot.querySelector(".waste-card:last-child"));
+        else if (h.from.type === "foundation") src.push(document.querySelector(`.foundation-slot[data-suit="${h.from.suit}"] .card`));
+        else { const colEl = tableauEl.children[h.from.col]; for (let i = h.from.idx; colEl && i < colEl.children.length; i++) src.push(colEl.children[i]); }
+        src.filter(Boolean).forEach((el) => el.classList.add("hint-src"));
+        if (h.to) {
+          const dst = h.to.type === "foundation" ? document.querySelector(`.foundation-slot[data-suit="${h.to.suit}"]`) : tableauEl.children[h.to.col];
+          if (dst) dst.classList.add("hint-dst");
+        }
+        hintTimer = setTimeout(clearHint, 2600);
+      }
+      async function hint() {
+        if (finished || dealing || hintBusy || !state) return;
+        let step = planStep();
+        if (!step) {
+          hintBusy = true;
+          const btn = document.getElementById("hintBtn");
+          btn.textContent = "🤔 Думаю…";
+          const version = positionVersion;
+          let r = await runSolver(state, { drawCount, maxNodes: 60000, plan: true });
+          if (r.result !== "win") r = await runSolver(state, { drawCount, maxNodes: 60000, plan: true, complete: true });
+          btn.textContent = "💡 Підказка";
+          hintBusy = false;
+          if (version !== positionVersion) return; // гравець уже походив
+          if (r.result === "win" && r.plan) { hintPlan = r.plan; step = planStep(); }
+          else if (r.result === "lose") { setDeadEnd(true); return; }
+          else { document.getElementById("msg").textContent = "Тут навіть солвер задумався — спробуй сам 🙂"; return; }
+        }
+        if (!step) return;
+        hintsUsed++;
+        showHint(step.hint);
+      }
+      document.getElementById("hintBtn").addEventListener("click", hint);
+      // для автотестів: підставити позицію (bots/local-sim/soliter-test.js)
+      window.SoliterDebug = { load(st) { state = st; historyStack = []; finished = false; render(); }, get state() { return state; } };
+
       const actionsEl = document.querySelector(".actions");
       function syncActionsHeight() {
         if (pageEl && actionsEl) pageEl.style.setProperty("--actions-h", actionsEl.offsetHeight + "px");

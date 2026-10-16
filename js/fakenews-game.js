@@ -1,6 +1,6 @@
 // ==========================================================================
 // «Fake News» — окрема гра на спільному OnlineEngine (js/online-engine.js).
-// Самодостатня: не залежить від party-*.js / naklep-*.js. Кімнати: "fakenews_rooms",
+// Самодостатня: не залежить від party-*.js. Кімнати: "fakenews_rooms",
 // фото гравців: "fakenews_photos/<кімната>/<ім'я>/<ключ>" (стиснутий JPEG, base64).
 // Фото лежать ОКРЕМО від вузла кімнати, щоб кожне оновлення кімнати не тягло їх на всі
 // телефони; у кімнаті — лише room.photoMeta (які ключі існують).
@@ -8,6 +8,8 @@
 // Раунд: write (усі пишуть заголовок до одного фото, автор фото теж) →
 //        show (ефір: заголовки по черзі, анонімно) → vote (за свій не можна) → reveal.
 // Етапи: kind "write" | "show" | "vote" | "reveal". Рішення приймає лише хост.
+// Канал: кожне фото виходить на одному з CHANNELS (оформлення ефіру + легка підказка до стилю).
+// Автор фото обирає канал у лобі (picks/<ім'я>/p<i> = id каналу, photoMeta/…/ch), інакше — випадковий.
 // Підключати ПІСЛЯ firebase-config.js, login.js, online-engine.js, fakenews-photos.js.
 // ==========================================================================
 (function () {
@@ -16,7 +18,6 @@
   const TICK_MS = 500;
   const SET_CAP = 6;
   const MIN_PLAYERS = 3;
-  const ROUND_OPTIONS = [4, 6, 8, 12], DEFAULT_ROUNDS = 6;
   const MIN_TIMER_SEC = 20, MAX_TIMER_SEC = 120;
   const DEFAULT_WRITE_SEC = 60;
   const DEFAULT_SHOW_SEC = 20;
@@ -31,6 +32,16 @@
   // до фото (першими — автори, яких показували найрідше). 20 заголовків × 20 с
   // ефіру = майже 7 хвилин на одне фото.
   const MAX_AIRED = 6;
+  const CHANNELS = [
+    { id: "tv", icon: "📺", name: "Новини 24/7", short: "Новини", hint: "коротко й тривожно, як бігуча стрічка" },
+    { id: "tabloid", icon: "📰", name: "Жовта преса", short: "Преса", hint: "більше сенсації й знаків оклику!" },
+    { id: "tg", icon: "📱", name: "Телеграм-канал", short: "Телеграм", hint: "«⚡️ТЕРМІНОВО» і «джерела повідомляють»" },
+    { id: "radio", icon: "🎙️", name: "Радіо", short: "Радіо", hint: "так, ніби диктор читає це в мікрофон" },
+    { id: "sport", icon: "🏆", name: "Спорт-канал", short: "Спорт", hint: "як коментатор у фіналі чемпіонату" },
+  ];
+  const CHANNEL_IDS = CHANNELS.map((c) => c.id);
+  function randomChannel() { return CHANNEL_IDS[Math.floor(Math.random() * CHANNEL_IDS.length)]; }
+  function channelInfo(id) { return CHANNELS.find((c) => c.id === id) || CHANNELS[0]; }
   const ABANDON_MS = 15 * 60 * 1000;
   const PHOTO_MAX_SIDE = 720, PHOTO_QUALITY = 0.72, PHOTO_MAX_CHARS = 140000;
   const AVATAR_STORAGE_PREFIX = "games41_quiplash_avatar_";
@@ -40,7 +51,7 @@
   const SCHEMA = {
     phase: "lobby",
     hostUsername: null,
-    settings: { rounds: DEFAULT_ROUNDS, writeSec: DEFAULT_WRITE_SEC, showSec: DEFAULT_SHOW_SEC, voteSec: DEFAULT_VOTE_SEC },
+    settings: { writeSec: DEFAULT_WRITE_SEC, showSec: DEFAULT_SHOW_SEC, voteSec: DEFAULT_VOTE_SEC },
     setId: null,
     order: null,
     deck: null,        // { items: [{ p: { k:"pool", i } | { k:"up", n, id } }] }
@@ -64,7 +75,7 @@
   let tickTimer = null;
   let busy = false;
 
-  function defaultSettings() { return { rounds: DEFAULT_ROUNDS, writeSec: DEFAULT_WRITE_SEC, showSec: DEFAULT_SHOW_SEC, voteSec: DEFAULT_VOTE_SEC }; }
+  function defaultSettings() { return { writeSec: DEFAULT_WRITE_SEC, showSec: DEFAULT_SHOW_SEC, voteSec: DEFAULT_VOTE_SEC }; }
   function buildFreshRoom() { return { players: {}, settings: defaultSettings() }; }
   function connectedNames(players) {
     return Object.entries(players || {}).filter(([, p]) => engine.isConnected(p)).map(([n]) => n);
@@ -195,8 +206,26 @@
     const key = "p" + i, mine = (room.picks && room.picks[username]) || {};
     if (mine[key]) { engine.roomRef.child("picks/" + username + "/" + key).remove(); return { ok: true, picked: false }; }
     if (photoCount(room, username) >= MAX_PHOTOS) return { ok: false, reason: "limit" };
-    engine.roomRef.child("picks/" + username + "/" + key).set(true);
+    engine.roomRef.child("picks/" + username + "/" + key).set(randomChannel());   // канал можна змінити в лобі
     return { ok: true, picked: true };
+  }
+  // Канал мого фото: p = { k:"pool", i } | { k:"up", id }. Невідоме значення (старе true) — канал не обрано.
+  function photoChannel(room, name, p) {
+    const v = p.k === "pool" ? room.picks && room.picks[name] && room.picks[name]["p" + p.i]
+      : room.photoMeta && room.photoMeta[name] && room.photoMeta[name][p.id] && room.photoMeta[name][p.id].ch;
+    return CHANNEL_IDS.includes(v) ? v : null;
+  }
+  function setPhotoChannel(p, ch) {
+    const room = engine.latestRoom;
+    if (!room || room.phase === "round" || !CHANNEL_IDS.includes(ch) || !p) return { ok: false, reason: "not-allowed" };
+    if (p.k === "pool") {
+      if (!(room.picks && room.picks[username] && room.picks[username]["p" + p.i])) return { ok: false, reason: "not-mine" };
+      engine.roomRef.child("picks/" + username + "/p" + p.i).set(ch);
+    } else {
+      if (!(room.photoMeta && room.photoMeta[username] && room.photoMeta[username][p.id])) return { ok: false, reason: "not-mine" };
+      engine.roomRef.child("photoMeta/" + username + "/" + p.id + "/ch").set(ch);
+    }
+    return { ok: true };
   }
 
   // ------------------------- фото -------------------------
@@ -296,6 +325,7 @@
     photoCache.set("up:" + username + ":" + ref.key, Promise.resolve(data));
     await engine.roomRef.child("photoMeta/" + username + "/" + ref.key).set({
       title: readableFilename(file.name || ""),
+      ch: randomChannel(),
     });
     return { ok: true, id: ref.key };
   }
@@ -317,8 +347,8 @@
     const meta = room.photoMeta || {}, picks = room.picks || {};
     const names = Array.from(new Set(Object.keys(meta).concat(Object.keys(picks))));
     const queues = shuffle(names).map((n) => shuffle(
-      Object.keys(meta[n] || {}).map((id) => ({ p: { k: "up", n, id } }))
-        .concat(Object.keys(picks[n] || {}).map((k) => ({ p: { k: "pool", i: Number(k.slice(1)) } })))
+      Object.keys(meta[n] || {}).map((id) => ({ p: { k: "up", n, id }, ch: photoChannel(room, n, { k: "up", id }) }))
+        .concat(Object.keys(picks[n] || {}).map((k) => ({ p: { k: "pool", i: Number(k.slice(1)) }, ch: photoChannel(room, n, { k: "pool", i: Number(k.slice(1)) }) })))
     ));
     const own = [];
     for (let i = 0; queues.some((q) => q[i]); i++) queues.forEach((q) => { if (q[i]) own.push(q[i]); });
@@ -330,7 +360,14 @@
     });
     const rest = shuffle(poolOf().map((_, i) => ({ p: { k: "pool", i } }))).filter((it) => !seen.has(photoKey(it.p)));
     // обрані гравцями фото йдуть першими (у випадковому порядку), решта пулу — лише добір і запас
-    return shuffle(chosen.slice(0, need)).concat(rest).slice(0, need);
+    // хто не обрав канал — отримує випадковий, але без двох однакових каналів поспіль, де можна
+    const out = shuffle(chosen.slice(0, need)).concat(rest).slice(0, need);
+    let prev = null;
+    out.forEach((it) => {
+      if (!it.ch) { const options = CHANNEL_IDS.filter((c) => c !== prev); it.ch = options[Math.floor(Math.random() * options.length)]; }
+      prev = it.ch;
+    });
+    return out;
   }
   function availablePhotos(room) {
     const meta = room.photoMeta || {};
@@ -342,7 +379,8 @@
   function stageFor(room, idx) {
     const items = (room.deck && room.deck.items) || [], order = room.order || [];
     const item = items[idx % items.length];
-    return { kind: "write", title: "Заголовок", hint: "Придумай гучний заголовок до цього фото", photo: item.p, expect: order.slice(), durationMs: sec(room, "writeSec", DEFAULT_WRITE_SEC), data: { step: "write", idx, photo: item.p } };
+    const ch = channelInfo(item.ch);
+    return { kind: "write", title: "Заголовок", hint: `${ch.icon} ${ch.name}: ${ch.hint}`, photo: item.p, expect: order.slice(), durationMs: sec(room, "writeSec", DEFAULT_WRITE_SEC), data: { step: "write", idx, photo: item.p, ch: ch.id } };
   }
   function sortedByVotes(list) { return list.slice().sort((a, b) => b.v - a.v); }
   function reveal(stage, fields) {
@@ -364,7 +402,7 @@
       }
       const shuf = shuffle(aired);
       const hint = aired.length < heads.length ? `В ефірі ${aired.length} з ${heads.length} заголовків — решта вийде з наступними фото` : "Дивимось, що вийшло";
-      return { kind: "show", title: "Ефір", hint, photo: stage.photo, expect: [], data: { step: "show", idx: d.idx, photo: d.photo, texts: shuf.map((h) => h.t), authors: shuf.map((h) => h.n), airCounts } };
+      return { kind: "show", title: "Ефір", hint, photo: stage.photo, expect: [], data: { step: "show", idx: d.idx, photo: d.photo, ch: d.ch, texts: shuf.map((h) => h.t), authors: shuf.map((h) => h.n), airCounts } };
     }
     if (d.step === "show") {
       return { kind: "vote", title: "Голосування", hint: "Який заголовок найкращий? За свій голосувати не можна", photo: stage.photo, options: d.texts.map((t, i) => ({ id: String(i), label: t })), expect: order.slice(), durationMs: sec(room, "voteSec", DEFAULT_VOTE_SEC), data: Object.assign({}, d, { step: "vote" }) };
@@ -483,7 +521,6 @@
     const room = engine.latestRoom;
     if (!room || room.phase === "round" || !isHostNow() || !partial) return;
     const next = {};
-    if (ROUND_OPTIONS.includes(Number(partial.rounds))) next.rounds = Number(partial.rounds);
     for (const key of ["writeSec", "showSec", "voteSec"]) {
       const seconds = Number(partial[key]);
       if (Number.isInteger(seconds) && seconds >= MIN_TIMER_SEC && seconds <= MAX_TIMER_SEC) next[key] = seconds;
@@ -499,7 +536,7 @@
     const av = availablePhotos(room);
     if (!av.total) return { ok: false, reason: "no-photos" };
     const settings = room.settings || {};
-    const total = Math.min(settings.rounds || DEFAULT_ROUNDS, av.total);   // раундів не більше, ніж фото
+    const total = av.total;   // раунд на кожне обране фото
     const items = buildItems(room, names, total);
     const draft = Object.assign({}, room, { stageSeq: 0, order: names, deck: { items } });
     engine.roomRef.update(commitStage(draft, stageFor(draft, 0), {
@@ -551,9 +588,9 @@
   }
 
   window.FakeNewsGame = {
-    SET_CAP, MIN_PLAYERS, MAX_PHOTOS, POOL_CHOICES, HEADLINE_MAX, ROUND_OPTIONS, MIN_TIMER_SEC, MAX_TIMER_SEC,
-    DEFAULT_ROUNDS, DEFAULT_WRITE_SEC, DEFAULT_SHOW_SEC, DEFAULT_VOTE_SEC,
-    connectedNames, availablePhotos, photoCount, readyNames, poolChoices, togglePoolPick,
+    SET_CAP, MIN_PLAYERS, MAX_PHOTOS, POOL_CHOICES, HEADLINE_MAX, MIN_TIMER_SEC, MAX_TIMER_SEC, CHANNELS,
+    DEFAULT_WRITE_SEC, DEFAULT_SHOW_SEC, DEFAULT_VOTE_SEC,
+    connectedNames, availablePhotos, photoCount, readyNames, poolChoices, togglePoolPick, photoChannel, setPhotoChannel,
     computeHost: (players) => engine.computeHost(players),
     isConnected: (p) => engine.isConnected(p),
     now: () => engine.now(),

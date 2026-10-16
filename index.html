@@ -119,8 +119,30 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      flex-wrap: wrap;
       gap: 10px;
     }
+
+    /* Пошук — другим рядком у липкій панелі (order: кнопка профілю, яку login.js додає в кінець, лишається в першому рядку) */
+    .game-search {
+      order: 3;
+      flex-basis: 100%;
+      position: relative;
+      z-index: 1;
+      box-sizing: border-box;
+      width: 100%;
+      padding: 9px 12px;
+      border: 1px solid transparent;
+      border-radius: 12px;
+      background: #1c1f26;
+      color: var(--text-light);
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      outline: none;
+    }
+    .game-search::placeholder { color: var(--text-muted); }
+    .game-search:focus { border-color: #2c303b; }
+    .search-empty { grid-column: 1 / -1; text-align: center; color: var(--text-muted); font-size: 14px; padding: 24px 0; }
 
  
     /* Блюр-фон позаду top-bar на всю ширину екрана */
@@ -373,195 +395,14 @@
       <button class="filter-btn" data-filter="multi">Компанія</button>
       <button class="filter-btn" data-filter="host">Хост</button>
     </div>
+    <input class="game-search" id="gameSearch" type="search" placeholder="🔍 Пошук гри" autocomplete="off" aria-label="Пошук гри" />
   </div>
 
   <div class="grid" id="games-grid">
 
+    <div class="search-empty hidden" id="searchEmpty">Нічого не знайшлось</div>
+
     <!-- ІГРИ -->
-
-    <a class="tile" href="naklep.html" data-type="multi">
-      <div class="tile-media" style="--icon: url('img/naklep_logo.svg');"></div>
-      <div class="tags"> <span class="tag tag-v">NEW</span><span class="tag tag-multi">4 - 20</span><span class="tag tag-it">🌐</span></div>
-      <div class="tile-banner">
-        <div class="name">Наклеп</div>
-      </div>
-    </a>
-
-    <a class="tile" href="whofrom.html" data-type="multi">
-      <div class="tile-media" style="--icon: url('img/whofrom_logo.svg');"></div>
-      <div class="tags"><span class="tag tag-v">NEW</span><span class="tag tag-multi">3 - 20</span><span class="tag tag-it">🌐</span></div>
-      <div class="tile-banner">
-        <div class="name">Хто з нас?</div>
-      </div>
-    </a>
-
-    <a class="tile" href="court.html" data-type="multi">
-      <div class="tile-media" style="--icon: url('img/court_logo.svg');"></div>
-      <div class="tags"><span class="tag tag-v">NEW</span><span class="tag tag-multi">3 - 20</span><span class="tag tag-it">🌐</span></div>
-      <div class="tile-banner">
-        <div class="name">Суд Лінча</div>
-      </div>
-    </a>
-
-    <a class="tile" href="bets.html" data-type="multi">
-      <div class="tile-media" style="--icon: url('img/bets_logo.svg');"></div>
-      <div class="tags"><span class="tag tag-v">NEW</span><span class="tag tag-multi">3 - 20</span><span class="tag tag-it">🌐</span></div>
-      <div class="tile-banner">
-        <div class="name">Ставки</div>
-      </div>
-    </a>
-
-    <a class="tile" href="fakenews.html" data-type="multi">
-      <div class="tile-media" style="--icon: url('img/fakenews_logo.svg');"></div>
-      <div class="tags"><span class="tag tag-v">NEW</span><span class="tag tag-multi">3 - 20</span><span class="tag tag-it">🌐</span></div>
-      <div class="tile-banner">
-        <div class="name">Fake News</div>
-      </div>
-    </a>
-
-    <a class="tile" href="charades.html" data-type="multi">
-      <div class="tile-media" style="--icon: url('img/charades_logo.svg');"></div>
-      <div class="tags"><span class="tag tag-v">NEW</span><span class="tag tag-multi">3 - 20</span><span class="tag tag-it">🌐</span></div>
-      <div class="tile-banner">
-        <div class="name">Зіпсовані шаради</div>
-      </div>
-    </a>
-
-    <a class="tile" href="dilemmas.html" data-type="multi">
-      <div class="tile-media" style="--icon: url('img/dilemmas_logo.svg');"></div>
-      <div class="tags"><span class="tag tag-v">NEW</span><span class="tag tag-multi">2 - 20</span><span class="tag tag-it">🌐</span></div>
-      <div class="tile-banner">
-        <div class="name">Дилеми</div>
-      </div>
-    </a>
-
-    <a class="tile" href="mafia.html" data-type="multi">
-      <div class="tile-media" style="--icon: url('img/mafia_logo.png');"></div>
-      <div class="tags"><span class="tag tag-multi">4 - 20</span><span class="tag tag-it">🌐</span> </div>
-      <div class="tile-banner">
-        <div class="name">Мафія</div>
-      </div>
-    </a>
-
-    <a class="tile" href="spy.html" data-type="multi">
-      <div class="tile-media" style="--icon: url('img/spy_logo.png');"></div>
-      <div class="tags"><span class="tag tag-multi">3 - 20</span><span class="tag tag-it">🌐</span></div>
-      <div class="tile-banner">
-        <div class="name">Шпигун</div>
-      </div>
-    </a>
-
-    <a class="tile" href="quiplash.html" data-type="multi">
-      <div class="tile-media" style="--icon: url('img/quiplash_logo.png');"></div>
-      <div class="tags"><span class="tag tag-multi">2 - 20</span><span class="tag tag-it">🌐</span> </div>
-      <div class="tile-banner">
-        <div class="name">Сміхлист</div>
-      </div>
-    </a>
-
-    <a class="tile" href="memology.html" data-type="multi">
-      <div class="tile-media" style="--icon: url('img/meme_logo.png');"></div>
-      <div class="tags"><span class="tag tag-multi">2 - 20</span><span class="tag tag-it">🌐</span></div>
-      <div class="tile-banner">
-        <div class="name">Мемологія</div>
-      </div>
-    </a>
-
-    <a class="tile" href="teli.html" data-type="multi">
-      <div class="tile-media" style="--icon: url('img/teli_logo.png');"></div>
-      <div class="tags"><span class="tag tag-v">NEW</span><span class="tag tag-multi">2 - 20</span><span class="tag tag-it">🌐</span></div>
-      <div class="tile-banner">
-        <div class="name">Зіпсований телефон</div>
-      </div>
-    </a>
-
-    <a class="tile" href="draw.html" data-type="multi">
-      <div class="tile-media" style="--icon: url('img/draw_logo.png');"></div>
-      <div class="tags"><span class="tag tag-v">NEW</span><span class="tag tag-multi">2 - 20</span><span class="tag tag-it">🌐</span></div>
-      <div class="tile-banner">
-        <div class="name">Малювалка</div>
-      </div>
-    </a>
-
-    <a class="tile" href="quiz.html" data-type="multi">
-      <div class="tile-media" style="--icon: url('img/quiz_logo.png');"></div>
-      <div class="tags"><span class="tag tag-multi">2 - 20</span><span class="tag tag-it">🌐</span></div>
-      <div class="tile-banner">
-        <div class="name">Квіз</div>
-      </div>
-    </a>
-
-    <a class="tile" href="crocodile.html" data-type="multi">
-      <div class="tile-media" style="--icon: url('img/crocodile_logo.png');"></div>
-      <div class="tags"><span class="tag tag-multi">2 - 20</span></div>
-      <div class="tile-banner">
-        <div class="name">Крокодил</div>
-      </div>
-    </a>
-
-    <a class="tile" href="whoami.html" data-type="multi">
-      <div class="tile-media" style="--icon: url('img/whoami_logo.png');"></div>
-      <div class="tags"><span class="tag tag-multi">2 - 20</span></div>
-      <div class="tile-banner">
-        <div class="name">Хто я?</div>
-      </div>
-    </a>
-
-    <a class="tile" href="quiplash-tv.html" data-type="host">
-      <div class="tile-media" style="--icon: url('img/quiplashtv_logo.png');"></div>
-      <div class="tags"><span class="tag tag-multi">2 - 20</span> <span class="tag tag-host">Хост</span><span class="tag tag-it">🌐</span></div>
-      <div class="tile-banner">
-        <div class="name">Сміхлист ТВ</div>
-      </div>
-    </a>
-
-    <a class="tile" href="quiz-tv.html" data-type="host">
-      <div class="tile-media" style="--icon: url('img/quiztv_logo.png');"></div>
-      <div class="tags"><span class="tag tag-multi">2 - 20</span> <span class="tag tag-host">Хост</span><span class="tag tag-it">🌐</span></div>
-      <div class="tile-banner">
-        <div class="name">Квіз ТВ</div>
-      </div>
-    </a>
-
-    <a class="tile" href="poker.html" data-type="solo multi">
-      <div class="tile-media" style="--icon: url('img/poker_logo.png');"></div>
-      <div class="tags"><span class="tag tag-multi">1 - 10</span><span class="tag tag-it">🌐</span></div>
-      <div class="tile-banner">
-        <div class="name">Покер</div>
-      </div>
-    </a>
-
-    <a class="tile" href="durak.html" data-type="multi">
-      <div class="tile-media" style="--icon: url('img/durak_logo.svg');"></div>
-      <div class="tags"><span class="tag tag-v">NEW</span><span class="tag tag-multi">2 - 6</span><span class="tag tag-it">🌐</span></div>
-      <div class="tile-banner">
-        <div class="name">Дурень</div>
-      </div>
-    </a>
-
-    <a class="tile" href="chess.html" data-type="solo multi">
-      <div class="tile-media" style="--icon: url('img/chess_logo.png');"></div>
-      <div class="tags"><span class="tag tag-multi">1 - 2</span><span class="tag tag-it">🌐</span></div>
-      <div class="tile-banner">
-        <div class="name">Шахи</div>
-      </div>
-    </a>
-
-    <a class="tile" href="checkers.html" data-type="solo multi">
-      <div class="tile-media" style="--icon: url('img/checkers_logo.png');"></div>
-      <div class="tags"><span class="tag tag-multi">1 - 2</span><span class="tag tag-it">🌐</span></div>
-      <div class="tile-banner">
-        <div class="name">Шашки</div>
-      </div>
-    </a>
-
-    <a class="tile" href="snake.html" data-type="solo multi">
-      <div class="tile-media" style="--icon: url('img/snake_logo.png');"></div>
-      <div class="tags"><span class="tag tag-multi">1 - 8</span></div>
-      <div class="tile-banner">
-        <div class="name">Змійка</div>
-      </div>
-    </a>
 
     <a class="tile" href="tetris.html" data-type="solo">
       <div class="tile-media" style="--icon: url('img/tetris_logo.png');"></div>
@@ -584,6 +425,14 @@
       
       <div class="tile-banner">
         <div class="name">Wordle</div>
+      </div>
+    </a>
+
+    <a class="tile" href="snake.html" data-type="solo multi">
+      <div class="tile-media" style="--icon: url('img/snake_logo.png');"></div>
+      <div class="tags"><span class="tag tag-multi">1 - 8</span></div>
+      <div class="tile-banner">
+        <div class="name">Змійка</div>
       </div>
     </a>
 
@@ -616,6 +465,174 @@
       <div class="tags"></div>
       <div class="tile-banner">
         <div class="name">Косинка</div>
+      </div>
+    </a>
+
+    <a class="tile" href="poker.html" data-type="solo multi">
+      <div class="tile-media" style="--icon: url('img/poker_logo.png');"></div>
+      <div class="tags"><span class="tag tag-multi">1 - 10</span><span class="tag tag-it">🌐</span></div>
+      <div class="tile-banner">
+        <div class="name">Покер</div>
+      </div>
+    </a>
+
+    <a class="tile" href="durak.html" data-type="multi">
+      <div class="tile-media" style="--icon: url('img/durak_logo.png');"></div>
+      <div class="tags"><span class="tag tag-v">NEW</span><span class="tag tag-multi">2 - 6</span><span class="tag tag-it">🌐</span></div>
+      <div class="tile-banner">
+        <div class="name">Дурень</div>
+      </div>
+    </a>
+
+
+    <a class="tile" href="chess.html" data-type="solo multi">
+      <div class="tile-media" style="--icon: url('img/chess_logo.png');"></div>
+      <div class="tags"><span class="tag tag-multi">1 - 2</span><span class="tag tag-it">🌐</span></div>
+      <div class="tile-banner">
+        <div class="name">Шахи</div>
+      </div>
+    </a>
+
+    <a class="tile" href="checkers.html" data-type="solo multi">
+      <div class="tile-media" style="--icon: url('img/checkers_logo.png');"></div>
+      <div class="tags"><span class="tag tag-multi">1 - 2</span><span class="tag tag-it">🌐</span></div>
+      <div class="tile-banner">
+        <div class="name">Шашки</div>
+      </div>
+    </a>
+    <a class="tile" href="spy.html" data-type="multi">
+      <div class="tile-media" style="--icon: url('img/spy_logo.png');"></div>
+      <div class="tags"><span class="tag tag-multi">3 - 20</span><span class="tag tag-it">🌐</span></div>
+      <div class="tile-banner">
+        <div class="name">Шпигун</div>
+      </div>
+    </a>
+
+    <a class="tile" href="whoami.html" data-type="multi">
+      <div class="tile-media" style="--icon: url('img/whoami_logo.png');"></div>
+      <div class="tags"><span class="tag tag-multi">2 - 20</span></div>
+      <div class="tile-banner">
+        <div class="name">Хто я?</div>
+      </div>
+    </a>
+
+    <a class="tile" href="memology.html" data-type="multi">
+      <div class="tile-media" style="--icon: url('img/meme_logo.png');"></div>
+      <div class="tags"><span class="tag tag-multi">2 - 20</span><span class="tag tag-it">🌐</span></div>
+      <div class="tile-banner">
+        <div class="name">Мемологія</div>
+      </div>
+    </a>
+
+    <a class="tile" href="crocodile.html" data-type="multi">
+      <div class="tile-media" style="--icon: url('img/crocodile_logo.png');"></div>
+      <div class="tags"><span class="tag tag-multi">2 - 20</span></div>
+      <div class="tile-banner">
+        <div class="name">Крокодил</div>
+      </div>
+    </a>
+
+    <a class="tile" href="charades.html" data-type="multi">
+      <div class="tile-media" style="--icon: url('img/charades_logo.png');"></div>
+      <div class="tags"><span class="tag tag-v">NEW</span><span class="tag tag-multi">3 - 20</span><span class="tag tag-it">🌐</span></div>
+      <div class="tile-banner">
+        <div class="name">Зіпсовані шаради</div>
+      </div>
+    </a>
+
+    <a class="tile" href="teli.html" data-type="multi">
+      <div class="tile-media" style="--icon: url('img/teli_logo.png');"></div>
+      <div class="tags"><span class="tag tag-v">NEW</span><span class="tag tag-multi">2 - 20</span><span class="tag tag-it">🌐</span></div>
+      <div class="tile-banner">
+        <div class="name">Зіпсований телефон</div>
+      </div>
+    </a>
+
+    <a class="tile" href="draw.html" data-type="multi">
+      <div class="tile-media" style="--icon: url('img/draw_logo.png');"></div>
+      <div class="tags"><span class="tag tag-v">NEW</span><span class="tag tag-multi">2 - 20</span><span class="tag tag-it">🌐</span></div>
+      <div class="tile-banner">
+        <div class="name">Малювалка</div>
+      </div>
+    </a>
+
+    <a class="tile" href="quiz.html" data-type="multi">
+      <div class="tile-media" style="--icon: url('img/quiz_logo.png');"></div>
+      <div class="tags"><span class="tag tag-multi">2 - 20</span><span class="tag tag-it">🌐</span></div>
+      <div class="tile-banner">
+        <div class="name">Квіз</div>
+      </div>
+    </a>
+
+    <a class="tile" href="quiplash.html" data-type="multi">
+      <div class="tile-media" style="--icon: url('img/quiplash_logo.png');"></div>
+      <div class="tags"><span class="tag tag-multi">2 - 20</span><span class="tag tag-it">🌐</span> </div>
+      <div class="tile-banner">
+        <div class="name">Сміхлист</div>
+      </div>
+    </a>
+
+    <a class="tile" href="mafia.html" data-type="multi">
+      <div class="tile-media" style="--icon: url('img/mafia_logo.png');"></div>
+      <div class="tags"><span class="tag tag-multi">4 - 20</span><span class="tag tag-it">🌐</span> </div>
+      <div class="tile-banner">
+        <div class="name">Мафія</div>
+      </div>
+    </a>
+
+    <a class="tile" href="dilemmas.html" data-type="multi">
+      <div class="tile-media" style="--icon: url('img/dilemmas_logo.svg');"></div>
+      <div class="tags"><span class="tag tag-v">NEW</span><span class="tag tag-multi">2 - 20</span><span class="tag tag-it">🌐</span></div>
+      <div class="tile-banner">
+        <div class="name">Дилеми</div>
+      </div>
+    </a>
+
+    <a class="tile" href="whofrom.html" data-type="multi">
+      <div class="tile-media" style="--icon: url('img/whofrom_logo.png');"></div>
+      <div class="tags"><span class="tag tag-v">NEW</span><span class="tag tag-multi">3 - 20</span><span class="tag tag-it">🌐</span></div>
+      <div class="tile-banner">
+        <div class="name">Хто з нас?</div>
+      </div>
+    </a>
+
+    <a class="tile" href="court.html" data-type="multi">
+      <div class="tile-media" style="--icon: url('img/court_logo.png');"></div>
+      <div class="tags"><span class="tag tag-v">NEW</span><span class="tag tag-multi">3 - 20</span><span class="tag tag-it">🌐</span></div>
+      <div class="tile-banner">
+        <div class="name">Суд Лінча</div>
+      </div>
+    </a>
+
+    <a class="tile" href="bets.html" data-type="multi">
+      <div class="tile-media" style="--icon: url('img/bets_logo.png');"></div>
+      <div class="tags"><span class="tag tag-v">NEW</span><span class="tag tag-multi">3 - 20</span><span class="tag tag-it">🌐</span></div>
+      <div class="tile-banner">
+        <div class="name">Ставки</div>
+      </div>
+    </a>
+
+    <a class="tile" href="fakenews.html" data-type="multi">
+      <div class="tile-media" style="--icon: url('img/fakenews_logo.png');"></div>
+      <div class="tags"><span class="tag tag-v">NEW</span><span class="tag tag-multi">3 - 20</span><span class="tag tag-it">🌐</span></div>
+      <div class="tile-banner">
+        <div class="name">Fake News</div>
+      </div>
+    </a>
+
+    <a class="tile" href="quiplash-tv.html" data-type="host">
+      <div class="tile-media" style="--icon: url('img/quiplashtv_logo.png');"></div>
+      <div class="tags"><span class="tag tag-multi">2 - 20</span> <span class="tag tag-host">Хост</span><span class="tag tag-it">🌐</span></div>
+      <div class="tile-banner">
+        <div class="name">Сміхлист ТВ</div>
+      </div>
+    </a>
+
+    <a class="tile" href="quiz-tv.html" data-type="host">
+      <div class="tile-media" style="--icon: url('img/quiztv_logo.png');"></div>
+      <div class="tags"><span class="tag tag-multi">2 - 20</span> <span class="tag tag-host">Хост</span><span class="tag tag-it">🌐</span></div>
+      <div class="tile-banner">
+        <div class="name">Квіз ТВ</div>
       </div>
     </a>
 
@@ -684,20 +701,26 @@
   const filterButtons = document.querySelectorAll('.filter-btn');
   const tiles = document.querySelectorAll('.tile');
 
+  // Пошук за назвою (і за англійською назвою файлу: «tetris», «quiz») — разом із фільтром.
+  const searchInput = document.getElementById('gameSearch');
+  const norm = (s) => String(s || '').toLowerCase().replace(/[ʼ’`']/g, '').replace(/ё/g, 'е');
+  let currentFilter = 'all';
   const applyFilter = (filter) => {
+    currentFilter = filter;
+    const q = norm(searchInput.value.trim());
+    let shown = 0;
     tiles.forEach(tile => {
       const types = tile.dataset.type.split(' ');
       const isHost = types.includes('host');
-
-      if (filter === 'host') {
-        tile.classList.toggle('hidden', !isHost);
-      } else if (filter === 'all') {
-        tile.classList.toggle('hidden', isHost);
-      } else {
-        tile.classList.toggle('hidden', !types.includes(filter) || isHost);
-      }
+      const byFilter = filter === 'host' ? isHost : filter === 'all' ? !isHost : types.includes(filter) && !isHost;
+      const name = norm((tile.querySelector('.name') || {}).textContent) + ' ' + norm(tile.getAttribute('href'));
+      const visible = byFilter && (!q || name.includes(q));
+      tile.classList.toggle('hidden', !visible);
+      if (visible) shown++;
     });
+    document.getElementById('searchEmpty').classList.toggle('hidden', shown > 0);
   };
+  searchInput.addEventListener('input', () => applyFilter(currentFilter));
 
   filterButtons.forEach(btn => {
     btn.addEventListener('click', () => {

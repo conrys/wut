@@ -3,70 +3,44 @@ const path = require("node:path");
 const { randomUUID } = require("node:crypto");
 const { request, patch, wait } = require("./common");
 const { gameActions } = require("./game-actions");
+const { doodleDataUri } = require("./doodle-png");
 
 const POLL_MS = 750;
 const HEARTBEAT_MS = 2000;
 const MAX_ROOM_PLAYERS = 20;
 const MIN_PLAYERS = {
-  humanbingo: 2,
   dilemmas: 2,
   whofrom: 3,
   court: 3,
   bets: 3,
   charades: 3,
   fakenews: 3,
-  naklep: 4,
   mafia: 4,
+  teli: 2,
+  quiplash: 2,
 };
 const GAME_KEYS = {
-  humanbingo: "humanbingo",
   dilemmas: "dilemmas",
   whofrom: "party_whofrom",
   court: "party_court",
   bets: "party_bets",
   charades: "charades",
   fakenews: "fakenews",
-  naklep: "naklep",
   mafia: "mafia",
+  teli: "teli",
+  quiplash: "quiplash",
 };
-const BOT_FACTS = [
-  "засинав(ла) під час фільму в кінотеатрі",
-  "їздив(ла) не тим автобусом і помітив(ла) це не одразу",
-  "забував(ла), навіщо зайшов або зайшла в кімнату",
-  "ховав(ла) смаколики від друзів",
-  "проспав(ла) зупинку в транспорті",
-  "плутав(ла) ліву і праву сторону",
-  "співав(ла) пісню, не знаючи слів",
-  "купував(ла) річ, а потім забував(ла) нею користуватися",
-  "надсилав(ла) повідомлення не в той чат",
-  "шукав(ла) окуляри, які були на голові",
-  "запізнювався(лася), бо довго шукав(ла) ключі",
-  "вигадував(ла) відмовку, щоб не йти на вечірку",
-];
-const NAKLEP_FACTS = [
-  "Одного разу я привітався з манекеном у магазині",
-  "Я шукав телефон, поки тримав його в руці",
-  "Я кивав, хоча не почув запитання",
-  "Я відкривав холодильник, забувши, що саме шукаю",
-  "Я махав знайомій людині, а вона махала комусь позаду мене",
-  "Я гуглив значення слова, яке щойно сам написав",
-  "Я зайшов у кімнату й одразу забув навіщо",
-  "Я кілька разів перевіряв, чи замкнув двері",
-  "Я сказав «і тобі смачного» офіціанту, який побажав гарного дня",
-  "Я шукав окуляри, поки вони були на моїй голові",
-  "Я відкрив не ті двері в під'їзді",
-  "Я пішов не в той бік після виходу з ліфта",
-];
 const AVATAR_COLORS = ["#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#9b59b6", "#1abc9c", "#e67e22", "#ff6fa5"];
 
 function usage() {
   console.log("Usage: node bots/run-tests.js <game> <room-code> [bot-count]");
-  console.log("Games: humanbingo, dilemmas, whofrom, court, bets, charades, fakenews, naklep, mafia");
+  console.log("Games: dilemmas, whofrom, court, bets, charades, fakenews, mafia, teli, quiplash");
   console.log("Example: node bots/run-tests.js charades ROOM42 3");
+  console.log("Resume bots already in a running game: node bots/run-tests.js fakenews 1 2 --resume a4679ffc");
 }
 
-function makeBots(count) {
-  const runId = randomUUID().slice(0, 8);
+function makeBots(count, resumeId) {
+  const runId = resumeId || randomUUID().slice(0, 8);
   return Array.from({ length: count }, (_, index) => ({
     name: `testbot_${runId}_${String(index + 1).padStart(2, "0")}`,
     index,
@@ -99,38 +73,15 @@ async function prepareBot(game, roomId, bot, currentPlayers, photoFiles) {
     joinedAt: now,
     lastSeen: now,
     status: "active",
-    character: (avatarNumber % 8) + 1,
+    character: game === "quiplash" ? ((currentPlayers.length + bot.index) % 20) + 1 : (avatarNumber % 8) + 1,
     color: AVATAR_COLORS[avatarNumber],
     ...(game === "mafia" ? { role: null, isDon: false, alive: true, ready: false } : {}),
+    ...(game === "quiplash" ? { score: 0 } : {}),
   };
   await request(`${GAME_KEYS[game]}_rooms/${roomId}/players/${bot.name}`, "PUT", player);
   bot.cleanup.push(`players/${bot.name}`);
 
-  if (game === "humanbingo") {
-    for (let index = 0; index < 4; index++) {
-      const id = `${bot.name}_${index + 1}`;
-      await request(`${GAME_KEYS[game]}_rooms/${roomId}/factPool/facts/${id}`, "PUT", {
-        text: BOT_FACTS[(bot.index * 4 + index) % BOT_FACTS.length],
-        authorUsername: bot.name,
-        level: 3,
-        status: "approved",
-        similarTo: null,
-        createdAt: now + index,
-        sessionId: null,
-        playCount: 0,
-        lastPlayedAt: null,
-        lastPlayedSession: null,
-      });
-      bot.cleanup.push(`factPool/facts/${id}`);
-    }
-  } else if (game === "naklep") {
-    for (let index = 0; index < 4; index++) {
-      const id = `testfact_${index + 1}`;
-      await request(`${GAME_KEYS[game]}_rooms/${roomId}/facts/${bot.name}/${id}`, "PUT",
-        NAKLEP_FACTS[(bot.index * 4 + index) % NAKLEP_FACTS.length]);
-      bot.cleanup.push(`facts/${bot.name}/${id}`);
-    }
-  } else if (game === "fakenews") {
+  if (game === "fakenews") {
     for (let index = 0; index < photoFiles.length; index++) {
       const id = `testphoto_${index + 1}`;
       await request(`fakenews_photos/${roomId}/${bot.name}/${id}`, "PUT", photoFiles[index].dataUri);
@@ -159,18 +110,18 @@ async function cleanupBots(game, roomId, bots) {
   }
 }
 
-async function run(game, roomId, count) {
+async function run(game, roomId, count, resumeId) {
   if (!/^[A-Za-z0-9_-]+$/.test(roomId)) {
     throw new Error("Room code may contain only letters, digits, hyphens, and underscores.");
   }
   const key = GAME_KEYS[game];
   const initialRoom = await request(`${key}_rooms/${roomId}`);
   if (!initialRoom) throw new Error(`Room ${roomId} does not exist in ${key}_rooms.`);
-  if ((initialRoom.phase || "lobby") !== "lobby") {
-    throw new Error(`Room must be in the lobby before starting test bots (current phase: ${initialRoom.phase}).`);
+  if (!resumeId && (initialRoom.phase || "lobby") !== "lobby") {
+    throw new Error(`Room must be in the lobby before starting test bots (current phase: ${initialRoom.phase}). Щоб підхопити ботів, що вже в грі: --resume <id>`);
   }
 
-  const bots = makeBots(count);
+  const bots = makeBots(count, resumeId);
   let stopping = false;
   let cleaned = false;
   let lastHeartbeat = 0;
@@ -197,13 +148,20 @@ async function run(game, roomId, count) {
       .map(([name]) => name);
 
     for (const bot of bots) {
+      if (resumeId && initialRoom.players && initialRoom.players[bot.name]) {
+        // --resume: бот уже в кімнаті (посеред гри) — просто знову ходимо за нього
+        bot.cleanup.push(`players/${bot.name}`);
+        if (game === "fakenews") bot.cleanup.push(`photoMeta/${bot.name}`);
+        console.log(`Resumed ${bot.name}`);
+        continue;
+      }
       await prepareBot(game, roomId, bot, existingPlayers, photoFiles);
       console.log(`Joined ${roomId} as ${bot.name}`);
       await wait(150);
     }
 
     const required = MIN_PLAYERS[game];
-    if (existingPlayers.length + bots.length < required) {
+    if (!resumeId && existingPlayers.length + bots.length < required) {
       throw new Error(`${game} needs ${required} connected players; room has ${existingPlayers.length + bots.length}. Run with more bots.`);
     }
     if (existingPlayers.length + bots.length > MAX_ROOM_PLAYERS) {
@@ -211,11 +169,20 @@ async function run(game, roomId, count) {
     }
 
     console.log(`Ready. Start the game manually in the browser. Press Ctrl+C to remove these bots.`);
+    let failures = 0;
     while (!stopping) {
+      try {
       const now = Date.now();
       if (now - lastHeartbeat >= HEARTBEAT_MS) {
         const heartbeat = { lastActivityAt: now };
+        const current = (await request(`${key}_rooms/${roomId}/players`)) || {};
         for (const bot of bots) {
+          if (!current[bot.name]) {
+            // кімнату скинули і бота прибрали — заходить заново повним записом
+            // (зі свіжим joinedAt), а не голим lastSeen, з яким він виглядав би «найстаршим»
+            await prepareBot(game, roomId, { ...bot, cleanup: [] }, Object.keys(current), photoFiles);
+            continue;
+          }
           heartbeat[`players/${bot.name}/lastSeen`] = now;
           heartbeat[`players/${bot.name}/status`] = "active";
         }
@@ -226,6 +193,10 @@ async function run(game, roomId, count) {
       const room = await request(`${key}_rooms/${roomId}`);
       if (!room) throw new Error("The room was removed while test bots were running.");
       const result = gameActions(game, room, bots, now);
+      // малюнки (Телефон) — спершу в окремий вузол, потім посилання в кімнату
+      for (const d of result.drawings || []) {
+        await request(`teli_drawings/${roomId}/${d.ref}`, "PUT", doodleDataUri(d.seed));
+      }
       if (Object.keys(result.updates).length) {
         await patch(`${key}_rooms/${roomId}`, result.updates);
         const signature = `${room.phase}:${room.stage && room.stage.id}:${result.actions.join("|")}`;
@@ -233,6 +204,14 @@ async function run(game, roomId, count) {
           console.log(result.actions.join("; "));
           lastActionSignature = signature;
         }
+      }
+      failures = 0;
+      } catch (error) {
+        // збій мережі не має вбивати ботів посеред гри — пробуємо ще ~2 хв
+        if (/removed while/.test(error.message) || ++failures > 60) throw error;
+        if (failures === 1 || failures % 10 === 0) console.log(`Network hiccup (${error.message}), retrying… [${failures}]`);
+        await wait(2000);
+        continue;
       }
       await wait(POLL_MS);
     }
@@ -242,7 +221,10 @@ async function run(game, roomId, count) {
 }
 
 async function main() {
-  const [, , gameArg, roomId, countArg] = process.argv;
+  const args = process.argv.slice(2);
+  const ri = args.indexOf("--resume");
+  const resumeId = ri >= 0 ? args.splice(ri, 2)[1] : null;
+  const [gameArg, roomId, countArg] = args;
   if (!gameArg || !roomId || !/^[1-9]\d*$/.test(countArg || "3")) {
     usage();
     process.exitCode = 2;
@@ -255,7 +237,7 @@ async function main() {
     throw new Error(`Unsupported test game: ${gameArg}`);
   }
   if (count > MAX_ROOM_PLAYERS) throw new Error(`Bot count cannot exceed ${MAX_ROOM_PLAYERS}.`);
-  await run(game, roomId, count);
+  await run(game, roomId, count, resumeId);
 }
 
 if (require.main === module) {

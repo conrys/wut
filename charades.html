@@ -91,6 +91,14 @@
   @keyframes chShake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
   .ch-res { display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 12px; margin-bottom: 6px; background: var(--bg-tile, #20242c); font-size: 14px; font-weight: 700; }
   .ch-res .n { flex: 1; } .ch-res .v { font-weight: 900; font-size: 16px; }
+  .ch-picks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin: 4px 0 10px; }
+  .ch-pick { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 6px 8px; border: 2px solid var(--border-soft); border-radius: 12px; background: var(--bg-tile, #20242c); color: inherit; font: inherit; font-size: 14px; font-weight: 700; text-align: left; touch-action: manipulation; }
+  .ch-pick .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ch-pick .rank { flex: none; min-width: 26px; height: 26px; border-radius: 13px; display: none; align-items: center; justify-content: center; background: #38cfa0; color: #06231a; font-size: 13px; font-weight: 900; }
+  .ch-pick.on { border-color: #38cfa0; }
+  .ch-pick.on .rank { display: inline-flex; }
+  .ch-say { text-align: center; font-size: 17px; font-weight: 800; margin: 8px 0 4px; }
+  .ch-search-empty { grid-column: 1 / -1; text-align: center; font-size: 13px; color: var(--text-muted, #8b909c); padding: 6px 0; }
 </style>
 <link rel="stylesheet" href="js/styles/game-header.css">
 <script src="js/core/game-header.js" defer></script>
@@ -125,10 +133,7 @@
       <h3>Гравці</h3>
       <div id="playersList"></div>
     </div>
-    <div class="card hidden" id="eveningBox"><h3>Вечір</h3><div id="eveningTally"></div></div>
     <div class="card hidden" id="hostPanel">
-      <label style="display:block; font-size:12px; color:var(--text-muted,#8b909c); margin-bottom:6px;">Кіл (кожен шифрує по разу за коло)</label>
-      <div class="seg" id="lapsSeg"></div>
       <label style="display:block; font-size:12px; color:var(--text-muted,#8b909c); margin-bottom:6px;">Складність слів</label>
       <div class="seg" id="levelSeg"></div>
       <label for="encodeSecSlider" style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted,#8b909c); margin-bottom:6px;">Секунд на шифрування <output id="encodeSecValue">60 с</output></label>
@@ -142,8 +147,8 @@
     <div class="card">
       <h3>Як це працює</h3>
       <ol class="rules-list">
-        <li>По черзі один гравець шифрувальник: бачить слово (фільм, пісню чи фразу) і описує його лише емодзі — обирай із панелі або вводь з клавіатури.</li>
-        <li>Решта друкують відповідь. Перший правильний +3 бали, другий +2, далі +1; шифрувальник +1 за кожного, хто вгадав.</li>
+        <li>По черзі один гравець шифрувальник: бачить слово (фільм, пісню чи фразу) і описує його лише емодзі. Емодзі можна шукати словами: «білка», «посмішка».</li>
+        <li>Решта кажуть відповідь уголос, а шифрувальник позначає всіх, хто вгадав. Кожен із них отримує +3 бали, шифрувальник +1.</li>
         <li>Якщо ніхто не вгадав, шифрувальник п'є за надто складний ребус. Ковток: будь-який напій, у своєму темпі; до 6 за набір.</li>
       </ol>
     </div>
@@ -203,7 +208,6 @@
     return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
   const G = window.CharadesGame;
-  const LEVEL_LABELS = { 1: "Легко", 2: "Середньо", 3: "Складно" };
   const EMOJI_CHOICES = ["😀", "😂", "🥲", "😍", "😎", "🤔", "😱", "😭", "😴", "😡", "🥳", "🤫", "👻", "💀", "🤖", "👽", "🐶", "🐱", "🦊", "🐻", "🐸", "🐵", "🦁", "🐮", "🐷", "🐔", "🦄", "🐍", "🐢", "🦋", "🐝", "🐙", "🦈", "🐳", "🌈", "☀️", "🌙", "⭐", "🔥", "💧", "❄️", "⚡", "🍎", "🍕", "🍔", "🍟", "🍦", "🎂", "⚽", "🏀", "🎸", "🎤", "🎬", "🚗", "🚀", "✈️", "🏠", "💎", "❤️", "💔", "💰", "🎁", "👑", "💪", "🙏", "👍", "👎", "👏", "🙈", "💃", "🏃", "🛌", "📱", "💻", "🔑", "☂️", "⏰", "💡", "📚"];
   EMOJI_CHOICES.push(
     "🧌", "🧙", "🧛", "🧟", "🧚", "🦸", "🦹", "👸", "🤴", "🤠", "🥷", "👮",
@@ -406,6 +410,61 @@
     });
     return [...scores].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([emoji]) => emoji);
   }
+
+  // ---------------- пошук емодзі словами (як у Telegram) ----------------
+  // Словник CLDR (js/promts/emoji-uk.js, ~45 КБ) вантажимо лише коли шифрувальник
+  // почав шукати. Збіг — за початком слова, тож «білк» знайде «білка», а «посмішки»
+  // (відмінок) — через корінь без закінчення.
+  let emojiIndex = null, emojiIndexLoading = null;
+  function loadEmojiIndex() {
+    if (emojiIndex) return Promise.resolve(emojiIndex);
+    if (!emojiIndexLoading) {
+      emojiIndexLoading = new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = "js/promts/emoji-uk.js";
+        s.onload = () => resolve();
+        s.onerror = () => { emojiIndexLoading = null; reject(new Error("emoji index")); };
+        document.head.appendChild(s);
+      }).then(() => {
+        emojiIndex = String(window.EmojiIndexUk || "").split("\n").map((row) => {
+          const [emoji, , label, tags] = row.split("\t");
+          return { emoji, label: (label || "").split(" "), tags: (tags || "").split(" ") };
+        });
+        return emojiIndex;
+      });
+    }
+    return emojiIndexLoading;
+  }
+  function searchNorm(s) { return String(s || "").toLowerCase().replace(/[ʼ’`']/g, "").replace(/ё/g, "е"); }
+  // Корінь без закінчення: «посмішки» → «посміш», «білку» → «білк».
+  function searchStem(w) { return w.length >= 6 ? w.slice(0, -2) : w.length >= 4 ? w.slice(0, -1) : w; }
+  function wordScore(words, q, stem) {
+    let best = 0;
+    for (const w of words) {
+      if (w === q) return 3;
+      if (w.startsWith(q)) best = Math.max(best, 2);
+      else if (stem !== q && w.startsWith(stem)) best = Math.max(best, 1);
+    }
+    return best;
+  }
+  function searchEmoji(query, limit) {
+    const qs = searchNorm(query).split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+    if (!qs.length || !emojiIndex) return [];
+    const scored = [];
+    emojiIndex.forEach((e, order) => {
+      let total = 0, hits = 0;
+      for (const q of qs) {
+        const stem = searchStem(q);
+        // назва важить більше за ключові слова
+        const s = Math.max(wordScore(e.label, q, stem) * 2, wordScore(e.tags, q, stem));
+        if (s) { hits++; total += s; }
+      }
+      if (hits) scored.push({ emoji: e.emoji, total, hits, order });
+    });
+    // Спершу ті, що підходять під усі слова; якщо таких нема — під будь-яке («серце вогонь» → ❤️ і 🔥).
+    const all = scored.filter((x) => x.hits === qs.length);
+    return (all.length ? all : scored).sort((a, b) => b.hits - a.hits || b.total - a.total || a.order - b.order).slice(0, limit || 48).map((x) => x.emoji);
+  }
   let lastRoom = null, lastCtx = null, reactionsMounted = false;
   let builtStageId = null;   // id етапу, для якого вже збудовано кнопки введення (щоб не збивати виділення)
 
@@ -442,16 +501,12 @@
     document.getElementById("lobbyStatus").innerHTML = `<span class="pulse-dot"></span> Гравців онлайн: ${conn.length}`;
     document.getElementById("playersList").innerHTML = Object.keys(room.players || {}).map((n) =>
       `<div class="player-chip ${conn.includes(n) ? "" : "offline"}"><span style="display:flex;align-items:center;gap:10px;">${avatarHtml(room, n, { small: true })}${escapeHtml(n)}</span>${n === hostName ? '<span class="badge">ВЕДУЧИЙ</span>' : ""}</div>`).join("") || '<div class="status-line">Ще нікого немає</div>';
-    const hasTally = room.tally && (room.tally.drinks || room.tally.points);
-    document.getElementById("eveningBox").classList.toggle("hidden", !hasTally);
-    if (hasTally) document.getElementById("eveningTally").innerHTML = `<div class="pt-cols"><div><h4>🥃 Ковтки</h4>${renderTallyList(room, "drinks")}</div><div><h4>⭐ Бали</h4>${renderTallyList(room, "points")}</div></div>`;
     document.getElementById("hostPanel").classList.toggle("hidden", !ctx.host);
     document.getElementById("resetBtn").classList.toggle("hidden", !ctx.host);
     document.getElementById("waitHostLobby").classList.toggle("hidden", !!ctx.host);
     if (!ctx.host) return;
     const s = room.settings || {};
-    segButtons("lapsSeg", G.LAPS_OPTIONS.map((n) => [n, String(n)]), s.laps || G.DEFAULT_LAPS, (n) => G.updateSettings({ laps: n }));
-    segButtons("levelSeg", [1, 2, 3].map((n) => [n, "⭐".repeat(n) + " " + LEVEL_LABELS[n]]), s.level || G.DEFAULT_LEVEL, (n) => G.updateSettings({ level: n }));
+    segButtons("levelSeg", [1, 2, 3].map((n) => [n, Array(n).fill("🌶️").join(" ")]), s.level || G.DEFAULT_LEVEL, (n) => G.updateSettings({ level: n }));
     renderTimerSlider("encodeSecSlider", "encodeSecValue", s.encodeSec, G.DEFAULT_ENCODE_SEC);
     renderTimerSlider("guessSecSlider", "guessSecValue", s.guessSec, G.DEFAULT_GUESS_SEC);
     const enough = conn.length >= G.MIN_PLAYERS;
@@ -460,9 +515,8 @@
   }
 
   // ---------------- раунд ----------------
-  function waitingAvatars(room, names) { return names.map((n) => avatarHtml(room, n, { small: true })).join(" "); }
 
-  const EMOJI_ERRORS = { empty: "Напиши щось емодзі", letters: "Жодних літер і цифр: лише емодзі", "too-long": "Задовго, скороти шифр", "too-few": "Потрібно щонайменше два емодзі" };
+  const EMOJI_ERRORS = { empty: "Напиши щось емодзі", letters: "Заміни слова на емодзі: торкнись підказки під полем", "too-long": "Задовго, скороти шифр", "too-few": "Потрібно щонайменше два емодзі" };
   let feedbackTimer = null;
   function setFeedback(text, cls) {
     const el = document.getElementById("chFeedback");
@@ -489,8 +543,6 @@
     const inputArea = document.getElementById("inputArea"), revealArea = document.getElementById("revealArea");
     revealArea.classList.toggle("hidden", !isReveal);
     inputArea.classList.toggle("hidden", isReveal);
-    const waiting = G.waitingNames(room), expect = st.expect || [];
-    const mine = G.inputOf(room, ctx.username), iExpected = expect.includes(ctx.username);
 
     if (isReveal) {
       hintEl.textContent = "";
@@ -510,7 +562,8 @@
       if (builtStageId !== st.id) {
         builtStageId = st.id;
         inputArea.innerHTML = `<div class="ch-secret"><small>${escapeHtml(d.cat || "Слово")} · загадане слово</small><b>${escapeHtml(d.text)}</b></div>
-          <input class="ch-input" id="chEmoji" placeholder="Обери емодзі нижче або введи з клавіатури" autocomplete="off" aria-label="Емодзі-шифр" />
+          <input class="ch-input" id="chEmoji" placeholder="Пиши слово: білка, посмішка… — або емодзі" autocomplete="off" aria-label="Емодзі-шифр" />
+          <div class="ch-suggestions hidden" id="chSearchResults" aria-label="Емодзі до написаного слова"></div>
           <div class="ch-emoji-tools">
             <button class="btn" id="chEmojiClear" type="button">Очистити</button>
           </div>
@@ -524,20 +577,45 @@
           <div class="ch-feedback" id="chFeedback"></div>
           <button class="btn btn-primary btn-block" id="chSend">Відправити шифр</button>
           ${d.rerolled ? "" : '<button class="btn btn-block" id="chReroll" style="margin-top:8px; opacity:.85;">🔄 Інше слово (один раз)</button>'}`;
-        const inp = document.getElementById("chEmoji");
-        inputArea.querySelectorAll("[data-emoji]").forEach((button) => button.addEventListener("click", () => {
-          const value = inp.value + button.dataset.emoji;
+        // Один рядок, як у Telegram: слово, написане в кінці поля, — це пошук;
+        // тап по емодзі замінює це слово на емодзі.
+        const inp = document.getElementById("chEmoji"), results = document.getElementById("chSearchResults");
+        const typedWord = () => { const m = inp.value.match(/[\p{L}\p{N}ʼ'’\- ]+$/u); return m ? m[0] : ""; };
+        const runSearch = () => {
+          const q = typedWord().trim();
+          results.classList.toggle("hidden", !q);
+          if (!q) { results.innerHTML = ""; return; }
+          loadEmojiIndex().then(() => {
+            if (typedWord().trim() !== q) return;   // поки вантажилось, слово змінилось
+            const found = searchEmoji(q, 48);
+            results.innerHTML = found.length
+              ? found.map((emoji) => `<button type="button" data-emoji="${emoji}" aria-label="Додати ${emoji}">${emoji}</button>`).join("")
+              : '<div class="ch-search-empty">Нічого не знайшлось — спробуй інше слово</div>';
+          }).catch(() => { results.innerHTML = '<div class="ch-search-empty">Пошук недоступний без інтернету</div>'; });
+        };
+        const addEmoji = (emoji) => {
+          const typed = typedWord();
+          const value = inp.value.slice(0, inp.value.length - typed.length) + emoji;
           if (Array.from(value).length > G.EMOJI_MAX) {
             setFeedback(EMOJI_ERRORS["too-long"], "bad");
             return;
           }
           inp.value = value;
-          inp.focus();
+          inp.focus();   // клавіатура лишається — можна писати наступне слово
           setFeedback("", "");
-        }));
+          runSearch();
+        };
+        // кнопки статичних панелей
+        inputArea.querySelectorAll("[data-emoji]").forEach((button) => button.addEventListener("click", () => addEmoji(button.dataset.emoji)));
+        // результати пошуку перебудовуються — делегуємо; pointerdown не забирає фокус у поля
+        results.addEventListener("pointerdown", (e) => { if (e.target.closest("[data-emoji]")) e.preventDefault(); });
+        results.addEventListener("click", (e) => { const b = e.target.closest("[data-emoji]"); if (b) addEmoji(b.dataset.emoji); });
+        inp.addEventListener("input", runSearch);
+        inp.addEventListener("focus", () => { loadEmojiIndex().catch(() => {}); }, { once: true });
         document.getElementById("chEmojiClear").addEventListener("click", () => {
           inp.value = "";
           setFeedback("", "");
+          runSearch();
         });
         const send = () => { const r = G.submitEmoji(inp.value); if (!r.ok) setFeedback(EMOJI_ERRORS[r.reason] || "Не вийшло відправити", "bad"); else setFeedback("✅ Відправлено", "good"); };
         document.getElementById("chSend").addEventListener("click", send);
@@ -545,26 +623,24 @@
         const rr = document.getElementById("chReroll");
         if (rr) rr.addEventListener("click", () => { rr.disabled = true; G.rerollWord(); });
       }
-    } else if (st.kind === "guess" && iExpected) {
+    } else if (st.kind === "guess" && iAmEncoder) {
+      // Шифрувальник слухає відповіді й тапає тих, хто вгадав, по черзі.
+      hintEl.textContent = "Тапни всіх, хто вгадав. Помилився — тапни ще раз.";
+      const picks = G.picksOf(room);
+      const guessers = (room.order || []).filter((n) => n !== d.encoder);
+      inputArea.innerHTML = `<div class="ch-secret"><small>${escapeHtml(d.cat || "Слово")} · загадане слово</small><b>${escapeHtml(d.text)}</b></div>
+        <div class="ch-picks">${guessers.map((n) => {
+          const rank = picks.names.indexOf(n) + 1;
+          return `<button type="button" class="ch-pick ${rank ? "on" : ""}" data-pick="${escapeHtml(n)}" ${picks.done ? "disabled" : ""}>${avatarHtml(room, n, { small: true })}<span class="n">${escapeHtml(n)}</span><span class="rank">✓</span></button>`;
+        }).join("")}</div>
+        <button class="btn btn-primary btn-block" id="chDone" ${picks.done ? "disabled" : ""}>${picks.names.length ? `✅ Готово — вгадали: ${picks.names.length}` : "Ніхто не вгадав"}</button>`;
+      inputArea.querySelectorAll("[data-pick]").forEach((b) => b.addEventListener("click", () => G.togglePick(b.dataset.pick)));
+      document.getElementById("chDone").addEventListener("click", () => G.finishPicks());
+      builtStageId = null;
+    } else if (st.kind === "guess") {
       hintEl.textContent = st.hint || "";
-      if (builtStageId !== st.id) {
-        builtStageId = st.id;
-        inputArea.innerHTML = `<input class="ch-input" id="chGuess" placeholder="Що це за слово?" autocomplete="off" />
-          <div class="ch-feedback" id="chFeedback"></div>
-          <button class="btn btn-primary btn-block" id="chAnswer">Відповісти</button>`;
-        const inp = document.getElementById("chGuess");
-        const send = () => {
-          const r = G.guess(inp.value);
-          if (!r.ok) { if (r.reason === "too-fast") setFeedback("Не так швидко", "bad"); return; }
-          if (r.hit) setFeedback("✅ Вгадав!", "good"); else { setFeedback("❌ Не те, пробуй ще", "bad"); inp.select(); }
-        };
-        document.getElementById("chAnswer").addEventListener("click", send);
-        inp.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
-      }
-      if (mine !== null) {   // вже вгадав: ховаємо поле
-        inputArea.innerHTML = '<div class="ch-feedback good">✅ Вгадав! Чекаємо решту</div>';
-        builtStageId = st.id;
-      }
+      builtStageId = null;
+      inputArea.innerHTML = `<div class="ch-say">🗣️ Кажи відповідь уголос!</div><div class="status-line">${escapeHtml(d.encoder)} позначить, хто вгадав</div>`;
     } else {
       builtStageId = null;
       inputArea.innerHTML = "";
@@ -572,10 +648,9 @@
     }
     if (!isReveal) {
       let info = "";
-      if (expect.length && st.kind === "guess") {
-        const solved = expect.length - waiting.length;
-        info = `Вгадали ${solved} з ${expect.length}`;
-        if (waiting.length && waiting.length <= 4) info += `<br>${waitingAvatars(room, waiting)}`;
+      if (st.kind === "guess") {
+        const picked = G.picksOf(room).names;
+        info = picked.length ? `Вгадали: ${picked.map(escapeHtml).join(", ")}` : "Поки ніхто не вгадав";
       }
       document.getElementById("waitInfo").innerHTML = info;
       updateTimer();
