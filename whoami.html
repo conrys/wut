@@ -1,178 +1,120 @@
+<!-- Гра: Хто я? — офлайн, кожен на своєму телефоні: слово показуєш іншим, сам вгадуєш питаннями «так/ні». Тема: яскраві наліпки. -->
 <!DOCTYPE html>
 <html lang="uk">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<meta name="theme-color" content="#ff6a3d" />
 <title>Хто я?</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
-<style>
-  :root {
-    /* поверхні */
-    --bg: #14161a;
-    --surface-1: #22252b;   /* було --tile-bg */
-    --surface-2: #2b2f38;
-    --line: rgba(255,255,255,0.08);
-
-    /* текст */
-    --text: #f4f5f1;        /* було --text-light */
-    --text-muted: #8b909c;
-
-    /* акценти (вайб гри — лишається вільним) */
-    --accent: #38cfa0;
-    --danger: #d97070;
-
-    /* шрифти */
-    --font-display: 'Space Grotesk', sans-serif;
-    --font-body: 'Inter', sans-serif;
-
-    /* --- структурні токени: спільні для всіх ігор, значення не міняти --- */
-    --radius-xs: 4px;
-    --radius-sm: 8px;
-    --radius-md: 14px;
-    --radius-lg: 20px;
-    --radius-pill: 999px;
-
-    --scrim: rgba(0,0,0,0.31);
-    --scrim-strong: rgba(0,0,0,0.82);
-    --blur-panel: 12px;
-    --blur-bg: 3px;
-
-    --z-bg-scene: 0;
-    --z-content: 1;
-    --z-sticky: 10;
-    --z-banner: 20;
-    --z-sidebar: 90;
-    --z-modal: 100;
-    --z-pause: 500;
-    --z-fx: 900;
-    --z-toast: 999;
-  }
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none;
-      -webkit-user-select: none; -webkit-touch-callout: none; }
-  html, body { margin: 0; padding: 0; min-height: 100dvh; background: var(--bg);
-      font-family: var(--font-body); color: var(--text); overflow-x: hidden; touch-action: manipulation; }
-  .page { max-width: 480px; margin: 0 auto; min-height: 100dvh; position: relative;
-      z-index: 0; overflow: hidden; display: flex; flex-direction: column; }
-  .pad { flex: 1; display: flex; flex-direction: column; align-items: center;
-      padding: 0 18px calc(30px + env(safe-area-inset-bottom)); }
-  .hidden { display: none !important; }
-
-  h2 { font-family: var(--font-display); font-size: 20px; margin: 0 0 14px; text-align: center; }
-  .status-line { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 14px; }
-
-  .host-panel { width: 100%; background: var(--surface-1); border-radius: var(--radius-md); padding: 16px; margin-bottom: 14px; }
-  .host-panel label { display: block; font-size: 12px; color: var(--text-muted); margin: 10px 0 4px; }
-  .host-panel select { width: 100%; padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--line);
-      background: var(--bg); color: var(--text); font-size: 14px; }
-
-  button.primary-btn { width: 100%; border: none; border-radius: var(--radius-lg); padding: 12px; font-weight: 700;
-      font-size: 14px; cursor: pointer; background: var(--accent); color: #0e2318; margin-top: 10px; }
-  button.secondary-btn { width: 100%; border: none; border-radius: var(--radius-lg); padding: 10px; font-weight: 700;
-      font-size: 13px; cursor: pointer; background: var(--surface-2); color: var(--text);
-      border: 1px solid var(--line); margin-top: 8px; }
-
-  .role-hint { color: var(--text-muted); font-size: 13px; text-align: center; margin-bottom: 18px; max-width: 320px; }
-
-  .reveal-trigger {
-    width: min(90vw, 280px); padding: 50px 20px; border-radius: var(--radius-lg);
-    background: var(--surface-1); border: 1px dashed var(--line);
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
-    color: var(--text-muted); font-size: 14px; text-align: center; margin-bottom: 18px;
-    touch-action: none;
-  }
-  .reveal-trigger .icon { font-size: 36px; }
-
-  .tally { font-size: 14px; color: var(--text-muted); margin-bottom: 10px; }
-  .tally b { color: var(--text); font-family: var(--font-display); font-size: 18px; }
-  .action-row { display: flex; gap: 10px; width: 100%; margin-bottom: 18px; }
-  .action-row button { flex: 1; border: none; border-radius: var(--radius-md); padding: 12px; font-weight: 700;
-      font-size: 13px; cursor: pointer; background: var(--surface-2); color: var(--text);
-      border: 1px solid var(--line); }
-  .action-row button.guessed { background: var(--accent); color: #0e2318; }
-
-  /* --------- повноекранне розкриття слова --------- */
-  .fullscreen-reveal {
-    position: fixed; inset: 0; z-index: var(--z-modal); background: var(--bg);
-    display: none; align-items: center; justify-content: center; padding: 6vh 5vw;
-    touch-action: none;
-  }
-  .fullscreen-reveal.counting, .fullscreen-reveal.revealed { display: flex; }
-  .fullscreen-reveal .countdown-block, .fullscreen-reveal .reveal-content {
-    display: none; flex-direction: column; align-items: center; justify-content: center;
-    width: 100%; height: 100%;
-  }
-  .fullscreen-reveal.counting .countdown-block { display: flex; }
-  .fullscreen-reveal.revealed .reveal-content { display: flex; }
-  .countdown-digit {
-    font-family: var(--font-display); font-weight: 700; font-size: 110px;
-    animation: countdownPulse 1s ease-in-out infinite;
-  }
-  @keyframes countdownPulse { 0%,100%{ transform: scale(1); opacity: 1; } 50%{ transform: scale(0.9); opacity: 0.75; } }
-  .countdown-hint { margin-top: 14px; font-size: 14px; color: var(--text-muted); text-align: center; max-width: 70vw; }
-  .fullscreen-reveal .theme-tag {
-    position: absolute; top: 6vh; left: 0; right: 0; text-align: center;
-    font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.12em;
-  }
-  .fullscreen-reveal .fit-text {
-    font-family: var(--font-display); font-weight: 700; color: var(--text);
-    text-align: center; line-height: 1.05; max-width: 100%; word-break: break-word;
-  }
-</style>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat+Alternates:wght@700;800;900&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="js/styles/party-shared.css">
 <link rel="stylesheet" href="js/styles/game-header.css">
 <script src="js/core/game-header.js" defer></script>
+<style>
+:root {
+  --bg: #ff6a3d; --panel: rgba(255,255,255,.16); --panel-2: rgba(255,255,255,.26); --ink: #fff; --muted: rgba(255,255,255,.82); --line: rgba(255,255,255,.35);
+  --accent: #fff36b; --accent-ink: #3a1500; --good: #1fd17f; --bad: #3a1500;
+  --font-d: 'Montserrat Alternates', 'Manrope', sans-serif; --font-b: 'Manrope', sans-serif;
+  --hdr-bg: rgba(255,106,61,.85);
+}
+/* тло: помаранчево-малиновий градієнт і розкидані «наліпки» */
+body { background:
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cg fill='%23ffffff' opacity='.13'%3E%3Ccircle cx='30' cy='40' r='14'/%3E%3Crect x='150' y='24' width='38' height='26' rx='6' transform='rotate(12 169 37)'/%3E%3Cpath d='M110 150l8 16 18 2-13 12 3 18-16-9-16 9 3-18-13-12 18-2z'/%3E%3Ctext x='40' y='190' font-family='Arial' font-weight='900' font-size='42' transform='rotate(-14 52 176)'%3E%3F%3C/text%3E%3Ctext x='176' y='136' font-family='Arial' font-weight='900' font-size='30' transform='rotate(16 182 126)'%3E%3F%3C/text%3E%3C/g%3E%3C/svg%3E"),
+  linear-gradient(160deg, #ff8a3d 0%, #ff5b5b 55%, #d93b8a 100%) fixed; background-size: 220px 220px, auto; }
+.pp-card { background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.3); backdrop-filter: blur(4px); }
+.pp-h { color: #fff; opacity: .85; }
+.pp-hero h1 { font-weight: 900; text-shadow: 0 4px 0 rgba(0,0,0,.12); }
+.pp-hero h1 span { color: var(--accent); }
+.pp-hero p { color: #fff; opacity: .9; }
+.pp-primary { box-shadow: 0 6px 0 #d8c63b; }
+.pp-primary:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 2px 0 #d8c63b; }
+.pp-seg button { border-color: rgba(255,255,255,.4); color: #fff; }
+.pp-seg button.selected { background: #fff; color: #d93b8a; }
+
+.wa-themes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.wa-themes button { min-height: 42px; padding: 6px 10px; border-radius: 12px; border: 1px solid rgba(255,255,255,.4); background: transparent; color: #fff;
+  font: 700 13px/1.15 var(--font-b); text-align: left; }
+.wa-themes button.rnd { grid-column: 1 / -1; text-align: center; }
+.wa-themes button.selected { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+/* гра */
+.wa-score { display: flex; align-items: baseline; justify-content: center; gap: 10px; }
+.wa-score b { font: 900 64px/1 var(--font-d); text-shadow: 0 5px 0 rgba(0,0,0,.12); }
+.wa-score b.bump { animation: waBump .45s cubic-bezier(.2,1.6,.4,1); }
+@keyframes waBump { 40% { transform: scale(1.35) rotate(-6deg); color: var(--accent); } }
+.wa-score small { font-weight: 800; opacity: .85; }
+.wa-sticker { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-height: 230px; padding: 24px 18px;
+  border: 0; border-radius: 26px; background: var(--accent); color: var(--accent-ink); box-shadow: 0 10px 0 #d8c63b, 0 24px 40px rgba(0,0,0,.18);
+  transform: rotate(-1.5deg); touch-action: none; -webkit-touch-callout: none; transition: transform .15s; }
+.wa-sticker:active { transform: rotate(0) translateY(6px); box-shadow: 0 4px 0 #d8c63b; }
+.wa-sticker .ic { font-size: 54px; }
+.wa-sticker b { font: 900 22px var(--font-d); }
+.wa-sticker small { font-size: 13px; font-weight: 700; opacity: .75; max-width: 240px; text-align: center; }
+.wa-sticker.wiggle { animation: waWig 1.6s ease-in-out infinite; }
+@keyframes waWig { 0%, 100% { transform: rotate(-1.5deg); } 50% { transform: rotate(1.5deg); } }
+.wa-actions { display: grid; grid-template-columns: 1fr 1.3fr; gap: 10px; }
+.wa-actions .pp-btn { min-height: 64px; font-size: 16px; border-radius: 18px; }
+.wa-skip { background: rgba(255,255,255,.18); border-color: rgba(255,255,255,.4); color: #fff; }
+.wa-got { background: var(--good); color: #05301b; border: 0; box-shadow: 0 6px 0 #17a865; font-family: var(--font-d); font-weight: 900; }
+.wa-got:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 2px 0 #17a865; }
+.wa-hist { display: flex; flex-wrap: wrap; gap: 6px; }
+.wa-hist span { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,.2); font-size: 13px; font-weight: 700; }
+.wa-hist span.ok { background: rgba(31,209,127,.35); }
+.wa-hist span.skip { opacity: .7; text-decoration: line-through; }
+.wa-hist .ic { font-size: 14px; }
+
+/* повноекранне слово: чорним на жовтому, щоб читали здалеку */
+.wa-full { position: fixed; inset: 0; z-index: 200; display: none; align-items: center; justify-content: center; padding: 6vh 5vw; background: #fff36b; color: #1d0a00; touch-action: none; }
+.wa-full.counting, .wa-full.revealed { display: flex; }
+.wa-full .cd, .wa-full .rv { display: none; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; }
+.wa-full.counting { background: #1d0a00; color: #fff36b; }
+.wa-full.counting .cd { display: flex; }
+.wa-full.revealed .rv { display: flex; }
+.wa-full .digit { font: 900 140px/1 var(--font-d); animation: waPulse 1s ease-in-out infinite; }
+@keyframes waPulse { 50% { transform: scale(.85); opacity: .7; } }
+.wa-full .cd p { margin-top: 18px; font-size: 16px; font-weight: 800; text-align: center; max-width: 70vw; }
+.wa-full .theme { position: absolute; top: 5vh; left: 0; right: 0; text-align: center; font: 800 14px var(--font-b); letter-spacing: .14em; text-transform: uppercase; opacity: .6; }
+.wa-full .word { font-family: var(--font-d); font-weight: 900; text-align: center; line-height: 1.05; max-width: 100%; word-break: break-word; }
+.wa-full .tap { position: absolute; bottom: 5vh; left: 0; right: 0; text-align: center; font-size: 13px; font-weight: 700; opacity: .5; }
+</style>
 </head>
 <body>
-<div class="page">
-<div class="pad">
+<div id="app"><div class="pp-wrap">
+  <section class="pp-view hidden" id="view-setup">
+    <div class="pp-hero"><span data-emblem></span><h1>Хто <span>я?</span></h1><p>Покажи слово друзям, не підглядаючи сам. Вгадуй, хто ти, питаннями «так» чи «ні».</p></div>
+    <div class="pp-card"><div class="pp-h">Тема</div><div class="wa-themes" id="themeSeg"></div>
+      <div class="pp-label">Складність</div><div class="pp-seg" id="diffSeg"></div>
+      <button class="pp-btn pp-primary pp-block pp-big" id="startBtn" style="margin-top:18px"><span data-ic="play"></span> Почати</button></div>
+    <details class="pp-card pp-rules"><summary>Як грати</summary><ol>
+      <li>Кожен грає на своєму телефоні. Натисни наліпку — за 2 секунди на весь екран з'явиться слово.</li>
+      <li>Розверни телефон екраном до друзів (або приклади до лоба) і питай: «Я тварина?», «Я їстівний?» — відповідати можна лише «так» чи «ні».</li>
+      <li>Вгадав — тисни «Я вгадав!» і бери наступне слово. Застряг — пропускай.</li></ol></details>
+  </section>
 
-  <div id="view-setup" class="hidden">
-    <h2>🙈 Хто я?</h2>
-    <div class="status-line">Кожен грає на своєму телефоні — налаштуй і починай</div>
-
-    <div class="host-panel">
-      <label>Тема</label>
-      <select id="themeSelect"></select>
-      <label>Складність</label>
-      <select id="difficultySelect"></select>
-      <button class="primary-btn" id="startBtn">Почати гру</button>
+  <section class="pp-view hidden" id="view-active">
+    <div class="wa-score"><b id="myScore">0</b><small id="scoreLabel">вгадано</small></div>
+    <button class="wa-sticker wiggle" id="revealTrigger"><span data-ic="eye"></span><b>Показати слово</b><small>Через 2 секунди слово з'явиться на весь екран — розверни телефон до друзів</small></button>
+    <div class="wa-actions">
+      <button class="pp-btn wa-skip" id="skipBtn">Пропустити</button>
+      <button class="pp-btn wa-got" id="guessedBtn"><span data-ic="check"></span> Я вгадав!</button>
     </div>
-  </div>
-
-  <div id="view-active" class="hidden" style="width:100%; display:flex; flex-direction:column; align-items:center;">
-    <div class="role-hint">Відверни телефон екраном від себе — нехай інші читають слово й запитують «так/ні».</div>
-
-    <div class="reveal-trigger" id="revealTrigger">
-      <div class="icon">🙈</div>
-      <div>Натисни, щоб показати своє слово</div>
-    </div>
-
-    <div class="tally">Твій бал: <b id="myScore">0</b></div>
-    <div class="action-row">
-      <button id="skipBtn">Не можу вгадати</button>
-      <button class="guessed" id="guessedBtn">Я вгадав!</button>
-    </div>
-
-    <button class="secondary-btn" id="resetBtn">🔄 До налаштувань</button>
-  </div>
-
-</div>
-</div>
+    <div class="pp-card hidden" id="histCard"><div class="pp-h">Ти вже був(ла)</div><div class="wa-hist" id="hist"></div></div>
+    <button class="pp-btn pp-ghost pp-block" id="resetBtn" style="color:#fff;border-color:rgba(255,255,255,.4)"><span data-ic="refresh"></span> До налаштувань</button>
+  </section>
+</div></div>
 
 <!-- повноекранний показ слова -->
-<div class="fullscreen-reveal" id="fullscreenReveal">
-  <div class="countdown-block">
-    <div class="countdown-digit" id="fsCountdownDigit">2</div>
-    <div class="countdown-hint">Відверни екран від себе…</div>
-  </div>
-  <div class="reveal-content">
-    <div class="theme-tag" id="fsTheme">—</div>
-    <div class="fit-text" id="fsWord">—</div>
-  </div>
+<div class="wa-full" id="fullscreenReveal">
+  <div class="cd"><div class="digit" id="fsCountdownDigit">2</div><p>Розверни екран від себе…</p></div>
+  <div class="rv"><div class="theme" id="fsTheme">—</div><div class="word" id="fsWord">—</div><div class="tap">торкнись, щоб сховати</div></div>
 </div>
 
 <script src="js/promts/whoami-words.js"></script>
 <script src="js/whoami-game.js"></script>
+<script src="js/quiplash-sounds.js"></script>
+<script src="js/party-ui.js"></script>
 <script src="js/core/help.js"></script>
 <script src="js/core/back-button.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
@@ -185,136 +127,116 @@
 <script src="js/core/records.js"></script>
 <script>
 (function () {
-  const VIEWS = ["setup", "active"];
+  const W = window.WhoAmIGame;
+  const { esc, icon } = window.PartyUI;
+  const $ = (id) => document.getElementById(id);
+  const sfx = (n) => { try { window.QuiplashSfx && QuiplashSfx.play(n); } catch (e) {} };
+  const buzz = (p) => { try { window.QuiplashSfx && QuiplashSfx.vibrate(p); } catch (e) {} };
+  const EMBLEM = `<svg class="pp-emblem" viewBox="0 0 120 120" aria-hidden="true">
+    <circle cx="60" cy="66" r="38" fill="#fff"/>
+    <rect x="30" y="20" width="60" height="34" rx="8" fill="#fff36b" transform="rotate(-8 60 37)"/>
+    <text x="60" y="47" text-anchor="middle" font-family="Arial" font-weight="900" font-size="26" fill="#3a1500" transform="rotate(-8 60 37)">???</text>
+    <circle cx="47" cy="70" r="5" fill="#3a1500"/><circle cx="73" cy="70" r="5" fill="#3a1500"/>
+    <path d="M48 86q12 10 24 0" fill="none" stroke="#3a1500" stroke-width="5" stroke-linecap="round"/></svg>`;
+  document.querySelectorAll("[data-ic]").forEach((el) => { el.outerHTML = icon(el.dataset.ic); });
+  document.querySelectorAll("[data-emblem]").forEach((el) => { el.outerHTML = EMBLEM; });
+  const plural = (n, one, few, many) => n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? few : many;
+
   function showView(name) {
-    VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name));
+    ["setup", "active"].forEach((v) => $("view-" + v).classList.toggle("hidden", v !== name));
+    window.scrollTo(0, 0);
   }
 
-  function escapeHtml(s) {
-    const d = document.createElement("div");
-    d.textContent = s || "";
-    return d.innerHTML;
+  // ---- налаштування ----
+  $("themeSeg").innerHTML = `<button class="rnd" data-v="random">Випадкова тема</button>` + W.THEME_NAMES.map((t) => `<button data-v="${esc(t)}">${esc(t)}</button>`).join("");
+  $("diffSeg").innerHTML = W.DIFFICULTIES.map((d) => `<button data-v="${d}">${W.DIFF_LABELS[d]}</button>`).join("");
+  function paintSetup() {
+    const s = W.getState().settings;
+    $("themeSeg").querySelectorAll("button").forEach((b) => b.classList.toggle("selected", b.dataset.v === s.theme));
+    $("diffSeg").querySelectorAll("button").forEach((b) => b.classList.toggle("selected", b.dataset.v === s.difficulty));
+  }
+  $("themeSeg").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (!b) return; W.updateSettings(b.dataset.v, W.getState().settings.difficulty); paintSetup(); sfx("pop"); });
+  $("diffSeg").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (!b) return; W.updateSettings(W.getState().settings.theme, b.dataset.v); paintSetup(); sfx("pop"); });
+
+  // ---- гра ----
+  let history = []; // [{ word, ok }]
+  let lastShownWord = null, seen = false;
+  function renderActive(bump) {
+    const st = W.getState();
+    $("myScore").textContent = st.score;
+    $("scoreLabel").textContent = plural(st.score, "слово вгадано", "слова вгадано", "слів вгадано");
+    if (bump) { const b = $("myScore"); b.classList.remove("bump"); void b.offsetWidth; b.classList.add("bump"); }
+    if (st.currentWord !== lastShownWord) { lastShownWord = st.currentWord; seen = false; resetOverlay(); }
+    $("revealTrigger").classList.toggle("wiggle", !seen);
+    $("histCard").classList.toggle("hidden", !history.length);
+    $("hist").innerHTML = history.slice().reverse().map((h) => `<span class="${h.ok ? "ok" : "skip"}">${h.ok ? icon("check") : ""}${esc(h.word)}</span>`).join("");
   }
 
-  let themeSelectBuilt = false;
-  let diffSelectBuilt = false;
-  let lastShownWord = null;
-
-  function buildSetup() {
-    const state = window.WhoAmIGame.getState();
-
-    if (!themeSelectBuilt) {
-      const themeSelect = document.getElementById("themeSelect");
-      themeSelect.innerHTML =
-        `<option value="random">🎲 Випадкова</option>` +
-        window.WhoAmIGame.THEME_NAMES.map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("");
-      themeSelect.value = state.settings.theme;
-      themeSelectBuilt = true;
-    }
-
-    if (!diffSelectBuilt) {
-      const diffSelect = document.getElementById("difficultySelect");
-      diffSelect.innerHTML = window.WhoAmIGame.DIFFICULTIES
-        .map((d) => `<option value="${d}">${window.WhoAmIGame.DIFF_LABELS[d]}</option>`).join("");
-      diffSelect.value = state.settings.difficulty;
-      diffSelectBuilt = true;
-    }
-  }
-
-  function renderActive() {
-    const state = window.WhoAmIGame.getState();
-    document.getElementById("myScore").textContent = state.score;
-
-    if (state.currentWord !== lastShownWord) {
-      lastShownWord = state.currentWord;
-      resetOverlay();
-    }
-  }
-
-  document.getElementById("themeSelect").addEventListener("change", pushSettings);
-  document.getElementById("difficultySelect").addEventListener("change", pushSettings);
-  function pushSettings() {
-    const theme = document.getElementById("themeSelect").value;
-    const difficulty = document.getElementById("difficultySelect").value;
-    window.WhoAmIGame.updateSettings(theme, difficulty);
-  }
-
-  document.getElementById("startBtn").addEventListener("click", () => {
-    window.WhoAmIGame.startGame();
-    showView("active");
-    renderActive();
+  $("startBtn").addEventListener("click", () => {
+    W.startGame(); history = []; showView("active"); renderActive(); sfx("whoosh");
   });
-  document.getElementById("guessedBtn").addEventListener("click", () => {
-    window.WhoAmIGame.markGuessed();
-    renderActive();
-    // Раніше рахунок відправлявся лише коли явно тиснеш "Назад" і
-    // підтверджуєш діалог — якщо просто закрити гру чи вийти глобальною
-    // кнопкою "Назад", рахунок губився. Тепер шлемо одразу після кожного
-    // вгаданого слова: sendScore сам ігнорує виклик, якщо це не новий
-    // рекорд, тож зайвих записів у Firestore не буде.
-    const liveScore = window.WhoAmIGame.getState().score;
-    if (liveScore > 0 && window.AppScore && window.AppScore.sendScore) {
-      window.AppScore.sendScore("whoami", liveScore);
-    }
+  $("guessedBtn").addEventListener("click", () => {
+    const st = W.getState();
+    if (!seen && !confirm("Ти ще не показував(ла) це слово. Все одно зарахувати?")) return;
+    history.push({ word: st.currentWord, ok: true });
+    W.markGuessed(); renderActive(true); sfx("ding"); buzz([20, 30, 20]);
+    // шлемо одразу після кожного вгаданого — sendScore сам ігнорує, якщо це не рекорд
+    const liveScore = W.getState().score;
+    if (liveScore > 0 && window.AppScore && window.AppScore.sendScore) window.AppScore.sendScore("whoami", liveScore);
   });
-  document.getElementById("skipBtn").addEventListener("click", () => {
-    window.WhoAmIGame.skipWord();
-    renderActive();
+  $("skipBtn").addEventListener("click", () => {
+    const st = W.getState();
+    if (seen) history.push({ word: st.currentWord, ok: false });
+    W.skipWord(); renderActive(); sfx("whoosh");
   });
-  document.getElementById("resetBtn").addEventListener("click", () => {
-    if (confirm("Повернутися до вибору теми й складності? Поточний рахунок буде втрачено.")) {
-      const finalScore = window.WhoAmIGame.getState().score;
-      if (finalScore > 0 && window.AppScore && window.AppScore.sendScore) {
-        window.AppScore.sendScore("whoami", finalScore);
-      }
-      showView("setup");
-    }
+  $("resetBtn").addEventListener("click", () => {
+    if (!confirm("Повернутися до вибору теми й складності? Поточний рахунок буде втрачено.")) return;
+    const finalScore = W.getState().score;
+    if (finalScore > 0 && window.AppScore && window.AppScore.sendScore) window.AppScore.sendScore("whoami", finalScore);
+    showView("setup"); paintSetup();
   });
 
   // ---- tap → відлік → повноекранний показ слова ----
-  const trigger = document.getElementById("revealTrigger");
-  const fsReveal = document.getElementById("fullscreenReveal");
-  const fsCountdownDigit = document.getElementById("fsCountdownDigit");
-  const fsTheme = document.getElementById("fsTheme");
-  const fsWord = document.getElementById("fsWord");
+  const trigger = $("revealTrigger"), fsReveal = $("fullscreenReveal");
+  const fsCountdownDigit = $("fsCountdownDigit"), fsTheme = $("fsTheme"), fsWord = $("fsWord");
   const REVEAL_DELAY_MS = 2000;
-  let countdownTick = null, countdownTimeout = null, isCounting = false, isRevealed = false;
+  let countdownTick = null, countdownTimeout = null, isCounting = false, isRevealed = false, revealedAt = 0;
 
   function resetOverlay() {
     clearInterval(countdownTick); clearTimeout(countdownTimeout);
     countdownTick = null; countdownTimeout = null; isCounting = false; isRevealed = false;
     fsReveal.classList.remove("counting", "revealed");
   }
-
   function startCountdown() {
-    const state = window.WhoAmIGame.getState();
+    const state = W.getState();
     if (!state.currentWord || isCounting || isRevealed) return;
     isCounting = true;
     fsReveal.classList.remove("revealed");
     fsReveal.classList.add("counting");
-
     let secondsLeft = Math.ceil(REVEAL_DELAY_MS / 1000);
     fsCountdownDigit.textContent = secondsLeft;
+    sfx("tick");
     countdownTick = setInterval(() => {
       secondsLeft -= 1;
-      if (secondsLeft > 0) fsCountdownDigit.textContent = secondsLeft;
+      if (secondsLeft > 0) { fsCountdownDigit.textContent = secondsLeft; sfx("tick"); }
     }, 1000);
-
     countdownTimeout = setTimeout(() => {
       clearInterval(countdownTick); countdownTick = null; countdownTimeout = null;
-      isCounting = false; isRevealed = true;
+      isCounting = false; isRevealed = true; seen = true; revealedAt = Date.now();
       fsReveal.classList.remove("counting");
       fsReveal.classList.add("revealed");
       fsTheme.textContent = state.currentThemeName || "";
       fsWord.textContent = state.currentWord || "";
       fitWordText();
+      buzz(40);
+      renderActive();
     }, REVEAL_DELAY_MS);
   }
-
   trigger.addEventListener("pointerdown", (e) => { e.preventDefault(); startCountdown(); });
   trigger.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
   trigger.addEventListener("contextmenu", (e) => e.preventDefault());
-  fsReveal.addEventListener("pointerdown", (e) => { e.preventDefault(); resetOverlay(); });
+  // захист від випадкового закриття тим самим дотиком: перші 400 мс торкання ігноруємо
+  fsReveal.addEventListener("pointerdown", (e) => { e.preventDefault(); if (isRevealed && Date.now() - revealedAt < 400) return; resetOverlay(); });
   fsReveal.addEventListener("contextmenu", (e) => e.preventDefault());
   window.addEventListener("resize", () => { if (isRevealed) fitWordText(); });
 
@@ -331,9 +253,8 @@
   }
 
   document.addEventListener("selectstart", (e) => e.preventDefault());
-
   showView("setup");
-  buildSetup();
+  paintSetup();
 })();
 </script>
 </body>
