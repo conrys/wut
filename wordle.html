@@ -5,8 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
   <title>Слово дня</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&family=PT+Serif:wght@700&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
-  <meta name="theme-color" content="#f3eee2" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <style>
     :root {
       /* Точні кольори офіційного Wordle (Dark Theme / Classic) */
@@ -102,49 +101,17 @@
     .feed-item pre { margin: 0; font-size: 14px; line-height: 1.15; white-space: pre-wrap; font-family: inherit; }
     .feed-empty { color: var(--text-muted); font-size: 13px; text-align: center; padding: 16px 0; }
     .feed-close { text-align: center; margin-top: 10px; font-size: 12px; color: var(--text-muted); cursor: pointer; }
-    /* ===== тема «газетний кросворд»: папір, чорнило, засічки (PT Serif + Manrope) ===== */
-    :root { --bg: #f3eee2; --tile-bg: #fffdf7; --key-bg: #e3dccb; --key-text: #1c1a17; --text-light: #1c1a17; --text-muted: #6f675a;
-      --accent: #2f6b45; --correct: #2f6b45; --present: #d29a1c; --absent: #8c8576; --border-empty: #c9c0ad; --border-filled: #1c1a17; }
-    html, body { background:
-      radial-gradient(120% 80% at 50% 30%, transparent 60%, rgba(80,60,30,.14) 100%),
-      repeating-linear-gradient(0deg, rgba(0,0,0,.018) 0 1px, transparent 1px 4px), #f3eee2; font-family: 'Manrope', sans-serif; }
-    .ico { width: 1.05em; height: 1.05em; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; vertical-align: -0.16em; }
-    .wd-mast { width: 100%; text-align: center; padding: 8px 0 10px; margin-bottom: 10px; border-bottom: 3px double #1c1a17; }
-    .wd-mast b { display: block; font: 700 34px/1 'PT Serif', Georgia, serif; letter-spacing: .02em; }
-    .wd-mast small { display: block; margin-top: 4px; font: 700 10px 'Manrope', sans-serif; letter-spacing: .24em; text-transform: uppercase; color: var(--text-muted); }
-    .lang-tab { background: transparent; color: var(--text-muted); border: 1.5px solid #1c1a17; border-radius: 0; font-family: 'Manrope', sans-serif; font-weight: 800; }
-    .lang-tab.active { background: #1c1a17; color: #f3eee2; }
-    .streak-badge { display: flex; align-items: center; gap: 5px; font-weight: 700; color: var(--text-muted); }
-    .streak-badge .ico { color: #c8551c; }
-    .streak-badge b { color: #c8551c; }
-    .cell { font-family: 'PT Serif', Georgia, serif; border-radius: 0; box-shadow: 1px 1px 0 rgba(0,0,0,.06); }
-    .cell.correct, .cell.present, .cell.absent { box-shadow: none; }
-    .key { font-family: 'Manrope', sans-serif; font-weight: 800; border-radius: 6px; box-shadow: 0 2px 0 rgba(0,0,0,.15); }
-    .key:active { transform: translateY(2px); box-shadow: none; }
-    .key.absent { opacity: .55; }
-    .msg { font-weight: 700; }
-    .result-panel .title { font: 700 26px 'PT Serif', Georgia, serif; }
-    .result-actions button { font-family: 'Manrope', sans-serif; font-weight: 800; display: inline-flex; align-items: center; gap: 6px; }
-    .btn-secondary { background: transparent; color: #1c1a17; border: 1.5px solid #1c1a17 !important; }
-    .feed-overlay { background: rgba(28,26,23,.55); }
-    .feed-modal { background: #fffdf7; border: 1.5px solid #1c1a17; border-radius: 4px; color: #1c1a17; box-shadow: 6px 6px 0 rgba(0,0,0,.15); }
-    .feed-modal h3 { font-family: 'PT Serif', Georgia, serif; }
-    .feed-item { border-bottom: 1px dashed #c9c0ad; }
-    .feed-item pre { font-family: 'Manrope', sans-serif; font-size: 12px; color: var(--text-muted); }
-    .feed-item pre i { display: inline-block; width: 13px; height: 13px; margin: 0 1px 1px 0; vertical-align: middle; }
-    .feed-item pre i.g { background: var(--correct); } .feed-item pre i.y { background: var(--present); } .feed-item pre i.n { background: var(--absent); }
   </style>
 <link rel="stylesheet" href="js/styles/game-header.css">
 <script src="js/core/game-header.js" defer></script>
 </head>
 <body>
 <div class="page">
-  <div class="wd-mast"><b>Слово дня</b><small>Wordle · шість спроб</small></div>
   <div class="tabs">
     <div class="lang-tab active" data-lang="uk">Українська</div>
     <div class="lang-tab" data-lang="en">English</div>
   </div>
-  <div class="streak-badge"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c1 4 5 5.5 5 10a5 5 0 0 1-10 0c0-2.4 1.3-3.8 2.5-5 .3 1.6 1 2.6 2 3 0-3-.5-5.5.5-8z"/></svg> Стрік: <b id="streakVal">0</b> дн.</div>
+  <div class="streak-badge">🔥 Стрік: <b id="streakVal">0</b> дн.</div>
 
   <div class="board" id="board"></div>
   <div class="msg" id="msg"></div>
@@ -153,7 +120,7 @@
     <div class="title" id="resultTitle"></div>
     <div class="result-actions">
       <button class="btn-primary" id="shareBtn">Поділитись</button>
-      <button class="btn-secondary" id="feedBtn"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.8c2 .7 3.2 2.4 3.5 5.2"/></svg> Результати сьогодні</button>
+      <button class="btn-secondary" id="feedBtn">👥 Результати сьогодні</button>
     </div>
   </div>
 
@@ -498,7 +465,7 @@
         return;
       }
       feedList.innerHTML = rows
-        .map((r) => `<div class="feed-item"><div class="who">${escapeHtml(r.username)}</div><pre>${escapeHtml(r.shareText).replace(/🟩/g, '<i class="g"></i>').replace(/🟨/g, '<i class="y"></i>').replace(/⬛/g, '<i class="n"></i>')}</pre></div>`)
+        .map((r) => `<div class="feed-item"><div class="who">${escapeHtml(r.username)}</div><pre>${escapeHtml(r.shareText)}</pre></div>`)
         .join("");
     });
     document.getElementById("feedCloseBtn").addEventListener("click", () => feedOverlay.classList.remove("open"));
