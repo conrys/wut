@@ -1,0 +1,294 @@
+<!-- Fake News — ТВ-екран: ефір на великому екрані, телефони лишаються пультами -->
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Fake News — ТВ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@700;800;900&family=Inter:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="js/styles/party-shared.css">
+<link rel="stylesheet" href="js/styles/fakenews-news.css">
+<style>
+:root { --bg: #0a0f24; --ink: #f2f4fb; --muted: rgba(220,226,245,.62); --line: rgba(255,255,255,.14); --accent: #e0332e; --accent-ink: #fff; --gold: #ffcc33;
+  --panel: rgba(10,15,36,.72); --panel-2: rgba(255,255,255,.1); --font-d: 'Roboto Condensed', 'Arial Narrow', sans-serif; --font-b: 'Inter', sans-serif; }
+html, body { height: 100%; overflow: hidden; }
+body { display: block; background: #0a0f24; cursor: default; }
+.fn-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.fn-bg::before { content: ""; position: absolute; inset: -20px; background: url("img/fakenews/studio.webp") 50% 38% / cover no-repeat; transition: filter .8s; }
+.fn-bg::after { content: ""; position: absolute; inset: 0; transition: background .8s;
+  background: linear-gradient(180deg, rgba(10,15,36,.35), rgba(10,15,36,.6) 55%, rgba(10,15,36,.92)), radial-gradient(80% 40% at 50% 110%, rgba(224,51,46,.4), transparent 70%); }
+body.dim .fn-bg::before { filter: blur(10px) brightness(.65); }
+body.dim .fn-bg::after { background: linear-gradient(180deg, rgba(10,15,36,.75), rgba(10,15,36,.9)); }
+
+#tv { position: relative; z-index: 1; height: 100vh; display: flex; flex-direction: column; padding: 2.4vh 3vw 0; }
+.tv-top { display: flex; align-items: center; gap: 2vw; height: 9vh; }
+.tv-logo { font: 900 clamp(22px, 2.6vw, 52px) var(--font-d); text-transform: uppercase; letter-spacing: .01em; }
+.tv-logo i { font-style: normal; color: var(--accent); }
+.tv-live { display: flex; align-items: center; gap: .8vw; font: 800 clamp(14px, 1.5vw, 30px) var(--font-d); letter-spacing: .12em; text-transform: uppercase; }
+.tv-live::before { content: ""; width: 1vw; height: 1vw; min-width: 10px; min-height: 10px; border-radius: 50%; background: var(--accent); animation: rdBlink 1.2s infinite; }
+.tv-sp { flex: 1; }
+.tv-round { font: 800 clamp(14px, 1.4vw, 28px) var(--font-d); color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
+.tv-round b { color: var(--ink); font-size: 1.4em; }
+.tv-codechip { padding: .6vh 1.2vw; border-radius: 10px; background: rgba(0,0,0,.45); border: 1px solid var(--line); font: 800 clamp(14px, 1.3vw, 26px) var(--font-d); letter-spacing: .08em; }
+.tv-codechip b { color: var(--accent); letter-spacing: .16em; }
+.tv-timer { position: relative; width: 8vh; height: 8vh; }
+.tv-timer svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.tv-timer circle { fill: none; stroke-width: 4; } .tv-timer .trk { stroke: var(--line); } .tv-timer .bar { stroke: var(--accent); stroke-linecap: round; transition: stroke-dashoffset .25s linear; }
+.tv-timer span { position: absolute; inset: 0; display: grid; place-items: center; font: 900 3.2vh var(--font-d); }
+.tv-timer.urgent span { color: #ff6b6b; animation: ppBeat .5s ease-in-out infinite alternate; }
+.tv-timer.off { display: none; }
+
+#stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; gap: 3vw; padding: 2vh 0 6vh; }
+.tv-in > * { animation: ppIn .6s cubic-bezier(.2,.9,.3,1.1) both; } .tv-in > *:nth-child(2) { animation-delay: .12s; }
+.tv-col { display: flex; flex-direction: column; gap: 2vh; min-width: 0; }
+.tv-cardwrap { flex: none; display: flex; flex-direction: column; gap: 1vh; align-items: center; }
+.tv-ctx { font: 600 clamp(12px, 1.2vw, 24px) var(--font-b); color: var(--muted); text-align: center; }
+.news { box-shadow: 0 2vh 6vh rgba(0,0,0,.6); }
+
+/* лобі */
+.tv-lobby { width: 100%; display: grid; grid-template-columns: 1fr 1.2fr; gap: 4vw; align-items: center; }
+.tv-join { display: flex; flex-direction: column; gap: 2.4vh; }
+.tv-join h1 { margin: 0; font: 900 clamp(56px, 8vw, 170px)/.9 var(--font-d); text-transform: uppercase; text-shadow: 0 .6vh 0 rgba(0,0,0,.4); }
+.tv-join h1 i { font-style: normal; color: var(--accent); }
+.tv-join p { margin: 0; font: 600 clamp(16px, 1.6vw, 32px)/1.4 var(--font-b); color: var(--muted); }
+.tv-bigcode { display: inline-flex; align-items: center; gap: 2vw; align-self: flex-start; padding: 2vh 2.4vw; border-radius: 18px; background: rgba(0,0,0,.55); border: 2px solid var(--accent); }
+.tv-bigcode small { font: 800 clamp(12px, 1.2vw, 22px)/1.3 var(--font-d); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.tv-bigcode b { font: 900 clamp(48px, 6.4vw, 130px) var(--font-d); letter-spacing: .14em; }
+.tv-players { display: grid; grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr)); gap: 2.4vh 1.4vw; padding: 3vh 2vw; border-radius: 20px; background: var(--panel); border: 1px solid var(--line); }
+.tv-p { position: relative; display: flex; flex-direction: column; align-items: center; gap: .6vh; min-width: 0; animation: ppIn .5s both; }
+.tv-p .pav { width: var(--av, 8vw); height: var(--av, 8vw); }
+.tv-p .nm { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 clamp(12px, 1.3vw, 26px) var(--font-b); }
+.tv-p.off { opacity: .35; filter: grayscale(.8); }
+.tv-p .rdy { position: absolute; top: 0; right: 18%; width: 2.4vw; height: 2.4vw; min-width: 18px; min-height: 18px; border-radius: 50%; display: grid; place-items: center;
+  background: #3ccf8e; color: #06231a; font: 900 1.4vw var(--font-d); }
+.tv-ready { grid-column: 1 / -1; text-align: center; font: 800 clamp(14px, 1.5vw, 30px) var(--font-d); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+
+/* бічна панель раунду */
+.tv-side { width: 34vw; }
+.tv-brief { display: flex; align-items: center; gap: 1.4vw; padding: 2vh 1.6vw; border-radius: 16px; background: var(--panel); border-left: .5vw solid var(--accent); }
+.tv-brief .ic { font-size: 4.4vh; color: var(--accent); }
+.tv-brief b { display: block; font: 900 clamp(18px, 2vw, 40px) var(--font-d); text-transform: uppercase; }
+.tv-brief span { font: 600 clamp(14px, 1.4vw, 28px)/1.35 var(--font-b); color: var(--muted); }
+.tv-h { font: 900 clamp(18px, 2vw, 40px) var(--font-d); text-transform: uppercase; letter-spacing: .04em; }
+.tv-h small { margin-left: .8vw; color: var(--muted); font-size: .7em; }
+.tv-who { display: flex; flex-wrap: wrap; gap: 1vh .8vw; }
+.tv-who .pav { width: 6vh; height: 6vh; }
+.tv-dots { display: flex; gap: .5vw; flex-wrap: wrap; } .tv-dots i { width: 1.4vh; height: 1.4vh; border-radius: 50%; background: var(--line); } .tv-dots i.on { background: var(--accent); }
+.tv-opts { display: flex; flex-direction: column; gap: 1.4vh; }
+.tv-opt { display: flex; gap: 1.2vw; align-items: flex-start; padding: 1.6vh 1.2vw; border-radius: 14px; background: var(--panel); border: 1px solid var(--line);
+  font: 700 clamp(16px, 1.6vw, 32px)/1.3 var(--font-b); animation: ppIn .5s both; animation-delay: calc(var(--i) * .1s); }
+.tv-opt i { flex: none; width: 4.4vh; height: 4.4vh; border-radius: 8px; display: grid; place-items: center; background: var(--accent); font: 900 2.6vh var(--font-d); font-style: normal; }
+.tv-res { display: flex; align-items: center; gap: 1.2vw; padding: 1.4vh 1.2vw; border-radius: 14px; background: var(--panel); border: 2px solid transparent; animation: ppIn .5s both; animation-delay: calc(var(--i) * .25s + .4s); }
+.tv-res .pav { width: 7vh; height: 7vh; }
+.tv-res .t { flex: 1; min-width: 0; font: 700 clamp(15px, 1.5vw, 30px)/1.3 var(--font-b); }
+.tv-res .t small { display: block; font-size: .7em; color: var(--muted); }
+.tv-res .v { min-width: 5vh; padding: .6vh .8vw; border-radius: 10px; text-align: center; background: var(--panel-2); font: 900 3.4vh var(--font-d); }
+.tv-res.win { border-color: var(--gold); background: rgba(40,32,8,.8); } .tv-res.win .v { background: var(--gold); color: #2a1d02; }
+.tv-res.win .t::before { content: "Головна новина"; display: block; font: 900 1.6vh var(--font-d); letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
+.tv-dry { display: flex; align-items: center; gap: .6vw; flex-wrap: wrap; font: 700 clamp(13px, 1.2vw, 24px) var(--font-b); color: var(--muted); }
+.tv-dry .pav { width: 5vh; height: 5vh; }
+.tv-lines { font: 600 clamp(13px, 1.3vw, 26px)/1.4 var(--font-b); color: var(--muted); }
+
+/* підсумок */
+.tv-sum { width: min(92vw, 1600px); display: grid; grid-template-columns: 1fr 1fr; gap: 3vw; }
+.tv-sum .pp-card { padding: 3vh 2vw; }
+.tv-sum .pp-h { font-size: clamp(14px, 1.4vw, 28px); }
+.tv-sum .pp-pod .col { font-size: 4vh; } .tv-sum .pp-pod.p1 .col { height: 18vh; } .tv-sum .pp-pod.p2 .col { height: 13vh; } .tv-sum .pp-pod.p3 .col { height: 9vh; }
+.tv-sum .pp-pod .pav.lg { width: 12vh; height: 12vh; } .tv-sum .pp-pod .pav.md { width: 9vh; height: 9vh; }
+.tv-sum .pp-pod .nm { font-size: clamp(13px, 1.3vw, 26px); }
+.tv-sum h2 { grid-column: 1 / -1; margin: 0; text-align: center; font: 900 clamp(34px, 4vw, 80px) var(--font-d); text-transform: uppercase; }
+
+/* бігучий рядок */
+.fn-strip { position: fixed; z-index: 2; left: 0; right: 0; bottom: 0; height: 5vh; display: flex; background: var(--accent); color: #fff; font: 800 2.4vh/5vh var(--font-d);
+  letter-spacing: .08em; text-transform: uppercase; overflow: hidden; }
+.fn-strip b { flex: none; padding: 0 1.4vw; background: #fff; color: var(--accent); }
+.fn-strip span { white-space: nowrap; padding-left: 100%; animation: fnTick 36s linear infinite; }
+#soundBtn { position: fixed; z-index: 5; right: 2vw; bottom: 7vh; padding: 1.2vh 1.4vw; border-radius: 999px; border: 0; background: #fff; color: var(--bg); font: 800 clamp(13px, 1.2vw, 22px) var(--font-b); box-shadow: 0 1vh 3vh rgba(0,0,0,.4); }
+.tv-enter { display: flex; flex-direction: column; align-items: center; gap: 2vh; }
+.tv-enter input { width: 18ch; text-align: center; font: 900 clamp(28px, 4vw, 64px) var(--font-d); letter-spacing: .2em; text-transform: uppercase; padding: 1vh 1vw; border-radius: 14px; border: 2px solid var(--accent); background: rgba(0,0,0,.5); color: #fff; outline: none; }
+.tv-enter .pp-btn { font-size: clamp(16px, 1.6vw, 30px); min-height: 6vh; padding: 0 3vw; }
+</style>
+</head>
+<body class="dim">
+<div class="fn-bg" aria-hidden="true"></div>
+<div id="tv">
+  <header class="tv-top">
+    <div class="tv-logo">Fake <i>News</i></div>
+    <div class="tv-live" id="tvLive">Студія</div>
+    <div class="tv-sp"></div>
+    <div class="tv-round hidden" id="tvRound"></div>
+    <div class="tv-timer off" id="tvTimer"><svg viewBox="0 0 44 44"><circle class="trk" cx="22" cy="22" r="19"/><circle class="bar" cx="22" cy="22" r="19"/></svg><span></span></div>
+    <div class="tv-codechip hidden" id="tvCode"></div>
+  </header>
+  <main id="stage"></main>
+</div>
+<div class="fn-strip" aria-hidden="true"><b>Терміново</b><span id="tvTicker">Джерела повідомляють: на цій вечірці всі новини — фейкові · Редакція не несе відповідальності за ваші заголовки · Заходьте з телефонів · </span></div>
+<button id="soundBtn">Увімкнути звук</button>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="js/core/firebase-config.js"></script>
+<script src="js/quiplash-avatars.js"></script>
+<script src="js/quiplash-sounds.js"></script>
+<script src="js/promts/fakenews-photos.js"></script>
+<script src="js/fakenews-ui.js"></script>
+<script src="js/party-ui.js"></script>
+<script>
+(function () {
+  const U = window.FakeNewsUI, { esc, avatar, podium, icon } = window.PartyUI;
+  const $ = (id) => document.getElementById(id);
+  const sfx = (n) => { try { window.QuiplashSfx && QuiplashSfx.play(n); } catch (e) {} };
+  const ONLINE_MS = 2 * 60 * 1000;
+  let roomId = "", room = null, offset = 0, loadPhoto = null, lastKey = null, lastHead = null, lastTick = null;
+  const now = () => Date.now() + offset;
+  const online = (p) => !!(p && p.lastSeen && now() - p.lastSeen < ONLINE_MS);   // як OnlineEngine.isConnected
+
+  function setStage(key, html, dim) {
+    document.body.classList.toggle("dim", dim !== false);
+    if (key === lastKey) return false;
+    lastKey = key;
+    const el = $("stage");
+    el.innerHTML = html; el.classList.remove("tv-in"); void el.offsetWidth; el.classList.add("tv-in");
+    return true;
+  }
+  // картка ефіру в ТВ-масштабі: розмітка каналу та сама, що на телефоні, лише збільшена через zoom
+  function sizeCard(card, wVw, hVh) {
+    const z = Math.max(1, Math.min(window.innerHeight / 560, window.innerWidth / 900));
+    card.style.zoom = z;
+    card.style.width = (window.innerWidth * wVw / 100 / z) + "px";
+    if (!card.classList.contains("ch-tabloid") && !card.classList.contains("ch-tg")) card.style.height = (window.innerHeight * hVh / 100 / z) + "px";
+    else { card.style.height = "auto"; const ph = card.querySelector(".tb-photo, .tg-photo"); if (ph) ph.style.height = (window.innerHeight * (hVh - 22) / 100 / z) + "px"; }
+  }
+  function validInputs() {
+    const st = room.stage, out = {};
+    Object.entries(room.inputs || {}).forEach(([n, raw]) => { if (typeof raw !== "string") return; const i = raw.indexOf(":"); if (i > 0 && Number(raw.slice(0, i)) === st.id) out[n] = raw.slice(i + 1); });
+    return out;
+  }
+
+  // ---------------- лобі ----------------
+  function renderLobby() {
+    const players = room.players || {}, names = Object.keys(players);
+    const picks = room.picks || {}, meta = room.photoMeta || {};
+    const ready = (n) => Object.keys(picks[n] || {}).length + Object.keys(meta[n] || {}).length >= 2;
+    const conn = names.filter((n) => online(players[n]));
+    const cols = names.length <= 4 ? 4 : names.length <= 9 ? 5 : names.length <= 16 ? 6 : 7;
+    const av = cols <= 4 ? "9vw" : cols === 5 ? "7.6vw" : cols === 6 ? "6.4vw" : "5.4vw";
+    const key = "lobby|" + names.map((n) => [n, players[n].character, ready(n), conn.includes(n)].join(":")).join("|");
+    setStage(key, `<div class="tv-lobby">
+      <div class="tv-join"><h1>Fake<br><i>News</i></h1>
+        <p>Відкрийте на телефонах <b>Fake News</b> і введіть код кімнати. Оберіть по 2 фото — і в ефір!</p>
+        <div class="tv-bigcode"><small>Код<br>кімнати</small><b>${esc(roomId)}</b></div></div>
+      <div class="tv-players" style="--cols:${cols};--av:${av}">${names.map((n) => `<div class="tv-p ${conn.includes(n) ? "" : "off"}">${avatar(room, n, { mood: ready(n) ? "happy" : "write" })}${ready(n) ? '<span class="rdy">✓</span>' : ""}<span class="nm">${esc(n)}</span></div>`).join("") ||
+        '<div class="tv-ready">Чекаємо на перших гравців…</div>'}
+        ${names.length ? `<div class="tv-ready">Готові ${names.filter(ready).length} з ${names.length}</div>` : ""}</div></div>`, false);
+  }
+
+  // ---------------- раунд ----------------
+  function waitingBlock(st) {
+    const inputs = validInputs(), expect = st.expect || [], players = room.players || {};
+    const waiting = expect.filter((n) => inputs[n] === undefined && online(players[n])), done = expect.length - waiting.length;
+    return `<div class="tv-h">${st.kind === "vote" ? "Голосують" : "Пишуть заголовки"}<small>${done} з ${expect.length}</small></div>
+      <div class="tv-dots">${expect.map((_, i) => `<i class="${i < done ? "on" : ""}"></i>`).join("")}</div>
+      <div class="tv-who">${waiting.map((n) => avatar(room, n, { mood: "write" })).join("")}</div>`;
+  }
+  const CH = { tv: ["Новини 24/7", "коротко й тривожно, як бігуча стрічка"], tabloid: ["Жовта преса", "більше сенсації й знаків оклику!"],
+    tg: ["Телеграм-канал", "«ТЕРМІНОВО» і «джерела повідомляють»"], radio: ["Радіо", "так, ніби диктор читає це в мікрофон"], sport: ["Спорт-канал", "як коментатор у фіналі чемпіонату"] };
+  function renderRound() {
+    const st = room.stage, d = st.data || {}, inputs = validInputs();
+    $("tvRound").innerHTML = `Випуск <b>${room.roundNo + 1}</b> / ${room.totalRounds}`;
+    $("tvLive").textContent = { write: "Пишемо заголовки", show: "Прямий ефір", vote: "Голосування", reveal: "Результат" }[st.kind] || "Ефір";
+    const ch = CH[d.ch] || CH.tv, title = U.photoTitle(room, st.photo);
+    const cardHtml = `<div class="tv-cardwrap"><div class="news" id="tvCard"></div>${title ? `<div class="tv-ctx">${esc(title)}</div>` : ""}</div>`;
+    let side = "", layout = "side";
+    if (st.kind === "write") side = `<div class="tv-brief">${U.channelIcon(d.ch)}<div><b>${esc(ch[0])}</b><span>${esc(ch[1])}</span></div></div>` + waitingBlock(st);
+    else if (st.kind === "show") layout = "full";
+    else if (st.kind === "vote") side = `<div class="tv-opts">${(st.options || []).map((o, i) => `<div class="tv-opt" style="--i:${i}"><i>${i + 1}</i><span>${esc(o.label)}</span></div>`).join("")}</div>` + waitingBlock(st);
+    else if (st.kind === "reveal") {
+      const results = st.results || [], topV = results.length ? results[0].v : 0, voted = results.filter((r) => r.v > 0), dry = results.filter((r) => !r.v);
+      side = voted.map((r, i) => `<div class="tv-res ${r.v === topV ? "win" : ""}" style="--i:${i}">${avatar(room, r.n, { mood: r.v === topV ? "happy" : "idle", still: true })}
+          <span class="t">${esc(r.t)}<small>${esc(r.n)}</small></span><span class="v">${r.v}</span></div>`).join("") +
+        (!voted.length ? `<div class="tv-h">${esc(U.noEmoji(st.headline || "Ніхто не проголосував"))}</div>` : "") +
+        (dry.length ? `<div class="tv-dry">Без голосів:${dry.map((r) => avatar(room, r.n, { mood: "sad", still: true })).join("")}</div>` : "") +
+        ((st.lines || []).length ? `<div class="tv-lines">${st.lines.map((l) => esc(U.noEmoji(l))).join("<br>")}</div>` : "");
+    }
+    // кадр перебудовуємо, коли змінився етап або те, що в бічній панелі
+    const sideKey = st.kind === "reveal" ? "" : JSON.stringify(Object.keys(inputs));
+    const built = setStage(`r|${st.id}|${layout}`, layout === "full" ? cardHtml : `${cardHtml}<div class="tv-col tv-side" id="tvSide">${side}</div>`);
+    if (!built && layout === "side") { const el = $("tvSide"); if (el && el.dataset.k !== sideKey) el.innerHTML = side; if (el) el.dataset.k = sideKey; }
+    const card = $("tvCard");
+    const ch2 = U.renderNews(card, room, st, { loadPhoto });
+    if (layout === "full") sizeCard(card, 74, 70); else sizeCard(card, st.kind === "write" ? 52 : 46, st.kind === "write" ? 64 : 58);
+    if (ch2 && ch2.sameStage && st.kind === "show") sfx("ding");
+    if (built) {
+      if (lastHead !== null) sfx(st.kind === "reveal" ? "drum" : st.kind === "vote" ? "vs" : st.kind === "show" ? "chime" : "whoosh");
+      if (st.kind === "reveal") setTimeout(() => sfx(((st.results || [])[0] || {}).v ? "fanfare" : "wah"), 900);
+      lastHead = st.id;
+    }
+    const tk = st.kind === "show" ? (d.texts || [])[Math.min((room.show && room.show.idx) || 0, (d.texts || []).length - 1)] : st.kind === "reveal" ? ((st.results || [])[0] || {}).t : "";
+    if (tk) $("tvTicker").textContent = `${tk} · ${tk} · `;
+  }
+
+  function renderSummary() {
+    setStage("summary|" + JSON.stringify(room.tally || {}), `<div class="tv-sum"><h2>Підсумок випуску</h2>
+      <div class="pp-card"><div class="pp-h">${icon("star")} Бали за вечір</div>${podium(room, "points", "happy")}</div>
+      <div class="pp-card"><div class="pp-h">${icon("glass")} Ковтки за вечір</div>${podium(room, "drinks", "shock")}</div></div>`) && sfx("fanfare");
+  }
+
+  function render() {
+    if (!room) return;
+    $("tvCode").innerHTML = `Код <b>${esc(roomId)}</b>`;
+    const inGame = room.phase === "round" && room.stage;
+    $("tvCode").classList.toggle("hidden", room.phase === "lobby");
+    $("tvRound").classList.toggle("hidden", !inGame);
+    if (inGame) renderRound();
+    else if (room.phase === "summary") { $("tvLive").textContent = "Підсумок"; renderSummary(); }
+    else { $("tvLive").textContent = "Студія"; lastHead = null; renderLobby(); }
+    updateTimer();
+  }
+
+  const RING = 2 * Math.PI * 19;
+  function updateTimer() {
+    const el = $("tvTimer"), st = room && room.phase === "round" && room.stage;
+    if (!st || st.kind === "reveal" || !st.endsAt) { el.className = "tv-timer off"; return; }
+    const total = Math.max(1, st.endsAt - (st.startedAt || st.endsAt - 60000)), left = Math.max(0, st.endsAt - now()), sec = Math.ceil(left / 1000);
+    const bar = el.querySelector(".bar"); bar.style.strokeDasharray = RING; bar.style.strokeDashoffset = RING * (1 - left / total);
+    el.querySelector("span").textContent = sec;
+    el.className = "tv-timer" + (sec <= 5 ? " urgent" : "");
+    if (sec <= 5 && sec > 0 && sec !== lastTick) { lastTick = sec; sfx("tick"); }
+  }
+  setInterval(updateTimer, 250);
+  window.addEventListener("resize", () => { lastKey = null; render(); });
+  $("soundBtn").onclick = () => { sfx("chime"); $("soundBtn").remove(); };
+
+  function connect(code) {
+    roomId = code.trim().toUpperCase();
+    if (!roomId) return;
+    history.replaceState(null, "", location.pathname + "?room=" + roomId);
+    loadPhoto = U.makeLoader(roomId);
+    window.rtdb.ref(".info/serverTimeOffset").on("value", (s) => { offset = s.val() || 0; });
+    window.rtdb.ref(`fakenews_rooms/${roomId}`).on("value", (snap) => {
+      room = snap.val();
+      if (!room) { setStage("none", `<div class="tv-join" style="align-items:center;text-align:center"><h1>Fake <i>News</i></h1><p>Кімнату <b>${esc(roomId)}</b> ще не створено — створіть її з телефона</p></div>`, false); return; }
+      render();
+    });
+  }
+  function askCode() {
+    setStage("enter", `<div class="tv-enter"><div class="tv-join" style="align-items:center"><h1 style="text-align:center">Fake <i>News</i></h1><p>Введіть код кімнати з телефона</p></div>
+      <input id="codeIn" maxlength="5" placeholder="КОД" autocomplete="off" /><button class="pp-btn pp-primary" id="codeGo">Показати ефір</button></div>`, false);
+    const go = () => connect($("codeIn").value);
+    $("codeGo").onclick = go; $("codeIn").onkeydown = (e) => { if (e.key === "Enter") go(); };
+    $("codeIn").focus();
+  }
+  (function wait() {
+    if (!window.rtdbReady) { setTimeout(wait, 300); return; }
+    const code = new URLSearchParams(location.search).get("room");
+    if (code) connect(code); else askCode();
+  })();
+})();
+</script>
+</body>
+</html>

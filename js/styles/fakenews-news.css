@@ -1,0 +1,74 @@
+/* Ефірна картка Fake News (телефон і ТВ): .news.ch-<канал>; розмітку будує js/fakenews-ui.js */
+/* ---------- новинна картка: фото + нижня плашка (висота плашки — змінна --l3) ---------- */
+.news { position: relative; border-radius: 14px; overflow: hidden; background: #111; aspect-ratio: 4 / 3; --l3: 22%; box-shadow: 0 14px 30px rgba(0,0,0,.5); }
+.news > img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.news .live { position: absolute; top: 8px; left: 8px; background: #e0332e; color: #fff; font-size: 10px; font-weight: 900; letter-spacing: .08em; padding: 3px 8px; border-radius: 4px; }
+.news .cnt { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,.6); color: #fff; font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 6px; }
+.news .l3 { position: absolute; left: 0; right: 0; bottom: 0; height: var(--l3); display: flex; flex-direction: column; }
+.news .l3-head { flex: 1; display: flex; align-items: center; background: rgba(10,16,40,.93); color: #fff; padding: 4px 10px; font-weight: 800; font-size: 14px; line-height: 1.2; border-top: 3px solid #e0332e; overflow: hidden; }
+.news .l3-head.muted { color: #aab0c0; font-weight: 600; font-style: italic; }
+.news .l3-head span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+.news .ticker { height: 16px; background: #e0332e; color: #fff; font-size: 10px; font-weight: 700; overflow: hidden; white-space: nowrap; }
+.news .ticker span { display: inline-block; padding-left: 100%; animation: fnTick 16s linear infinite; line-height: 16px; }
+@keyframes fnTick { to { transform: translateX(-100%); } }
+@keyframes fnPop { 0% { transform: translateY(10px); opacity: 0; } 100% { transform: none; opacity: 1; } }
+.news .hlbox.pop span { animation: fnPop .45s ease; }
+.fn-photo-context { margin-top: -6px; text-align: center; font-size: 12px; font-weight: 600; color: var(--muted); overflow-wrap: anywhere; }
+/* Жовта преса */
+.news.ch-tabloid { aspect-ratio: auto; background: #f3ead2; color: #1a1a1a; padding: 8px; border-radius: 6px; transform: rotate(-.4deg); font-family: Georgia, "Times New Roman", serif; }
+.tb-mast { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; border-bottom: 3px double #1a1a1a; padding-bottom: 4px; margin-bottom: 6px; font-weight: 900; font-size: 20px; text-transform: uppercase; }
+.tb-mast small { font-size: 9px; font-weight: 700; letter-spacing: .04em; text-transform: none; font-style: italic; }
+.tb-photo { position: relative; aspect-ratio: 16 / 10; overflow: hidden; border: 2px solid #1a1a1a; background: #222; }
+.tb-photo img { width: 100%; height: 100%; object-fit: cover; display: block; filter: contrast(1.1) saturate(.85); }
+.tb-stamp { position: absolute; top: 8px; left: -2px; background: #e3261f; color: #fff; font: 900 13px/1 Impact, "Arial Black", sans-serif; padding: 5px 10px; transform: rotate(-6deg); box-shadow: 2px 2px 0 #1a1a1a; letter-spacing: .03em; }
+.tb-head { background: #ffe23a; margin-top: 6px; padding: 6px 8px; font: 900 19px/1.15 Impact, "Arial Black", sans-serif; text-transform: uppercase; min-height: 44px; word-break: break-word; }
+.tb-head.muted { font: italic 600 15px/1.3 Georgia, serif; text-transform: none; background: #efe3b0; color: #555; }
+.tb-sub { font-size: 11px; font-style: italic; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Телеграм-канал */
+.news.ch-tg { aspect-ratio: auto; background: #17212b; color: #e9eef3; border-radius: 14px 14px 14px 4px; font-family: -apple-system, "Segoe UI", Roboto, sans-serif; }
+.tg-top { display: flex; align-items: center; gap: 8px; padding: 8px 10px; }
+.tg-ava { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #2aabee, #229ed9); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; flex: none; }
+.tg-top b { display: block; font-size: 14px; color: #64b5ef; }
+.tg-top small { display: block; font-size: 11px; color: #8b9aa8; }
+.news.ch-tg .cnt { position: static; margin-left: auto; background: #2b5278; }
+.tg-photo { aspect-ratio: 4 / 3; overflow: hidden; background: #0e1621; }
+.tg-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tg-text { padding: 8px 10px 2px; font-size: 15px; line-height: 1.3; font-weight: 600; min-height: 40px; word-break: break-word; }
+.tg-text.muted { color: #8b9aa8; font-style: italic; font-weight: 400; }
+.tg-foot { display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 4px 10px 8px; font-size: 12px; color: #8b9aa8; }
+.tg-reacts span { background: #2b5278; border-radius: 12px; padding: 2px 7px; margin-right: 4px; color: #e9eef3; white-space: nowrap; }
+/* Радіо */
+.news.ch-radio { background: #1b1030; }
+.news.ch-radio > img { filter: blur(2px) brightness(.45) saturate(.6); transform: scale(1.06); }
+.rd-top { position: absolute; top: 8px; left: 8px; right: 8px; display: flex; align-items: center; gap: 8px; color: #fff; font-size: 11px; font-weight: 800; }
+.rd-onair { background: #ff2d55; padding: 3px 8px; border-radius: 4px; letter-spacing: .08em; animation: rdBlink 1.4s infinite; }
+@keyframes rdBlink { 50% { opacity: .55; } }
+.rd-freq { opacity: .85; letter-spacing: .06em; white-space: nowrap; }
+.news.ch-radio .cnt { position: static; margin-left: auto; }
+.rd-eq { position: absolute; left: 0; right: 0; top: 24%; height: 26%; display: flex; align-items: flex-end; justify-content: center; gap: 4px; }
+.rd-eq i { width: 6px; height: 30%; border-radius: 3px; background: linear-gradient(#ff2d55, #ffb454); animation: rdEq 1s ease-in-out infinite; }
+@keyframes rdEq { 0%, 100% { height: 18%; } 50% { height: 100%; } }
+.rd-head { position: absolute; left: 10px; right: 10px; bottom: 26px; color: #fff; font-size: 17px; font-weight: 800; line-height: 1.25; text-align: center; text-shadow: 0 2px 8px #000; word-break: break-word; }
+.rd-head span::before { content: "«"; } .rd-head span::after { content: "»"; }
+.rd-head.muted { font-weight: 600; font-style: italic; color: #d6cce8; }
+.rd-head.muted span::before, .rd-head.muted span::after { content: none; }
+.rd-tick { position: absolute; left: 0; right: 0; bottom: 0; height: 20px; background: rgba(0,0,0,.55); color: #ffb454; font-size: 10px; font-weight: 700; line-height: 20px; text-align: center; letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 8px; }
+/* Спорт-канал */
+.sp-board { position: absolute; top: 8px; left: 8px; display: flex; font-size: 11px; font-weight: 900; border-radius: 6px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,.4); }
+.sp-board span { padding: 4px 7px; }
+.sp-logo { background: #0b8a3e; color: #fff; letter-spacing: .04em; }
+.sp-score { background: #fff; color: #111; font-variant-numeric: tabular-nums; }
+.sp-live { background: #111; color: #ffd400; }
+.sp-bar { position: absolute; left: 0; right: 0; bottom: 0; }
+.sp-head { margin: 0 10px 6px; background: linear-gradient(90deg, #ffd400, #ffb000); color: #111; padding: 6px 10px; font-weight: 900; font-style: italic; font-size: 15px; line-height: 1.2; text-transform: uppercase; box-shadow: 3px 3px 0 #0b8a3e; word-break: break-word; }
+.sp-head span { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.sp-head.muted { background: rgba(0,0,0,.65); color: #ddd; text-transform: none; font-weight: 600; box-shadow: none; }
+.sp-tick { height: 18px; background: #0b8a3e; color: #fff; font-size: 10px; font-weight: 800; line-height: 18px; overflow: hidden; white-space: nowrap; }
+.sp-tick span { display: inline-block; padding-left: 100%; animation: fnTick 16s linear infinite; }
+
+/* фото видно повністю (contain), порожні краї — розмита копія того самого фото */
+.news > img, .tb-photo img, .tg-photo img { position: relative; object-fit: contain !important; }
+.tg-photo { position: relative; }
+.news:not(.ch-tabloid):not(.ch-tg)::before, .tb-photo::before, .tg-photo::before { content: ""; position: absolute; inset: -16px;
+  background: var(--ph, none) center / cover no-repeat; filter: blur(16px) brightness(.55) saturate(1.1); }
+.news.ch-radio > img { object-fit: cover !important; }
