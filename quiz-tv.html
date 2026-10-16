@@ -190,6 +190,7 @@
 <script src="js/quiplash-avatars.js"></script>
 <script src="js/quiz-game.js"></script>
 <script src="js/core/reactions.js"></script>
+<script src="js/core/game-pause.js"></script>
 <script>
 (function () {
   const VIEWS = ["waiting", "countdown", "board", "question", "result", "end"];
@@ -326,8 +327,10 @@
 
   let latestState = null;
   let reactionsMounted = false;
+  const tvPause = window.GamePause ? GamePause.mount({ readOnly: true, now: () => window.QuizGame.now(), active: (r) => !["lobby", "countdown", "game_over"].includes(r.phase) }) : null;
   function render(state) {
     latestState = state;
+    if (tvPause) tvPause.update(state);
     if (!reactionsMounted && window.GameReactions && window.QuizGame.roomRef) {
       reactionsMounted = true;
       window.GameReactions.mountOverlay(window.QuizGame.roomRef);

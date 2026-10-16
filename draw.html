@@ -233,6 +233,7 @@ body { background:
 <script src="js/core/room-code-ui.js"></script>
 <script src="js/party-ui.js"></script>
 <script src="js/core/reactions.js"></script>
+<script src="js/core/game-pause.js"></script>
 <script src="js/core/help.js"></script>
 <script src="js/core/back-button.js"></script>
 <script>
@@ -489,6 +490,7 @@ body { background:
   function updateTimer() {
     const el = $("timer"), room = lastRoom;
     const gal = room && room.gallery;
+    if (room && room.paused) return; // пауза: кільце завмирає, автовідправки немає
     if (!room || room.phase !== "active" || room.mode !== "gallery" || !gal || gal.sub !== "drawing" || !gal.drawEndsAt) { el.className = "pp-timer off"; return; }
     const total = Math.min(120, Math.max(20, Number(room.gallerySettings && room.gallerySettings.drawSeconds) || 60)) * 1000;
     const left = Math.max(0, gal.drawEndsAt - DrawGame.now()), sec = Math.ceil(left / 1000);
@@ -538,10 +540,14 @@ body { background:
   }
 
   // ---------------- стан ----------------
+  // пауза для всіх (js/core/game-pause.js)
+  const gamePause = window.GamePause ? GamePause.mount({ getRef: () => DrawGame.roomRef, now: () => DrawGame.now(), username: () => lastCtx && lastCtx.username,
+    active: (r) => r.phase === "active", deadlines: (r) => ["gallery/drawEndsAt", "gallery/revealedAt"] }) : null;
   function onState(room, ctx) {
     const prevPhase = lastRoom && lastRoom.phase;
     lastRoom = room; lastCtx = ctx;
     if (!ctx.username) { showView("locked"); return; }
+    if (gamePause) gamePause.update(room);
     if (!reactionsMounted && window.GameReactions && DrawGame.roomRef) { reactionsMounted = true; window.GameReactions.mount(DrawGame.roomRef, ctx.username); }
     const iAmIn = room.players && room.players[ctx.username];
     if (!iAmIn && room.phase !== "lobby") { showView("waiting"); return; }

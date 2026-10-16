@@ -285,6 +285,7 @@
     const RING = 2 * Math.PI * 19;
     function updateTimer() {
       const el = $("timer"), room = lastRoom, st = room && room.stage;
+      if (room && room.paused) return; // пауза: кільце завмирає
       if (!room || room.phase !== "round" || !st || st.kind === "reveal" || !st.endsAt) { el.className = "pp-timer off"; return; }
       const total = Math.max(1, st.endsAt - (st.startedAt || st.endsAt - 60000));
       const left = Math.max(0, st.endsAt - G.now()), sec = Math.ceil(left / 1000);
@@ -309,10 +310,14 @@
       $("waitHostSummary").classList.toggle("hidden", !!ctx.host);
     }
 
+    // пауза для всіх (js/core/game-pause.js): поки на паузі, рушій нічого не рухає, дедлайни етапу потім зсуваються
+    const gamePause = window.GamePause ? GamePause.mount({ getRef: () => G.roomRef, now: () => G.now(), username: () => lastCtx && lastCtx.username,
+      active: (r) => r.phase === "round", deadlines: () => ["stage/endsAt", "stage/startedAt"] }) : null;
     function onState(room, ctx) {
       const prevPhase = lastRoom && lastRoom.phase;
       lastRoom = room; lastCtx = ctx;
       if (!ctx.username) { showView("locked"); return; }
+      if (gamePause) gamePause.update(room);
       if (!reactionsMounted && window.GameReactions && G.roomRef) { reactionsMounted = true; window.GameReactions.mount(G.roomRef, ctx.username); }
       const iAmIn = room.players && room.players[ctx.username];
       document.body.dataset.phase = room.phase || "lobby";

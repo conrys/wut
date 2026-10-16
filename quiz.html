@@ -168,6 +168,7 @@ body { background:
 <script src="js/core/room-code-ui.js"></script>
 <script src="js/party-ui.js"></script>
 <script src="js/core/reactions.js"></script>
+<script src="js/core/game-pause.js"></script>
 <script src="js/core/score-connect.js"></script>
 <script src="js/core/records.js"></script>
 <script src="js/core/help.js"></script>
@@ -305,6 +306,7 @@ body { background:
   const RING = 2 * Math.PI * 19;
   function updateTimer() {
     const el = $("timer"), s = lastState;
+    if (s && s.paused) return; // пауза: кільце завмирає
     if (!s || s.phase !== "questionActive" || !s.phaseDeadline || !s.currentQuestion) { el.className = "pp-timer off"; return; }
     const q = Q.QUIZ_TOPICS[s.currentQuestion.categoryIndex].questions[s.currentQuestion.questionIndex];
     const total = (q.timeLimit || 30) * 1000, left = Math.max(0, s.phaseDeadline - Q.now()), sec = Math.ceil(left / 1000);
@@ -334,10 +336,14 @@ body { background:
     panel.classList.toggle("hidden", !host);
   }
 
+  // пауза для всіх (js/core/game-pause.js)
+  const gamePause = window.GamePause ? GamePause.mount({ getRef: () => Q.roomRef, now: () => Q.now(), username: () => lastCtx && lastCtx.username,
+    active: (r) => !["lobby", "countdown", "game_over"].includes(r.phase), deadlines: (r) => ["phaseDeadline"] }) : null;
   function onState(state, ctx) {
     const prev = lastPhase;
     lastState = state; lastCtx = ctx;
     if (!ctx.username) { showView("locked"); return; }
+    if (gamePause) gamePause.update(state);
     if (!reactionsMounted && window.GameReactions && Q.roomRef) { reactionsMounted = true; window.GameReactions.mount(Q.roomRef, ctx.username); }
     updateHostControls(state, ctx);
     if (ctx.spectating) { showView("spectate"); paint("specScores", JSON.stringify(state.players), scoresHtml(state)); return; }

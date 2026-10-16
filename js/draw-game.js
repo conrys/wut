@@ -354,7 +354,7 @@
   // ------------------------- хост-тік: тільки таймери галереї -------------------------
   function tick() {
     const room = engine.latestRoom;
-    if (!room || room.phase !== "active" || room.mode !== "gallery" || !room.gallery) return;
+    if (!room || room.paused || room.phase !== "active" || room.mode !== "gallery" || !room.gallery) return; // пауза — нічого не рухаємо
     const t = engine.now();
 
     if (room.gallery.sub === "drawing") {

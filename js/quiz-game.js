@@ -344,7 +344,7 @@
   // ------------------------- tick хоста -------------------------
   function hostTick() {
     const room = Engine.latestRoom;
-    if (!room || !ref) return;
+    if (!room || !ref || room.paused) return; // пауза (js/core/game-pause.js) — нічого не рухаємо
     const t = now();
 
     switch (room.phase) {

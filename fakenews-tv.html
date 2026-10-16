@@ -142,6 +142,7 @@ body.dim .fn-bg::after { background: linear-gradient(180deg, rgba(10,15,36,.75),
 <script src="js/fakenews-ui.js"></script>
 <script src="js/party-ui.js"></script>
 <script src="js/core/reactions.js"></script>
+<script src="js/core/game-pause.js"></script>
 <script>
 (function () {
   const U = window.FakeNewsUI, { esc, avatar, podium, icon } = window.PartyUI;
@@ -276,8 +277,10 @@ body.dim .fn-bg::after { background: linear-gradient(180deg, rgba(10,15,36,.75),
     loadPhoto = U.makeLoader(roomId);
     window.rtdb.ref(".info/serverTimeOffset").on("value", (s) => { offset = s.val() || 0; });
     if (window.GameReactions) window.GameReactions.mountOverlay(window.rtdb.ref(`fakenews_rooms/${roomId}`));
+    const tvPause = window.GamePause ? GamePause.mount({ readOnly: true, now: () => Date.now() + offset, active: (r) => r.phase === "round" }) : null;
     window.rtdb.ref(`fakenews_rooms/${roomId}`).on("value", (snap) => {
       room = snap.val();
+      if (tvPause) tvPause.update(room);
       if (!room) { setStage("none", `<div class="tv-join" style="align-items:center;text-align:center"><h1>Fake <i>News</i></h1><p>Кімнату <b>${esc(roomId)}</b> ще не створено — створіть її з телефона</p></div>`, false); return; }
       render();
     });

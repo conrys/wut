@@ -210,6 +210,7 @@ body { background:
 <script src="js/core/room-code-ui.js"></script>
 <script src="js/party-ui.js"></script>
 <script src="js/core/reactions.js"></script>
+<script src="js/core/game-pause.js"></script>
 <script src="js/draw-canvas.js"></script>
 <script src="js/core/help.js"></script>
 <script src="js/core/back-button.js"></script>
@@ -460,9 +461,13 @@ body { background:
     $("waitHostRevealLine").classList.toggle("hidden", ctx.host);
   }
 
+  // пауза для всіх (js/core/game-pause.js)
+  const gamePause = window.GamePause ? GamePause.mount({ getRef: () => TeliGame.roomRef, now: () => Date.now(), username: () => lastCtx && lastCtx.username,
+    active: (r) => r.phase === "active", deadlines: (r) => [] }) : null;
   function onState(room, ctx) {
     lastRoom = room; lastCtx = ctx;
     if (!ctx.username) { showView("locked"); return; }
+    if (gamePause) gamePause.update(room);
     if (!reactionsMounted && window.GameReactions && window.TeliGame.roomRef) {
       reactionsMounted = true;
       window.GameReactions.mount(window.TeliGame.roomRef, ctx.username);
@@ -589,10 +594,13 @@ body { background:
   // перевірка (кожен клієнт сам стежить за своїм кроком і сам себе
   // відправляє), без окремого хост-тіку; forceAdvance лишається ручним запасним варіантом.
   const RING = 2 * Math.PI * 19;
-  let lastTick = null;
+  let lastTick = null, pauseStartPerf = null;
   setInterval(() => {
     const timerEl = $("roundTimer");
     const off = () => { timerEl.className = "pp-timer off"; };
+    // пауза: локальний таймер кроку стоїть, після продовження час паузи не рахується
+    if (lastRoom && lastRoom.paused) { if (pauseStartPerf == null) pauseStartPerf = performance.now(); return; }
+    if (pauseStartPerf != null) { if (stepTimer) stepTimer.startedPerf += performance.now() - pauseStartPerf; pauseStartPerf = null; }
     if (!lastRoom || lastRoom.phase !== "active") return off();
     const inGame = lastRoom.playerOrder && lastRoom.playerOrder.includes(username);
     const alreadySubmitted = lastRoom.submitted && lastRoom.submitted[username];

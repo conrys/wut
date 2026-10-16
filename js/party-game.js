@@ -212,7 +212,7 @@
   }
 
   function progress(room) {
-    if (busy || room.phase !== "round" || !room.stage) return;
+    if (busy || room.paused || room.phase !== "round" || !room.stage) return; // пауза (js/core/game-pause.js) — нічого не рухаємо
     const st = room.stage, now = engine.now();
     if (st.kind === "reveal") { if (st.endsAt && now >= st.endsAt) nextRound(); return; }
     const expect = st.expect || [];

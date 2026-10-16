@@ -218,7 +218,7 @@
 
   // ------------------------- рішення хоста -------------------------
   function progress(room) {
-    if (busy) return;
+    if (busy || room.paused) return; // пауза (js/core/game-pause.js) — нічого не рухаємо
     if (room.phase === "voting") {
       const { present, voted, remaining } = votingState(room);
       if (!voted.length) return;

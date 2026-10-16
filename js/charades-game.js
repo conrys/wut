@@ -283,7 +283,7 @@
 
   // ------------------------- рішення хоста -------------------------
   function progress(room) {
-    if (busy || room.phase !== "round" || !room.stage) return;
+    if (busy || room.paused || room.phase !== "round" || !room.stage) return; // пауза (js/core/game-pause.js) — нічого не рухаємо
     const st = room.stage, now = engine.now(), d = st.data || {};
     if (st.kind === "reveal") { if (st.endsAt && now >= st.endsAt) nextRound(); return; }
     if (st.kind === "encode" && validInputs(room)[d.encoder] === "r" && !d.rerolled) { reroll(room); return; }
