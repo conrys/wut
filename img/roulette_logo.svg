@@ -1,22 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
-  <!-- Тимчасова обкладинка Рулетки (користувач може замінити своєю img/roulette_logo.png) -->
-  <defs>
-    <radialGradient id="bg" cx="50%" cy="35%" r="75%"><stop offset="0" stop-color="#5a1a26"/><stop offset="1" stop-color="#1a0b0e"/></radialGradient>
-    <radialGradient id="wood" cx="50%" cy="40%" r="60%"><stop offset="0" stop-color="#8a4a22"/><stop offset="1" stop-color="#3d1c0b"/></radialGradient>
-    <linearGradient id="gold" x1="0" x2="1"><stop offset="0" stop-color="#9a6c12"/><stop offset=".5" stop-color="#f8dc8c"/><stop offset="1" stop-color="#9a6c12"/></linearGradient>
-  </defs>
-  <rect width="200" height="200" fill="url(#bg)"/>
-  <circle cx="100" cy="100" r="80" fill="url(#wood)" stroke="#e3b64f" stroke-width="3"/>
-  <g stroke="#e3b64f" stroke-width="1">
-    <circle cx="100" cy="100" r="70" fill="#141414"/>
-    <path d="M100 30A70 70 0 0 1 149.5 50.5L128.3 71.7A40 40 0 0 0 100 60z" fill="#c8102e"/>
-    <path d="M149.5 149.5A70 70 0 0 1 100 170V140A40 40 0 0 0 128.3 128.3z" fill="#c8102e"/>
-    <path d="M30 100A70 70 0 0 1 50.5 50.5L71.7 71.7A40 40 0 0 0 60 100z" fill="#c8102e"/>
-    <path d="M50.5 149.5A70 70 0 0 1 30 100H60A40 40 0 0 0 71.7 128.3z" fill="#0a8a4a"/>
-    <path d="M170 100A70 70 0 0 1 149.5 149.5L128.3 128.3A40 40 0 0 0 140 100z" fill="#c8102e"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Обкладинка Рулетки в стилі інших: прозоре тло, білі контури, одна кольорова деталь (кулька) -->
+  <g fill="none" stroke="#fff" stroke-width="30" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="512" cy="512" r="330"/>
+    <circle cx="512" cy="512" r="215"/>
+    <circle cx="512" cy="512" r="58"/>
+    <g id="t"><path d="M512 182v115"/></g>
+    <use href="#t" transform="rotate(30 512 512)"/><use href="#t" transform="rotate(60 512 512)"/><use href="#t" transform="rotate(90 512 512)"/>
+    <use href="#t" transform="rotate(120 512 512)"/><use href="#t" transform="rotate(150 512 512)"/><use href="#t" transform="rotate(180 512 512)"/>
+    <use href="#t" transform="rotate(210 512 512)"/><use href="#t" transform="rotate(240 512 512)"/><use href="#t" transform="rotate(270 512 512)"/>
+    <use href="#t" transform="rotate(300 512 512)"/><use href="#t" transform="rotate(330 512 512)"/>
+    <path d="M512 454V350M512 570v104M454 512H350M570 512h104"/>
   </g>
-  <circle cx="100" cy="100" r="40" fill="#24100a" stroke="#e3b64f" stroke-width="2"/>
-  <g fill="url(#gold)"><rect x="96" y="66" width="8" height="68" rx="4"/><rect x="96" y="66" width="8" height="68" rx="4" transform="rotate(90 100 100)"/></g>
-  <circle cx="100" cy="100" r="9" fill="url(#gold)"/>
-  <circle cx="142" cy="46" r="8" fill="#fff" stroke="#bbb"/>
+  <circle cx="512" cy="240" r="34" fill="#f0607a" transform="rotate(15 512 512)"/>
 </svg>
