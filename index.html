@@ -24,7 +24,7 @@
   <meta name="twitter:image" content="https://kzl-crm.web.app/img/icon_graph.png" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&family=Unbounded:wght@700;800&display=swap" rel="stylesheet">
   
   <style>
     :root {
@@ -377,6 +377,36 @@
     .hidden {
       display: none !important;
     }
+    /* ===== оновлений вигляд головної: заголовок, розділи, мʼякі плитки ===== */
+    .brand-title { gap: 12px; margin-bottom: 4px; font: 800 26px/1 'Unbounded', 'Space Grotesk', sans-serif; letter-spacing: -.01em; }
+    .brand-logo { width: 42px; height: 42px; border-radius: 12px; box-shadow: 0 6px 18px var(--glow-color), 0 0 0 1px rgba(255,255,255,.08); }
+    .brand-title span b { background: linear-gradient(135deg, #ffc93c, #ff6b8b 55%, #8f7bff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .brand-sub { margin: 0 0 16px 54px; font-size: 13px; color: var(--text-muted); font-weight: 600; }
+    .brand-sub b { color: var(--text-light); }
+    .game-search { padding-left: 38px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b909c' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-4-4'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: 12px 50%; background-size: 17px; }
+    .filter-btn.active { background: linear-gradient(180deg, #343947, #2a2e39); }
+    .grid { gap: 14px 12px; }
+    .sec { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; margin: 14px 2px 0; font: 700 13px 'Unbounded', 'Space Grotesk', sans-serif; letter-spacing: .02em; }
+    .sec:first-of-type { margin-top: 0; }
+    .sec i { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; flex: none; }
+    .sec i svg { width: 16px; height: 16px; fill: none; stroke: #fff; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+    .sec small { margin-left: auto; font: 600 12px 'Inter', sans-serif; color: var(--text-muted); }
+    .sec::after { content: ""; flex: 0 0 0; }
+    .sec[data-sec="arcade"] i { background: linear-gradient(135deg, #3c7de0, #6bc6ff); }
+    .sec[data-sec="cards"] i { background: linear-gradient(135deg, #c8102e, #ff6b8b); }
+    .sec[data-sec="party"] i { background: linear-gradient(135deg, #8f5bff, #ff5fa2); }
+    .sec[data-sec="tv"] i { background: linear-gradient(135deg, #ff9f1c, #ffd23f); }
+    .tile { border-radius: 18px; border: 1px solid rgba(255,255,255,.06); box-shadow: 0 8px 22px rgba(0,0,0,.28);
+      transition: transform .15s ease, box-shadow .2s ease, opacity .2s ease; animation: tileIn .45s cubic-bezier(.2,.9,.3,1.1) both; }
+    .tile:active { transform: scale(.97); box-shadow: 0 4px 12px rgba(0,0,0,.3); }
+    @keyframes tileIn { from { opacity: 0; transform: translateY(10px); } }
+    .tile-banner { background: linear-gradient(180deg, #1b1f27, #16191f); padding: 10px 12px 12px; }
+    .tile .name { font: 700 15px 'Unbounded', 'Space Grotesk', sans-serif; letter-spacing: -.01em; }
+    .tag { border-radius: 999px; padding: 3px 7px; }
+    .tag-it { display: inline-flex; align-items: center; padding: 3px 5px; }
+    .tag-it svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 2; }
+    .tag-upd { box-shadow: 0 0 10px rgba(255,201,60,.5); }
   </style>
 </head>
 <body>
@@ -385,8 +415,9 @@
   <!-- Шапка з логотипом -->
   <div class="brand-title">
     <img src="img/icon.png" alt="41 Games Logo" class="brand-logo" />
-    <span>41 Games</span>
+    <span><b>41</b> Games</span>
   </div>
+  <div class="brand-sub" id="brandSub">Ігри для тебе й компанії</div>
 
   <!-- Верхній блок з перемикачем та кнопкою профілю -->
   <div class="top-bar" id="top-bar">
@@ -396,7 +427,7 @@
       <button class="filter-btn" data-filter="multi">Компанія</button>
       <button class="filter-btn" data-filter="host">Хост</button>
     </div>
-    <input class="game-search" id="gameSearch" type="search" placeholder="🔍 Пошук гри" autocomplete="off" aria-label="Пошук гри" />
+    <input class="game-search" id="gameSearch" type="search" placeholder="Пошук гри" autocomplete="off" aria-label="Пошук гри" />
   </div>
 
   <div class="grid" id="games-grid">
@@ -404,6 +435,8 @@
     <div class="search-empty hidden" id="searchEmpty">Нічого не знайшлось</div>
 
     <!-- ІГРИ -->
+
+    <div class="sec" data-sec="arcade"><i><svg viewBox="0 0 24 24"><path d="M6 12h4M8 10v4M15 11h.01M18 13h.01"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg></i>Аркади й головоломки<small></small></div>
 
     <a class="tile" href="tetris.html" data-type="solo">
       <div class="tile-media" style="--icon: url('img/tetris_logo.png');"></div>
@@ -467,6 +500,8 @@
       </div>
     </a>
 
+    <div class="sec" data-sec="cards"><i><svg viewBox="0 0 24 24"><rect x="4" y="5" width="11" height="15" rx="2"/><path d="M9 4.5 17.5 3a2 2 0 0 1 2.3 1.7l1.6 10.6a2 2 0 0 1-1.7 2.3L17 18"/></svg></i>Казино, карти й настілки<small></small></div>
+
     <a class="tile" href="roulette.html" data-type="solo">
       <div class="tile-media" style="--icon: url('img/roulette_logo.svg');"></div>
       <div class="tags"><span class="tag tag-v">NEW</span></div>
@@ -485,7 +520,7 @@
 
     <a class="tile" href="poker.html" data-type="solo multi">
       <div class="tile-media" style="--icon: url('img/poker_logo.png');"></div>
-      <div class="tags"><span class="tag tag-upd">UPD</span><span class="tag tag-multi">1 - 10</span><span class="tag tag-it">🌐</span></div>
+      <div class="tags"><span class="tag tag-upd">UPD</span><span class="tag tag-multi">1 - 10</span><span class="tag tag-it" title="Онлайн"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.5 3.9 5.5 3.9 9s-1.3 6.5-3.9 9c-2.6-2.5-3.9-5.5-3.9-9S9.4 5.5 12 3z"/></svg></span></div>
       <div class="tile-banner">
         <div class="name">Покер</div>
       </div>
@@ -493,7 +528,7 @@
 
     <a class="tile" href="durak.html" data-type="multi">
       <div class="tile-media" style="--icon: url('img/durak_logo.png');"></div>
-      <div class="tags"><span class="tag tag-upd">UPD</span><span class="tag tag-v">NEW</span><span class="tag tag-multi">2 - 6</span><span class="tag tag-it">🌐</span></div>
+      <div class="tags"><span class="tag tag-upd">UPD</span><span class="tag tag-v">NEW</span><span class="tag tag-multi">2 - 6</span><span class="tag tag-it" title="Онлайн"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.5 3.9 5.5 3.9 9s-1.3 6.5-3.9 9c-2.6-2.5-3.9-5.5-3.9-9S9.4 5.5 12 3z"/></svg></span></div>
       <div class="tile-banner">
         <div class="name">Дурень</div>
       </div>
@@ -502,7 +537,7 @@
 
     <a class="tile" href="chess.html" data-type="solo multi">
       <div class="tile-media" style="--icon: url('img/chess_logo.png');"></div>
-      <div class="tags"><span class="tag tag-upd">UPD</span><span class="tag tag-multi">1 - 2</span><span class="tag tag-it">🌐</span></div>
+      <div class="tags"><span class="tag tag-upd">UPD</span><span class="tag tag-multi">1 - 2</span><span class="tag tag-it" title="Онлайн"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.5 3.9 5.5 3.9 9s-1.3 6.5-3.9 9c-2.6-2.5-3.9-5.5-3.9-9S9.4 5.5 12 3z"/></svg></span></div>
       <div class="tile-banner">
         <div class="name">Шахи</div>
       </div>
@@ -510,14 +545,16 @@
 
     <a class="tile" href="checkers.html" data-type="solo multi">
       <div class="tile-media" style="--icon: url('img/checkers_logo.png');"></div>
-      <div class="tags"><span class="tag tag-upd">UPD</span><span class="tag tag-multi">1 - 2</span><span class="tag tag-it">🌐</span></div>
+      <div class="tags"><span class="tag tag-upd">UPD</span><span class="tag tag-multi">1 - 2</span><span class="tag tag-it" title="Онлайн"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.5 3.9 5.5 3.9 9s-1.3 6.5-3.9 9c-2.6-2.5-3.9-5.5-3.9-9S9.4 5.5 12 3z"/></svg></span></div>
       <div class="tile-banner">
         <div class="name">Шашки</div>
       </div>
     </a>
+    <div class="sec" data-sec="party"><i><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.8c2 .7 3.2 2.4 3.5 5.2"/></svg></i>Вечірки з друзями<small></small></div>
+
     <a class="tile" href="spy.html" data-type="multi">
       <div class="tile-media" style="--icon: url('img/spy_logo.png');"></div>
-      <div class="tags"><span class="tag tag-upd">UPD</span><span class="tag tag-multi">3 - 20</span><span class="tag tag-it">🌐</span></div>
+      <div class="tags"><span class="tag tag-upd">UPD</span><span class="tag tag-multi">3 - 20</span><span class="tag tag-it" title="Онлайн"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.5 3.9 5.5 3.9 9s-1.3 6.5-3.9 9c-2.6-2.5-3.9-5.5-3.9-9S9.4 5.5 12 3z"/></svg></span></div>
       <div class="tile-banner">
         <div class="name">Шпигун</div>
       </div>
@@ -533,7 +570,7 @@
 
     <a class="tile" href="memology.html" data-type="multi">
       <div class="tile-media" style="--icon: url('img/meme_logo.png');"></div>
-      <div class="tags"><span class="tag tag-upd">UPD</span><span class="tag tag-multi">2 - 20</span><span class="tag tag-it">🌐</span></div>
+      <div class="tags"><span class="tag tag-upd">UPD</span><span class="tag tag-multi">2 - 20</span><span class="tag tag-it" title="Онлайн"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.5 3.9 5.5 3.9 9s-1.3 6.5-3.9 9c-2.6-2.5-3.9-5.5-3.9-9S9.4 5.5 12 3z"/></svg></span></div>
       <div class="tile-banner">
         <div class="name">Мемологія</div>
       </div>
@@ -549,7 +586,7 @@
 
     <a class="tile" href="charades.html" data-type="multi">
       <div class="tile-media" style="--icon: url('img/charades_logo.png');"></div>
-      <div class="tags"><span class="tag tag-upd">UPD</span><span class="tag tag-v">NEW</span><span class="tag tag-multi">3 - 20</span><span class="tag tag-it">🌐</span></div>
+      <div class="tags"><span class="tag tag-upd">UPD</span><span class="tag tag-v">NEW</span><span class="tag tag-multi">3 - 20</span><span class="tag tag-it" title="Онлайн"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.5 3.9 5.5 3.9 9s-1.3 6.5-3.9 9c-2.6-2.5-3.9-5.5-3.9-9S9.4 5.5 12 3z"/></svg></span></div>
       <div class="tile-banner">
         <div class="name">Зіпсовані шаради</div>
       </div>
@@ -557,7 +594,7 @@
 
     <a class="tile" href="teli.html" data-type="multi">
       <div class="tile-media" style="--icon: url('img/teli_logo.png');"></div>
-      <div class="tags"><span class="tag tag-upd">UPD</span><span class="tag tag-v">NEW</span><span class="tag tag-multi">2 - 20</span><span class="tag tag-it">🌐</span></div>
+      <div class="tags"><span class="tag tag-upd">UPD</span><span class="tag tag-v">NEW</span><span class="tag tag-multi">2 - 20</span><span class="tag tag-it" title="Онлайн"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.5 3.9 5.5 3.9 9s-1.3 6.5-3.9 9c-2.6-2.5-3.9-5.5-3.9-9S9.4 5.5 12 3z"/></svg></span></div>
       <div class="tile-banner">
         <div class="name">Зіпсований телефон</div>
       </div>
@@ -565,7 +602,7 @@
 
     <a class="tile" href="draw.html" data-type="multi">
       <div class="tile-media" style="--icon: url('img/draw_logo.png');"></div>
-      <div class="tags"><span class="tag tag-upd">UPD</span><span class="tag tag-v">NEW</span><span class="tag tag-multi">2 - 20</span><span class="tag tag-it">🌐</span></div>
+      <div class="tags"><span class="tag tag-upd">UPD</span><span class="tag tag-v">NEW</span><span class="tag tag-multi">2 - 20</span><span class="tag tag-it" title="Онлайн"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.5 3.9 5.5 3.9 9s-1.3 6.5-3.9 9c-2.6-2.5-3.9-5.5-3.9-9S9.4 5.5 12 3z"/></svg></span></div>
       <div class="tile-banner">
         <div class="name">Малювалка</div>
       </div>
@@ -573,7 +610,7 @@
 
     <a class="tile" href="quiz.html" data-type="multi">
       <div class="tile-media" style="--icon: url('img/quiz_logo.png');"></div>
-      <div class="tags"><span class="tag tag-upd">UPD</span><span class="tag tag-multi">2 - 20</span><span class="tag tag-it">🌐</span></div>
+      <div class="tags"><span class="tag tag-upd">UPD</span><span class="tag tag-multi">2 - 20</span><span class="tag tag-it" title="Онлайн"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.5 3.9 5.5 3.9 9s-1.3 6.5-3.9 9c-2.6-2.5-3.9-5.5-3.9-9S9.4 5.5 12 3z"/></svg></span></div>
       <div class="tile-banner">
         <div class="name">Квіз</div>
       </div>
@@ -581,7 +618,7 @@
 
     <a class="tile" href="quiplash.html" data-type="multi">
       <div class="tile-media" style="--icon: url('img/quiplash_logo.png');"></div>
-      <div class="tags"><span class="tag tag-multi">2 - 20</span><span class="tag tag-it">🌐</span> </div>
+      <div class="tags"><span class="tag tag-multi">2 - 20</span><span class="tag tag-it" title="Онлайн"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.5 3.9 5.5 3.9 9s-1.3 6.5-3.9 9c-2.6-2.5-3.9-5.5-3.9-9S9.4 5.5 12 3z"/></svg></span> </div>
       <div class="tile-banner">
         <div class="name">Сміхлист</div>
       </div>
@@ -589,7 +626,7 @@
 
     <a class="tile" href="mafia.html" data-type="multi">
       <div class="tile-media" style="--icon: url('img/mafia_logo.png');"></div>
-      <div class="tags"><span class="tag tag-multi">4 - 20</span><span class="tag tag-it">🌐</span> </div>
+      <div class="tags"><span class="tag tag-multi">4 - 20</span><span class="tag tag-it" title="Онлайн"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.5 3.9 5.5 3.9 9s-1.3 6.5-3.9 9c-2.6-2.5-3.9-5.5-3.9-9S9.4 5.5 12 3z"/></svg></span> </div>
       <div class="tile-banner">
         <div class="name">Мафія</div>
       </div>
@@ -597,7 +634,7 @@
 
     <a class="tile" href="dilemmas.html" data-type="multi">
       <div class="tile-media" style="--icon: url('img/dilemmas_logo.svg');"></div>
-      <div class="tags"><span class="tag tag-v">NEW</span><span class="tag tag-multi">2 - 20</span><span class="tag tag-it">🌐</span></div>
+      <div class="tags"><span class="tag tag-v">NEW</span><span class="tag tag-multi">2 - 20</span><span class="tag tag-it" title="Онлайн"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.5 3.9 5.5 3.9 9s-1.3 6.5-3.9 9c-2.6-2.5-3.9-5.5-3.9-9S9.4 5.5 12 3z"/></svg></span></div>
       <div class="tile-banner">
         <div class="name">Дилеми</div>
       </div>
@@ -605,7 +642,7 @@
 
     <a class="tile" href="whofrom.html" data-type="multi">
       <div class="tile-media" style="--icon: url('img/whofrom_logo.png');"></div>
-      <div class="tags"><span class="tag tag-v">NEW</span><span class="tag tag-multi">3 - 20</span><span class="tag tag-it">🌐</span></div>
+      <div class="tags"><span class="tag tag-v">NEW</span><span class="tag tag-multi">3 - 20</span><span class="tag tag-it" title="Онлайн"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.5 3.9 5.5 3.9 9s-1.3 6.5-3.9 9c-2.6-2.5-3.9-5.5-3.9-9S9.4 5.5 12 3z"/></svg></span></div>
       <div class="tile-banner">
         <div class="name">Хто з нас?</div>
       </div>
@@ -613,7 +650,7 @@
 
     <a class="tile" href="court.html" data-type="multi">
       <div class="tile-media" style="--icon: url('img/court_logo.png');"></div>
-      <div class="tags"><span class="tag tag-v">NEW</span><span class="tag tag-multi">3 - 20</span><span class="tag tag-it">🌐</span></div>
+      <div class="tags"><span class="tag tag-v">NEW</span><span class="tag tag-multi">3 - 20</span><span class="tag tag-it" title="Онлайн"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.5 3.9 5.5 3.9 9s-1.3 6.5-3.9 9c-2.6-2.5-3.9-5.5-3.9-9S9.4 5.5 12 3z"/></svg></span></div>
       <div class="tile-banner">
         <div class="name">Суд Лінча</div>
       </div>
@@ -621,7 +658,7 @@
 
     <a class="tile" href="bets.html" data-type="multi">
       <div class="tile-media" style="--icon: url('img/bets_logo.png');"></div>
-      <div class="tags"><span class="tag tag-v">NEW</span><span class="tag tag-multi">3 - 20</span><span class="tag tag-it">🌐</span></div>
+      <div class="tags"><span class="tag tag-v">NEW</span><span class="tag tag-multi">3 - 20</span><span class="tag tag-it" title="Онлайн"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.5 3.9 5.5 3.9 9s-1.3 6.5-3.9 9c-2.6-2.5-3.9-5.5-3.9-9S9.4 5.5 12 3z"/></svg></span></div>
       <div class="tile-banner">
         <div class="name">Ставки</div>
       </div>
@@ -629,15 +666,17 @@
 
     <a class="tile" href="fakenews.html" data-type="multi">
       <div class="tile-media" style="--icon: url('img/fakenews_logo.png');"></div>
-      <div class="tags"><span class="tag tag-v">NEW</span><span class="tag tag-multi">3 - 20</span><span class="tag tag-it">🌐</span></div>
+      <div class="tags"><span class="tag tag-v">NEW</span><span class="tag tag-multi">3 - 20</span><span class="tag tag-it" title="Онлайн"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.5 3.9 5.5 3.9 9s-1.3 6.5-3.9 9c-2.6-2.5-3.9-5.5-3.9-9S9.4 5.5 12 3z"/></svg></span></div>
       <div class="tile-banner">
         <div class="name">Fake News</div>
       </div>
     </a>
 
+    <div class="sec" data-sec="tv"><i><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/></svg></i>Для телевізора<small></small></div>
+
     <a class="tile" href="quiplash-tv.html" data-type="host">
       <div class="tile-media" style="--icon: url('img/quiplashtv_logo.png');"></div>
-      <div class="tags"><span class="tag tag-multi">2 - 20</span> <span class="tag tag-host">Хост</span><span class="tag tag-it">🌐</span></div>
+      <div class="tags"><span class="tag tag-multi">2 - 20</span> <span class="tag tag-host">Хост</span><span class="tag tag-it" title="Онлайн"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.5 3.9 5.5 3.9 9s-1.3 6.5-3.9 9c-2.6-2.5-3.9-5.5-3.9-9S9.4 5.5 12 3z"/></svg></span></div>
       <div class="tile-banner">
         <div class="name">Сміхлист ТВ</div>
       </div>
@@ -645,7 +684,7 @@
 
     <a class="tile" href="quiz-tv.html" data-type="host">
       <div class="tile-media" style="--icon: url('img/quiztv_logo.png');"></div>
-      <div class="tags"><span class="tag tag-upd">UPD</span><span class="tag tag-multi">2 - 20</span> <span class="tag tag-host">Хост</span><span class="tag tag-it">🌐</span></div>
+      <div class="tags"><span class="tag tag-upd">UPD</span><span class="tag tag-multi">2 - 20</span> <span class="tag tag-host">Хост</span><span class="tag tag-it" title="Онлайн"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.5 3.9 5.5 3.9 9s-1.3 6.5-3.9 9c-2.6-2.5-3.9-5.5-3.9-9S9.4 5.5 12 3z"/></svg></span></div>
       <div class="tile-banner">
         <div class="name">Квіз ТВ</div>
       </div>
@@ -653,7 +692,7 @@
 
     <a class="tile" href="fakenews-tv.html" data-type="host">
       <div class="tile-media" style="--icon: url('img/fakenews_logo.png');"></div>
-      <div class="tags"><span class="tag tag-v">NEW</span><span class="tag tag-multi">3 - 20</span> <span class="tag tag-host">Хост</span><span class="tag tag-it">🌐</span></div>
+      <div class="tags"><span class="tag tag-v">NEW</span><span class="tag tag-multi">3 - 20</span> <span class="tag tag-host">Хост</span><span class="tag tag-it" title="Онлайн"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.5 3.9 5.5 3.9 9s-1.3 6.5-3.9 9c-2.6-2.5-3.9-5.5-3.9-9S9.4 5.5 12 3z"/></svg></span></div>
       <div class="tile-banner">
         <div class="name">Fake News ТВ</div>
       </div>
@@ -661,7 +700,7 @@
 
     <a class="tile" href="notes.html" data-type="host">
       <div class="tile-media" style="--icon: url('');"></div>
-      <div class="tags"><span class="tag tag-it">🌐</span></div>
+      <div class="tags"><span class="tag tag-it" title="Онлайн"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.5 3.9 5.5 3.9 9s-1.3 6.5-3.9 9c-2.6-2.5-3.9-5.5-3.9-9S9.4 5.5 12 3z"/></svg></span></div>
       <div class="tile-banner">
         <div class="name">Нотатки</div>
       </div>
@@ -741,6 +780,13 @@
       tile.classList.toggle('hidden', !visible);
       if (visible) shown++;
     });
+    // заголовки розділів: лише без пошуку і коли в розділі є видимі плитки
+    document.querySelectorAll('#games-grid .sec').forEach((sec) => {
+      let n = 0, el = sec.nextElementSibling;
+      while (el && !el.classList.contains('sec')) { if (el.classList.contains('tile') && !el.classList.contains('hidden')) n++; el = el.nextElementSibling; }
+      sec.classList.toggle('hidden', !!q || n === 0);
+      const c = sec.querySelector('small'); if (c) c.textContent = n;
+    });
     document.getElementById('searchEmpty').classList.toggle('hidden', shown > 0);
   };
   searchInput.addEventListener('input', () => applyFilter(currentFilter));
@@ -752,6 +798,13 @@
       applyFilter(btn.dataset.filter);
     });
   });
+
+  const sub = document.getElementById('brandSub');
+  if (sub) {
+    const n = document.querySelectorAll('#games-grid .tile:not([data-type="host"])').length;
+    const w = n % 10 === 1 && n % 100 !== 11 ? 'гра' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 'гри' : 'ігор';
+    sub.innerHTML = `<b>${n}</b> ${w} для тебе й компанії`;
+  }
 
   const activeBtn = document.querySelector('.filter-btn.active');
   if (activeBtn) {
