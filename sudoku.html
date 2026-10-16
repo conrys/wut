@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
   <title>Судоку</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&family=Caveat:wght@700&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
+  <meta name="theme-color" content="#f7f5ef" />
   <style>
     :root {
       --bg: #14161a;
@@ -87,12 +88,45 @@
         align-items: center; justify-content: center; z-index: 9997; }
     .gen-overlay.open { display: flex; }
     .gen-overlay span { font-size: 14px; color: var(--text-muted); }
+    /* ===== тема «зошит і олівець»: синя клітинка, друковані цифри — чорнило, твої — синя ручка (Caveat) ===== */
+    :root { --bg: #f7f5ef; --tile-bg: #ffffff; --cell-bg: #ffffff; --text-light: #1f2a44; --text-muted: #6b7591; --accent: #2b59c3; --error: #d43b3b; }
+    html, body { background:
+      repeating-linear-gradient(0deg, rgba(43,89,195,.10) 0 1px, transparent 1px 20px),
+      repeating-linear-gradient(90deg, rgba(43,89,195,.10) 0 1px, transparent 1px 20px), #f7f5ef; font-family: 'Manrope', sans-serif; }
+    .ico { width: 1.05em; height: 1.05em; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; vertical-align: -0.16em; }
+    .sd-title { font: 700 40px/1 'Caveat', cursive; color: var(--text-light); margin: 4px 0 8px; transform: rotate(-2deg); }
+    .sd-title span { color: var(--accent); }
+    .diff-tab { background: #fff; color: var(--text-muted); border: 1.5px solid rgba(31,42,68,.2); font-family: 'Manrope', sans-serif; font-weight: 800; }
+    .diff-tab.active { background: var(--text-light); color: #fff; border-color: var(--text-light); }
+    .stats { font-weight: 700; }
+    .stats > div { display: flex; align-items: center; gap: 5px; }
+    .stats b { font-family: 'Manrope', sans-serif; font-weight: 800; color: var(--text-light); }
+    .sud-board { background: rgba(31,42,68,.22); border: 2.5px solid var(--text-light); border-radius: 4px; box-shadow: 4px 4px 0 rgba(31,42,68,.12); }
+    .sud-cell { font: 700 clamp(22px, 6.6vw, 30px)/1 'Caveat', cursive; color: var(--accent); }
+    .sud-cell.given { font: 800 clamp(16px, 4.6vw, 21px)/1 'Manrope', sans-serif; color: var(--text-light); }
+    .sud-cell.peer { background: #eef3ff; }
+    .sud-cell.same-value { background: #d3e1ff; }
+    .sud-cell.selected { background: #fff1a6; }
+    .sud-cell.error { color: var(--error); text-decoration: line-through 2px; }
+    .sud-cell.box-right { border-right: 2.5px solid var(--text-light); }
+    .sud-cell.box-bottom { border-bottom: 2.5px solid var(--text-light); }
+    .num-btn { background: #fff; color: var(--text-light); border: 1.5px solid rgba(31,42,68,.18); box-shadow: 0 3px 0 rgba(31,42,68,.12); border-radius: 10px;
+      font: 700 26px/1 'Caveat', cursive; }
+    .num-btn:active { background: #fff1a6; transform: translateY(2px); box-shadow: none; }
+    .num-btn.erase svg { width: 22px; height: 22px; fill: none; stroke: var(--text-muted); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .action-btn { display: inline-flex; align-items: center; gap: 6px; background: #fff; color: var(--text-light); border: 1.5px solid rgba(31,42,68,.18);
+      box-shadow: 0 3px 0 rgba(31,42,68,.12); font-family: 'Manrope', sans-serif; font-weight: 800; }
+    .action-btn:active { transform: translateY(2px); box-shadow: none; }
+    .result-panel .title { font: 700 38px 'Caveat', cursive; color: var(--accent); }
+    .gen-overlay { background: rgba(247,245,239,.85); }
+    .gen-overlay span { font: 700 28px 'Caveat', cursive; color: var(--text-light); }
   </style>
 <link rel="stylesheet" href="js/styles/game-header.css">
 <script src="js/core/game-header.js" defer></script>
 </head>
 <body>
 <div class="page">
+  <div class="sd-title">Судо<span>ку</span></div>
   <div class="tabs" id="diffTabs">
     <div class="diff-tab" data-diff="easy">Легко</div>
     <div class="diff-tab active" data-diff="medium">Середньо</div>
@@ -100,8 +134,8 @@
   </div>
 
   <div class="stats">
-    <div>⏱ <b id="timerVal">00:00</b></div>
-    <div>❌ <b id="mistakesVal">0</b></div>
+    <div><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 3h6"/></svg> <b id="timerVal">00:00</b></div>
+    <div><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg> <b id="mistakesVal">0</b></div>
   </div>
 
   <div class="sud-board" id="board"></div>
@@ -116,9 +150,9 @@
   <div class="numpad" id="numpad"></div>
 
   <div class="actions">
-    <button class="action-btn" id="hintBtn">💡 Підказка</button>
-    <button class="action-btn" id="newGameBtn">🔄 Нова гра</button>
-    <button class="action-btn" id="autoSolveBtn" style="display:none">🧪 Авторозв'язати</button>
+    <button class="action-btn" id="hintBtn"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.6.5 1.1 1.3 1.1 2.2h5c0-.9.5-1.7 1.1-2.2A6 6 0 0 0 12 3z"/></svg> Підказка</button>
+    <button class="action-btn" id="newGameBtn"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.7-4.3L4 8M4 4v4h4M4 13a8 8 0 0 0 14.7 4.3L20 16M20 20v-4h-4"/></svg> Нова гра</button>
+    <button class="action-btn" id="autoSolveBtn" style="display:none"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3"/><path d="M7.5 15h9"/></svg> Авторозв'язати</button>
   </div>
 </div>
 
@@ -281,7 +315,7 @@
     }
     const erase = document.createElement("button");
     erase.className = "num-btn erase";
-    erase.textContent = "⌫";
+    erase.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5h11a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H9l-6-7z"/><path d="M12 9.5l5 5M17 9.5l-5 5"/></svg>'; erase.setAttribute("aria-label", "Стерти");
     erase.addEventListener("click", eraseCell);
     numpadEl.appendChild(erase);
   }
@@ -413,7 +447,7 @@
     const score = computeScore(elapsedSec, mistakes);
 
     resultPanel.style.display = "block";
-    resultTitle.textContent = "🎉 Розв'язано!";
+    resultTitle.textContent = "Розв'язано!";
     resultSub.textContent = `Час: ${timerEl.textContent} · Помилок: ${mistakes} · Очки: ${score}`;
 
     if (window.AppScore) {
