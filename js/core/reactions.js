@@ -23,7 +23,7 @@
 // GameReactions.rebind(newRoomRef) замість повторного mount().
 // ==========================================================================
 (function () {
-  const EMOJIS = ["😂", "🔥", "💀", "👏", "😮"];
+  const EMOJIS = ["😂", "🔥", "💀", "🤡", "😮"];
   const REACTION_TTL_MS = 4000;
   const FLY_ANIMATION_MS = 1800;
 
