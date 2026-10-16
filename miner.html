@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
   <title>Мінер</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&family=Oswald:wght@600;700&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
+  <meta name="theme-color" content="#3b4126" />
   <style>
     :root {
       --bg: #14161a; --tile-bg: #22252b; --cell-bg: #2b2f36; --covered-bg: #3a3f47;
@@ -44,7 +45,6 @@
       cursor: pointer; position: relative;
     }
     .ms-cell.revealed { background: var(--cell-bg); cursor: default; }
-    .ms-cell.flagged::after { content: "🚩"; font-size: 0.55em; }
     .ms-cell.mine { background: var(--mine); }
     .ms-cell.mine-hit { background: #c0392b; }
     .n1 { color: #6fa8ff; } .n2 { color: #38cfa0; } .n3 { color: #ff6b6b; }
@@ -92,12 +92,40 @@
     .result-panel { text-align: center; margin: 8px 0 4px; }
     .result-panel .title { font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 6px; }
     .result-panel .sub { font-size: 13px; color: var(--text-muted); margin-bottom: 10px; }
+    /* ===== тема «військова карта»: оливкове тло з горизонталями, опуклі клітинки, пісочні відкриті; Oswald + Manrope ===== */
+    :root { --bg: #3b4126; --tile-bg: #4a5232; --cell-bg: #e9dfc0; --covered-bg: #7d8a52; --text-light: #f3efdc; --text-muted: #c9c7a8; --accent: #e8b23a; --mine: #d6342a; }
+    html, body { background:
+      radial-gradient(120% 80% at 50% 30%, transparent 55%, rgba(0,0,0,.35) 100%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' fill='none' stroke='%23e9dfc0' stroke-width='1.2' opacity='.12'%3E%3Cpath d='M-10 60c40-30 80 20 120-10s70 10 120-20'/%3E%3Cpath d='M-10 90c40-30 80 20 120-10s70 10 120-20'/%3E%3Cpath d='M-10 150c50-20 70 30 120 0s80 20 120-10'/%3E%3Cpath d='M-10 180c50-20 70 30 120 0s80 20 120-10'/%3E%3Cellipse cx='160' cy='120' rx='22' ry='12'/%3E%3Cellipse cx='160' cy='120' rx='10' ry='5'/%3E%3C/svg%3E"),
+      #3b4126; font-family: 'Manrope', sans-serif; }
+    .ico { width: 1.05em; height: 1.05em; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; vertical-align: -0.16em; }
+    .ms-title { font: 700 34px/1 'Oswald', sans-serif; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); margin: 6px 0 10px;
+      padding: 4px 14px; border: 3px solid var(--accent); transform: rotate(-2deg); }
+    .diff-tab { background: rgba(0,0,0,.2); color: var(--text-muted); border: 1.5px solid rgba(243,239,220,.25); font-family: 'Oswald', sans-serif; letter-spacing: .06em; text-transform: uppercase; border-radius: 4px; }
+    .diff-tab.active { background: var(--accent); color: #2b2a1f; border-color: var(--accent); }
+    .stats { font-weight: 700; color: var(--text-muted); }
+    .stats > div { display: flex; align-items: center; gap: 5px; padding: 4px 10px; background: rgba(0,0,0,.25); border-radius: 4px; }
+    .stats b { font: 700 16px 'Oswald', sans-serif; color: var(--text-light); letter-spacing: .06em; }
+    .ms-board { background: #2b2f1c; border: 3px solid #2b2f1c; border-radius: 4px; box-shadow: 0 0 0 2px #8e9a5e, 0 16px 36px rgba(0,0,0,.5); }
+    .ms-cell { font-family: 'Oswald', sans-serif; border-radius: 2px;
+      background: linear-gradient(145deg, #95a265, #75824b); box-shadow: inset 1px 1px 0 rgba(255,255,255,.25), inset -1px -1px 0 rgba(0,0,0,.25); }
+    .ms-cell:active:not(.revealed) { filter: brightness(1.1); }
+    .ms-cell.revealed { background: #e9dfc0; box-shadow: inset 0 0 0 1px rgba(80,70,40,.12); }
+    .ms-cell.flagged::after { content: ""; width: 70%; height: 70%; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 21V3' stroke='%232b2a1f' stroke-width='2.4' stroke-linecap='round'/%3E%3Cpath d='M8 3.5h11l-3 4.2 3 4.3H8z' fill='%23d6342a'/%3E%3C/svg%3E") center / contain no-repeat; }
+    .ms-cell.mine { background: #e9dfc0; }
+    .ms-cell.mine-hit { background: radial-gradient(circle, #ffb020, #d6342a 70%); }
+    .n1 { color: #1f5fbf; } .n2 { color: #2e7d32; } .n3 { color: #c62828; } .n4 { color: #4527a0; }
+    .n5 { color: #8d5a00; } .n6 { color: #00838f; } .n7 { color: #222; } .n8 { color: #666; }
+    .ctrl-btn { background: rgba(0,0,0,.25); color: var(--text-light); border: 1.5px solid rgba(243,239,220,.25); font-family: 'Oswald', sans-serif; letter-spacing: .06em; text-transform: uppercase; border-radius: 6px; }
+    .flag-toggle.active { background: #d6342a; color: #fff; border-color: #d6342a; }
+    .result-panel .title { font: 700 30px 'Oswald', sans-serif; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
   </style>
 <link rel="stylesheet" href="js/styles/game-header.css">
 <script src="js/core/game-header.js" defer></script>
 </head>
 <body>
 <div class="page">
+  <div class="ms-title">Сапер</div>
   <div class="tabs" id="diffTabs">
     <div class="diff-tab" data-diff="easy">Легко</div>
     <div class="diff-tab active" data-diff="medium">Середньо</div>
@@ -105,8 +133,8 @@
   </div>
 
   <div class="stats">
-    <div>⏱ <b id="timerVal">00:00</b></div>
-    <div>💣 <b id="minesVal">0</b></div>
+    <div><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 3h6"/></svg> <b id="timerVal">00:00</b></div>
+    <div><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="13" r="6.5"/><path d="M15.5 8.5L18 6M18 6l2 0M18 6V4M11 6.5V4"/></svg> <b id="minesVal">0</b></div>
   </div>
 
   <div class="ms-board" id="board"></div>
@@ -119,8 +147,8 @@
   </div>
 
   <div class="controls">
-    <button class="ctrl-btn" id="newGameBtn">🔄 Нова гра</button>
-    <button class="ctrl-btn flag-toggle" id="flagToggle">🚩 Прапорці</button>
+    <button class="ctrl-btn" id="newGameBtn"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.7-4.3L4 8M4 4v4h4M4 13a8 8 0 0 0 14.7 4.3L20 16M20 20v-4h-4"/></svg> Нова гра</button>
+    <button class="ctrl-btn flag-toggle" id="flagToggle"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21V4M6 4h11l-2.5 4L17 12H6"/></svg> Прапорці</button>
   </div>
 </div>
 
@@ -296,7 +324,7 @@
       el.classList.add("revealed");
       if (grid[r][c] === -1) {
         el.classList.add("mine");
-        el.textContent = "💣";
+        el.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" style="width:70%;height:70%"><circle cx="11" cy="13.5" r="7" fill="#1b1c16"/><circle cx="8.6" cy="11" r="1.8" fill="#fff" opacity=".6"/><path d="M15.5 8.5L18 6" stroke="#1b1c16" stroke-width="2.4" stroke-linecap="round"/><path d="M18.5 3.5v2M21 6h-2M20.4 4.1l-1.4 1.4" stroke="#ffb020" stroke-width="1.8" stroke-linecap="round"/></svg>';
       } else if (grid[r][c] > 0) {
         el.classList.add("n" + grid[r][c]);
         el.textContent = grid[r][c];
@@ -330,7 +358,7 @@
       renderAll();
       cellEl(hitR, hitC).classList.add("mine-hit");
       resultPanel.style.display = "block";
-      resultTitle.textContent = "💥 Бум!";
+      resultTitle.textContent = "Бум!";
       resultSub.textContent = "Спробуй ще раз";
     }
 
@@ -343,7 +371,7 @@
       const score = computeScore(elapsedSec);
 
       resultPanel.style.display = "block";
-      resultTitle.textContent = "🎉 Розміновано!";
+      resultTitle.textContent = "Розміновано!";
       resultSub.textContent = `Час: ${timerEl.textContent} · Очки: ${score}`;
 
       if (window.AppScore) window.AppScore.sendScore("miner", score);
