@@ -334,6 +334,7 @@
     connectedEntries(state.players).forEach(([name, p]) => {
       keptPlayers[name] = { joinedAt: p.joinedAt, lastSeen: p.lastSeen, score: 0, hand: [], character: p.character || null, color: p.color || null };
     });
+    if (window.rtdb) window.rtdb.ref("fakenews_photos/memology-" + roomId).remove().catch(() => {}); // свої фото — лише на одну гру
     return Engine.forceResetRoom(roomId, ROOM_SCHEMA, () => ({ players: keptPlayers })).then(() => {
       return Engine.joinRoom(roomId, { asPlayer: true });
     });
@@ -355,6 +356,84 @@
     // нову картку замість зіграної добере реактивний fillHandToSize на
     // наступному оновленні стану — тут навмисно нічого не тягнемо самі,
     // щоб не було подвійного добору паралельно з ним
+  }
+
+  // Передумав: поки інші ще обирають, міняємо кинутий мем на інший з руки.
+  // Старий мем повертається в руку на місце нового, у відбої — навпаки.
+  function changeSubmission(state, newCardId) {
+    const me = state.players && state.players[username];
+    const r = state.round;
+    if (!me || !r || r.subPhase !== "submitting") return;
+    const old = r.submissions && r.submissions[username];
+    if (!old || old === newCardId) return;
+    const idx = (me.hand || []).indexOf(newCardId);
+    if (idx === -1) return;
+    const newHand = me.hand.slice();
+    newHand.splice(idx, 1, old);
+    Engine.roomRef.update({
+      ["players/" + username + "/hand"]: newHand,
+      ["round/submissions/" + username]: newCardId,
+    });
+    Engine.roomRef.child("deck").transaction((deck) => {
+      deck = deck || { new: [], played: [] };
+      const played = (deck.played || []).slice();
+      const i = played.lastIndexOf(old);
+      if (i !== -1) played.splice(i, 1);
+      played.push(newCardId);
+      return { new: deck.new || [], played };
+    });
+  }
+
+  // ------------------------- свої фото як меми -------------------------
+  // Фото лежать окремо від кімнати (кімнату читають усі на кожне оновлення):
+  // fakenews_photos/memology-<кімната>/<гравець>/<id> — той самий вузол і ті
+  // самі правила бази, що й у Fake News (JPEG base64 < 150000), тож нових
+  // правил деплоїти не треба. Картка такого мему — "u:<гравець>:<id>".
+  const USER_PHOTO_MAX_CHARS = 140000;
+  const MAX_OWN_PHOTOS = 5;
+  function photosPath() { return "fakenews_photos/memology-" + Engine.currentRoomId; }
+  function isUserCard(cardId) { return typeof cardId === "string" && cardId.indexOf("u:") === 0; }
+  function userCardRef(cardId) {
+    const rest = cardId.slice(2), i = rest.lastIndexOf(":");
+    return window.rtdb.ref(photosPath() + "/" + rest.slice(0, i) + "/" + rest.slice(i + 1));
+  }
+  function compressPhoto(file) {
+    return new Promise((resolve, reject) => {
+      const img = new Image(), url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        let w = img.naturalWidth, h = img.naturalHeight;
+        const scale = Math.min(1, 720 / Math.max(w, h));
+        w = Math.round(w * scale); h = Math.round(h * scale);
+        const c = document.createElement("canvas");
+        c.width = w; c.height = h;
+        c.getContext("2d").drawImage(img, 0, 0, w, h);
+        let q = 0.82, data = c.toDataURL("image/jpeg", q);
+        while (data.length > USER_PHOTO_MAX_CHARS && q > 0.3) { q -= 0.1; data = c.toDataURL("image/jpeg", q); }
+        if (data.length > USER_PHOTO_MAX_CHARS) { reject(new Error("too-big")); return; }
+        resolve(data);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("bad-image")); };
+      img.src = url;
+    });
+  }
+  // Додає фото гравцеві в руку (рука може тимчасово стати 7 — після кидка добір не робиться).
+  async function addOwnPhoto(state, file) {
+    const me = state && state.players && state.players[username];
+    if (!me || state.phase !== "active" || !Engine.roomRef) return { ok: false, reason: "not-active" };
+    if ((me.ownPhotos || 0) >= MAX_OWN_PHOTOS) return { ok: false, reason: "limit" };
+    let data;
+    try { data = await compressPhoto(file); } catch (e) { return { ok: false, reason: e.message }; }
+    const ref = window.rtdb.ref(photosPath() + "/" + username).push();
+    try { await ref.set(data); } catch (e) { return { ok: false, reason: "upload" }; }
+    const cardId = "u:" + username + ":" + ref.key;
+    const fresh = (await Engine.roomRef.child("players/" + username).once("value")).val() || {};
+    await Engine.roomRef.child("players/" + username).update({ hand: (fresh.hand || []).concat(cardId), ownPhotos: (fresh.ownPhotos || 0) + 1 });
+    return { ok: true, cardId, data };
+  }
+  function loadUserCard(cardId) {
+    if (!isUserCard(cardId) || !window.rtdb || !Engine.currentRoomId) return Promise.resolve(null);
+    return userCardRef(cardId).get().then((s) => (s.exists() ? s.val() : null)).catch(() => null);
   }
 
   function castVote(state, cardId) {
@@ -466,6 +545,11 @@
     resetAll,
     submitCard,
     castVote,
+    changeSubmission,
+    addOwnPhoto,
+    loadUserCard,
+    isUserCard,
+    MAX_OWN_PHOTOS,
     resetMyDeck,
     requestSwap,
     cancelSwap,

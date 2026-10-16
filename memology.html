@@ -151,6 +151,13 @@ body { background-color: var(--bg);
 .mm-targets button { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 4px 12px; border-radius: 12px; border: var(--edge); background: var(--panel); box-shadow: var(--pop);
   font: 800 15px var(--font-b); text-align: left; }
 .mm-offer { width: 60%; max-width: 200px; margin: 0 auto; }
+.mm-sent .pp-btn { min-height: 42px; font-size: 13px; }
+.mm-sent.mini { flex-direction: row; justify-content: center; padding: 0; }
+.mm-sent.mini .mm-meme { width: 92px; transform: rotate(-2deg); }
+.mm-meme.own::after { content: "фото"; position: absolute; right: 5px; top: 5px; padding: 1px 6px; border-radius: 999px; background: var(--yellow); border: 1.5px solid var(--ink); font: 900 9px var(--font-b); color: var(--ink); }
+.mm-upload { cursor: pointer; }
+.mm-upload.busy { opacity: .6; pointer-events: none; }
+.ico-inline .ic { vertical-align: -2px; }
 </style>
 </head>
 <body>
@@ -206,6 +213,9 @@ body { background-color: var(--bg);
   <div class="grab"></div>
   <div class="hd">Рахунок <button class="mm-x" id="sheetClose" aria-label="Закрити"><span data-ic="x"></span></button></div>
   <div class="mm-score" id="scoreList"></div>
+  <label class="pp-btn pp-block mm-upload" id="ownPhotoBtn"><span data-ic="star"></span> <span id="ownPhotoLbl">Додати своє фото як мем</span>
+    <input type="file" accept="image/*" id="ownPhotoInput" hidden /></label>
+  <div class="mm-hint" id="ownPhotoHint">Фото потрапить тобі в руку — кидай його, як звичайний мем. До 5 за гру.</div>
   <button class="pp-btn pp-block" id="openSwapBtn"><span data-ic="swap"></span> Обміняти мем (−<span id="swapCostLabel">1</span> бал)</button>
   <button class="pp-btn pp-block" id="fullResetBtn"><span data-ic="refresh"></span> <span id="fullResetLabel">Змінити всю руку</span></button>
   <div class="mm-hint" id="fullResetHint"></div>
@@ -287,9 +297,25 @@ body { background-color: var(--bg);
   document.querySelectorAll("[data-emblem]").forEach((el) => { el.outerHTML = EMBLEM; });
 
   const avatar = (room, name, opts) => window.PartyUI.avatar(room, name, opts);
-  const cardUrl = (cardId) => "memes/" + encodeURIComponent(cardId);
+  // свої фото гравців ("u:…") вантажаться з бази один раз і кешуються; поки вантажаться — порожній кадр
+  const BLANK = "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
+  const photoCache = {}, photoLoading = {};
+  function cardUrl(cardId) {
+    if (!G.isUserCard(cardId)) return "memes/" + encodeURIComponent(cardId);
+    if (photoCache[cardId]) return photoCache[cardId];
+    if (!photoLoading[cardId]) {
+      photoLoading[cardId] = true;
+      G.loadUserCard(cardId).then((data) => {
+        if (!data) return;
+        photoCache[cardId] = data;
+        document.querySelectorAll("img[data-src-card]").forEach((img) => { if (img.dataset.srcCard === cardId) img.src = data; });
+        if (lbCard === cardId) $("lbImg").src = data;
+      });
+    }
+    return BLANK;
+  }
   const meme = (cardId, extra, label) =>
-    `<button class="mm-meme ${extra || ""}" data-card="${esc(cardId)}"><img src="${cardUrl(cardId)}" alt="мем" loading="lazy" />${label ? `<span class="lbl">${label}</span>` : ""}</button>`;
+    `<button class="mm-meme ${extra || ""} ${G.isUserCard(cardId) ? "own" : ""}" data-card="${esc(cardId)}"><img src="${cardUrl(cardId)}" data-src-card="${esc(cardId)}" alt="мем" loading="lazy" />${label ? `<span class="lbl">${label}</span>` : ""}</button>`;
   const plural = (n, one, few, many) => n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? few : many;
   const sig = {};
   function paint(id, key, html) { if (sig[id] === key) return false; sig[id] = key; $(id).innerHTML = html; return true; }
@@ -307,6 +333,7 @@ body { background-color: var(--bg);
   let lastState = null, lastCtx = null, username = null, reactionsMounted = false;
   let pendingSubmit = null, pendingVote = null; // оптимістично, до підтвердження з бази
   let lastRoundKey = null, lastSub = null;
+  let changing = false, lbCard = null; // «Змінити мем» поки інші обирають
 
   // ---------------- меню-шторка ----------------
   const sheet = $("sheet"), sheetBg = $("sheetBg");
@@ -321,6 +348,7 @@ body { background-color: var(--bg);
   let lbAction = null;
   function openLightbox(cardId, okText, action) {
     lbAction = action;
+    lbCard = cardId;
     $("lbImg").src = cardUrl(cardId);
     $("lbPrompt").textContent = (lastState && lastState.round && lastState.round.promptText) || "";
     $("lbOk").textContent = okText;
@@ -382,7 +410,7 @@ body { background-color: var(--bg);
 
     if (roundKey !== lastRoundKey) {
       if (lastRoundKey) sfx("whoosh");
-      lastRoundKey = roundKey; lastSub = null; pendingSubmit = null; pendingVote = null;
+      lastRoundKey = roundKey; lastSub = null; pendingSubmit = null; pendingVote = null; changing = false;
       closeLightbox();
       $("promptText").textContent = r.promptText;
       const c = $("promptCard"); c.classList.remove("in"); void c.offsetWidth; c.classList.add("in");
@@ -405,16 +433,17 @@ body { background-color: var(--bg);
 
     if (r.subPhase === "submitting") {
       const left = conn.filter((n) => subs[n] === undefined);
-      if (!mySub) {
-        $("stageTitle").textContent = "Обери мем";
+      if (!mySub || changing) {
+        $("stageTitle").textContent = changing ? "Заміни мем" : "Обери мем";
         const hand = (players[me] && players[me].hand) || [];
-        paint("stage", "hand|" + roundKey + "|" + hand.join(","),
-          `<div class="mm-sub">Торкнись, щоб роздивитись</div><div class="mm-grid enter" id="handGrid">${hand.map((c) => meme(c)).join("")}</div>` +
+        paint("stage", "hand|" + roundKey + "|" + hand.join(",") + "|" + changing + mySub,
+          (changing ? `<div class="mm-sent mini">${meme(mySub, "mine", "зараз у грі")}<button class="pp-btn" id="keepBtn">Лишити цей</button></div>` : "") +
+          `<div class="mm-sub">${changing ? "Обери інший мем — старий повернеться в руку" : "Торкнись, щоб роздивитись"}</div><div class="mm-grid enter" id="handGrid">${hand.map((c) => meme(c)).join("")}</div>` +
           (hand.length < G.HAND_SIZE ? '<div class="pp-note">Добираємо меми в руку…</div>' : ""));
       } else {
         $("stageTitle").textContent = "Чекаємо інших";
         paint("stage", "sent|" + roundKey + "|" + mySub,
-          `<div class="mm-sent">${meme(mySub)}<b>Твій мем у грі</b></div>`);
+          `<div class="mm-sent">${meme(mySub)}<b>Твій мем у грі</b><button class="pp-btn" id="changeBtn"><span class="ico-inline">${icon("swap")}</span> Змінити мем</button></div>`);
       }
       paint("waitInfo", "s|" + left.join(",") + Object.keys(subs).length,
         `<div class="dots">${conn.map((n) => `<i class="${subs[n] !== undefined ? "on" : ""}"></i>`).join("")}</div>` +
@@ -484,11 +513,19 @@ body { background-color: var(--bg);
 
   // кліки по мемах — один делегований обробник
   $("stage").addEventListener("click", (e) => {
+    if (e.target.closest("#changeBtn")) { changing = true; sfx("pop"); if (lastState) renderPlay(lastState, lastCtx); return; }
+    if (e.target.closest("#keepBtn")) { changing = false; if (lastState) renderPlay(lastState, lastCtx); return; }
     const el = e.target.closest(".mm-meme[data-card]");
     if (!el || el.classList.contains("mine") || el.classList.contains("picked")) return;
     const state = lastState, r = state && state.round, cardId = el.dataset.card;
     if (!r) return;
-    if (r.subPhase === "submitting" && el.closest("#handGrid") && !pendingSubmit && !(r.submissions || {})[username]) {
+    if (r.subPhase === "submitting" && el.closest("#handGrid") && changing) {
+      openLightbox(cardId, "Кинути замість", () => {
+        const s = lastState;
+        if (!s || !s.round || s.round.subPhase !== "submitting") return;
+        G.changeSubmission(s, cardId); pendingSubmit = cardId; changing = false; sfx("pop"); buzz(15); renderPlay(s, lastCtx);
+      });
+    } else if (r.subPhase === "submitting" && el.closest("#handGrid") && !pendingSubmit && !(r.submissions || {})[username]) {
       openLightbox(cardId, "Кинути цей мем", () => {
         const s = lastState;
         if (!s || !s.round || s.round.subPhase !== "submitting") return;
@@ -547,6 +584,19 @@ body { background-color: var(--bg);
     if (!lastState || G.deckResetRoundsLeft(lastState) > 0) return;
     const cost = G.deckResetCost(lastState);
     if (confirm(`Нова рука коштуватиме ${cost} ${plural(cost, "бал", "бали", "балів")}. Точно?`)) { G.resetMyDeck(lastState); closeSheet(); sfx("whoosh"); }
+  });
+
+  // ---------------- своє фото як мем ----------------
+  $("ownPhotoInput").addEventListener("change", async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file || !lastState) return;
+    const btn = $("ownPhotoBtn"), lbl = $("ownPhotoLbl");
+    btn.classList.add("busy"); lbl.textContent = "Завантажую…";
+    const res = await G.addOwnPhoto(lastState, file);
+    btn.classList.remove("busy"); lbl.textContent = "Додати своє фото як мем";
+    if (res.ok) { photoCache[res.cardId] = res.data; sfx("ding"); buzz(20); closeSheet(); }
+    else alert(res.reason === "limit" ? `Можна додати до ${G.MAX_OWN_PHOTOS} фото за гру` : res.reason === "not-active" ? "Фото можна додати під час гри" : "Не вдалося завантажити фото — спробуй інше");
   });
 
   // ---------------- обмін: я пропоную ----------------
