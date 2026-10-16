@@ -5,18 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
 <title>Мемологія</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <style>
-  :root { --bg: #14161a; --tile-bg: #22252b; --text-light: #f4f5f1; --text-muted: #8b909c; --accent: #38cfa0; }
+  :root { --bg: #14161a; --tile-bg: #22252b; --text-light: #f4f5f1; --text-muted: #8b909c; --accent: #38cfa0;
+          --font-d: 'Unbounded', 'Inter', sans-serif; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none;
       -webkit-user-select: none; -webkit-touch-callout: none; }
     html, body { 
       margin: 0; padding: 0; min-height: 100dvh; 
       background-color: var(--bg);
+      /* дудл-візерунок: смайли, рамки фото, серце, блискавка, бульбашка — ледь помітно */
       background-image: 
         radial-gradient(circle at 50% -20%, rgba(56, 207, 160, 0.15) 0%, transparent 50%),
-        radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-      background-size: 100% 100%, 24px 24px;
+        url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240' fill='none' stroke='%2338cfa0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' opacity='.09'><g transform='rotate(-12 40 42)'><circle cx='40' cy='42' r='15'/><circle cx='34' cy='38' r='1.2'/><circle cx='46' cy='38' r='1.2'/><path d='M32 47q8 7 16 0'/></g><g transform='rotate(8 160 40)'><rect x='144' y='28' width='34' height='26' rx='3'/><path d='M147 50l9-10 7 7 5-5 8 8'/><circle cx='170' cy='36' r='2.5'/></g><path d='M120 112c-6-8-18-4-15 5 2 6 15 15 15 15s13-9 15-15c3-9-9-13-15-5z' transform='rotate(-6 120 120)'/><path d='M38 132l-10 20h10l-6 18 16-24H38l6-14z'/><g transform='rotate(-8 186 150)'><path d='M170 138h32a5 5 0 0 1 5 5v16a5 5 0 0 1-5 5h-20l-9 8v-8h-3a5 5 0 0 1-5-5v-16a5 5 0 0 1 5-5z'/><path d='M178 151h1M186 151h1M194 151h1'/></g><g transform='rotate(10 104 205)'><circle cx='104' cy='205' r='15'/><path d='M96 197l5 5M101 197l-5 5M107 197l5 5M112 197l-5 5M97 208h14q-1 8-7 8t-7-8z'/></g><path d='M214 82l2.5 5.5 6 .6-4.5 4 1.3 6-5.3-3-5.3 3 1.3-6-4.5-4 6-.6z'/><path d='M88 30q4-6 8 0t8 0 8 0'/><circle cx='222' cy='218' r='3'/><circle cx='18' cy='90' r='2.5'/></svg>");
+      background-size: 100% 100%, 240px 240px;
       background-attachment: fixed;
       font-family: 'Inter', sans-serif; 
       color: var(--text-light); 
@@ -27,8 +29,8 @@
       flex-direction: column; min-height: 100dvh; }
   .hidden { display: none !important; }
 
-  h2 { font-family: 'Space Grotesk', sans-serif; font-size: 20px; margin: 0 0 14px; text-align: center; }
-  h3 { font-family: 'Space Grotesk', sans-serif; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em;
+  h2 { font-family: var(--font-d); font-size: 20px; margin: 0 0 14px; text-align: center; }
+  h3 { font-family: var(--font-d); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
        color: var(--text-muted); margin: 0 0 10px; }
   .status-line { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 14px; }
   .pulse-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
@@ -60,6 +62,7 @@
   .prompt-box {
     background: var(--tile-bg); border: 1px solid var(--accent); border-radius: 16px;
     padding: 20px; text-align: center; font-size: 17px; font-weight: 600; line-height: 1.35; margin-bottom: 14px;
+    box-shadow: 0 8px 28px rgba(56, 207, 160, 0.12);
   }
   .waiting-count { text-align: center; color: var(--text-muted); font-size: 13px; margin-bottom: 10px; }
 
@@ -68,6 +71,9 @@
     position: relative; border-radius: 12px; overflow: hidden; border: 2px solid rgba(255,255,255,0.08);
     aspect-ratio: 1 / 1; background: var(--tile-bg);
   }
+  .card-thumb { transition: transform 0.15s ease, border-color 0.15s ease; }
+  .card-thumb:active { transform: scale(0.97); }
+  .card-thumb.selected { transform: translateY(-3px) rotate(-1.5deg); }
   .card-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .card-thumb.selected, .card-thumb.voted-mine { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
   .card-thumb.disabled { opacity: 0.4; pointer-events: none; }
@@ -75,8 +81,10 @@
   .vote-card { display: flex; flex-direction: column; gap: 6px; }
   .vote-card .author-tag { text-align: center; font-size: 12px; color: var(--text-muted);
       display: flex; align-items: center; justify-content: center; gap: 6px; }
-  .vote-card .vote-count { font-family: 'Space Grotesk', sans-serif; font-weight: 700; color: var(--accent); font-size: 13px; }
-  .winner-crown { font-size: 15px; }
+  .vote-card .vote-count { font-family: var(--font-d); font-weight: 700; color: var(--accent); font-size: 13px; }
+  .winner-crown { width: 15px; height: 15px; fill: #ffcf4a; flex: none; }
+  .ico { width: 15px; height: 15px; vertical-align: -3px; margin-right: 4px; fill: none; stroke: currentColor;
+      stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 
   /* --------- сайдбар --------- */
   .sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 95; }
@@ -92,6 +100,7 @@
   .sidebar-close-btn { background: var(--tile-bg); color: var(--text-light); border: none;
       border-radius: 50%; width: 30px; height: 30px; font-size: 14px; }
   .deck-hint { text-align: center; color: var(--text-muted); font-size: 11px; margin-top: 6px; }
+  .credits-link { display: block; margin-top: auto; text-decoration: underline; color: var(--text-muted); }
 
   /* --------- модалки обміну --------- */
   .modal-overlay {
@@ -118,7 +127,7 @@
   .divider { display: flex; align-items: center; gap: 10px; width: 100%; margin: 18px 0;
       color: var(--text-muted); font-size: 12px; }
   .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: rgba(255,255,255,0.1); }
-  .room-code-display { font-family: 'Space Grotesk', sans-serif; font-size: 22px; letter-spacing: 0.12em;
+  .room-code-display { font-family: var(--font-d); font-size: 22px; letter-spacing: 0.12em;
       background: var(--tile-bg); border: 1px dashed rgba(255,255,255,0.15); border-radius: 10px;
       padding: 10px 16px; margin-bottom: 14px; text-align: center; }
   .rooms-list { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-bottom: 4px; }
@@ -126,7 +135,7 @@
       padding: 12px 14px; cursor: pointer; }
   .room-item:active { border-color: var(--accent); }
   .room-item-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-  .room-item-title { font-family: 'Space Grotesk', sans-serif; font-size: 15px; letter-spacing: 0.05em; }
+  .room-item-title { font-family: var(--font-d); font-size: 15px; letter-spacing: 0.05em; }
   .room-item-phase { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 10px;
       background: #1b1d22; color: var(--text-muted); }
   .room-item-count { font-size: 12px; color: var(--text-muted); }
@@ -138,12 +147,12 @@
 <div class="page">
 
   <div id="view-locked" class="hidden">
-    <h2>🃏 Мемологія</h2>
+    <h2>Мемологія</h2>
     <div class="status-line">Увійди в профіль (кнопка зверху), щоб грати з друзями</div>
   </div>
 
   <div id="view-room-entry" class="hidden">
-    <h2>🃏 Мемологія</h2>
+    <h2>Мемологія</h2>
     <div class="status-line">Обери активну кімнату або введи код друга</div>
     <div class="rooms-list" id="activeRoomsList"></div>
     <div class="divider">або вручну</div>
@@ -154,7 +163,7 @@
   </div>
 
   <div id="view-lobby" class="hidden">
-    <h2>🃏 Мемологія</h2>
+    <h2>Мемологія</h2>
     <div class="room-code-display" id="roomCodeDisplay"></div>
     <div class="status-line" id="lobbyStatus"></div>
     <div class="card"><h3>Гравці</h3><div class="players-list" id="playersList"></div></div>
@@ -163,7 +172,7 @@
       <button class="primary-btn" id="startBtn">Почати гру</button>
       <div class="hint-text" id="startHint"></div>
     </div>
-    <button class="secondary-btn hidden" id="resetBtn">🔄 Скинути гру</button>
+    <button class="secondary-btn hidden" id="resetBtn"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 14-5.3L20 9M20 4v5h-5M20 12a8 8 0 0 1-14 5.3L4 15M4 20v-5h5"/></svg> Скинути гру</button>
   </div>
 
   <div id="view-active" class="hidden" style="flex:1; display:flex; flex-direction:column;">
@@ -188,7 +197,7 @@
 
     <div class="hidden" id="hostActivePanel" style="margin-top:14px;">
       <button class="secondary-btn" id="forceAdvanceBtn">Пропустити очікування</button>
-      <button class="secondary-btn" id="resetBtn2">🔄 Скинути гру</button>
+      <button class="secondary-btn" id="resetBtn2"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 14-5.3L20 9M20 4v5h-5M20 12a8 8 0 0 1-14 5.3L4 15M4 20v-5h5"/></svg> Скинути гру</button>
     </div>
   </div>
 
@@ -201,10 +210,11 @@
   <div class="card"><h3>Рахунок</h3><div id="scoreList"></div></div>
   <div class="card">
     <h3>Керування колодою</h3>
-    <button class="secondary-btn" id="openSwapBtn" style="margin-top:0;">🔄 Обміняти картку (−<span id="swapCostLabel">1</span> бал)</button>
-    <button class="secondary-btn" id="fullResetBtn">🃏 Змінити всю колоду</button>
+    <button class="secondary-btn" id="openSwapBtn" style="margin-top:0;"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 14-5.3L20 9M20 4v5h-5M20 12a8 8 0 0 1-14 5.3L4 15M4 20v-5h5"/></svg> Обміняти картку (−<span id="swapCostLabel">1</span> бал)</button>
+    <button class="secondary-btn" id="fullResetBtn"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="12" height="15" rx="2"/><path d="M8 3h11a2 2 0 0 1 2 2v13"/></svg> <span id="fullResetLabel">Змінити всю колоду</span></button>
     <div class="deck-hint" id="fullResetHint"></div>
   </div>
+  <a class="deck-hint credits-link" href="memes/credits.json" target="_blank" rel="noopener">Фото з вільними ліцензіями: автори й ліцензії</a>
 </div>
 
 <!-- модалка: я пропоную обмін -->
@@ -348,7 +358,7 @@
       fullResetBtn.disabled = false;
       fullResetHint.textContent = `Коштує ${cost} бал(ів) — тільки ваша рука скидається`;
     }
-    fullResetBtn.textContent = `🃏 Змінити всю колоду (−${cost})`;
+    document.getElementById("fullResetLabel").textContent = `Змінити всю колоду (−${cost})`;
 
     const submittingStage = document.getElementById("submittingStage");
     const votingStage = document.getElementById("votingStage");
@@ -442,7 +452,7 @@
     grid.innerHTML = entries.map((e) =>
       `<div class="vote-card">
         <div class="card-thumb"><img src="${cardUrl(e.cardId)}" alt="картка" loading="lazy" /></div>
-        <div class="author-tag">${e.votes === maxVotes && maxVotes > 0 ? '<span class="winner-crown">👑</span>' : ""}${escapeHtml(e.author)} <span class="vote-count">+${e.votes}</span></div>
+        <div class="author-tag">${e.votes === maxVotes && maxVotes > 0 ? '<svg class="winner-crown" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/></svg>' : ""}${escapeHtml(e.author)} <span class="vote-count">+${e.votes}</span></div>
       </div>`
     ).join("");
     document.getElementById("nextRoundBtn").classList.toggle("hidden", !ctx.host);

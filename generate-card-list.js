@@ -3,15 +3,15 @@
 //
 //   node generate-card-list.js
 //
-// Сканує папку memes/ поруч зі скриптом і перезаписує js/memology-cards.js —
+// Сканує папку memes/ поруч зі скриптом і перезаписує js/promts/memology-cards.js —
 // той самий формат, що memology-prompts.js/whoami-words.js, підключається
-// звичайним <script src="js/memology-cards.js">. Це заміна серверного
+// звичайним <script src="js/promts/memology-cards.js">. Це заміна серверного
 // сканування папки (fs.readdirSync), якого більше нема без Node-хоста.
 const fs = require('fs');
 const path = require('path');
 
 const IMG_DIR = path.join(__dirname, 'memes');
-const OUT_FILE = path.join(__dirname, 'js', 'memology-cards.js');
+const OUT_FILE = path.join(__dirname, 'js', 'promts', 'memology-cards.js');
 const IMG_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
 
 if (!fs.existsSync(IMG_DIR)) {

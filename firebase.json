@@ -12,7 +12,8 @@
       "bots/**",
       "scripts/**",
       "*.md",
-      "README.txt"
+      "README.txt",
+      "memes-incoming/**"
     ],
     "headers": [
       {
