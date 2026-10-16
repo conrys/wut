@@ -32,13 +32,15 @@
     role_reveal_mafia: [],
     banner_night: [["nv.mp3", 15], ["nl.mp3", 85]],
     mafia_move: [["gf.mp3", 100]],
-    doctor_move: [["hm.mp3", 1], ["amb.wav", 99]],
+    // amb.wav (сирена) прибрано — надто схожа на поліцію. doc.wav — кардіомонітор
+    // + серцебиття (згенеровано). Файл amb.wav лишився в snd/mafia/.
+    doctor_move: [["hm.mp3", 1], ["doc.wav", 99]],
     sheriff_move: [["rc.mp3", 100]],
     night_resolve: [],
     banner_morning: [["m.wav", 100]],
     banner_morning_safe: [["ds.mp3", 100]],
     banner_morning_dead: [["db.mp3", 100]],
-    last_words: [],
+    last_words: [["lw.wav", 100]], // годинник + низький гул + тріск проектора (згенеровано)
     day_discussion: [["de.mp3", 3], ["dm.mp3", 97]],
     voting: [["v.wav", 100]],
     voting_draw: [["bv.wav", 100]],
@@ -60,7 +62,10 @@
   // не буде файлу; ключі окремі від SOUND_TABLE навмисно.
   const AMBIENT_TABLE = {
     day_discussion: [],
+    // серцебиття під час ходу лікаря (doctor_wake → кінець doctor_move), циклом
+    doctor_night: [["hb.wav", 100]],
   };
+  const AMBIENT_VOLUME = { doctor_night: 0.7 };
 
   const cache = {}; // filename -> Howl
   let activeHowl = null; // те, що зараз реально грає (основний потік) — щоб було що зупинити
@@ -130,7 +135,7 @@
     const file = pickWeighted(AMBIENT_TABLE[key]);
     if (!file) return;
     if (typeof Howl === "undefined") return;
-    activeAmbientHowl = new Howl({ src: [BASE_PATH + file], loop: true, volume: 0.35 });
+    activeAmbientHowl = new Howl({ src: [BASE_PATH + file], loop: true, volume: AMBIENT_VOLUME[key] || 0.35 });
     activeAmbientHowl.play();
   }
   function stopAmbient() {

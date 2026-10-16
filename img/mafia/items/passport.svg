@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 150">
+  <defs>
+    <linearGradient id="cover" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3a5d4c"/><stop offset=".6" stop-color="#25402f"/><stop offset="1" stop-color="#16281d"/>
+    </linearGradient>
+    <linearGradient id="foil" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f6dd8f"/><stop offset=".5" stop-color="#cfa040"/><stop offset="1" stop-color="#9c7124"/>
+    </linearGradient>
+    <filter id="sh" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="3" dy="5" stdDeviation="3.5" flood-color="#000" flood-opacity=".35"/></filter>
+  </defs>
+  <g transform="rotate(-7 120 75)" filter="url(#sh)">
+    <!-- сторінки -->
+    <rect x="76" y="14" width="96" height="126" rx="5" fill="#ece5d2"/>
+    <path d="M170 18v118" stroke="#cfc6ae" stroke-width="2"/>
+    <!-- обкладинка -->
+    <rect x="70" y="10" width="96" height="128" rx="6" fill="url(#cover)"/>
+    <rect x="76" y="16" width="84" height="116" rx="3" fill="none" stroke="url(#foil)" stroke-width="1.2" opacity=".8"/>
+    <circle cx="118" cy="62" r="18" fill="none" stroke="url(#foil)" stroke-width="2.4"/>
+    <path d="M110 52h16v9c0 6-4 9.5-8 11-4-1.5-8-5-8-11z" fill="none" stroke="url(#foil)" stroke-width="1.6" stroke-linejoin="round"/>
+    <circle cx="118" cy="58" r="2.6" fill="none" stroke="url(#foil)" stroke-width="1.4"/>
+    <path d="M118 60.6v7.4M118 64.5h2.6M118 67h2" stroke="url(#foil)" stroke-width="1.4" stroke-linecap="round"/>
+    <text x="118" y="104" text-anchor="middle" font-family="Oswald, Arial Narrow, sans-serif" font-weight="700" font-size="14" letter-spacing="2.5" fill="url(#foil)">ПАСПОРТ</text>
+    <text x="118" y="118" text-anchor="middle" font-family="Oswald, Arial Narrow, sans-serif" font-size="6.5" letter-spacing="2" fill="url(#foil)" opacity=".85">ГРОМАДЯНИНА МІСТА</text>
+    <path d="M74 14c20-2 50-2 86 0" stroke="#fff" stroke-width="1.4" opacity=".18" fill="none"/>
+  </g>
+</svg>

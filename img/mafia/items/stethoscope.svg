@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 150">
+  <defs>
+    <radialGradient id="chrome" cx=".35" cy=".3" r=".8">
+      <stop offset="0" stop-color="#ffffff"/><stop offset=".35" stop-color="#d5dade"/><stop offset=".75" stop-color="#8d959c"/><stop offset="1" stop-color="#5f666c"/>
+    </radialGradient>
+    <radialGradient id="diaphragm" cx=".4" cy=".35" r=".7">
+      <stop offset="0" stop-color="#f4f6f7"/><stop offset="1" stop-color="#b9c0c5"/>
+    </radialGradient>
+    <linearGradient id="tube" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#2a2d33"/><stop offset="1" stop-color="#15171b"/>
+    </linearGradient>
+    <filter id="sh" x="-10%" y="-10%" width="130%" height="140%"><feDropShadow dx="2" dy="4" stdDeviation="3" flood-color="#000" flood-opacity=".3"/></filter>
+  </defs>
+  <g filter="url(#sh)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <!-- металеві дуги -->
+    <path d="M40 22c-6 22 2 42 22 52" stroke="#a7afb5" stroke-width="5"/>
+    <path d="M84 22c6 22-2 42-22 52" stroke="#a7afb5" stroke-width="5"/>
+    <path d="M40 22c-6 22 2 42 22 52" stroke="#eef1f3" stroke-width="1.4" opacity=".7"/>
+    <!-- оливи -->
+    <circle cx="40" cy="20" r="6" fill="#1b1d21" stroke="none"/>
+    <circle cx="84" cy="20" r="6" fill="#1b1d21" stroke="none"/>
+    <!-- трубка -->
+    <path d="M62 74c0 22 2 46 28 56 30 12 58-4 76-22 12-12 22-22 34-22" stroke="url(#tube)" stroke-width="9"/>
+    <path d="M62 74c0 22 2 46 28 56 30 12 58-4 76-22 12-12 22-22 34-22" stroke="#5a5f68" stroke-width="2" opacity=".5"/>
+    <path d="M196 86h10" stroke="#a7afb5" stroke-width="6"/>
+  </g>
+  <!-- головка -->
+  <g filter="url(#sh)">
+    <circle cx="214" cy="86" r="20" fill="url(#chrome)"/>
+    <circle cx="214" cy="86" r="14" fill="url(#diaphragm)" stroke="#7d858b" stroke-width="1.5"/>
+    <path d="M206 78a12 12 0 0 1 10-4" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" opacity=".9"/>
+  </g>
+  <!-- червоний хрест на бирці -->
+  <g transform="translate(116 22) rotate(8)">
+    <rect x="-16" y="-12" width="32" height="24" rx="3" fill="#f2ede2" stroke="#8a7f6c" stroke-width="1"/>
+    <rect x="-3.5" y="-8" width="7" height="16" fill="#b3171f"/><rect x="-8" y="-3.5" width="16" height="7" fill="#b3171f"/>
+  </g>
+</svg>

@@ -26,9 +26,11 @@
   const MIN_PLAYERS = 4;
   const MAX_PLAYERS = 20;
   const MAX_MAFIA = 5; // 20 гравців → 5 мафій (≈ n/4)
+  const MAX_DOCTORS = 3;
 
   const DEFAULT_SETTINGS = {
     doctorEnabled: true,
+    doctorCount: 1, // скільки лікарів (1..MAX_DOCTORS), коли лікар увімкнений
     sheriffEnabled: true,
     mafiaCount: null, // null = авто (за кількістю гравців)
     mafiaConsensus: "majority", // "majority" | "strict"
@@ -53,8 +55,13 @@
   // 3.5s), тож якщо насправді малась на увазі коротша/інша тривалість —
   // це один рядок для правки тут.
   const PHASE_DURATIONS = {
-    role_reveal: 5000,
+    role_reveal: 10000, // папка-досьє ~2.5с + час спокійно прочитати роль
     banner_night_start: 2500,
+    // *_wake — 3с "прокидається …": гравець встигає відкрити очі (офлайн за
+    // одним столом і онлайн з різних міст), лише потім відкривається вибір.
+    mafia_wake: 3000,
+    doctor_wake: 3000,
+    sheriff_wake: 3000,
     mafia_move: 20000,
     doctor_move: 15000,
     sheriff_move: 15000,
@@ -87,6 +94,9 @@
     pausedAt: null,
     chat: {},
     winner: null,
+    history: {},    // журнал міста: n<номер> — ніч, d<номер> — день
+    sheriffLog: {}, // нотатки шерифа (показує лише клієнт шерифа)
+    lastVotes: null, // знімок голосів останнього голосування (для екрана вибуття)
     players: {},
   };
 
@@ -107,7 +117,40 @@
       pausedAt: null,
       chat: {},
       winner: null,
+      history: {},
+      sheriffLog: {},
+      lastVotes: null,
     };
+  }
+
+  // ------------------------- аватари (як у Смішлісті / вечірці) -------------------------
+  const AVATAR_STORAGE_PREFIX = "games41_quiplash_avatar_";
+  const AVATAR_COLORS = ["#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#9b59b6", "#1abc9c", "#e67e22", "#ff6fa5"];
+  const CHARACTERS = 8;
+  function avatarFor(room) {
+    try {
+      const raw = window.localStorage && window.localStorage.getItem(AVATAR_STORAGE_PREFIX + myUsername);
+      const profile = raw ? JSON.parse(raw) : null;
+      if (profile && profile.character >= 1 && profile.character <= CHARACTERS) {
+        return { character: profile.character, color: profile.color || AVATAR_COLORS[(profile.character - 1) % AVATAR_COLORS.length] };
+      }
+    } catch (e) { /* немає localStorage — беремо за чергою */ }
+    const idx = Object.keys((room && room.players) || {}).length;
+    return { character: (idx % CHARACTERS) + 1, color: AVATAR_COLORS[(idx + Math.floor(idx / CHARACTERS)) % AVATAR_COLORS.length] };
+  }
+  // Нуарний силует (порядковий номер у NOIR_FILES з mafia.html, 1..NOIR_COUNT) —
+  // гравець обирає сам у лобі, вибір пам'ятаємо локально для наступних ігор.
+  const NOIR_COUNT = 12;
+  const NOIR_STORAGE_PREFIX = "games41_mafia_noir_";
+  function savedNoir() {
+    try { const v = Number(window.localStorage.getItem(NOIR_STORAGE_PREFIX + myUsername)); return v >= 1 && v <= NOIR_COUNT ? v : null; } catch (e) { return null; }
+  }
+  function setNoir(k) {
+    const room = engine.latestRoom;
+    if (!room || room.phase !== "lobby" || !engine.roomRef || !myUsername) return;
+    const v = ((Number(k) - 1) % NOIR_COUNT + NOIR_COUNT) % NOIR_COUNT + 1;
+    try { window.localStorage.setItem(NOIR_STORAGE_PREFIX + myUsername, String(v)); } catch (e) { /* без localStorage — лише на цю гру */ }
+    engine.roomRef.child("players/" + myUsername).update({ noir: v });
   }
 
   const engine = window.OnlineEngine.create(GAME_KEY, {
@@ -126,6 +169,8 @@
   let gameOnStateChange = () => {};
   let ownerTickTimer = null;
   let advancingSincePhase = null; // від якої фази вже надіслали перехід — чекаємо підтвердження
+  let advancingAt = 0; // коли надіслали — якщо запис загубився, через ADVANCE_RETRY_MS пробуємо знову
+  const ADVANCE_RETRY_MS = 4000;
   let dispatchTimer = null;
   let pendingRoom = null;
 
@@ -144,9 +189,17 @@
   }
 
   function resolveMafiaCount(n, settings) {
-    const cap = Math.max(1, n - (settings.doctorEnabled ? 1 : 0) - (settings.sheriffEnabled ? 1 : 0) - 1);
+    const cap = Math.max(1, n - resolveDoctorCount(n, settings) - (settings.sheriffEnabled ? 1 : 0) - 1);
     if (settings.mafiaCount) return Math.min(settings.mafiaCount, MAX_MAFIA, cap);
     return Math.max(1, Math.min(MAX_MAFIA, Math.floor(n / 4), cap));
+  }
+
+  // Лікарів не більше, ніж дозволяє стіл: лишаємо місце хоча б для мафії,
+  // шерифа (якщо є) і одного мирного.
+  function resolveDoctorCount(n, settings) {
+    if (!settings.doctorEnabled) return 0;
+    const wanted = Math.max(1, Math.min(MAX_DOCTORS, Number(settings.doctorCount) || 1));
+    return Math.max(1, Math.min(wanted, n - 2 - (settings.sheriffEnabled ? 1 : 0)));
   }
 
   function checkWinCondition(players) {
@@ -187,7 +240,11 @@
       const roomFull = Object.keys(players).length >= MAX_PLAYERS;
       const gameRunning = room.phase !== "lobby";
       const asPlayer = alreadyIn || (!roomFull && !gameRunning);
-      return engine.joinRoom(roomId, { asPlayer }).then(() => result);
+      // Аватар лише для нових гравців — хто вже в кімнаті, свій не міняє.
+      let extra = asPlayer && !(players[username] && players[username].character) ? avatarFor(room) : undefined;
+      const noir = savedNoir();
+      if (asPlayer && noir && !(players[username] && players[username].noir)) extra = Object.assign({}, extra, { noir });
+      return engine.joinRoom(roomId, { asPlayer, extra }).then(() => result);
     });
   }
 
@@ -198,7 +255,8 @@
     const players = room.players || {};
     if (players[myUsername]) return;
     if (Object.keys(players).length >= MAX_PLAYERS) return;
-    engine.becomePlayer();
+    const noir = savedNoir();
+    engine.becomePlayer(Object.assign(avatarFor(room), noir ? { noir } : {}));
   }
 
   function startOwnerTick() {
@@ -268,12 +326,15 @@
     if (!room) return;
     if (room.phase === "lobby" || room.phase === "game_over") return;
     if (room.paused) return; // плейтест-2: загальна пауза — тік просто не крутиться
-    if (advancingSincePhase === room.phase) return; // перехід із цієї фази вже надіслано, чекаємо підтвердження
+    // перехід із цієї фази вже надіслано — чекаємо підтвердження; але якщо
+    // запис загубився (мережа ведучого), не зависаємо назавжди, а повторюємо.
+    if (advancingSincePhase === room.phase && Date.now() - advancingAt < ADVANCE_RETRY_MS) return;
     if (room.phaseDeadline == null) return;
     const deadlineReached = engine.now() >= room.phaseDeadline;
     const earlyByReadyVote = room.phase === "day_discussion" && allAliveReadyToVote(room);
     if (!deadlineReached && !earlyByReadyVote) return;
     advancingSincePhase = room.phase;
+    advancingAt = Date.now();
     advancePhase(room);
   }
 
@@ -328,16 +389,25 @@
         return write({}, "banner_night_start", PHASE_DURATIONS.banner_night_start);
 
       case "banner_night_start":
+        return write({}, "mafia_wake", PHASE_DURATIONS.mafia_wake);
+
+      case "mafia_wake":
         return write({}, "mafia_move", PHASE_DURATIONS.mafia_move);
 
       case "mafia_move":
-        if (settings.doctorEnabled) return write({}, "doctor_move", PHASE_DURATIONS.doctor_move);
-        if (settings.sheriffEnabled) return write({}, "sheriff_move", PHASE_DURATIONS.sheriff_move);
+        if (settings.doctorEnabled) return write({}, "doctor_wake", PHASE_DURATIONS.doctor_wake);
+        if (settings.sheriffEnabled) return write({}, "sheriff_wake", PHASE_DURATIONS.sheriff_wake);
         return resolveNight(room);
 
+      case "doctor_wake":
+        return write({}, "doctor_move", PHASE_DURATIONS.doctor_move);
+
       case "doctor_move":
-        if (settings.sheriffEnabled) return write({}, "sheriff_move", PHASE_DURATIONS.sheriff_move);
+        if (settings.sheriffEnabled) return write({}, "sheriff_wake", PHASE_DURATIONS.sheriff_wake);
         return resolveNight(room);
+
+      case "sheriff_wake":
+        return write({}, "sheriff_move", PHASE_DURATIONS.sheriff_move);
 
       case "sheriff_move":
         return resolveNight(room);
@@ -348,7 +418,8 @@
         // (люди мають встигнути усвідомити). resolveNight() уже записав
         // room.nightResult ДО входу в banner_morning, тож підглянути тут можна.
         const safe = !(room.nightResult && room.nightResult.victim);
-        return write({}, "night_reveal", safe ? 2000 : PHASE_DURATIONS.night_reveal);
+        // Газету без жертви теж треба встигнути прочитати — 7с замість колишніх 2с.
+        return write({}, "night_reveal", safe ? 7000 : PHASE_DURATIONS.night_reveal);
       }
 
       case "night_reveal": {
@@ -422,11 +493,13 @@
       }
     }
 
-    let doctorSave = null;
+    // Кожен живий лікар рятує свою ціль; захищений кожен, кого обрав хоч один.
+    const doctorSaves = new Set();
     if (settings.doctorEnabled) {
-      const doc = Object.entries(players).find(([, p]) => p.alive && p.role === "doctor");
-      const m = doc && moves[doc[0]];
-      if (m && m.choice === "target") doctorSave = m.target;
+      Object.entries(players).filter(([, p]) => p.alive && p.role === "doctor").forEach(([u]) => {
+        const m = moves[u];
+        if (m && m.choice === "target") doctorSaves.add(m.target);
+      });
     }
 
     let sheriffCheck = null;
@@ -439,8 +512,13 @@
     }
 
     const isIntroRound = settings.introRoundEnabled && (room.nightNumber || 1) === 1;
-    const victim = (!isIntroRound && killTarget && killTarget !== doctorSave) ? killTarget : null;
-    const patch = { nightResult: { victim: victim || null, sheriffCheck }, moves: {} };
+    const victim = (!isIntroRound && killTarget && !doctorSaves.has(killTarget)) ? killTarget : null;
+    // savedSomeone — публічний факт "лікар встиг" (без імені врятованого).
+    const savedSomeone = !isIntroRound && !!killTarget && doctorSaves.has(killTarget);
+    const n = room.nightNumber || 1;
+    const patch = { nightResult: { victim: victim || null, sheriffCheck, savedSomeone, intro: !!isIntroRound }, moves: {} };
+    patch["history/n" + n] = { type: "night", n, victim: victim || null, savedSomeone, intro: !!isIntroRound };
+    if (sheriffCheck) patch["sheriffLog/n" + n] = { n, target: sheriffCheck.username, isMafia: sheriffCheck.isMafia };
     if (victim) patch["players/" + victim + "/alive"] = false;
 
     const projected = victim ? Object.assign({}, players, { [victim]: Object.assign({}, players[victim], { alive: false }) }) : players;
@@ -471,7 +549,9 @@
       if (top.length === 1) eliminated = top[0][0]; // нічия — ніхто не вигнаний
     }
 
-    const patch = { votes: {}, lastEliminated: eliminated || null };
+    const n = room.nightNumber || 1;
+    const patch = { votes: {}, lastEliminated: eliminated || null, lastVotes: Object.keys(votes).length ? votes : null };
+    patch["history/d" + n] = { type: "day", n, eliminated: eliminated || null, tie: !eliminated && entries.length > 0, intro: !!isIntroRound };
     if (eliminated) {
       patch["players/" + eliminated + "/alive"] = false;
       patch.lastWords = { victim: eliminated };
@@ -578,10 +658,12 @@
     const room = engine.latestRoom;
     if (!room || room.phase !== "lobby" || room.hostUsername !== myUsername) return;
     const players = room.players || {};
-    const names = Object.keys(players);
     const settings = Object.assign({}, DEFAULT_SETTINGS, room.settings);
     const conn = connectedEntries(players);
-    if (conn.length < MIN_PLAYERS || names.length > MAX_PLAYERS) return;
+    // Ролі отримують лише ті, хто зараз у лобі (онлайн); хто давно вийшов —
+    // прибираємо з кімнати, інакше він "висить" живим і ламає підрахунок перемоги.
+    const names = conn.map(([u]) => u);
+    if (names.length < MIN_PLAYERS || names.length > MAX_PLAYERS) return;
 
     const mafiaCount = resolveMafiaCount(names.length, settings);
     const shuffled = shuffle(names.slice());
@@ -589,13 +671,16 @@
     let i = 0;
     const mafiaNames = shuffled.slice(i, i + mafiaCount); i += mafiaCount;
     mafiaNames.forEach((u) => { roles[u] = "mafia"; });
-    if (settings.doctorEnabled) { roles[shuffled[i]] = "doctor"; i++; }
+    const doctorCount = resolveDoctorCount(names.length, settings);
+    for (let d = 0; d < doctorCount; d++) { roles[shuffled[i]] = "doctor"; i++; }
     if (settings.sheriffEnabled) { roles[shuffled[i]] = "sheriff"; i++; }
     for (; i < shuffled.length; i++) roles[shuffled[i]] = "civilian";
     const donUsername = mafiaNames[Math.floor(Math.random() * mafiaNames.length)];
 
     const patch = { settings, nightNumber: 1, moves: {}, votes: {}, nightResult: null,
-      lastEliminated: null, lastWords: null, lastWordsNext: null, winner: null };
+      lastEliminated: null, lastWords: null, lastWordsNext: null, winner: null,
+      history: {}, sheriffLog: {}, lastVotes: null, chat: {} };
+    Object.keys(players).forEach((u) => { if (!names.includes(u)) patch["players/" + u] = null; });
     names.forEach((u) => {
       patch["players/" + u + "/role"] = roles[u];
       patch["players/" + u + "/isDon"] = u === donUsername;
@@ -609,7 +694,8 @@
     if (!room || room.hostUsername !== myUsername) return;
     const players = room.players || {};
     const patch = { nightNumber: 0, moves: {}, votes: {}, nightResult: null,
-      lastEliminated: null, lastWords: null, lastWordsNext: null, winner: null };
+      lastEliminated: null, lastWords: null, lastWordsNext: null, winner: null,
+      history: {}, sheriffLog: {}, lastVotes: null };
     Object.keys(players).forEach((u) => {
       patch["players/" + u + "/role"] = null;
       patch["players/" + u + "/isDon"] = false;
@@ -640,7 +726,8 @@
 
   // ------------------------- публічний API -------------------------
   window.MafiaGame = {
-    ROLE_META, DEFAULT_SETTINGS, MIN_PLAYERS, MAX_PLAYERS, MAX_MAFIA,
+    ROLE_META, DEFAULT_SETTINGS, MIN_PLAYERS, MAX_PLAYERS, MAX_MAFIA, MAX_DOCTORS, PHASE_DURATIONS,
+    resolveMafiaCount, resolveDoctorCount,
     now: () => engine.now(),
     get me() { const r = engine.latestRoom; return r && myUsername ? (r.players || {})[myUsername] : null; },
     get room() { return engine.latestRoom; },
@@ -648,7 +735,7 @@
     get roomRef() { return engine.roomRef; },
     start, stop,
     connectedEntries, watchActiveRooms,
-    setReady, setSettings, startGame, resetGame,
+    setReady, setSettings, startGame, resetGame, setNoir, NOIR_COUNT,
     submitMafiaMove, submitDoctorMove, submitSheriffMove, submitVote,
     sendChatMessage, visibleChat, myChatChannel,
     setDayReady, pauseGame, resumeGame,

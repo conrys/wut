@@ -2,6 +2,39 @@ function pick(items, offset) {
   return items.length ? items[((offset % items.length) + items.length) % items.length] : undefined;
 }
 
+// ---- Мафія: репліки ботів і тривалості фаз (дзеркало PHASE_DURATIONS з js/mafia-game.js) ----
+const MAFIA_PHASE_MS = {
+  role_reveal: 10000, banner_night_start: 2500, mafia_wake: 3000, doctor_wake: 3000, sheriff_wake: 3000, mafia_move: 20000, doctor_move: 15000, sheriff_move: 15000,
+  banner_morning: 3500, night_reveal: 10000, last_words: 15000, day_discussion: 90000, voting: 20000,
+  player_elimination_anim: 7000, banner_state: 4000,
+};
+const DAY_LINES = [
+  "Я мирний, клянусь бабусиним борщем 🥣",
+  "{x} якось підозріло мовчить…",
+  "А чому {x} вчора голосував так дивно?",
+  "Пропоную придивитись до {x}",
+  "Я спав як немовля, нічого не бачив",
+  "Хтось вночі шарудів біля мого вікна 👀",
+  "Ну точно не я. Мені просто лінь когось вбивати",
+  "{x}, а ти що скажеш на своє виправдання?",
+  "Давайте без паніки. Хто голосує за {x}?",
+  "Шериф, якщо ти тут — подай знак 😏",
+];
+const MAFIA_DAY_LINES = [
+  "Я мирний, чесно-чесно 😇",
+  "Мені здається, {x} щось приховує",
+  "Не поспішаймо, бо виженемо свого",
+  "{x} занадто нервує, ви помітили?",
+  "Я за {x}. Інтуїція ще не підводила",
+];
+const MAFIA_NIGHT_LINES = [
+  "Берем того, хто найбільше галасує 🔪",
+  "Шерифа треба вирахувати першим",
+  "Я за свого кандидата, дивіться на приціл",
+  "Тихо працюємо, без шуму",
+  "Вдень тримаємось разом, не палимось",
+];
+
 function gameActions(game, room, bots, now) {
   const updates = {};
   const actions = [];
@@ -112,28 +145,68 @@ function gameActions(game, room, bots, now) {
   if (game === "mafia") {
     const alive = Object.entries(players).filter(([, p]) => p && p.alive !== false).map(([n]) => n);
     const moves = room.moves || {}, votes = room.votes || {}, dayReady = room.dayReady || {};
+    const phase = room.phase || "lobby";
+    const night = room.nightNumber || 0;
+    const since = now - ((room.phaseDeadline || now) - (MAFIA_PHASE_MS[phase] || 0)); // скільки мс триває фаза
     for (const bot of bots) {
       const me = players[bot.name];
       if (!me) continue;
-      if ((room.phase || "lobby") === "lobby") {
+      if (phase === "lobby") {
         if (!me.ready) set(`players/${bot.name}/ready`, true, `${bot.name}: ready`);
         continue;
       }
       if (me.alive === false) continue;
       const others = alive.filter((n) => n !== bot.name);
-      const offset = bot.index + (room.nightNumber || 0);
-      if (room.phase === "mafia_move" && me.role === "mafia" && !moves[bot.name]) {
-        const target = pick(others.filter((n) => players[n].role !== "mafia"), offset);
+      const offset = bot.index + night;
+      // кожен бот «думає» трохи по-своєму — не всі тиснуть в ту ж мить
+      const thinkMs = 1500 + ((bot.index * 1700 + night * 900) % 6000);
+      const thought = since >= thinkMs;
+
+      // репліки в чат: раз на фазу на бота, з затримкою
+      // (чат чиститься на старті кожної гри, тож перевірка по самому чату)
+      const pk = `${night}|${phase}`;
+      const chatAt = 2500 + ((bot.index * 2300) % 9000);
+      const chatted = Object.values(room.chat || {}).some((m) => m && m.username === bot.name && m.pk === pk);
+      if (since >= chatAt && !chatted) {
+        let line = null, channel = null, status = null;
+        if (phase === "day_discussion" || (phase === "voting" && bot.index % 3 === 0)) {
+          const lines = me.role === "mafia" ? MAFIA_DAY_LINES : DAY_LINES;
+          const suspect = pick(others.filter((n) => !(me.role === "mafia" && players[n].role === "mafia")), offset + 1);
+          line = pick(lines, offset + bot.index * 3).replace("{x}", suspect || "хтось");
+          channel = "day"; status = "day";
+        } else if (phase === "mafia_move" && me.role === "mafia" && alive.some((n) => n !== bot.name && players[n].role === "mafia")) {
+          line = pick(MAFIA_NIGHT_LINES, offset);
+          channel = "mafia_move"; status = "role_mafia";
+        }
+        if (line) {
+          set(`chat/bot_${now}_${bot.index}`, { username: bot.name, text: line, at: now, channel, status, pk }, `${bot.name}: chat`);
+        }
+      }
+      if (!thought) continue;
+
+      if (phase === "mafia_move" && me.role === "mafia" && !moves[bot.name]) {
+        // сім'я тягнеться до цілі, яку вже обрав хтось із своїх
+        const teamPick = Object.entries(moves).map(([u, m]) => players[u] && players[u].role === "mafia" && m && m.target).find(Boolean);
+        const target = teamPick || pick(others.filter((n) => players[n].role !== "mafia"), offset);
         set(`moves/${bot.name}`, target ? { choice: "target", target } : { choice: "skip", target: null }, `${bot.name}: mafia move`);
-      } else if (room.phase === "doctor_move" && me.role === "doctor" && !moves[bot.name]) {
-        set(`moves/${bot.name}`, { choice: "target", target: bot.name }, `${bot.name}: doctor saves self`);
-      } else if (room.phase === "sheriff_move" && me.role === "sheriff" && !moves[bot.name]) {
-        const target = pick(others, offset);
+      } else if (phase === "doctor_move" && me.role === "doctor" && !moves[bot.name]) {
+        // кілька лікарів-ботів розходяться по різних цілях
+        const target = (night + bot.index) % 2 ? bot.name : pick(others, offset + bot.index * 3) || bot.name;
+        set(`moves/${bot.name}`, { choice: "target", target }, `${bot.name}: doctor saves ${target === bot.name ? "self" : "someone"}`);
+      } else if (phase === "sheriff_move" && me.role === "sheriff" && !moves[bot.name]) {
+        const checked = new Set(Object.values(room.sheriffLog || {}).map((e) => e && e.target));
+        const target = pick(others.filter((n) => !checked.has(n)), offset) || pick(others, offset);
         if (target) set(`moves/${bot.name}`, { choice: "target", target }, `${bot.name}: sheriff checks`);
-      } else if (room.phase === "day_discussion" && !dayReady[bot.name]) {
+      } else if (phase === "day_discussion" && !dayReady[bot.name] && since >= thinkMs + 6000) {
         set(`dayReady/${bot.name}`, true, `${bot.name}: ready to vote`);
-      } else if (room.phase === "voting" && !votes[bot.name]) {
-        const target = pick(others, offset);
+      } else if (phase === "voting" && !votes[bot.name]) {
+        // половина ботів підтягується до лідера голосування, решта — свій вибір
+        const tally = {};
+        Object.values(votes).forEach((t) => { tally[t] = (tally[t] || 0) + 1; });
+        const leader = Object.entries(tally).filter(([n]) => n !== bot.name && alive.includes(n)).sort((a, b) => b[1] - a[1])[0];
+        let pool = others;
+        if (me.role === "mafia") pool = others.filter((n) => players[n].role !== "mafia");
+        const target = (leader && bot.index % 2 === 0 && !(me.role === "mafia" && players[leader[0]].role === "mafia")) ? leader[0] : pick(pool, offset);
         if (target) set(`votes/${bot.name}`, target, `${bot.name}: voted`);
       }
     }

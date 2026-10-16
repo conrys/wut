@@ -5,335 +5,640 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
 <title>Мафія</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600;700&family=Special+Elite&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Oswald:wght@500;700&family=Inter:wght@400;600;700&family=IBM+Plex+Mono:wght@500&family=Caveat:wght@600&display=swap" rel="stylesheet">
 <style>
+  /* ==========================================================================
+     Мафія — нуарний редизайн. Логіка гри (mafia-game.js) та сама; тут лише
+     подача: атмосферні шари (туман / дощ / пил / зерно / блискавки), HUD фази,
+     аватари гравців, кінематографічні заставки, газета зранку, журнал міста.
+     ========================================================================== */
   :root {
-    --bg: #0c0e13; --tile-bg: #171a2250; --tile-bg-2: #20242f; --line: rgba(255,255,255,0.08);
-    --text-light: #f0ede4; --text-muted: #cecece; --accent: #caa23a; --blood: #b3241f; --teal: #3c8f7c; --sheriff: #5b82ab;
+    --bg: #08090d; --ink: #0d0f15; --panel: rgba(12, 13, 19, 0.72); --panel-2: rgba(28, 30, 40, 0.85);
+    --line: rgba(255, 255, 255, 0.09); --line-2: rgba(255, 255, 255, 0.16);
+    --text: #f2ede3; --muted: #a9a59b; --gold: #d8ad4a; --gold-2: #f3d07a;
+    --blood: #c8262e; --blood-2: #ff4b4b; --teal: #3fb597; --steel: #6f9bd1; --paper: #efe5cf; --paper-ink: #231d14;
     --day-bg: linear-gradient(180deg, #4a5568 0%, #2b2f38 60%, #171a22 100%);
     --night-bg: linear-gradient(180deg, #0a0d18 0%, #12151f 60%, #171a22 100%);
-    /* тест-4: нейтральний тон для lobby/role_reveal — поки просто темний
-       градієнт з палітри проєкту; заміниш на background-image, коли даси
-       конкретну картинку (аналогічно bg_day.png/bg_night.png нижче). */
-    --neutral-bg: linear-gradient(180deg, #22252b 0%, #171a22 60%, #14161a 100%);
-    /* тест-4: підібрано на слайдері — 15% (з діапазону 0-20px) = 3px, зафіксовано. */
+    --neutral-bg: radial-gradient(120% 80% at 50% 0%, #2a1416 0%, #12131a 55%, #08090d 100%);
     --bg-blur: 3px;
+    --display: 'Playfair Display', Georgia, serif;
+    --caps: 'Oswald', 'Inter', sans-serif;
+    --mono: 'IBM Plex Mono', monospace;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none;
       -webkit-user-select: none; -webkit-touch-callout: none; }
   html, body { margin: 0; padding: 0; min-height: 100dvh; background: var(--bg);
-      font-family: 'Inter', sans-serif; color: var(--text-light); overflow-x: hidden; touch-action: manipulation; }
-  .page { max-width: 430px; margin: 0 auto; min-height: 100dvh; position: relative; z-index: 0; display: flex; flex-direction: column; overflow: hidden; }
+      font-family: 'Inter', sans-serif; color: var(--text); overflow-x: hidden; touch-action: manipulation; }
+  input { user-select: text; -webkit-user-select: text; }
+  .page { max-width: 640px; margin: 0 auto; min-height: 100dvh; position: relative; z-index: 0; display: flex; flex-direction: column; overflow: hidden; }
   .hidden { display: none !important; }
-  .pad { padding: 0px 0px 26px; flex: 1; display: flex; flex-direction: column; align-items: center; }
+  .pad { padding: 0 12px 84px; flex: 1; display: flex; flex-direction: column; align-items: center; animation: viewIn .45s ease both; }
+  @keyframes viewIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
-  /* фонове тло дня/ночі/нейтральне — тест-4: винесено в ::before окремим шаром
-     (замість background напряму на .page), бо блюр (--bg-blur) має чіпати
-     ТІЛЬКИ картинку тла, а не контент поверху. transform:scale(1.08) —
-     невеликий запас за краї .page, щоб розмиття не показувало різкий кант
-     по периметру екрана (overflow:hidden на .page ховає той запас). */
+  /* --------- тло фази (картинка + блюр) --------- */
   .page::before {
-    content: ""; position: absolute; inset: 0; z-index: -1;
+    content: ""; position: absolute; inset: 0; z-index: -2;
     background-size: cover; background-position: center;
-    transform: scale(1.08);
-    filter: blur(var(--bg-blur));
-    transition: background-image 1.2s ease, filter 0.2s ease;
+    transform: scale(1.08); filter: blur(var(--bg-blur)) brightness(.8);
+    transition: filter 1.2s ease;
   }
-  .page.phase-day::before { background-image: url('img/mafia/bg_day.png'), var(--day-bg); background-size: cover; background-position: center; }
-  .page.phase-night::before { background-image: url('img/mafia/bg_night.png'), var(--night-bg); background-size: cover; background-position: center; }
-  .page.phase-neutral::before { background-image: var(--neutral-bg); background-size: cover; background-position: center; }
-  
+  .page.phase-day::before { background-image: url('img/mafia/bg_day.png'), var(--day-bg); filter: blur(var(--bg-blur)) brightness(.78) sepia(.55) contrast(1.05); }
+  .page.phase-night::before { background-image: url('img/mafia/bg_night.png'), var(--night-bg); filter: blur(var(--bg-blur)) brightness(.5) grayscale(.7) sepia(.2) contrast(1.1); }
+  .page.phase-neutral::before { background-image: var(--neutral-bg); }
+  .page.phase-over::before { filter: blur(6px) brightness(.32) saturate(.7); }
 
-  h2 { font-family: 'Space Grotesk', sans-serif; font-size: 19px;  text-align: center; background: #00000050; width: 100%; padding: 12px; margin:0px}
-  .status-line { font-size: 13px; color: var(--text-light); text-align: center; margin-bottom: 12px; width: 100%;}
-  /* тест-5: таймер тепер смуга, що лінійно "з'їдається" вправо-ліворуч за
-     CSS transition (а не JS textContent щокадру) — width анімується від
-     100% до 0% рівно за remainingMs, виставляється один раз на вхід у
-     фазу (startTimerBars нижче). Колір лишив той самий (accent/blood). */
-  .timer-bar { width: 100%; height: 12px; background: var(--tile-bg); border: 1px solid var(--line);
-      overflow: hidden;  }
-  .timer-bar-fill { height: 100%; width: 100%; background: var(--accent); border-radius: 4px 0 0 4px; }
-  .timer-bar.urgent .timer-bar-fill { background: var(--blood); }
+  /* --------- атмосферні шари --------- */
+  .fx { position: fixed; top: 0; left: 50%; transform: translateX(-50%); width: min(100%, 640px); height: 100dvh;
+      z-index: -1; pointer-events: none; overflow: hidden; }
+  .fx canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .fog { position: absolute; inset: -20% -60%; opacity: 0; transition: opacity 2s ease; }
+  .fog.a { background: radial-gradient(40% 18% at 30% 70%, rgba(170,180,210,.16), transparent 70%),
+      radial-gradient(35% 14% at 75% 85%, rgba(170,180,210,.12), transparent 70%); animation: fogDrift 38s linear infinite alternate; }
+  .fog.b { background: radial-gradient(45% 20% at 60% 60%, rgba(150,160,190,.12), transparent 70%),
+      radial-gradient(30% 12% at 20% 92%, rgba(150,160,190,.14), transparent 70%); animation: fogDrift 52s linear infinite alternate-reverse; }
+  .phase-night .fog, .phase-neutral .fog { opacity: 1; }
+  .phase-day .fog.a { opacity: .45; }
+  @keyframes fogDrift { from { transform: translateX(-12%); } to { transform: translateX(12%); } }
+  .vignette { position: absolute; inset: 0; background: radial-gradient(120% 90% at 50% 40%, transparent 55%, rgba(0,0,0,.65) 100%); }
+  .grain { position: absolute; inset: -50%; opacity: .07; mix-blend-mode: overlay;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+      animation: grain 1s steps(6) infinite; }
+  @keyframes grain { 0%{transform:translate(0,0)} 20%{transform:translate(-8%,4%)} 40%{transform:translate(6%,-6%)} 60%{transform:translate(-4%,8%)} 80%{transform:translate(8%,2%)} 100%{transform:translate(0,0)} }
+  .flash { position: absolute; inset: 0; background: #cfd8ff; opacity: 0; }
+  .flash.go { animation: lightning .9s ease-out; }
+  @keyframes lightning { 0%{opacity:0} 6%{opacity:.35} 12%{opacity:.05} 18%{opacity:.25} 100%{opacity:0} }
+  .death-pulse { position: fixed; inset: 0; pointer-events: none; z-index: 30;
+      background: radial-gradient(circle at 50% 50%, transparent 30%, rgba(200,20,30,.55) 100%); opacity: 0; }
+  .death-pulse.go { animation: deathPulse 1.6s ease-out; }
+  @keyframes deathPulse { 0%{opacity:0} 15%{opacity:1} 100%{opacity:0} }
+  .shake { animation: shake .5s cubic-bezier(.36,.07,.19,.97); }
+  @keyframes shake { 10%,90%{transform:translateX(-1px)} 20%,80%{transform:translateX(3px)} 30%,50%,70%{transform:translateX(-6px)} 40%,60%{transform:translateX(6px)} }
 
-  input.text-input { width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 10px;
-      border: 1px solid var(--line); background: #1b1d22; color: var(--text-light);
-      font-size: 16px; letter-spacing: 0.08em; text-align: center; text-transform: uppercase; }
-  .divider { display: flex; align-items: center; gap: 10px; width: 100%; margin: 16px 0;
-      color: var(--text-muted); font-size: 12px; }
+  /* --------- заголовки / загальні --------- */
+  h2 { font-family: var(--display); font-weight: 900; font-size: 22px; text-align: center; margin: 6px 0 10px; letter-spacing: .01em;
+      text-shadow: 0 2px 12px rgba(0,0,0,.8); }
+  .status-line { font-size: 13px; color: var(--muted); text-align: center; margin-bottom: 12px; width: 100%; line-height: 1.45; }
+  .card { width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 14px;
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+  .card + .card { margin-top: 10px; }
+  .eyebrow { font-family: var(--caps); font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--muted); text-align: center; }
+  .hint-text { font-size: 12px; color: var(--muted); text-align: center; margin-top: 8px; min-height: 16px; }
+
+  /* --------- лого --------- */
+  .logo { text-align: center; margin: 4px 0 14px; position: relative; }
+  .logo .word { font-family: var(--display); font-weight: 900; font-size: clamp(40px, 13vw, 64px); letter-spacing: .12em; line-height: 1;
+      color: var(--text); text-shadow: 0 0 18px rgba(200,38,46,.45), 0 4px 0 #000; animation: neon 6s infinite; }
+  .logo .knife { display: block; height: 3px; width: 160px; margin: 8px auto 0; border-radius: 2px;
+      background: linear-gradient(90deg, transparent, var(--blood) 20%, #ff9e9e 50%, var(--blood) 80%, transparent);
+      box-shadow: 0 0 12px rgba(200,38,46,.8); }
+  .logo .tag { font-family: var(--caps); letter-spacing: .3em; font-size: 11px; color: var(--muted); margin-top: 8px; text-transform: uppercase; }
+  @keyframes neon { 0%,92%,100% { opacity: 1; } 93% { opacity: .55; } 94% { opacity: 1; } 96% { opacity: .7; } 97% { opacity: 1; } }
+
+  /* --------- кнопки / поля --------- */
+  input.text-input { width: 100%; padding: 13px 14px; border-radius: 14px; border: 1px solid var(--line-2); background: rgba(0,0,0,.45);
+      color: var(--text); font-size: 18px; letter-spacing: .2em; text-align: center; text-transform: uppercase; font-family: var(--caps); }
+  .divider { display: flex; align-items: center; gap: 10px; width: 100%; margin: 14px 0; color: var(--muted); font-size: 12px; }
   .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
-  .room-code-display { font-family: 'Space Grotesk', sans-serif; font-size: 22px; letter-spacing: 0.12em;
-      background: var(--tile-bg); border: 1px dashed var(--line); border-radius: 10px; padding: 10px 16px;
-      margin-bottom: 12px; text-align: center; }
-  .rooms-list, .players-list { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-bottom: 12px; }
-  .room-item { background: var(--tile-bg); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; cursor: pointer; }
-  .player-chip { display: flex; justify-content: space-between; align-items: center;
-      background: var(--tile-bg); border-radius: 10px; padding: 10px 14px; font-size: 14px; }
-  .player-chip.offline { opacity: 0.4; }
-  .badge { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 10px; }
-  .badge.owner { background: var(--accent); color: #241d08; }
-  .badge.ready { background: #1e3c33; color: #b6f0dc; }
-  .badge.waiting { background: var(--tile-bg-2); color: var(--text-muted); } 
+  .room-code-display { font-family: var(--caps); font-size: 13px; letter-spacing: .2em; color: var(--muted); text-align: center; margin-bottom: 4px; }
+  .room-code-display b { font-size: 26px; color: var(--gold-2); letter-spacing: .18em; display: block; }
+  .rooms-list { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-bottom: 4px; }
+  .room-item { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; cursor: pointer; transition: border-color .2s, transform .15s; }
+  .room-item:hover { border-color: var(--gold); transform: translateY(-1px); }
+  .room-item .status-line { margin: 2px 0 0; text-align: left; }
 
-  button.primary-btn { width: 100%; border: none; border-radius: 20px; padding: 12px; font-weight: 700;
-      font-size: 14px; cursor: pointer; background: var(--accent); color: #241d08; margin-top: 10px; }
-  button.primary-btn:disabled { opacity: 0.35; cursor: default; }
-  button.secondary-btn { width: 50%; border: none; border-radius: 20px; padding: 10px; font-weight: 700;
-      font-size: 13px; cursor: pointer; background: var(--tile-bg-2); color: var(--text-light);
-      border: 1px solid var(--line); margin: 8px auto 0; display: block; }
-  button.small-btn { border: none; border-radius: 14px; padding: 7px 14px; font-size: 12px; font-weight: 700;
-      cursor: pointer; background: var(--tile-bg-2); color: var(--text-light); border: 1px solid var(--line); }
-  .hint-text { font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 6px; min-height: 16px; }
+  button { font-family: inherit; }
+  button.primary-btn { width: 100%; border: none; border-radius: 16px; padding: 14px; font-weight: 700; font-size: 15px; cursor: pointer;
+      background: linear-gradient(180deg, #e2b856, #b88a2a); color: #241a06; margin-top: 10px; letter-spacing: .03em;
+      box-shadow: 0 6px 20px rgba(216,173,74,.25), inset 0 1px 0 rgba(255,255,255,.35); transition: transform .12s, filter .2s; }
+  button.primary-btn:active { transform: scale(.98); }
+  button.primary-btn:disabled { opacity: .35; cursor: default; box-shadow: none; }
+  button.blood-btn { background: linear-gradient(180deg, #d8353c, #96161d); color: #fff; box-shadow: 0 6px 20px rgba(200,38,46,.35), inset 0 1px 0 rgba(255,255,255,.25); }
+  button.secondary-btn { min-width: 60%; border-radius: 16px; padding: 12px 18px; font-weight: 700; font-size: 14px; cursor: pointer;
+      background: rgba(255,255,255,.06); color: var(--text); border: 1px solid var(--line-2); margin: 10px auto 0; display: block; transition: background .2s, border-color .2s; }
+  button.secondary-btn:hover { background: rgba(255,255,255,.1); }
+  button.secondary-btn.on { background: rgba(63,181,151,.18); border-color: var(--teal); color: #c9f5e8; }
 
-  .settings-box { width: fit-content; background: var(--tile-bg); border-radius: 14px; padding: 16px; margin-bottom: 12px; align-self: center; }
-  .settings-box label { display: flex; justify-content: space-between; align-items: center; font-size: 13px; margin: 10px 0; }
-  .settings-box select { padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line);
-      background: #1b1d22; color: var(--text-light); font-size: 13px; }
-  .toggle-switch { position: relative; width: 42px; height: 24px; }
+  /* --------- лобі --------- */
+  .lobby-players { display: grid; grid-template-columns: repeat(auto-fill, minmax(74px, 1fr)); gap: 12px 6px; width: 100%; padding: 4px 0; }
+  .comp { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px; margin: 10px 0 2px; }
+  .comp span { font-size: 12px; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,.06); border: 1px solid var(--line); }
+  .comp .m { border-color: rgba(200,38,46,.5); color: #ffb3b3; }
+  .settings-box { margin-top: 10px; }
+  .settings-box .set-title { font-family: var(--caps); font-size: 12px; letter-spacing: .2em; text-transform: uppercase; color: var(--gold); margin-bottom: 4px; }
+  .settings-box label { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 14px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+  .settings-box label:last-of-type { border-bottom: none; }
+  .settings-box select { padding: 7px 10px; border-radius: 10px; border: 1px solid var(--line-2); background: #14161d; color: var(--text); font-size: 13px; max-width: 52%; }
+  .toggle-switch { position: relative; width: 46px; height: 26px; flex: 0 0 auto; }
   .toggle-switch input { display: none; }
-  .toggle-switch .track { position: absolute; inset: 0; background: var(--tile-bg-2); border-radius: 14px; border: 1px solid var(--line); }
-  .toggle-switch .knob { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%;
-      background: var(--text-muted); transition: 0.2s; }
-  .toggle-switch input:checked ~ .track { background: #1e3c33; }
-  .toggle-switch input:checked ~ .track .knob, .toggle-switch input:checked + .track .knob {}
-  .toggle-switch input:checked ~ .knob { left: 20px; background: var(--teal); }
+  .toggle-switch .track { position: absolute; inset: 0; background: rgba(255,255,255,.08); border-radius: 14px; border: 1px solid var(--line-2); transition: .25s; }
+  .toggle-switch .knob { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--muted); transition: .25s; }
+  .toggle-switch input:checked ~ .track { background: rgba(63,181,151,.3); border-color: var(--teal); }
+  .toggle-switch input:checked ~ .knob { left: 23px; background: #7ff0cf; box-shadow: 0 0 10px rgba(63,181,151,.8); }
 
-  /* --------- банери переходів (svg) ---------
-     bnr_day навмисно немає — банер ранку розгалужується на два варіанти
-     за результатом ночі (day-safe/day-killed), так само як звук вже
-     розгалужується в mafia-sounds.js (banner_morning_safe/_dead). Один
-     спільний "day" був би або неправильний, або зайвий проміжний стан.
-     bnr_win поки без файлу (WIP-збір, як і решта недоданих ассетів) —
-     .svg лишив наперед, підставиш файл, коли буде готовий. */
-  /* тест-10 фікс: banner-screen картинки — viewBox 1200x900 (4:3), а
-     екран мобільного — вузький і високий (9:16). background-size:cover
-     на такому співвідношенні масштабує зображення в рази, щоб "накрити"
-     висоту екрана — і обрізає майже всю ширину разом із вбудованим у
-     SVG текстом (звідси величезні обрізані літери на телефоні; на
-     ноутбуці, з ширшим вікном, той самий cover майже не обрізав).
-     contain — картинка завжди повністю влазить, згори/знизу видно
-     background-color-підложку замість обрізки. */
-  .banner-screen { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center;
-      background-size: contain; background-repeat: no-repeat; background-position: center; animation: bannerFade 0.4s ease; }
-  .banner-screen.night { background-color: #05070c; background-image: url('img/mafia/bnr_night.svg'); }
-  .banner-screen.day-safe { background-color: #2b2f38; background-image: url('img/mafia/bnr_day_safe.svg'); }
-  .banner-screen.day-killed { background-color: #2b2f38; background-image: url('img/mafia/bnr_day_killed.svg'); }
-  /* УВАГА: назви файлів не збігаються зі змістом — bnr_win.svg насправді
-     показується при перемозі ЦИВІЛЬНИХ, bnr_lose.svg — при перемозі МАФІЇ
-     (так історично назвав файли Vlad, переплутавши). Клас .win/.lose тут
-     — це буквально ім'я файлу, а не "хто виграв"; яку з двох підставити —
-     вирішує виклик showBanner() в cueEnterPhase(), не ця CSS-назва. */
-  .banner-screen.win { background-color: #1a0c0c; background-image: url('img/mafia/bnr_win.svg'); }
-  .banner-screen.lose { background-color: #0c1a15; background-image: url('img/mafia/bnr_lose.svg'); }
-  .banner-caption { font-family: 'Special Elite', 'Space Grotesk', sans-serif; font-size: 30px; text-align: center;
-      color: #f4ede0; text-shadow: 0 3px 10px rgba(0,0,0,0.8); padding: 20px; background: rgba(0,0,0,0.35); border-radius: 10px; }
-  @keyframes bannerFade { from { opacity: 0; } to { opacity: 1; } }
+  /* --------- аватари / жетони гравців --------- */
+  .av { --c: #888; position: relative; display: inline-flex; width: 52px; height: 52px; border-radius: 50%; flex: 0 0 auto;
+      background: var(--c);
+      background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--c) 70%, white 10%), color-mix(in srgb, var(--c) 55%, black)); overflow: hidden;
+      box-shadow: 0 0 0 2px rgba(0,0,0,.6), 0 4px 12px rgba(0,0,0,.45); }
+  .av img { width: 120%; height: 120%; margin: -6% 0 0 -10%; object-fit: contain; pointer-events: none; }
+  /* силует — чорний, тож фон світлий (колір гравця), щоб контур читався навіть у 40px */
+  .av.noir { background: var(--c); background: radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--c) 70%, white), var(--c) 75%); }
+  .av.noir img { width: 100%; height: 100%; margin: 0; }
+  .tok { position: relative; display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 0; cursor: default; transition: transform .2s, opacity .3s; }
+  .tok-name { font-size: 11px; font-weight: 600; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 3px #000; }
+  .tok.me .tok-name { color: var(--gold-2); }
+  .tok.pickable { cursor: pointer; }
+  .tok.pickable::after { content: "⟳"; position: absolute; top: 34px; left: calc(50% - 30px); z-index: 3; width: 16px; height: 16px; border-radius: 50%;
+      background: var(--gold); color: #1b160e; font-size: 11px; font-weight: 900; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px #000; }
+  .tok.pickable:active .av { transform: scale(.94); }
+  .tok.me .av { box-shadow: 0 0 0 2px var(--gold), 0 4px 12px rgba(0,0,0,.45); }
+  .tok.offline { opacity: .45; }
+  .tok.dead .av { filter: grayscale(1) brightness(.45); }
+  .tok.dead .av::after { content: ""; position: absolute; inset: 0;
+      background: linear-gradient(45deg, transparent 46%, rgba(200,38,46,.95) 46%, rgba(200,38,46,.95) 54%, transparent 54%),
+                  linear-gradient(-45deg, transparent 46%, rgba(200,38,46,.95) 46%, rgba(200,38,46,.95) 54%, transparent 54%); }
+  .tok.dead .tok-name { text-decoration: line-through; color: var(--muted); }
+  .tok.mate .av { box-shadow: 0 0 0 2px var(--blood), 0 0 14px rgba(200,38,46,.6); }
+  .tok .badge-c { position: absolute; z-index: 3; top: -4px; right: calc(50% - 32px); font-size: 13px; line-height: 1; filter: drop-shadow(0 1px 2px #000); }
+  .tok .badge-l { position: absolute; z-index: 3; top: -4px; left: calc(50% - 32px); font-size: 12px; line-height: 1; filter: drop-shadow(0 1px 2px #000); }
+  .tok .host-crown { position: absolute; z-index: 3; top: -9px; left: 50%; transform: translateX(-50%); font-size: 13px; filter: drop-shadow(0 1px 2px #000); }
+  .tok .ready-dot { position: absolute; z-index: 3; top: 36px; right: calc(50% - 30px); width: 16px; height: 16px; border-radius: 50%;
+      background: var(--teal); color: #062018; font-size: 10px; font-weight: 900; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px #000; }
+  .tok .ready-dot.wait { background: #3a3d48; color: var(--muted); }
 
-  /* --------- роль-картка: розмітку/стилі анімації перегортання тепер
-     інжектить js/mafia-role-reveal.js (мітка #rrDonTag/.rr-* тощо) --------- */
+  /* --------- смуга «міста» (компактна) --------- */
+  .town { display: flex; gap: 4px; overflow-x: auto; width: 100%; padding: 12px 6px 8px; scrollbar-width: none; scroll-snap-type: x proximity; }
+  .town::-webkit-scrollbar { display: none; }
+  .town .tok { flex: 0 0 56px; scroll-snap-align: start; }
+  .town .av { width: 40px; height: 40px; }
+  .town .tok-name { font-size: 10px; }
+  .town .tok .ready-dot { top: 27px; right: 4px; width: 14px; height: 14px; }
+  .town .tok .badge-c { right: 2px; } .town .tok .badge-l { left: 2px; }
 
-  .sleeping-screen { text-align: center; padding: 36px 10px; color: var(--text-muted); font-size: 15px;}
-  .sleeping-screen .icon { font-size: 44px; margin-bottom: 12px; }
+  /* --------- HUD --------- */
+  .hud { width: 100%; padding: 8px 12px 0; position: relative; z-index: 5; }
+  .hud-row { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; }
+  .hud-chip { font-family: var(--caps); font-size: 12px; letter-spacing: .08em; padding: 5px 10px; border-radius: 999px;
+      background: rgba(0,0,0,.5); border: 1px solid var(--line); white-space: nowrap; }
+  .hud-title { font-family: var(--display); font-weight: 900; font-size: clamp(16px, 5vw, 22px); text-align: center; text-shadow: 0 2px 10px #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hud-title small { display: block; font-family: var(--caps); font-weight: 500; font-size: 10px; letter-spacing: .2em; color: var(--gold); text-transform: uppercase; }
+  .hud-timer { position: relative; height: 6px; margin-top: 8px; background: rgba(255,255,255,.08); border-radius: 6px; overflow: visible; }
+  .hud-timer-fill { height: 100%; width: 100%; border-radius: 6px; background: linear-gradient(90deg, #b88a2a, var(--gold-2));
+      box-shadow: 0 0 10px rgba(216,173,74,.5); }
+  .hud-timer.urgent .hud-timer-fill { background: linear-gradient(90deg, #8f141a, var(--blood-2)); box-shadow: 0 0 12px rgba(255,75,75,.7); animation: urgentPulse .5s ease-in-out infinite alternate; }
+  @keyframes urgentPulse { from { opacity: .7; } to { opacity: 1; } }
+  .hud-secs { position: absolute; right: 0; top: 9px; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .hud-timer.urgent .hud-secs { color: var(--blood-2); font-weight: 700; }
+  .hud-timer.none { visibility: hidden; }
 
-  .mafia-team-box { width: 100%; background: #241417cc; border: 1px solid #4a1613; border-radius: 10px;
-      padding: 10px 12px; font-size: 12px; color: #ffb4ae; margin: 4px 0 10px; }
-  .mafia-team-box .pick { font-weight: 700; }
+  /* --------- кроки ночі --------- */
+  .steps { display: flex; justify-content: center; gap: 6px; margin: 4px 0 12px; }
+  .steps span { font-size: 12px; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,.05); border: 1px solid var(--line); opacity: .45; }
+  .steps span.done { opacity: .7; text-decoration: line-through; }
+  .steps span.now { opacity: 1; border-color: var(--gold); background: rgba(216,173,74,.15); box-shadow: 0 0 12px rgba(216,173,74,.25); }
 
-  .target-grid { display: grid; grid-template-columns: repeat(3, 1fr);
-      gap: 10px; width: 100%; margin: 4px 0 6px; }
-  .target-card { background: var(--tile-bg); border: 2px solid #ffffff30; border-radius: 14px;
-      padding: 12px 6px; text-align: center; cursor: pointer; position: relative; }
-  .target-card .avatar { width: 42px; height: 42px; border-radius: 50%; background: var(--tile-bg-2);
-      display: flex; align-items: center; justify-content: center; margin: 0 auto 6px; font-size: 15px; font-weight: 700; }
-  .target-card .name { font-size: 12px; }
-  .target-card.selected { border-color: var(--accent); }
-  .target-card.selected.mafia { border-color: var(--blood); }
-  .target-card .vote-count { position: absolute; top: -6px; right: -6px; background: var(--blood); color: #fff;
-      font-size: 11px; font-weight: 700; border-radius: 50%; width: 20px; height: 20px; display: flex;
-      align-items: center; justify-content: center; }
-  .target-card.check-result { border-color: var(--sheriff); }
-  .target-card .check-badge { font-size: 11px; margin-top: 4px; font-weight: 700; }
-  .target-card .check-badge.is-mafia { color: var(--blood); }
-  .target-card .check-badge.not-mafia { color: var(--teal); }
+  /* --------- сон --------- */
+  .sleep { text-align: center; padding: 18px 10px 8px; }
+  .moon { width: 110px; height: 110px; margin: 6px auto 14px; border-radius: 50%; position: relative;
+      background: radial-gradient(circle at 38% 35%, #fffbe9, #e9dfbf 55%, #b9ae8e 100%);
+      box-shadow: 0 0 40px rgba(255,244,200,.35), 0 0 120px rgba(255,244,200,.15); animation: moonFloat 6s ease-in-out infinite; }
+  .moon::before, .moon::after { content: ""; position: absolute; border-radius: 50%; background: rgba(120,110,80,.25); }
+  .moon::before { width: 22px; height: 22px; left: 26px; top: 30px; } .moon::after { width: 14px; height: 14px; left: 64px; top: 62px; }
+  @keyframes moonFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+  .zzz { position: relative; height: 0; }
+  .zzz span { position: absolute; left: 58%; top: -120px; font-family: var(--display); font-size: 20px; color: #dfe6ff; opacity: 0; animation: zz 3.6s linear infinite; }
+  .zzz span:nth-child(2) { animation-delay: 1.2s; font-size: 16px; } .zzz span:nth-child(3) { animation-delay: 2.4s; font-size: 13px; }
+  @keyframes zz { 0% { opacity: 0; transform: translate(0,0); } 20% { opacity: .9; } 100% { opacity: 0; transform: translate(40px,-50px); } }
+  .sleep .big { font-family: var(--display); font-size: 20px; margin-bottom: 6px; }
+  .ghost { font-size: 54px; animation: ghost 4s ease-in-out infinite; display: inline-block; filter: drop-shadow(0 0 16px rgba(200,220,255,.4)); }
+  @keyframes ghost { 0%,100% { transform: translateY(0) rotate(-3deg); opacity: .85; } 50% { transform: translateY(-10px) rotate(3deg); opacity: 1; } }
 
-  #nightResultContent{ width: 100%; backgroud: #00000050}
-  .result-card { background: var(--tile-bg); text-align: center;  width: 100%; padding: 16px 8px 16px 8px;}
-  .result-card .avatar-big { width: 80px; height: 80px; border-radius: 50%; background: var(--tile-bg-2) ;
-      display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; font-size: 30px;
-      font-weight: 700; border: 3px solid var(--blood); }
-  .result-card.safe .avatar-big { border-color: var(--teal); }
-  .result-title { font-family: 'Space Grotesk', sans-serif; font-size: 20px; }
-  .sheriff-recap { margin-top: 10px; font-size: 13px; color: var(--font-light); text-align: center; padding-bottom: 12px;}
+  /* --------- панель ролі вночі --------- */
+  .role-banner { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .role-banner .ico { width: 46px; height: 46px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 24px; flex: 0 0 auto; }
+  .role-banner .t { font-family: var(--display); font-size: 18px; font-weight: 900; }
+  .role-banner .d { font-size: 12px; color: var(--muted); }
+  .r-mafia .ico { background: rgba(200,38,46,.2); box-shadow: inset 0 0 0 1px rgba(200,38,46,.6); }
+  .r-doctor .ico { background: rgba(63,181,151,.2); box-shadow: inset 0 0 0 1px rgba(63,181,151,.6); }
+  .r-sheriff .ico { background: rgba(111,155,209,.2); box-shadow: inset 0 0 0 1px rgba(111,155,209,.6); }
+  .r-civilian .ico { background: rgba(255,255,255,.08); box-shadow: inset 0 0 0 1px var(--line-2); }
 
-  /* тест-4/шліфовка: спільна "темна смуга на всю ширину" — раніше рахувалась
-     окремо на h2/#nightResultContent/#nightContent (#00000050 щоразу
-     вручну переписувалось). Тепер один клас-дефолт, чіпляй де треба. */
-  .info-bar { width: 100%; background:#00000050;}
+  .target-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 14px 8px; width: 100%; margin: 4px 0 6px; }
+  .target-grid.dense { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); }
+  .target-grid .tok { cursor: pointer; padding: 10px 2px 8px; border-radius: 16px; background: rgba(255,255,255,.035); border: 1px solid transparent; }
+  .target-grid .tok:hover { background: rgba(255,255,255,.07); }
+  .target-grid .tok:active { transform: scale(.96); }
+  .target-grid .tok.locked { pointer-events: none; opacity: .3; }
+  .target-grid .tok.selected { border-color: var(--gold); background: rgba(216,173,74,.12); }
+  .target-grid .tok.selected .av { box-shadow: 0 0 0 3px var(--gold), 0 0 18px rgba(216,173,74,.6); }
+  .mode-mafia .tok.selected { border-color: var(--blood); background: rgba(200,38,46,.14); }
+  .mode-mafia .tok.selected .av { box-shadow: 0 0 0 3px var(--blood), 0 0 22px rgba(200,38,46,.7); }
+  .mode-mafia .tok.selected .av::before { content: ""; position: absolute; inset: 6px; z-index: 2; border-radius: 50%;
+      border: 2px solid rgba(255,90,90,.9); background:
+      linear-gradient(rgba(255,90,90,.9),rgba(255,90,90,.9)) center/2px 100% no-repeat,
+      linear-gradient(rgba(255,90,90,.9),rgba(255,90,90,.9)) center/100% 2px no-repeat; animation: scope 1.2s ease-in-out infinite; }
+  @keyframes scope { 0%,100% { transform: scale(1) rotate(0); } 50% { transform: scale(.85) rotate(45deg); } }
+  .mode-doctor .tok.selected { border-color: var(--teal); background: rgba(63,181,151,.14); }
+  .mode-doctor .tok.selected .av { box-shadow: 0 0 0 3px var(--teal), 0 0 22px rgba(63,181,151,.7); }
+  .mode-doctor .tok.selected::after { content: "+"; position: absolute; top: 2px; right: 8px; color: #7ff0cf; font-size: 18px; font-weight: 900; text-shadow: 0 0 8px rgba(63,181,151,.9); }
+  .mode-sheriff .tok.selected { border-color: var(--steel); background: rgba(111,155,209,.14); }
+  .vote-count { position: absolute; top: 2px; left: 6px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; z-index: 3;
+      background: var(--blood); color: #fff; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 0 2px #000, 0 0 10px rgba(200,38,46,.7); animation: pop .3s cubic-bezier(.2,1.6,.5,1); }
+  @keyframes pop { from { transform: scale(0); } to { transform: scale(1); } }
+  .voters { display: flex; justify-content: center; flex-wrap: wrap; gap: 0; min-height: 16px; }
+  .voters .av { width: 16px; height: 16px; margin-left: -4px; box-shadow: 0 0 0 1.5px #111; }
+  .voters .av:first-child { margin-left: 0; }
+  .picks { display: flex; justify-content: center; gap: 2px; min-height: 16px; }
+  .picks .av { width: 16px; height: 16px; box-shadow: 0 0 0 1.5px var(--blood); }
 
-  .last-words-box { width: 100%; background:#00000050; text-align: center; padding: 30px 20px; }
-  .last-words-box .avatar-big { width: 90px; height: 90px; border-radius: 50%; background: var(--tile-bg-2);
-      display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-size: 32px; font-weight: 700;
-      border: 3px solid var(--accent); filter: grayscale(0.6); }
-  .last-words-box .title { font-family: 'Special Elite', sans-serif; font-size: 22px; margin-bottom: 6px; }
+  .check-stamp { font-family: var(--caps); font-size: 11px; letter-spacing: .1em; padding: 2px 8px; border-radius: 6px; border: 2px solid; transform: rotate(-6deg);
+      animation: stampIn .5s cubic-bezier(.2,1.4,.5,1); }
+  .check-stamp.is-mafia { color: var(--blood-2); border-color: var(--blood-2); }
+  .check-stamp.not-mafia { color: #7ff0cf; border-color: #7ff0cf; }
 
-  /* --------- вибув: текстовий штамп "ВИБУВ" ---------
-     stamp_out.svg не використовується — картинку прибрано, лишається лише
-     текстовий штамп. КУТ (-8deg) продубльований у трьох місцях: тут в
-     .stamp-out-fallback і двічі в @keyframes stampIn (from/to) — усі три
-     мають лишатись однаковими, інакше штамп "стрибне" на інший кут
-     всередині власної анімації або в стані спокою після неї. */
-  .elim-anim { text-align: center; padding: 20px; }
-  .elim-anim .avatar-big { width: 100px; height: 100px; border-radius: 50%; background: var(--tile-bg-2);
-      display: flex; align-items: center; justify-content: center; margin: 0 auto 10px; font-size: 34px; font-weight: 700;
-      position: relative; filter: grayscale(1) brightness(0.6); }
-  .stamp-out-fallback { font-family: 'Special Elite', sans-serif; font-size: 46px; font-weight: 700; color: var(--blood);
-      border: 8px solid var(--blood); border-radius: 10px; padding: 14px 34px; transform: rotate(-8deg);
-      display: inline-block; margin: 10px 0 28px; animation: stampIn 0.5s cubic-bezier(.2,1.4,.5,1);  text-shadow: 3px 3px 0px black;}
-  @keyframes stampIn { from { transform: scale(2.4) rotate(-8deg); opacity: 0; } to { transform: scale(1) rotate(-8deg); opacity: 1; } }
+  .mafia-team-box { width: 100%; background: rgba(60,10,14,.55); border: 1px solid rgba(200,38,46,.45); border-radius: 14px; padding: 10px 12px; font-size: 12px; color: #ffc1bd; margin: 0 0 12px; }
+  .mafia-team-box .row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+  .mafia-team-box .av { width: 22px; height: 22px; }
+  .mafia-team-box .pick { margin-left: auto; font-weight: 700; color: #fff; }
+
+  /* --------- нотатник шерифа --------- */
+  .notebook { width: 100%; margin-top: 10px; background: #e9dfc7; color: #2a2318; border-radius: 4px 14px 14px 4px; padding: 10px 14px 10px 26px;
+      font-family: var(--mono); font-size: 12px; position: relative; box-shadow: 0 8px 22px rgba(0,0,0,.45);
+      background-image: repeating-linear-gradient(transparent 0 21px, rgba(60,90,140,.25) 21px 22px); }
+  .notebook::before { content: ""; position: absolute; left: 14px; top: 0; bottom: 0; width: 1px; background: rgba(200,38,46,.5); }
+  .notebook .nb-t { font-weight: 700; letter-spacing: .1em; text-transform: uppercase; font-size: 11px; margin-bottom: 2px; }
+  .notebook .bad { color: #a3141b; font-weight: 700; } .notebook .ok { color: #11604d; font-weight: 700; }
+
+  /* --------- газета (ранок) --------- */
+  .paper { width: 100%; background: var(--paper); color: var(--paper-ink); border-radius: 4px; padding: 14px 14px 16px; position: relative;
+      box-shadow: 0 18px 40px rgba(0,0,0,.6); transform: rotate(-1.2deg); animation: paperIn .8s cubic-bezier(.2,1.1,.4,1) both;
+      background-image: radial-gradient(circle at 20% 10%, rgba(255,255,255,.4), transparent 40%), radial-gradient(circle at 90% 90%, rgba(120,90,40,.18), transparent 50%); }
+  @keyframes paperIn { from { opacity: 0; transform: rotate(-14deg) scale(.6) translateY(40px); } to { opacity: 1; transform: rotate(-1.2deg) scale(1); } }
+  .paper-mast { display: flex; justify-content: space-between; font-family: var(--caps); font-size: 10px; letter-spacing: .15em; text-transform: uppercase; border-bottom: 3px double var(--paper-ink); padding-bottom: 4px; }
+  .paper-name { font-family: var(--display); font-weight: 900; font-size: 30px; text-align: center; line-height: 1.05; margin: 6px 0 4px; letter-spacing: .02em; }
+  .paper-head { font-family: var(--display); font-weight: 900; font-size: 24px; line-height: 1.1; text-align: center; margin: 10px 0 10px; text-transform: uppercase; }
+  .paper-head.red { color: #9d1118; }
+  .paper-body { display: grid; grid-template-columns: 96px 1fr; gap: 12px; align-items: start; }
+  .paper-photo { width: 96px; height: 110px; background: #cfc3a6; border: 1px solid #8b7d5e; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+  .paper-photo .av { width: 82px; height: 82px; filter: grayscale(1) sepia(.6) contrast(1.1); box-shadow: none; }
+  .paper-photo.dead::after { content: ""; position: absolute; top: 8px; right: -18px; width: 70px; height: 12px; background: #111; transform: rotate(45deg); }
+  .paper-photo .sun { font-size: 54px; }
+  .paper-cols { font-family: Georgia, serif; font-size: 12px; line-height: 1.45; text-align: justify; columns: 1; }
+  .paper-cols p { margin: 0 0 6px; }
+  .paper-cols p:first-child::first-letter { font-family: var(--display); font-weight: 900; font-size: 30px; float: left; line-height: .9; margin: 2px 4px 0 0; }
+  .paper-foot { margin-top: 8px; border-top: 1px solid rgba(35,29,20,.4); padding-top: 6px; font-size: 10px; font-family: var(--caps); letter-spacing: .1em; text-transform: uppercase; display: flex; justify-content: space-between; }
+  .you-dead-note { margin: 16px auto 0; width: fit-content; padding: 8px 16px; border-radius: 12px; background: rgba(10,4,6,.8); border: 1px solid rgba(200,38,46,.5); text-align: center; font-family: var(--display); font-size: 18px; color: var(--blood-2); text-shadow: 0 0 12px rgba(200,38,46,.6); }
+
+  /* --------- останнє слово --------- */
+  .spotlight { width: 100%; text-align: center; padding: 34px 16px 26px; position: relative; }
+  .spotlight::before { content: ""; position: absolute; left: 50%; top: -80px; width: 340px; height: 420px; transform: translateX(-50%);
+      background: radial-gradient(50% 60% at 50% 70%, rgba(255,240,200,.28), transparent 70%), conic-gradient(from 160deg at 50% 0%, transparent 0deg, rgba(255,240,200,.12) 20deg, transparent 40deg);
+      pointer-events: none; animation: spotFlick 5s infinite; }
+  @keyframes spotFlick { 0%,100% { opacity: 1; } 47% { opacity: 1; } 48% { opacity: .75; } 49% { opacity: 1; } }
+  .spotlight .av { width: 108px; height: 108px; box-shadow: 0 0 0 3px var(--gold), 0 0 50px rgba(255,240,200,.35); }
+  .spotlight .quote { font-family: var(--display); font-style: italic; font-size: 24px; margin: 18px 0 6px; }
+  .spotlight .quote::before { content: "„"; color: var(--gold); margin-right: 2px; } .spotlight .quote::after { content: "“"; color: var(--gold); margin-left: 2px; }
+  .mic { display: inline-flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; padding: 7px 14px; border-radius: 999px; background: rgba(200,38,46,.18); border: 1px solid rgba(200,38,46,.6); }
+  .mic i { width: 8px; height: 8px; border-radius: 50%; background: var(--blood-2); animation: rec 1s infinite; }
+  @keyframes rec { 50% { opacity: .2; } }
 
   /* --------- чат --------- */
-  .chat-log { background: var(--tile-bg); border-radius: 14px; padding: 12px 14px; width: 100%; height: 190px;
-      overflow-y: auto; margin: 8px 0; font-size: 13px; }
-  .chat-line { margin-bottom: 6px; }
-  .chat-line .who { font-weight: 700; color: var(--accent); margin-right: 6px; }
-  .chat-line.spectator .who { color: var(--text-muted); }
-  .chat-line.mafia .who { color: var(--blood); }
-  .chat-input-row { display: flex; gap: 8px; width: 100%; }
-  .chat-input-row input { flex: 1; padding: 10px 12px; border-radius: 20px; border: 1px solid var(--line);
-      background: #1b1d22; color: var(--text-light); font-size: 14px; text-transform: none; letter-spacing: normal; }
-  .chat-input-row button { border: none; border-radius: 20px; padding: 0 18px; background: var(--accent);
-      color: #241d08; font-weight: 700; cursor: pointer; }
-  .chat-channel-label {
-  font-size: 11px;
-  color: var(--text-light);
-  text-align: center;
-  margin-top: 2px;
-  /* Додаємо тонкий чорний контур літер та тінь для кращої читабельності */
-  
-  
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
-}
+  .chat-wrap { width: 100%; margin-top: 10px; }
+  .chat-log { background: rgba(0,0,0,.55); border: 1px solid var(--line); border-radius: 16px; padding: 10px; width: 100%; height: 210px; overflow-y: auto; font-size: 13px; scroll-behavior: smooth; }
+  .chat-log.short { height: 150px; }
+  .chat-line { display: flex; gap: 7px; align-items: flex-end; margin-bottom: 8px; animation: viewIn .25s ease both; }
+  .chat-line .av { width: 22px; height: 22px; box-shadow: none; }
+  .chat-line .bubble { background: rgba(255,255,255,.08); padding: 6px 10px; border-radius: 14px 14px 14px 4px; max-width: 78%; line-height: 1.35; word-wrap: break-word; }
+  .chat-line .who { display: block; font-size: 10px; font-weight: 700; color: var(--gold); margin-bottom: 1px; }
+  .chat-line.mine { flex-direction: row-reverse; }
+  .chat-line.mine .bubble { background: rgba(216,173,74,.2); border-radius: 14px 14px 4px 14px; }
+  .chat-line.mafia .bubble { background: rgba(200,38,46,.22); } .chat-line.mafia .who { color: #ff9a9a; }
+  .chat-line.spectator .bubble { background: rgba(150,170,220,.12); font-style: italic; } .chat-line.spectator .who { color: #b9c6e8; }
+  .chat-empty { text-align: center; color: var(--muted); font-size: 12px; padding-top: 70px; }
+  .chat-input-row { display: flex; gap: 8px; width: 100%; margin-top: 8px; }
+  .chat-input-row input { flex: 1; min-width: 0; padding: 11px 14px; border-radius: 22px; border: 1px solid var(--line-2); background: rgba(0,0,0,.5); color: var(--text); font-size: 14px; }
+  .chat-input-row button { border: none; border-radius: 22px; width: 46px; background: var(--gold); color: #241a06; font-weight: 900; font-size: 16px; cursor: pointer; }
+  .chat-channel-label { font-size: 10px; letter-spacing: .15em; text-transform: uppercase; color: var(--muted); text-align: center; margin-top: 6px; font-family: var(--caps); }
+  .chat-channel-label.mafia { color: #ff9a9a; } .chat-channel-label.spectator { color: #b9c6e8; }
+
+  /* --------- вирок --------- */
+  .verdict { text-align: center; padding: 16px 4px 4px; width: 100%; }
+  .chalk { position: relative; width: 150px; height: 150px; margin: 0 auto 6px; display: flex; align-items: center; justify-content: center; }
+  .chalk .av { width: 118px; height: 118px; animation: fadeGray 2.2s ease forwards; }
+  @keyframes fadeGray { from { filter: none; } to { filter: grayscale(1) brightness(.55); } }
+  .stamp-out { font-family: var(--caps); font-weight: 700; font-size: 44px; letter-spacing: .1em; color: var(--blood-2); border: 6px solid var(--blood-2);
+      border-radius: 10px; padding: 6px 22px; transform: rotate(-8deg); display: inline-block; margin: -40px 0 18px; position: relative; z-index: 2;
+      text-shadow: 0 0 14px rgba(255,75,75,.5); box-shadow: 0 0 20px rgba(255,75,75,.25), inset 0 0 20px rgba(255,75,75,.2);
+      background: rgba(20,4,6,.55); animation: stampIn .5s .6s cubic-bezier(.2,1.4,.5,1) both; }
+  @keyframes stampIn { from { transform: scale(2.4) rotate(-8deg); opacity: 0; } to { transform: scale(1) rotate(-8deg); opacity: 1; } }
+  .scales { font-size: 74px; animation: tilt 2.4s ease-in-out infinite; display: inline-block; margin: 6px 0 10px; }
+  @keyframes tilt { 0%,100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
+  .tally { width: 100%; margin-top: 8px; }
+  .tally-row { display: grid; grid-template-columns: 26px 1fr auto; gap: 8px; align-items: center; padding: 5px 0; font-size: 13px; }
+  .tally-row .av { width: 24px; height: 24px; }
+  .tally-bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,.08); position: relative; overflow: hidden; }
+  .tally-bar i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #8f141a, var(--blood-2)); border-radius: 4px; transform-origin: left; animation: grow .9s cubic-bezier(.2,1,.3,1) both; }
+  @keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+  /* --------- журнал --------- */
+  .journal { width: 100%; }
+  .journal .j-row { display: flex; gap: 10px; align-items: center; padding: 7px 0; border-bottom: 1px dashed var(--line); font-size: 13px; animation: viewIn .4s ease both; }
+  .journal .j-row:last-child { border-bottom: none; }
+  .journal .j-ico { width: 28px; text-align: center; font-size: 16px; }
+  .journal .j-n { font-family: var(--caps); font-size: 11px; letter-spacing: .1em; color: var(--muted); width: 54px; text-transform: uppercase; }
+  .balance { display: flex; align-items: center; gap: 10px; margin: 6px 0 2px; }
+  .balance .side { font-family: var(--caps); font-size: 22px; }
+  .balance .bar { flex: 1; height: 10px; border-radius: 6px; background: linear-gradient(90deg, var(--teal) var(--p), var(--blood) var(--p)); box-shadow: inset 0 0 0 1px rgba(0,0,0,.4); }
+
+  /* --------- роль-картка --------- */
+  .role-info { width: 100%; text-align: center; opacity: 0; transform: translateY(10px); transition: opacity .6s ease, transform .6s ease; }
+  .role-info.shown { opacity: 1; transform: none; }
+  .role-info .rname { font-family: var(--display); font-weight: 900; font-size: 30px; margin-bottom: 4px; }
+  .role-info .rdesc { font-size: 13px; color: var(--muted); max-width: 300px; margin: 0 auto; line-height: 1.45; }
+  .role-info.mafia .rname { color: #ff6b6b; text-shadow: 0 0 20px rgba(200,38,46,.6); }
+  .role-info.doctor .rname { color: #7ff0cf; } .role-info.sheriff .rname { color: #9cc3ff; } .role-info.civilian .rname { color: var(--gold-2); }
+  .role-info .team { display: flex; justify-content: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+  .role-info .team .tok { width: 60px; }
 
   /* --------- фінал --------- */
-  .reveal-row { display: flex; align-items: center; gap: 10px; background: var(--tile-bg); border-radius: 10px;
-      padding: 8px 12px; margin-bottom: 6px; width: 100%; }
-  .reveal-row.dead { opacity: 0.5; }
-  .reveal-row .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--tile-bg-2);
-      display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
-  .reveal-row .name { flex: 1; font-size: 14px; }
-  .role-tag { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 8px; }
+  .winner { text-align: center; padding: 10px 0 6px; }
+  .winner .crest { font-size: 64px; display: inline-block; animation: crest 2.5s ease-in-out infinite; }
+  @keyframes crest { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-6px) scale(1.04); } }
+  .winner .wt { font-family: var(--display); font-weight: 900; font-size: 34px; line-height: 1.05; margin-top: 4px; }
+  .winner.mafia .wt { color: #ff5d5d; text-shadow: 0 0 28px rgba(200,38,46,.7); }
+  .winner.civilians .wt { color: var(--gold-2); text-shadow: 0 0 28px rgba(216,173,74,.6); }
+  .winner .ws { font-size: 13px; color: var(--muted); margin-top: 6px; }
+  .winner .you { display: inline-block; margin-top: 10px; font-family: var(--caps); letter-spacing: .2em; font-size: 12px; padding: 5px 14px; border-radius: 999px; }
+  .winner .you.w { background: rgba(216,173,74,.2); border: 1px solid var(--gold); color: var(--gold-2); }
+  .winner .you.l { background: rgba(255,255,255,.06); border: 1px solid var(--line-2); color: var(--muted); }
+  .reveal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; width: 100%; margin-top: 12px; perspective: 900px; }
+  .rcard { min-width: 0; border-radius: 14px; padding: 10px 4px 8px; text-align: center; background: rgba(14,15,21,.82); border: 1px solid var(--line);
+      animation: flipIn .7s cubic-bezier(.2,1,.3,1) both; transform-origin: center; position: relative; }
+  @keyframes flipIn { from { transform: rotateY(90deg); opacity: 0; } to { transform: rotateY(0); opacity: 1; } }
+  .rcard .av { width: 46px; height: 46px; }
+  .rcard .don-tag { font-family: var(--caps); font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--gold-2); margin: -2px 0 4px; }
+  .rcard .don-tag .ic { width: 10px; height: 10px; vertical-align: -1px; }
+  .rcard .nm { font-size: 11px; font-weight: 700; margin: 5px 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 2px; }
+  .rcard.dead .av { filter: grayscale(1) brightness(.5); }
+  .rcard.dead::after { content: "вибув"; position: absolute; top: 5px; right: 6px; font-family: var(--caps); font-size: 8px; letter-spacing: .1em; text-transform: uppercase; opacity: .6; }
+  .rcard.mafia { background: linear-gradient(180deg, rgba(200,38,46,.25), rgba(60,10,14,.4)); border-color: rgba(200,38,46,.5); }
+  .rcard.doctor { border-color: rgba(63,181,151,.5); } .rcard.sheriff { border-color: rgba(111,155,209,.5); }
+  .role-tag { font-size: 10px; font-weight: 800; padding: 3px 7px; border-radius: 7px; letter-spacing: .03em; display: inline-block; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
   .role-tag.mafia { background: #4a1613; color: #ffb4ae; }
   .role-tag.doctor { background: #163d34; color: #a9e6d3; }
   .role-tag.sheriff { background: #223349; color: #b8d1ef; }
-  .role-tag.civilian { background: var(--tile-bg-2); color: var(--text-muted); }
+  .role-tag.civilian { background: #2b2d36; color: #d9d5cb; }
+  .section-t { font-family: var(--caps); font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--gold); margin: 16px 0 6px; text-align: center; width: 100%; }
 
-  /* --------- плейтест-2: пауза гри ---------
-     Раніше top:10px/right:10px — налазило на auth-pill у game-header'і
-     (обидва в правому верхньому куті). Перенесено вниз, дзеркально до
-     app-settings.js (той сидить fixed left:16px/bottom:62px) — тепер це
-     той самий "нижній шар" фіксованих кнопок, просто праворуч. */
-  #pauseToggleBtn { position: fixed; right: 16px; bottom: 16px; z-index: 999; background: rgba(30, 30, 36, 0.85); border-radius: 50%;
-      width: 40px; height: 40px; font-size: 18px; font-weight: 700; cursor: pointer;
-      color: var(--text-light); border: 1px solid rgba(255, 255, 255, 0.15); backdrop-filter: blur(6px); }
-  #pausedOverlay { position: fixed; inset: 0; z-index: 22; background: rgba(6,7,10,0.82); display: none;
-      align-items: center; justify-content: center; flex-direction: column; gap: 8px; text-align: center; padding: 20px; }
-  
-      #dayContent{ width: 100%; background: #00000050; padding: 16px 8px; align-items: center;}
-      #pausedOverlay .big { font-family: 'Space Grotesk', sans-serif; font-size: 26px; }
+  /* --------- кінематографічні заставки --------- */
+  .cine { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden;
+      animation: cineIn .5s ease both; text-align: center; padding: 20px; }
+  .cine.out { animation: cineOut .5s ease both; }
+  @keyframes cineIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes cineOut { from { opacity: 1; } to { opacity: 0; } }
+  .cine-bar { position: absolute; left: 0; right: 0; height: 12vh; background: #000; z-index: 3; }
+  .cine-bar.top { top: 0; animation: barTop .7s cubic-bezier(.2,1,.3,1) both; } .cine-bar.bot { bottom: 0; animation: barBot .7s cubic-bezier(.2,1,.3,1) both; }
+  @keyframes barTop { from { transform: translateY(-100%); } to { transform: none; } }
+  @keyframes barBot { from { transform: translateY(100%); } to { transform: none; } }
+  .cine-art { position: relative; z-index: 2; height: 150px; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; }
+  .cine-kicker { position: relative; z-index: 2; font-family: var(--caps); letter-spacing: .5em; font-size: 13px; text-transform: uppercase; color: rgba(255,255,255,.7);
+      animation: track 1.6s cubic-bezier(.2,1,.3,1) both; }
+  @keyframes track { from { letter-spacing: 1.2em; opacity: 0; } to { letter-spacing: .5em; opacity: 1; } }
+  .cine-title { position: relative; z-index: 2; font-family: var(--display); font-weight: 900; font-size: 40px; line-height: 1.05; margin-top: 10px; max-width: 380px;
+      animation: titleIn 1s .2s cubic-bezier(.2,1,.3,1) both; text-shadow: 0 4px 30px rgba(0,0,0,.8); }
+  @keyframes titleIn { from { opacity: 0; transform: scale(1.15); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
+  .cine-sub { position: relative; z-index: 2; font-size: 14px; color: rgba(255,255,255,.75); margin-top: 10px; animation: viewIn .8s .6s ease both; }
+  .cine.night { background: radial-gradient(90% 60% at 50% 30%, #1b2440 0%, #070912 70%); }
+  .cine.dawn-dead { background: radial-gradient(90% 60% at 50% 70%, #6b1a12 0%, #2a0a0c 55%, #0b0405 100%); }
+  .cine.dawn-safe { background: radial-gradient(90% 60% at 50% 75%, #c98a3a 0%, #5a3a2a 45%, #161320 100%); }
+  .cine.win-mafia { background: radial-gradient(90% 60% at 50% 40%, #4a0b10 0%, #12030a 70%, #000 100%); }
+  .cine.win-town { background: radial-gradient(90% 60% at 50% 40%, #6b5520 0%, #1d1a10 70%, #050505 100%); }
+  .cine.win-mafia .cine-title { color: #ff5d5d; } .cine.win-town .cine-title { color: var(--gold-2); }
+  .cine .moon { width: 130px; height: 130px; animation: moonRise 2.4s cubic-bezier(.2,1,.3,1) both; }
+  @keyframes moonRise { from { transform: translateY(80px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .sunrise { width: 150px; height: 150px; border-radius: 50%; background: radial-gradient(circle, #fff3c8 0%, #ffc560 40%, #ff8a3a 70%, transparent 72%);
+      box-shadow: 0 0 80px rgba(255,180,90,.6); animation: sunUp 2.6s cubic-bezier(.2,1,.3,1) both; }
+  .dawn-dead .sunrise { background: radial-gradient(circle, #ffd2b0 0%, #e0503a 45%, #8f141a 70%, transparent 72%); box-shadow: 0 0 80px rgba(200,38,46,.6); }
+  @keyframes sunUp { from { transform: translateY(90px) scale(.8); opacity: 0; } to { transform: translateY(20px); opacity: 1; } }
+  .horizon { position: absolute; left: -10%; right: -10%; bottom: 30%; height: 2px; background: linear-gradient(90deg, transparent, rgba(255,220,160,.6), transparent); z-index: 2; }
+  .big-emoji { font-size: 110px; filter: drop-shadow(0 0 30px rgba(0,0,0,.6)); animation: emojiIn 1s cubic-bezier(.2,1.4,.5,1) both; }
+  @keyframes emojiIn { from { transform: scale(.2) rotate(-30deg); opacity: 0; } to { transform: none; opacity: 1; } }
+  .blood-drip { position: absolute; top: 12vh; left: 0; right: 0; height: 70px; z-index: 2; opacity: .85;
+      background: radial-gradient(10px 34px at 12% 0, #8f141a 98%, transparent) , radial-gradient(8px 52px at 33% 0, #8f141a 98%, transparent),
+      radial-gradient(12px 28px at 58% 0, #8f141a 98%, transparent), radial-gradient(7px 60px at 80% 0, #8f141a 98%, transparent), linear-gradient(#8f141a 8px, transparent 8px);
+      transform-origin: top; animation: drip 2.4s ease-out both; }
+  @keyframes drip { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 
-      #gameOverContent {margin-top: 8px;}
+  /* --------- пауза --------- */
+  #pauseToggleBtn { position: fixed; right: 16px; bottom: 16px; z-index: 999; background: rgba(20,20,26,.85); border-radius: 50%;
+      width: 44px; height: 44px; font-size: 16px; font-weight: 700; cursor: pointer; color: var(--text); border: 1px solid var(--line-2); backdrop-filter: blur(6px); }
+  #pausedOverlay { position: fixed; inset: 0; z-index: 22; background: rgba(6,7,10,.86); display: none; align-items: center; justify-content: center;
+      flex-direction: column; gap: 8px; text-align: center; padding: 20px; backdrop-filter: grayscale(1); -webkit-backdrop-filter: grayscale(1); }
+  #pausedOverlay.visible { display: flex; }
+  #pausedOverlay .big { font-family: var(--display); font-weight: 900; font-size: 30px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .grain, .fog, .moon, .ghost, .zzz span, .logo .word, .scales, .winner .crest { animation: none !important; }
+  }
+
+  /* ==========================================================================
+     Стара кіноплівка: мерехтіння проектора, подряпини, порошинки,
+     перфорація по краях, рамки інтертитрів німого кіно.
+     ========================================================================== */
+  /* мерехтіння — лише короткі спалахи раз на ~9с, а не постійно */
+  .flicker { position: absolute; inset: 0; background: #fff6dc; opacity: 0; animation: flick 9s steps(1) infinite; }
+  @keyframes flick { 0%, 100% { opacity: 0; } 40% { opacity: .035; } 41% { opacity: 0; } 42% { opacity: .025; } 43% { opacity: 0; } 78% { opacity: .03; } 79% { opacity: 0; } }
+  .scratches i { position: absolute; top: -5%; height: 110%; width: 1px; background: linear-gradient(transparent, rgba(255,250,230,.35) 20%, rgba(255,250,230,.12) 70%, transparent); opacity: 0; }
+  .scratches i:nth-child(1) { animation: scratch 7.3s steps(1) infinite; }
+  .scratches i:nth-child(2) { animation: scratch 11.1s steps(1) infinite 2.4s; width: 2px; }
+  .scratches i:nth-child(3) { animation: scratch 5.7s steps(1) infinite 4.1s; background: linear-gradient(transparent, rgba(0,0,0,.45) 30%, transparent); }
+  @keyframes scratch { 0% { left: 22%; opacity: .9; } 4% { left: 23%; opacity: .5; } 8% { opacity: 0; } 41% { left: 71%; opacity: .7; } 44% { left: 70.5%; opacity: .9; } 48% { opacity: 0; } 77% { left: 46%; opacity: .6; } 80% { opacity: 0; } }
+  .specks { position: absolute; inset: 0; opacity: .4; animation: specks 7s steps(1) infinite; }
+  /* порошинки з'являються на мить і зникають; більшу частину часу кадр чистий */
+  @keyframes specks {
+    0% { background: radial-gradient(1.6px 1.6px at 18% 32%, rgba(0,0,0,.8), transparent), radial-gradient(1px 2.5px at 74% 61%, rgba(255,250,230,.7), transparent), radial-gradient(2.5px 1.4px at 52% 84%, rgba(0,0,0,.7), transparent); }
+    4% { background: none; }
+    40% { background: radial-gradient(2px 1.2px at 63% 18%, rgba(255,250,230,.6), transparent), radial-gradient(1.4px 1.4px at 31% 71%, rgba(0,0,0,.8), transparent); }
+    43% { background: none; }
+    75% { background: radial-gradient(3px 2px at 82% 40%, rgba(0,0,0,.7), transparent), radial-gradient(1.2px 3px at 12% 55%, rgba(255,250,230,.6), transparent), radial-gradient(1.4px 1.4px at 44% 12%, rgba(0,0,0,.7), transparent); }
+    78%, 100% { background: none; }
+  }
+  .sprockets { position: absolute; top: 0; bottom: 0; width: 9px; background-color: rgba(0,0,0,.55);
+    background-image: repeating-linear-gradient(180deg, transparent 0 7px, rgba(235,225,200,.16) 7px 15px, transparent 15px 22px);
+    background-size: 5px 100%; background-repeat: no-repeat; background-position: center; }
+  .sprockets.l { left: 0; border-right: 1px solid rgba(235,225,200,.08); } .sprockets.r { right: 0; border-left: 1px solid rgba(235,225,200,.08); }
+  @keyframes weave { 0%,100% { transform: translateY(0); } 25% { transform: translateY(1px); } 50% { transform: translateY(-1px); } 75% { transform: translateY(.5px); } }
+  .grain { opacity: .055; animation-duration: 2.4s; animation-timing-function: steps(4); }
+
+  /* інтертитри: картки в подвійній рамці з кутиками */
+  .card { border-radius: 4px; background: rgba(9,9,11,.8); border: 1px solid rgba(232,220,190,.42); box-shadow: 0 12px 30px rgba(0,0,0,.45); position: relative; }
+  .card::before { content: ""; position: absolute; inset: 5px; border: 1px solid rgba(232,220,190,.16); border-radius: 2px; pointer-events: none; }
+  .card::after { content: ""; position: absolute; inset: 2px; pointer-events: none; --k: rgba(232,220,190,.6);
+      background: linear-gradient(var(--k),var(--k)) 0 0/10px 1px no-repeat, linear-gradient(var(--k),var(--k)) 0 0/1px 10px no-repeat,
+                  linear-gradient(var(--k),var(--k)) 100% 0/10px 1px no-repeat, linear-gradient(var(--k),var(--k)) 100% 0/1px 10px no-repeat,
+                  linear-gradient(var(--k),var(--k)) 0 100%/10px 1px no-repeat, linear-gradient(var(--k),var(--k)) 0 100%/1px 10px no-repeat,
+                  linear-gradient(var(--k),var(--k)) 100% 100%/10px 1px no-repeat, linear-gradient(var(--k),var(--k)) 100% 100%/1px 10px no-repeat; }
+  .eyebrow::before, .eyebrow::after, .section-t::before, .section-t::after { content: "◆"; font-size: 6px; vertical-align: middle; margin: 0 8px; opacity: .7; }
+  button.primary-btn { border-radius: 4px; font-family: var(--caps); text-transform: uppercase; letter-spacing: .16em; font-weight: 700;
+      background: linear-gradient(180deg, #efe4c8, #d3c29a); color: #1b160e; box-shadow: 0 6px 20px rgba(0,0,0,.35), inset 0 0 0 1px rgba(60,45,20,.5), inset 0 0 0 4px #e7dbbd, inset 0 0 0 5px rgba(60,45,20,.35); }
+  button.blood-btn { background: linear-gradient(180deg, #b8262d, #7c1218); color: #f6ead0; box-shadow: 0 6px 20px rgba(120,10,20,.35), inset 0 0 0 1px rgba(0,0,0,.5), inset 0 0 0 4px #9c1c22, inset 0 0 0 5px rgba(246,234,208,.35); }
+  button.secondary-btn { border-radius: 4px; font-family: var(--caps); text-transform: uppercase; letter-spacing: .12em; font-weight: 500; }
+  .hud-chip, .steps span, .comp span { border-radius: 3px; font-family: var(--caps); text-transform: uppercase; letter-spacing: .1em; }
+  .room-item, .target-grid .tok, .mafia-team-box, .chat-log { border-radius: 6px; }
+  .logo .pre { font-family: var(--caps); font-size: 10px; letter-spacing: .38em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+
+  /* --------- іконки --------- */
+  .ic { width: 1.15em; height: 1.15em; vertical-align: -0.2em; flex: 0 0 auto; }
+  .b-red { color: #ff6b6b; } .b-gold { color: var(--gold-2); } .b-teal { color: #7ff0cf; }
+  .tok.colleague .av { box-shadow: 0 0 0 2px var(--teal), 0 0 14px rgba(63,181,151,.5); }
+  .mafia-team-box.medics { background: rgba(10,50,40,.5); border-color: rgba(63,181,151,.45); color: #bff3e2; }
+  .tok .badge-c .ic { width: 17px; height: 17px; background: rgba(0,0,0,.7); border-radius: 50%; padding: 2px; }
+  .host-crown .ic { width: 20px; height: 20px; color: var(--gold-2); filter: drop-shadow(0 1px 2px #000); }
+  .mark { display: inline-block; width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 0 2px #000; }
+  .mark.bad { background: var(--blood-2); } .mark.ok { background: var(--teal); }
+  .big-ic .ic { width: 64px; height: 64px; stroke-width: 1.2; color: #dfe6ff; }
+  .settings-box label > span:first-child { display: inline-flex; align-items: center; gap: 8px; }
+  .settings-box label .ic { color: var(--gold); }
+  .role-banner .ico .ic { width: 24px; height: 24px; }
+  .r-mafia .ico { color: #ff8a8a; } .r-doctor .ico { color: #7ff0cf; } .r-sheriff .ico { color: #9cc3ff; }
+  .paper-photo .sun .ic { width: 58px; height: 58px; color: #5a4a2a; stroke-width: 1.3; }
+  .journal .j-ico .ic { width: 18px; height: 18px; }
+  .winner .crest .ic { width: 70px; height: 70px; stroke-width: 1.2; }
+  .winner.mafia .crest { color: #ff5d5d; } .winner.civilians .crest { color: var(--gold-2); }
+  .scales .ic { width: 80px; height: 80px; stroke-width: 1.1; color: var(--gold-2); }
+  .big-emoji .ic { width: 120px; height: 120px; stroke-width: 1; }
+  .win-mafia .big-emoji { color: #ff5d5d; } .win-town .big-emoji { color: var(--gold-2); }
+  .role-tag .ic { width: 11px; height: 11px; vertical-align: -1px; }
+  .hud-chip .ic { width: 14px; height: 14px; vertical-align: -2px; }
+
+  /* екран "відкрий очі" */
+  .eye-open { margin: 10px auto 12px; width: 96px; height: 96px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      color: var(--gold-2); background: radial-gradient(circle, rgba(216,173,74,.18), transparent 70%); animation: eyeOpen 1.2s cubic-bezier(.2,1,.3,1) both; }
+  .eye-open .ic { width: 64px; height: 64px; stroke-width: 1.3; }
+  @keyframes eyeOpen { 0% { transform: scaleY(.05); opacity: 0; } 60% { transform: scaleY(1.1); opacity: 1; } 100% { transform: none; } }
+  /* дуже вузькі телефони (320–360) */
+  @media (max-width: 360px) { .pad { padding-left: 8px; padding-right: 8px; } .hud { padding: 8px 8px 0; } .hud-chip { padding: 4px 7px; font-size: 11px; } .card { padding: 11px; } }
+  @media (prefers-reduced-motion: reduce) {
+    .flicker, .scratches i, .specks, .sprockets { animation: none !important; }
+  }
 </style>
 <link rel="stylesheet" href="js/styles/game-header.css">
 <script src="js/core/game-header.js" defer></script>
 </head>
 <body>
-<div class="page" id="pageRoot">
+<div class="page phase-neutral" id="pageRoot">
+
+  <div class="fx" aria-hidden="true">
+    <div class="fog a"></div><div class="fog b"></div>
+    <canvas id="fxCanvas"></canvas>
+    <div class="flash" id="fxFlash"></div>
+    <div class="flicker"></div>
+    <div class="scratches"><i></i><i></i><i></i></div>
+    <div class="specks"></div>
+    <div class="vignette"></div>
+    <div class="grain"></div>
+    <div class="sprockets l"></div><div class="sprockets r"></div>
+  </div>
+  <div class="death-pulse" id="deathPulse"></div>
+
+  <div id="hud" class="hud hidden">
+    <div class="hud-row">
+      <div class="hud-chip" id="hudCycle"></div>
+      <div class="hud-title" id="hudTitle"></div>
+      <div class="hud-chip" id="hudAlive"></div>
+    </div>
+    <div class="hud-timer" id="hudTimer"><div class="hud-timer-fill" id="hudTimerFill"></div><span class="hud-secs" id="hudSecs"></span></div>
+  </div>
+  <div id="townStrip" class="town hidden"></div>
 
   <div id="view-locked" class="pad hidden">
-    <h2>🔪 Мафія</h2>
+    <div class="logo"><div class="pre">Кіностудія «Місто» представляє</div><div class="word">МАФІЯ</div><div class="knife"></div><div class="tag">фільм-нуар</div></div>
     <div class="status-line">Увійди в профіль (кнопка зверху), щоб грати з друзями</div>
   </div>
 
   <div id="view-room-entry" class="pad hidden">
-    <h2>🔪 Мафія</h2>
-    <div class="status-line">Обери активну кімнату або введи код друга</div>
-    <div class="rooms-list" id="activeRoomsList"></div>
-    <div class="divider">або вручну</div>
-    <input class="text-input" id="roomCodeInput" maxlength="5" placeholder="КОД КІМНАТИ" />
-    <button class="primary-btn" id="joinRoomBtn">Приєднатись</button>
-    <div class="divider">або</div>
-    <button class="secondary-btn" id="createRoomBtn">Створити нову кімнату</button>
+    <div class="logo"><div class="pre">Кіностудія «Місто» представляє</div><div class="word">МАФІЯ</div><div class="knife"></div><div class="tag">фільм-нуар</div></div>
+    <div class="card">
+      <div class="eyebrow" style="margin-bottom:10px">Активні кімнати</div>
+      <div class="rooms-list" id="activeRoomsList"></div>
+      <div class="divider">або за кодом</div>
+      <input class="text-input" id="roomCodeInput" maxlength="5" placeholder="КОД" />
+      <button class="primary-btn" id="joinRoomBtn">Приєднатись</button>
+      <div class="divider">або</div>
+      <button class="secondary-btn" id="createRoomBtn">Створити нову кімнату</button>
+    </div>
   </div>
 
   <div id="view-waiting" class="pad hidden">
-    <h2>🔪 Мафія</h2>
-    <div class="status-line">Гра вже триває — приєднаєшся автоматично, коли вона завершиться</div>
+    <div class="logo"><div class="pre">Кіностудія «Місто» представляє</div><div class="word">МАФІЯ</div><div class="knife"></div></div>
+    <div class="card"><div class="sleep"><div class="ghost big-ic"><i class="ic" data-ic="reel"></i></div><div class="big">Гра вже триває</div>
+      <div class="status-line">Приєднаєшся автоматично, щойно вона завершиться.</div></div></div>
   </div>
 
   <div id="view-lobby" class="pad hidden">
-    <h2>🔪 Мафія</h2>
+    <div class="logo"><div class="pre">Кіностудія «Місто» представляє</div><div class="word">МАФІЯ</div><div class="knife"></div></div>
     <div class="room-code-display" id="roomCodeDisplay"></div>
-    <div class="status-line" id="lobbyStatus"></div>
-    <div class="players-list" id="playersList"></div>
-
-    <div class="settings-box hidden" id="settingsBox">
-      <label>Лікар <span class="toggle-switch"><input type="checkbox" id="doctorToggle" /><span class="track"></span><span class="knob"></span></span></label>
-      <label>Шериф <span class="toggle-switch"><input type="checkbox" id="sheriffToggle" /><span class="track"></span><span class="knob"></span></span></label>
-      <label>Кількість мафії <select id="mafiaCountSelect"></select></label>
-      <label>Консенсус мафії <select id="mafiaConsensusSelect">
+    <div class="card">
+      <div class="eyebrow" id="lobbyStatus" style="margin-bottom:12px"></div>
+      <div class="lobby-players" id="playersList"></div>
+      <div class="comp" id="lobbyComp"></div>
+      <div class="hint-text" id="lobbyHint"></div>
+    </div>
+    <div class="card settings-box hidden" id="settingsBox">
+      <div class="set-title">Правила міста</div>
+      <label><span><i class="ic" data-ic="syringe"></i> Лікар</span> <span class="toggle-switch"><input type="checkbox" id="doctorToggle" /><span class="track"></span><span class="knob"></span></span></label>
+      <label id="doctorCountRow"><span><i class="ic" data-ic="people"></i> Кількість лікарів</span> <select id="doctorCountSelect"><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label>
+      <label><span><i class="ic" data-ic="star"></i> Шериф</span> <span class="toggle-switch"><input type="checkbox" id="sheriffToggle" /><span class="track"></span><span class="knob"></span></span></label>
+      <label><span><i class="ic" data-ic="knife"></i> Кількість мафії</span> <select id="mafiaCountSelect"></select></label>
+      <label><span><i class="ic" data-ic="people"></i> Консенсус мафії</span> <select id="mafiaConsensusSelect">
         <option value="majority">Більшість голосів</option>
-        <option value="strict">Всі мають обрати однакову ціль</option>
+        <option value="strict">Всі однакову ціль</option>
       </select></label>
-      <label>Перший раунд ознайомчий <span class="toggle-switch"><input type="checkbox" id="introRoundToggle" /><span class="track"></span><span class="knob"></span></span></label>
-      <button class="primary-btn" id="startGameBtn">Почати гру</button>
+      <label><span><i class="ic" data-ic="cap"></i> Перший раунд ознайомчий</span> <span class="toggle-switch"><input type="checkbox" id="introRoundToggle" /><span class="track"></span><span class="knob"></span></span></label>
+      <button class="primary-btn blood-btn" id="startGameBtn">Почати гру</button>
       <div class="hint-text" id="startHint"></div>
     </div>
     <button class="secondary-btn hidden" id="toggleReadyBtn"></button>
   </div>
 
   <div id="view-role-reveal" class="pad hidden">
-    <div class="timer-bar" id="roleRevealTimer"><div class="timer-bar-fill"></div></div>
-    <h2>Твоя роль</h2>
     <div id="roleRevealStage"></div>
+    <div class="role-info" id="roleInfo"></div>
   </div>
 
   <div id="view-night" class="pad hidden">
-    <div class="timer-bar" id="nightTimer"><div class="timer-bar-fill"></div></div>
-    <h2 id="nightTitle"></h2>
-    <div id="nightContent" class="info-bar" style="padding: 8px;"></div>
+    <div class="steps" id="nightSteps"></div>
+    <div class="card" id="nightContent"></div>
+    <div id="nightChat" class="chat-wrap"></div>
   </div>
 
   <div id="view-night-result" class="pad hidden">
-    <h2>🌅 Ранок</h2>
-    <div id="nightResultContent" class="info-bar"></div>
+    <div id="nightResultContent" style="width:100%"></div>
   </div>
 
   <div id="view-last-words" class="pad hidden">
-    <div class="timer-bar" id="lastWordsTimer"><div class="timer-bar-fill"></div></div>
-    <div class="last-words-box" id="lastWordsContent"></div>
+    <div class="spotlight" id="lastWordsContent"></div>
   </div>
 
   <div id="view-day" class="pad hidden">
-    <div class="timer-bar" id="dayTimer"><div class="timer-bar-fill"></div></div>
-    <h2 id="dayTitle"></h2>
-    <div id="dayContent"></div>
+    <div id="dayContent" style="width:100%"></div>
   </div>
 
   <div id="view-elim-anim" class="pad hidden">
-    <div class="elim-anim" id="elimAnimContent"></div>
+    <div class="card" id="elimAnimContent"></div>
   </div>
 
   <div id="view-banner-state" class="pad hidden">
-    <div class="timer-bar" id="bannerStateTimer"><div class="timer-bar-fill"></div></div>
-    <h2>Підбиваємо підсумки…</h2>
+    <div class="card" id="bannerStateContent"></div>
   </div>
 
   <div id="view-game-over" class="pad hidden">
-    <h2>🏁 Гру завершено</h2>
-    <div id="gameOverContent"></div>
-    <button class="secondary-btn hidden" id="resetGameBtn">🔄 Нова гра</button>
+    <div id="gameOverContent" style="width:100%"></div>
+    <button class="primary-btn hidden" id="resetGameBtn">Нова гра</button>
   </div>
 
-  <div id="bannerOverlay" class="banner-screen hidden"><div class="banner-caption" id="bannerCaption"></div></div>
+  <div id="cineOverlay" class="cine hidden"></div>
 
   <button id="pauseToggleBtn" class="hidden"></button>
 
@@ -367,139 +672,373 @@
   function showView(name) {
     VIEWS.forEach((v) => document.getElementById("view-" + v).classList.toggle("hidden", v !== name));
   }
-  function escapeHtml(s) { const d = document.createElement("div"); d.textContent = s || ""; return d.innerHTML; }
-  function initials(name) { return (name || "?").slice(0, 2).toUpperCase(); }
+  function escapeHtml(s) { const d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML; }
+  const $ = (id) => document.getElementById(id);
 
-  const ROLE_META = window.MafiaGame.ROLE_META;
-  const pageRoot = document.getElementById("pageRoot");
+  // ------------------------- SVG-іконки (замість емодзі) -------------------------
+  const ICONS = {
+    knife: '<path d="M20 4 7.5 16.5l-2-2L16 4.5c1.2-1 3-1.2 4-.5z"/><path d="m7.5 16.5-1 1M6.5 17.5 4 20l-1-1 2.5-2.5"/>',
+    syringe: '<path d="m18 3 3 3M19.5 4.5 16 8"/><path d="M17.5 6.5 8 16l-3-3 9.5-9.5z"/><path d="M8 16l-4 4M10 11l1.5 1.5M12.5 8.5 14 10"/>',
+    star: '<path d="M12 3.2l2.5 5.2 5.7.8-4.1 4 1 5.6L12 16.1l-5.1 2.7 1-5.6-4.1-4 5.7-.8z"/>',
+    person: '<circle cx="12" cy="8" r="3.6"/><path d="M5 20c0-3.6 3.1-6.2 7-6.2s7 2.6 7 6.2"/>',
+    people: '<circle cx="9" cy="8.5" r="3.2"/><path d="M3 19.5c0-3.2 2.7-5.5 6-5.5s6 2.3 6 5.5"/><path d="M15.5 5.6a3.2 3.2 0 0 1 0 5.8M17.5 14.4c2 .7 3.5 2.6 3.5 5.1"/>',
+    hat: '<path d="M2.5 16.5c3.5 2.3 15.5 2.3 19 0"/><path d="M6 16l1.4-7.2c.3-1.6 2-2.2 3.2-1.2L12 8.8l1.4-1.2c1.2-1 2.9-.4 3.2 1.2L18 16"/><path d="M6.6 13.2c3.4 1.1 7.4 1.1 10.8 0"/>',
+    crown: '<path d="M3.5 8.5 7.5 12 12 5.5l4.5 6.5 4-3.5-1.8 10H5.3z"/>',
+    moon: '<path d="M20 14.5A8.2 8.2 0 1 1 9.5 4a6.6 6.6 0 0 0 10.5 10.5z"/>',
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/>',
+    scales: '<path d="M12 3.5v17M7.5 20.5h9M4.5 7h15"/><path d="M4.5 7 2 13a2.6 2.6 0 0 0 5 0zM19.5 7 17 13a2.6 2.6 0 0 0 5 0z"/>',
+    ghost: '<path d="M5.5 20.5V11a6.5 6.5 0 0 1 13 0v9.5l-2.2-1.8-2.1 1.8-2.2-1.8-2.2 1.8-2.1-1.8z"/><circle cx="9.7" cy="10.8" r=".9" fill="currentColor"/><circle cx="14.3" cy="10.8" r=".9" fill="currentColor"/>',
+    drop: '<path d="M12 3.5s5.8 6.3 5.8 10.6a5.8 5.8 0 0 1-11.6 0C6.2 9.8 12 3.5 12 3.5z"/>',
+    slash: '<circle cx="12" cy="12" r="8.5"/><path d="M6 6l12 12"/>',
+    cap: '<path d="M2 9.5 12 5l10 4.5L12 14z"/><path d="M6 11.5v4.6c3.3 2.2 8.7 2.2 12 0v-4.6M21.5 10v5"/>',
+    eye: '<path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+    reel: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.3"/><circle cx="12" cy="7.2" r="1.9"/><circle cx="12" cy="16.8" r="1.9"/><circle cx="7.2" cy="12" r="1.9"/><circle cx="16.8" cy="12" r="1.9"/>',
+  };
+  const ROLE_IC = { mafia: "knife", doctor: "syringe", sheriff: "star", civilian: "person" };
+  function ic(name, cls) {
+    return `<svg class="ic ${cls || ""}" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ""}</svg>`;
+  }
+  document.querySelectorAll("i.ic[data-ic]").forEach((el) => { el.outerHTML = ic(el.dataset.ic); });
 
-  // плейтест-2: "звуки почали грати лише з другого кола" — прогріваємо всі
-  // Howl-файли одразу при завантаженні сторінки, а не лінькома на перший
-  // play(). Не рятує від file:// CORS (та сама причина — див. відповідь),
-  // але прибирає затримку/пропуск першого відтворення у звичайному http(s).
+  const MG = window.MafiaGame;
+  const ROLE_META = MG.ROLE_META;
+  const pageRoot = $("pageRoot");
+  const NIGHT_PHASES = ["banner_night_start", "mafia_wake", "mafia_move", "doctor_wake", "doctor_move", "sheriff_wake", "sheriff_move"];
+  const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
   if (window.MafiaSounds && window.MafiaSounds.preloadAll) window.MafiaSounds.preloadAll();
-  window.MafiaRoleReveal.mount(document.getElementById("roleRevealStage"));
+  window.MafiaRoleReveal.mount($("roleRevealStage"));
 
-  // ------------------------- банери (bnr_night / bnr_day_safe / bnr_day_killed / bnr_win / bnr_lose) -------------------------
-  let bannerTimeout = null;
-  function showBanner(kind, caption, soundName, durationMs) {
-    const overlay = document.getElementById("bannerOverlay");
-    overlay.className = "banner-screen " + kind;
-    const captionEl = document.getElementById("bannerCaption");
-    captionEl.textContent = caption || "";
-    captionEl.classList.toggle("hidden", !caption); // без тексту — без порожньої плашки під ним
-    if (soundName) window.MafiaSounds.play(soundName);
-    clearTimeout(bannerTimeout);
-    // Банер сам не веде фазу (дедлайн — у room.phaseDeadline), лишень
-    // ховається трохи раніше кінця фази, щоб встиг показатись наступний вид.
-    bannerTimeout = setTimeout(() => overlay.classList.add("hidden"), durationMs || 1400);
+  // ======================================================================
+  // Атмосфера: один canvas на дощ (ніч) / пил (день) / жарини (перемога
+  // мафії) / конфеті (перемога міста). ~30 fps і мало частинок — щоб не
+  // гріти слабкі телефони й старий ноутбук.
+  // ======================================================================
+  const fx = (function () {
+    const canvas = $("fxCanvas");
+    const ctx2d = canvas.getContext("2d");
+    let mode = "none", parts = [], raf = null, last = 0, w = 0, h = 0, lightningTimer = null;
+    const COUNT = { rain: 70, dust: 28, embers: 40, confetti: 70 };
+    function resize() {
+      const r = canvas.getBoundingClientRect();
+      const dpr = Math.min(1.5, window.devicePixelRatio || 1);
+      w = r.width; h = r.height;
+      canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+      ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    function spawn(initial) {
+      const x = Math.random() * w;
+      const y = initial ? Math.random() * h : (mode === "embers" ? h + 10 : -20);
+      if (mode === "rain") return { x, y, v: 9 + Math.random() * 7, l: 10 + Math.random() * 14, a: .12 + Math.random() * .25 };
+      if (mode === "dust") return { x, y: Math.random() * h, vx: (Math.random() - .5) * .25, vy: -.08 - Math.random() * .2, r: .6 + Math.random() * 1.8, a: .15 + Math.random() * .35, t: Math.random() * 6 };
+      if (mode === "embers") return { x, y, vx: (Math.random() - .5) * .6, vy: -.6 - Math.random() * 1.4, r: 1 + Math.random() * 2.2, a: .5 + Math.random() * .5, t: Math.random() * 6 };
+      const cols = ["#f3d07a", "#d8ad4a", "#fff3c8", "#3fb597", "#ffffff"];
+      return { x, y, vx: (Math.random() - .5) * 1.2, vy: 1.2 + Math.random() * 2, s: 3 + Math.random() * 4, rot: Math.random() * 6, vr: (Math.random() - .5) * .2, c: cols[(Math.random() * cols.length) | 0] };
+    }
+    function frame(ts) {
+      raf = requestAnimationFrame(frame);
+      if (ts - last < 33) return;
+      last = ts;
+      ctx2d.clearRect(0, 0, w, h);
+      for (let i = 0; i < parts.length; i++) {
+        const p = parts[i];
+        if (mode === "rain") {
+          p.y += p.v; p.x -= p.v * .18;
+          ctx2d.strokeStyle = `rgba(190,205,255,${p.a})`; ctx2d.lineWidth = 1;
+          ctx2d.beginPath(); ctx2d.moveTo(p.x, p.y); ctx2d.lineTo(p.x + p.l * .18, p.y - p.l); ctx2d.stroke();
+          if (p.y > h + 20) parts[i] = spawn(false);
+        } else if (mode === "dust" || mode === "embers") {
+          p.t += .03; p.x += p.vx + Math.sin(p.t) * .2; p.y += p.vy;
+          const a = p.a * (mode === "embers" ? Math.max(0, p.y / h) : (.6 + .4 * Math.sin(p.t * 2)));
+          ctx2d.fillStyle = mode === "embers" ? `rgba(255,${90 + (p.r * 30 | 0)},60,${a})` : `rgba(255,236,180,${a})`;
+          ctx2d.beginPath(); ctx2d.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx2d.fill();
+          if (p.y < -10 || p.x < -10 || p.x > w + 10) parts[i] = spawn(false);
+        } else if (mode === "confetti") {
+          p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+          ctx2d.save(); ctx2d.translate(p.x, p.y); ctx2d.rotate(p.rot); ctx2d.fillStyle = p.c;
+          ctx2d.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2 * Math.abs(Math.cos(p.rot * 2)) + 1); ctx2d.restore();
+          if (p.y > h + 10) parts[i] = spawn(false);
+        }
+      }
+    }
+    function scheduleLightning() {
+      clearTimeout(lightningTimer);
+      if (mode !== "rain") return;
+      lightningTimer = setTimeout(() => {
+        const f = $("fxFlash"); f.classList.remove("go"); void f.offsetWidth; f.classList.add("go");
+        scheduleLightning();
+      }, 9000 + Math.random() * 16000);
+    }
+    function set(next) {
+      if (reduceMotion) next = "none";
+      if (next === mode) return;
+      mode = next;
+      resize();
+      parts = mode === "none" ? [] : Array.from({ length: COUNT[mode] }, () => spawn(true));
+      if (mode === "none") { if (raf) cancelAnimationFrame(raf); raf = null; ctx2d.clearRect(0, 0, w, h); }
+      else if (!raf) raf = requestAnimationFrame(frame);
+      scheduleLightning();
+    }
+    window.addEventListener("resize", resize);
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) { if (raf) cancelAnimationFrame(raf); raf = null; }
+      else if (mode !== "none" && !raf) raf = requestAnimationFrame(frame);
+    });
+    return { set };
+  })();
+
+  function deathFx() {
+    const d = $("deathPulse"); d.classList.remove("go"); void d.offsetWidth; d.classList.add("go");
+    pageRoot.classList.remove("shake"); void pageRoot.offsetWidth; pageRoot.classList.add("shake");
+    try { if (navigator.vibrate) navigator.vibrate([80, 60, 200]); } catch (e) { /* ignore */ }
   }
 
-  // ------------------------- звук по фазі -------------------------
-  // Ключі мають 1-в-1 збігатись із SOUND_TABLE у mafia-sounds.js.
+  // ======================================================================
+  // Аватари / жетони
+  // ======================================================================
+  const COLORS = ["#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#9b59b6", "#1abc9c", "#e67e22", "#ff6fa5"];
+  function hashName(s) { let h = 0; for (const ch of String(s || "")) h = (h * 31 + ch.codePointAt(0)) >>> 0; return h; }
+  // Нуарні силуети (img/mafia/avatars/*.webp) —
+  // роздаються за порядком входу в кімнату (зсув від коду кімнати), тож
+  // перші шість гравців завжди різні. Колір фону — колір гравця.
+  // Файли в img/mafia/avatars/: m* — чоловіки, f* — жінки. Щоб додати нові —
+  // просто допиши ім'я файлу в список.
+  const NOIR_FILES = ["m1", "f1", "m2", "f2", "m3", "f3", "m4", "f4", "m5", "f5", "m6", "f6"];
+  const NOIR_COUNT = NOIR_FILES.length;
+  let noirMap = {};
+  function updateNoirMap(state, roomId) {
+    const seed = hashName(roomId || "");
+    noirMap = {};
+    orderedNames(state).forEach((n, i) => { noirMap[n] = ((i + seed) % NOIR_COUNT) + 1; });
+  }
+  function avatarHtml(name, p) {
+    const hsh = hashName(name);
+    const own = Number(p && p.noir);
+    const k = (own >= 1 && own <= NOIR_COUNT ? own : 0) || noirMap[name] || (hsh % NOIR_COUNT) + 1;
+    const c = (p && p.color) || COLORS[hsh % COLORS.length];
+    return `<span class="av noir" style="--c:${escapeHtml(c)}"><img src="img/mafia/avatars/${NOIR_FILES[k - 1]}.webp" alt="" draggable="false" /></span>`;
+  }
+  function displayName(name, ctx) { return name === ctx.username ? "Я" : name; }
+
+  // Що Я знаю про гравця (лише з власної перспективи): напарники-мафія,
+  // нотатки шерифа. Ролі інших ніде більше не показуються до фіналу.
+  function knowledge(name, state, ctx) {
+    const players = state.players || {};
+    const me = players[ctx.username];
+    const p = players[name] || {};
+    const out = { cls: [], badgeC: "", badgeL: "" };
+    if (name === ctx.username) out.cls.push("me");
+    if (p.alive === false && state.phase !== "lobby") out.cls.push("dead");
+    if (me && me.role === "mafia" && p.role === "mafia" && name !== ctx.username) {
+      out.cls.push("mate"); out.badgeC = p.isDon ? ic("crown", "b-gold") : ic("knife", "b-red");
+    }
+    if (me && me.role === "doctor" && p.role === "doctor" && name !== ctx.username) {
+      out.cls.push("colleague"); out.badgeC = ic("syringe", "b-teal");
+    }
+    if (me && me.role === "sheriff") {
+      const log = Object.values(state.sheriffLog || {}).find((e) => e && e.target === name);
+      if (log) out.badgeC = `<span class="mark ${log.isMafia ? "bad" : "ok"}"></span>`;
+    }
+    return out;
+  }
+  function tokenHtml(name, state, ctx, extra) {
+    extra = extra || {};
+    const p = (state.players || {})[name] || {};
+    const k = knowledge(name, state, ctx);
+    const cls = k.cls.concat(extra.cls || []).join(" ");
+    return `<div class="tok ${cls}" data-id="${escapeHtml(name)}">
+      ${extra.top || ""}${avatarHtml(name, p)}
+      ${k.badgeC ? `<span class="badge-c">${k.badgeC}</span>` : ""}
+      ${extra.badgeL ? `<span class="badge-l">${extra.badgeL}</span>` : ""}
+      ${extra.dot || ""}
+      <span class="tok-name">${escapeHtml(displayName(name, ctx))}</span>
+      ${extra.below || ""}
+    </div>`;
+  }
+  function orderedNames(state) {
+    return Object.entries(state.players || {}).sort((a, b) => (a[1].joinedAt || 0) - (b[1].joinedAt || 0)).map(([n]) => n);
+  }
+
+  // ======================================================================
+  // Кінематографічні заставки (замість статичних SVG-банерів)
+  // ======================================================================
+  let cineTimer = null;
+  function showCine(kind, kicker, title, sub, durationMs) {
+    const el = $("cineOverlay");
+    let art = "";
+    if (kind === "night") art = `<div class="moon"></div>`;
+    else if (kind === "dawn-dead" || kind === "dawn-safe") art = `<div class="sunrise"></div><div class="horizon"></div>`;
+    else if (kind === "win-mafia") art = `<div class="big-emoji">${ic("knife")}</div>`;
+    else if (kind === "win-town") art = `<div class="big-emoji">${ic("scales")}</div>`;
+    el.className = "cine " + kind;
+    el.innerHTML = `<div class="cine-bar top"></div><div class="cine-bar bot"></div>
+      ${kind === "dawn-dead" || kind === "win-mafia" ? '<div class="blood-drip"></div>' : ""}
+      <div class="cine-art">${art}</div>
+      <div class="cine-kicker">${escapeHtml(kicker || "")}</div>
+      <div class="cine-title">${escapeHtml(title || "")}</div>
+      ${sub ? `<div class="cine-sub">${escapeHtml(sub)}</div>` : ""}`;
+    clearTimeout(cineTimer);
+    cineTimer = setTimeout(() => {
+      el.classList.add("out");
+      cineTimer = setTimeout(() => el.classList.add("hidden"), 480);
+    }, Math.max(800, (durationMs || 2400) - 450));
+  }
+
+  // ------------------------- звук + заставки по фазі -------------------------
   const PHASE_SOUND = {
     banner_night_start: "banner_night",
-    mafia_move: "mafia_move", doctor_move: "doctor_move", sheriff_move: "sheriff_move",
+    mafia_wake: "mafia_move", doctor_wake: "doctor_move", sheriff_wake: "sheriff_move",
     banner_morning: "banner_morning", last_words: "last_words",
     day_discussion: "day_discussion", voting: "voting", banner_state: "banner_state",
   };
   function cueEnterPhase(prevPhase, state, ctx) {
     if (prevPhase === state.phase) return;
+    // фонові доріжки живуть у межах своєї групи фаз
+    const AMBIENT_GROUP = { day_discussion: "day_discussion", doctor_wake: "doctor_night", doctor_move: "doctor_night" };
+    const prevAmb = AMBIENT_GROUP[prevPhase], nextAmb = AMBIENT_GROUP[state.phase];
+    if (prevAmb && prevAmb !== nextAmb) window.MafiaSounds.stopAmbient();
+    if (nextAmb && nextAmb !== prevAmb) window.MafiaSounds.playAmbient(nextAmb);
+    const n = state.nightNumber || 1;
 
-    // [на тестування] "діалог сімів" — ambient-доріжка живе окремо від
-    // основного play()-потоку, тож вмикаємо/вимикаємо її явно.
-    if (prevPhase === "day_discussion" && state.phase !== "day_discussion") window.MafiaSounds.stopAmbient();
-
-    // плейтест-2: окремий, довший звук для тих, кому випала мафія.
     if (state.phase === "role_reveal") {
-      const me = (state.players || {})[ctx && ctx.username];
+      const me = (state.players || {})[ctx.username];
       window.MafiaSounds.play(me && me.role === "mafia" ? "role_reveal_mafia" : "role_reveal");
     }
-
     const snd = PHASE_SOUND[state.phase];
     if (snd) window.MafiaSounds.play(snd);
-    if (state.phase === "day_discussion") window.MafiaSounds.playAmbient("day_discussion");
-    if (state.phase === "banner_night_start") showBanner("night", null, null, 1400 + 1500);
+    if (state.phase === "banner_night_start") {
+      showCine("night", `Ніч ${n}`, "Місто засинає", isIntroRound(state) ? "Ознайомча ніч — без жертв" : "Заплющте очі…", MG.PHASE_DURATIONS.banner_night_start + 400);
+    }
     if (state.phase === "banner_morning") {
       const killed = !!(state.nightResult && state.nightResult.victim);
-      showBanner(killed ? "day-killed" : "day-safe", null, null, 1400 + 1500);
+      showCine(killed ? "dawn-dead" : "dawn-safe", `Ранок ${n}`,
+        killed ? "Хтось не прокинувся…" : "Усі прокинулись живими",
+        killed ? "" : (state.nightResult && state.nightResult.savedSomeone ? "Лікар цієї ночі не спав" : ""),
+        MG.PHASE_DURATIONS.banner_morning);
     }
-    // night_reveal: два взаємовиключні варіанти звуку однієї й тієї ж фази
-    // (є жертва / нема) — узгоджено в mafia-sounds.js, не окремі фази.
     if (state.phase === "night_reveal") {
       window.MafiaSounds.play(state.nightResult && state.nightResult.victim ? "banner_morning_dead" : "banner_morning_safe");
     }
-    // player_elimination_anim: так само два варіанти — вигнано / нічия.
     if (state.phase === "player_elimination_anim") {
       window.MafiaSounds.play(state.lastEliminated ? "player_elimination_anim" : "voting_draw");
     }
     if (state.phase === "game_over") {
       const mafiaWon = state.winner === "mafia";
-      // УВАГА: файли названі не за власним результатом, а навпаки — Vlad
-      // переплутав назви при створенні: bnr_lose.svg показується, коли
-      // МАФІЯ ВИГРАЛА, а bnr_win.svg — коли ВИГРАЛИ ЦИВІЛЬНІ. Це навмисно
-      // так у коді, не одруківка — не "виправляй" назад на mafiaWon?"win":"lose".
-      // тест-10 фікс: caption тепер null, як і в night/day-safe/day-killed
-      // вище — bnr_win.svg/bnr_lose.svg вже мають текст переможця
-      // намальованим усередині SVG; окремий HTML-caption лише дублював
-      // його поверх (звідси сірий блок із перекритим текстом на телефоні).
-      showBanner(mafiaWon ? "lose" : "win", null);
+      showCine(mafiaWon ? "win-mafia" : "win-town", "Фінал", mafiaWon ? "Мафія перемогла" : "Місто перемогло",
+        mafiaWon ? "Місто впало у темряву" : "Мафію викрито", 3200);
       window.MafiaSounds.play(mafiaWon ? "game_over_mafia_win" : "game_over_mafia_lose");
     }
   }
 
-  // ------------------------- лобі -------------------------
-  let mafiaCountBuilt = false;
+  // ======================================================================
+  // HUD
+  // ======================================================================
+  const PHASE_TITLE = {
+    role_reveal: "Роздача ролей", banner_night_start: "Місто засинає", mafia_wake: "Прокидається мафія", doctor_wake: "Прокидаються лікарі", // замінюється на однину нижче, якщо лікар один sheriff_wake: "Прокидається шериф", mafia_move: "Хід мафії", doctor_move: "Хід лікаря",
+    sheriff_move: "Хід шерифа", banner_morning: "Світанок", night_reveal: "Ранкові новини", last_words: "Останнє слово",
+    day_discussion: "Обговорення", voting: "Голосування", player_elimination_anim: "Вирок", banner_state: "Підсумки",
+  };
+  function isIntroRound(state) {
+    return !!(state.settings && state.settings.introRoundEnabled) && (state.nightNumber || 1) === 1;
+  }
+  function renderHud(state) {
+    const inGame = state.phase !== "lobby" && state.phase !== "game_over";
+    $("hud").classList.toggle("hidden", !inGame);
+    if (!inGame) return;
+    const n = state.nightNumber || 1;
+    const night = NIGHT_PHASES.includes(state.phase);
+    const players = Object.values(state.players || {});
+    const alive = players.filter((p) => p.alive !== false).length;
+    const sig = [state.phase, n, alive, players.length, isIntroRound(state)].join("|");
+    if (!shouldRender("hud", sig)) return;
+    $("hudCycle").innerHTML = state.phase === "role_reveal" ? `${ic("reel")} Старт` : night ? `${ic("moon")} Ніч ${n}` : `${ic("sun")} День ${n}`;
+    $("hudTitle").innerHTML = escapeHtml(state.phase === "doctor_wake" && roleTextKey("doctor", state) === "doctor1" ? "Прокидається лікар" : (PHASE_TITLE[state.phase] || "")) + (isIntroRound(state) ? "<small>ознайомчий раунд</small>" : "");
+    $("hudAlive").innerHTML = `${ic("person")} ${alive}/${players.length}`;
+  }
 
+  // Компактна смуга «міста» — показуємо там, де немає власної сітки вибору.
+  function renderTown(state, ctx, visible) {
+    const el = $("townStrip");
+    el.classList.toggle("hidden", !visible);
+    if (!visible) return;
+    const players = state.players || {};
+    const showReady = state.phase === "day_discussion";
+    const ready = state.dayReady || {};
+    const sig = JSON.stringify([orderedNames(state).map((u) => [u, players[u].alive, players[u].character, players[u].noir, showReady && ready[u]]), showReady, state.sheriffLog || null, (players[ctx.username] || {}).role]);
+    if (!shouldRender("town", sig)) return;
+    el.innerHTML = orderedNames(state).map((u) => {
+      const p = players[u];
+      const dot = showReady && p.alive !== false ? `<span class="ready-dot ${ready[u] ? "" : "wait"}">${ready[u] ? "✓" : "…"}</span>` : "";
+      return tokenHtml(u, state, ctx, { dot });
+    }).join("");
+  }
+
+  // ======================================================================
+  // Лобі
+  // ======================================================================
+  let mafiaCountBuilt = false;
   function renderLobby(state, ctx) {
-    const conn = window.MafiaGame.connectedEntries(state.players);
+    const conn = MG.connectedEntries(state.players);
     const connSet = new Set(conn.map(([n]) => n));
-    const sig = JSON.stringify({
-      isOwner: ctx.isOwner,
-      settings: state.settings,
-      players: Object.entries(state.players || {}).map(([n, p]) => [n, p.ready, connSet.has(n)]),
-    });
+    const sig = JSON.stringify({ isOwner: ctx.isOwner, settings: state.settings, host: state.ownerUsername,
+      players: Object.entries(state.players || {}).map(([n, p]) => [n, p.ready, connSet.has(n), p.character, p.color, p.noir]) });
     if (!shouldRender("lobby", sig)) return;
 
-    document.getElementById("roomCodeDisplay").textContent = ctx.roomId || "";
-    document.getElementById("lobbyStatus").innerHTML =
-      `Онлайн: ${conn.length} з ${Object.keys(state.players || {}).length} (потрібно від ${window.MafiaGame.MIN_PLAYERS} до ${window.MafiaGame.MAX_PLAYERS})`;
+    $("roomCodeDisplay").innerHTML = `Кімната<b>${escapeHtml(ctx.roomId || "")}</b>`;
+    const total = Object.keys(state.players || {}).length;
+    $("lobbyStatus").textContent = `Мешканці міста · ${conn.length} онлайн · ${MG.MIN_PLAYERS}–${MG.MAX_PLAYERS}`;
 
-    document.getElementById("playersList").innerHTML = Object.entries(state.players || {}).map(([name, p]) => {
-      const online = conn.some(([n]) => n === name);
-      return `<div class="player-chip ${online ? "" : "offline"}">
-        <span>${escapeHtml(name)}</span>
-        <span>
-          ${state.ownerUsername === name ? '<span class="badge owner">ВЕДУЧИЙ</span>' : ""}
-          <span class="badge ${p.ready ? "ready" : "waiting"}">${p.ready ? "Готовий" : "Очікує"}</span>
-        </span>
-      </div>`;
+    $("playersList").innerHTML = orderedNames(state).map((name) => {
+      const p = state.players[name];
+      return tokenHtml(name, state, ctx, {
+        cls: connSet.has(name) ? [] : ["offline"],
+        top: state.ownerUsername === name ? `<span class="host-crown">${ic("hat")}</span>` : "",
+        dot: `<span class="ready-dot ${p.ready ? "" : "wait"}">${p.ready ? "✓" : "…"}</span>`,
+      });
     }).join("") || '<div class="status-line">Ще нікого немає</div>';
+    // свій аватар у лобі — торкнутись, щоб перегорнути силует
+    const myTok = Array.from($("playersList").querySelectorAll(".tok")).find((el) => el.dataset.id === ctx.username);
+    if (myTok) {
+      myTok.classList.add("pickable");
+      myTok.addEventListener("click", () => {
+        const pl = ((MG.room && MG.room.players) || {})[ctx.username] || {};
+        const cur = Number(pl.noir) || noirMap[ctx.username] || 1;
+        MG.setNoir(cur + 1);
+      });
+    }
+    $("lobbyHint").textContent = myTok ? "Торкнись свого аватара, щоб змінити силует" : "";
+
+    const settings = Object.assign({}, MG.DEFAULT_SETTINGS, state.settings);
+    const n = Math.max(total, MG.MIN_PLAYERS);
+    const m = MG.resolveMafiaCount(n, settings);
+    const docs = MG.resolveDoctorCount(n, settings);
+    const civ = n - m - docs - (settings.sheriffEnabled ? 1 : 0);
+    $("lobbyComp").innerHTML = `<span class="m">${ic("knife")} Мафія ×${m}</span>` + (docs ? `<span>${ic("syringe")} ${docs > 1 ? `Лікарі ×${docs}` : "Лікар"}</span>` : "") +
+      (settings.sheriffEnabled ? `<span>${ic("star")} Шериф</span>` : "") + `<span>${ic("person")} Мирні ×${Math.max(0, civ)}</span>`;
 
     const me = (state.players || {})[ctx.username];
-    const readyBtn = document.getElementById("toggleReadyBtn");
+    const readyBtn = $("toggleReadyBtn");
     readyBtn.classList.remove("hidden");
-    readyBtn.textContent = me && me.ready ? "Я не готовий" : "Я готовий";
+    readyBtn.classList.toggle("on", !!(me && me.ready));
+    readyBtn.textContent = me && me.ready ? "✓ Я готовий" : "Я готовий";
 
-    const settingsBox = document.getElementById("settingsBox");
+    const settingsBox = $("settingsBox");
     settingsBox.classList.toggle("hidden", !ctx.isOwner);
     if (!ctx.isOwner) return;
-
-    const settings = Object.assign({}, window.MafiaGame.DEFAULT_SETTINGS, state.settings);
-    document.getElementById("doctorToggle").checked = !!settings.doctorEnabled;
-    document.getElementById("sheriffToggle").checked = !!settings.sheriffEnabled;
-    document.getElementById("mafiaConsensusSelect").value = settings.mafiaConsensus;
-    document.getElementById("introRoundToggle").checked = !!settings.introRoundEnabled;
+    $("doctorToggle").checked = !!settings.doctorEnabled;
+    $("doctorCountRow").classList.toggle("hidden", !settings.doctorEnabled);
+    $("doctorCountSelect").value = String(settings.doctorCount || 1);
+    $("sheriffToggle").checked = !!settings.sheriffEnabled;
+    $("mafiaConsensusSelect").value = settings.mafiaConsensus;
+    $("introRoundToggle").checked = !!settings.introRoundEnabled;
     if (!mafiaCountBuilt) {
-      document.getElementById("mafiaCountSelect").innerHTML = `<option value="">авто</option>` + Array.from({ length: window.MafiaGame.MAX_MAFIA }, (_, i) => i + 1).map((n) => `<option value="${n}">${n}</option>`).join("");
+      $("mafiaCountSelect").innerHTML = `<option value="">авто</option>` + Array.from({ length: MG.MAX_MAFIA }, (_, i) => i + 1).map((k) => `<option value="${k}">${k}</option>`).join("");
       mafiaCountBuilt = true;
     }
-    document.getElementById("mafiaCountSelect").value = settings.mafiaCount == null ? "" : String(settings.mafiaCount);
-
-    const n = conn.length;
-    const enough = n >= window.MafiaGame.MIN_PLAYERS && Object.keys(state.players || {}).length <= window.MafiaGame.MAX_PLAYERS;
-    document.getElementById("startGameBtn").disabled = !enough;
-    document.getElementById("startHint").textContent = enough ? "" : `Потрібно ще ${Math.max(0, window.MafiaGame.MIN_PLAYERS - n)} гравців(я) онлайн`;
+    $("mafiaCountSelect").value = settings.mafiaCount == null ? "" : String(settings.mafiaCount);
+    const enough = conn.length >= MG.MIN_PLAYERS && total <= MG.MAX_PLAYERS;
+    $("startGameBtn").disabled = !enough;
+    $("startHint").textContent = enough ? "" : `Потрібно ще ${Math.max(0, MG.MIN_PLAYERS - conn.length)} гравців(я) онлайн`;
   }
 
   // ------------------------- рендер-гейт -------------------------
@@ -511,433 +1050,598 @@
   }
   function resetRenderMemo() { renderMemo = {}; }
 
-  // ------------------------- роль -------------------------
+  // ======================================================================
+  // Роль
+  // ======================================================================
+  let roleInfoTimer = null;
   function renderRoleReveal(state, ctx) {
-    if (!shouldRender("roleReveal", "1")) return; // анімація — рівно раз на вхід у фазу
-    const me = (state.players || {})[ctx.username];
-    window.MafiaRoleReveal.play((me && me.role) || "civilian", { isDon: !!(me && me.isDon) });
+    if (!shouldRender("roleReveal", "1")) return;
+    const players = state.players || {};
+    const me = players[ctx.username] || {};
+    const role = me.role || "civilian";
+    window.MafiaRoleReveal.play(role, { isDon: !!me.isDon, name: ctx.username, avatarHtml: avatarHtml(ctx.username, me) });
+    const meta = ROLE_META[role] || ROLE_META.civilian;
+    const info = $("roleInfo");
+    info.className = "role-info " + role;
+    let team = "";
+    if (role === "mafia") {
+      const mates = orderedNames(state).filter((u) => players[u].role === "mafia" && u !== ctx.username);
+      team = mates.length
+        ? `<div class="eyebrow" style="margin-top:14px">Твоя сім'я</div><div class="team">${mates.map((u) => tokenHtml(u, state, ctx)).join("")}</div>`
+        : `<div class="hint-text">Ти працюєш сам. Нікому не довіряй.</div>`;
+    }
+    if (role === "doctor") {
+      const mates = orderedNames(state).filter((u) => players[u].role === "doctor" && u !== ctx.username);
+      if (mates.length) team = `<div class="eyebrow" style="margin-top:14px">Твої колеги</div><div class="team">${mates.map((u) => tokenHtml(u, state, ctx)).join("")}</div>`;
+    }
+    info.innerHTML = `<div class="rname">${escapeHtml(meta.name)}${me.isDon ? " · Дон" : ""}</div><div class="rdesc">${escapeHtml(meta.desc)}</div>${team}`;
+    clearTimeout(roleInfoTimer);
+    roleInfoTimer = setTimeout(() => info.classList.add("shown"), window.MafiaRoleReveal.DURATION_MS + 100);
+    if (role === "mafia") try { if (navigator.vibrate) navigator.vibrate(120); } catch (e) { /* ignore */ }
   }
 
-  // ------------------------- ніч -------------------------
-  function isIntroRound(state) {
-    return !!(state.settings && state.settings.introRoundEnabled) && (state.nightNumber || 1) === 1;
+  // ======================================================================
+  // Ніч
+  // ======================================================================
+  const NIGHT_ROLE_OF_PHASE = { mafia_wake: "mafia", mafia_move: "mafia", doctor_wake: "doctor", doctor_move: "doctor", sheriff_wake: "sheriff", sheriff_move: "sheriff" };
+  // Однина/множина для лікарів — за кількістю роздаених ролей (не живих,
+  // щоб не підказувати, що когось із лікарів уже вбили).
+  function roleTextKey(role, state) {
+    if (role !== "doctor") return role;
+    const n = Object.values(state.players || {}).filter((p) => p.role === "doctor").length;
+    return n > 1 ? "doctor" : "doctor1";
+  }
+  const STEP_OF_PHASE = { mafia_wake: "mafia_move", doctor_wake: "doctor_move", sheriff_wake: "sheriff_move" };
+  const OPEN_EYES = { mafia: "Мафія, відкрийте очі", doctor: "Лікарі, відкрийте очі", doctor1: "Лікарю, відкрий очі", sheriff: "Шерифе, відкрий очі" };
+  const WAKE_TEXT = { mafia: "Прокидається мафія", doctor: "Прокидаються лікарі", doctor1: "Прокидається лікар", sheriff: "Прокидається шериф" };
+
+  function renderNightSteps(state) {
+    const s = Object.assign({}, MG.DEFAULT_SETTINGS, state.settings);
+    const steps = [["mafia_move", `${ic("knife")} Мафія`]];
+    if (s.doctorEnabled) steps.push(["doctor_move", `${ic("syringe")} Лікар`]);
+    if (s.sheriffEnabled) steps.push(["sheriff_move", `${ic("star")} Шериф`]);
+    const cur = STEP_OF_PHASE[state.phase] || state.phase;
+    const idx = steps.findIndex(([ph]) => ph === cur);
+    $("nightSteps").innerHTML = steps.map(([, label], i) => `<span class="${i < idx ? "done" : i === idx ? "now" : ""}">${label}</span>`).join("");
   }
 
-  const NIGHT_ROLE_OF_PHASE = { mafia_move: "mafia", doctor_move: "doctor", sheriff_move: "sheriff" };
-  const NIGHT_TITLE = { mafia_move: "🔪 Хід мафії", doctor_move: "💉 Хід лікаря", sheriff_move: "🕵️ Хід шерифа" };
+  function sheriffNotebook(state) {
+    const log = Object.values(state.sheriffLog || {}).sort((a, b) => a.n - b.n);
+    if (!log.length) return "";
+    return `<div class="notebook"><div class="nb-t">Нотатки шерифа</div>${log.map((e) =>
+      `<div>Ніч ${e.n}: ${escapeHtml(e.target)} — <span class="${e.isMafia ? "bad" : "ok"}">${e.isMafia ? "МАФІЯ" : "чистий"}</span></div>`).join("")}</div>`;
+  }
+
+  function roleBanner(role, title, desc) {
+    const meta = ROLE_META[role] || ROLE_META.civilian;
+    return `<div class="role-banner r-${role}"><div class="ico">${ic(ROLE_IC[role] || "person")}</div><div><div class="t">${escapeHtml(title)}</div><div class="d">${escapeHtml(desc)}</div></div></div>`;
+  }
 
   function renderNight(state, ctx) {
     const players = state.players || {};
     const me = players[ctx.username];
     const sig = JSON.stringify({
-      phase: state.phase, meRole: me && me.role, meAlive: me && me.alive,
-      moves: state.moves,
-      players: Object.entries(players).map(([u, p]) => [u, p.role, p.alive, p.isDon]),
+      phase: state.phase, meRole: me && me.role, meAlive: me && me.alive, moves: state.moves, log: state.sheriffLog || null,
+      players: Object.entries(players).map(([u, p]) => [u, p.role, p.alive, p.isDon, p.character]),
     });
+    renderNightSteps(state);
+    const content = $("nightContent");
+    const activeRole = NIGHT_ROLE_OF_PHASE[state.phase];
+    const waking = !!STEP_OF_PHASE[state.phase];
+    const iAct = !!(me && me.alive && me.role === activeRole) && !waking;
+    const iWake = !!(me && me.alive && me.role === activeRole) && waking;
+    const showChat = !!(me && (!me.alive || (state.phase === "mafia_move" && me.role === "mafia")));
+    renderTown(state, ctx, !iAct);
+    if (showChat) renderChat(state, ctx, "nightChat", true); else if (shouldRender("nightChatClear", "1")) { $("nightChat").innerHTML = ""; renderMemo.chatSkeleton = undefined; }
     if (!shouldRender("night", sig)) return;
 
-    document.getElementById("nightTitle").textContent = (NIGHT_TITLE[state.phase] || "🌙 Ніч") + (isIntroRound(state) ? " · ознайомчий" : "");
-    const content = document.getElementById("nightContent");
-
     if (!me || !me.alive) {
-      content.innerHTML = `<div class="sleeping-screen"><div class="icon">🌙</div>Ти вибув з гри — спостерігай мовчки.</div>`;
+      content.innerHTML = `<div class="sleep"><div class="ghost big-ic">${ic("ghost")}</div><div class="big">Ти привид цього міста</div>
+        <div class="status-line">Спостерігай мовчки. Тут можна шепотітися з іншими вибулими.</div></div>`;
       return;
     }
-    const activeRole = NIGHT_ROLE_OF_PHASE[state.phase];
-    if (me.role !== activeRole) {
-      content.innerHTML = `<div class="sleeping-screen"><div class="icon">🌙</div>Заплющ очі. Зараз хід ролі «${(ROLE_META[activeRole] || {}).name}».</div>`;
+    if (!activeRole) {
+      content.innerHTML = `<div class="sleep"><div class="moon"></div><div class="zzz"><span>z</span><span>z</span><span>z</span></div><div class="big">Місто засинає</div></div>`;
+      return;
+    }
+    if (iWake) {
+      content.innerHTML = `<div class="sleep wake"><div class="eye-open">${ic("eye")}</div>
+        <div class="big">${OPEN_EYES[roleTextKey(activeRole, state)]}</div>
+        <div class="status-line">Тихо. За мить відкриється вибір.</div></div>`;
+      return;
+    }
+    if (!iAct) {
+      content.innerHTML = `<div class="sleep"><div class="moon"></div><div class="zzz"><span>z</span><span>z</span><span>z</span></div>
+        <div class="big">${WAKE_TEXT[roleTextKey(activeRole, state)] || "Ніч"}</div>
+        <div class="status-line">Заплющ очі й не підглядай. ${me.role === "civilian" ? "Мирні вночі сплять." : ""}</div></div>
+        ${me.role === "sheriff" ? sheriffNotebook(state) : ""}`;
       return;
     }
 
-    const pool = Object.entries(players).filter(([u, p]) => p.alive && u !== ctx.username);
-    const myMove = (state.moves || {})[ctx.username];
+    const names = orderedNames(state);
+    const pool = names.filter((u) => players[u].alive && u !== ctx.username);
+    const moves = state.moves || {};
+    const myMove = moves[ctx.username];
+    const dense = pool.length + 1 > 9 ? " dense" : "";
 
     if (me.role === "mafia") {
-      const teammates = Object.entries(players).filter(([u, p]) => p.role === "mafia" && p.alive && u !== ctx.username);
-      const teamHtml = teammates.length
-        ? `<div class="mafia-team-box">${teammates.map(([u]) => {
-            const tm = (state.moves || {})[u];
-            const pick = !tm ? "ще обирає" : tm.choice === "skip" ? "🚫 skip" : escapeHtml(tm.target);
-            return `${escapeHtml(u)}${(players[u] || {}).isDon ? " 👑" : ""}: <span class="pick">${pick}</span>`;
-          }).join(" · ")}</div>` : "";
-      content.innerHTML = teamHtml + `
-        <div class="target-grid">
-          ${pool.map(([u, p]) => `
-            <div class="target-card ${myMove && myMove.target === u ? "selected mafia" : ""}" data-id="${escapeHtml(u)}">
-              <div class="avatar">${initials(u)}</div><div class="name">${escapeHtml(u)}${p.role === "mafia" ? " 🔪" : ""}</div>
-            </div>`).join("")}
+      const mates = names.filter((u) => players[u].role === "mafia" && players[u].alive && u !== ctx.username);
+      const teamHtml = mates.length ? `<div class="mafia-team-box">${mates.map((u) => {
+        const tm = moves[u];
+        const pick = !tm ? "обирає…" : tm.choice === "skip" ? "пропуск" : "→ " + escapeHtml(tm.target);
+        return `<div class="row">${avatarHtml(u, players[u])}<span>${escapeHtml(u)}${players[u].isDon ? " · дон" : ""}</span><span class="pick">${pick}</span></div>`;
+      }).join("")}</div>` : "";
+      const pickers = {};
+      names.filter((u) => players[u].role === "mafia" && players[u].alive).forEach((u) => {
+        const mv = moves[u]; if (mv && mv.choice === "target") (pickers[mv.target] = pickers[mv.target] || []).push(u);
+      });
+      content.innerHTML = roleBanner("mafia", "Ваш хід, сім'я", mates.length ? "Домовтесь у чаті й оберіть одну ціль." : "Обери, кого усунути цієї ночі.") + teamHtml + `
+        <div class="target-grid mode-mafia${dense}">
+          ${pool.map((u) => tokenHtml(u, state, ctx, {
+            cls: myMove && myMove.target === u ? ["selected"] : [],
+            below: `<div class="picks">${(pickers[u] || []).filter((x) => x !== ctx.username).map((x) => avatarHtml(x, players[x])).join("")}</div>`,
+          })).join("")}
         </div>
-        <button class="secondary-btn" id="mafiaSkipBtn">🚫 Пропустити (не вбивати)</button>
-        <div class="hint-text">${myMove ? (myMove.choice === "skip" ? "Обрано: пропустити." : `Обрано: ${escapeHtml(myMove.target)}. Можна змінити до кінця таймера.`) : "Обери ціль або натисни «Пропустити»."}</div>`;
-      content.querySelectorAll(".target-card").forEach((el) => {
+        <button class="secondary-btn ${myMove && myMove.choice === "skip" ? "on" : ""}" id="mafiaSkipBtn">Пропустити ніч</button>
+        <div class="hint-text">${myMove ? (myMove.choice === "skip" ? "Обрано: нікого не чіпати." : `Ціль: ${escapeHtml(myMove.target)}. Можна змінити до кінця таймера.`) : "Торкнись гравця, щоб навести приціл."}</div>`;
+      content.querySelectorAll(".target-grid .tok").forEach((el) => {
         el.addEventListener("click", () => {
           const target = el.dataset.id;
           if (players[target] && players[target].role === "mafia" && !confirm(`${target} — теж мафія. Справді ціль — напарник?`)) return;
-          window.MafiaGame.submitMafiaMove(target);
+          MG.submitMafiaMove(target);
         });
       });
-      document.getElementById("mafiaSkipBtn").addEventListener("click", () => window.MafiaGame.submitMafiaMove(null));
+      $("mafiaSkipBtn").addEventListener("click", () => MG.submitMafiaMove(null));
       return;
     }
 
     if (me.role === "doctor") {
-      // плейтест-2: скіп лікаря прибрано повністю — жодної кнопки
-      // "пропустити", лікар або обирає ціль, або не встигає до таймера.
-      const selfIncluded = [[ctx.username, me]].concat(pool);
-      content.innerHTML = `
-        <div class="target-grid">
-          ${selfIncluded.map(([u]) => `
-            <div class="target-card ${myMove && myMove.choice === "target" && myMove.target === u ? "selected" : ""}" data-id="${escapeHtml(u)}">
-              <div class="avatar">${initials(u)}</div><div class="name">${u === ctx.username ? "Я" : escapeHtml(u)}</div>
-            </div>`).join("")}
+      const all = [ctx.username].concat(pool);
+      const sel = myMove && myMove.choice === "target" ? myMove.target : null;
+      const medics = names.filter((u) => players[u].role === "doctor" && players[u].alive && u !== ctx.username);
+      const medHtml = medics.length ? `<div class="mafia-team-box medics">${medics.map((u) => {
+        const mv = moves[u];
+        const pick = !mv ? "обирає…" : "→ " + escapeHtml(mv.target === u ? "себе" : mv.target);
+        return `<div class="row">${avatarHtml(u, players[u])}<span>${escapeHtml(u)}</span><span class="pick">${pick}</span></div>`;
+      }).join("")}</div>` : "";
+      content.innerHTML = roleBanner("doctor", "Нічне чергування", medics.length ? "Домовтесь не рятувати одного й того ж." : "Обери, кого врятувати. Можна й себе.") + medHtml + `
+        <div class="target-grid mode-doctor${dense}">
+          ${all.map((u) => tokenHtml(u, state, ctx, { cls: sel === u ? ["selected"] : [] })).join("")}
         </div>
-        <div class="hint-text">${myMove && myMove.choice === "target" ? `Рятуєш: ${myMove.target === ctx.username ? "себе" : escapeHtml(myMove.target)}. Можна змінити.` : "Обери, кого врятувати цієї ночі."}</div>`;
-      content.querySelectorAll(".target-card").forEach((el) => {
-        el.addEventListener("click", () => window.MafiaGame.submitDoctorMove(el.dataset.id));
-      });
+        <div class="hint-text">${sel ? `Рятуєш: ${sel === ctx.username ? "себе" : escapeHtml(sel)}. Можна змінити.` : "Торкнись гравця, щоб узяти під захист."}</div>`;
+      content.querySelectorAll(".target-grid .tok").forEach((el) => el.addEventListener("click", () => MG.submitDoctorMove(el.dataset.id)));
       return;
     }
 
     if (me.role === "sheriff") {
       const locked = !!myMove;
-      content.innerHTML = `
-        <div class="target-grid">
-          ${pool.map(([u]) => {
+      content.innerHTML = roleBanner("sheriff", "Розслідування", locked ? "Перевірку цієї ночі використано." : "Обери, кого перевірити. Вибір остаточний.") + `
+        <div class="target-grid mode-sheriff${dense}">
+          ${pool.map((u) => {
             const isChecked = locked && myMove.target === u;
             const isMafia = isChecked && players[u].role === "mafia";
-            return `<div class="target-card ${isChecked ? "selected check-result" : ""} ${locked && !isChecked ? "" : ""}" data-id="${escapeHtml(u)}" style="${locked && !isChecked ? "opacity:.35;pointer-events:none;" : ""}">
-              <div class="avatar">${initials(u)}</div><div class="name">${escapeHtml(u)}</div>
-              ${isChecked ? `<div class="check-badge ${isMafia ? "is-mafia" : "not-mafia"}">${isMafia ? "🔴 Мафія" : "🟢 Не мафія"}</div>` : ""}
-            </div>`;
+            return tokenHtml(u, state, ctx, {
+              cls: isChecked ? ["selected"] : locked ? ["locked"] : [],
+              below: isChecked ? `<span class="check-stamp ${isMafia ? "is-mafia" : "not-mafia"}">${isMafia ? "МАФІЯ" : "ЧИСТИЙ"}</span>` : "",
+            });
           }).join("")}
-        </div>
-        <div class="hint-text">${locked ? "Перевірку використано цієї ночі." : "Обери, кого перевірити — вибір остаточний."}</div>`;
-      if (!locked) {
-        content.querySelectorAll(".target-card").forEach((el) => {
-          el.addEventListener("click", () => window.MafiaGame.submitSheriffMove(el.dataset.id));
-        });
-      }
+        </div>${sheriffNotebook(state)}`;
+      if (!locked) content.querySelectorAll(".target-grid .tok").forEach((el) => el.addEventListener("click", () => {
+        const target = el.dataset.id;
+        const known = Object.values(state.sheriffLog || {}).find((e) => e && e.target === target);
+        if (known && !confirm(`Ти вже перевіряв ${target} (ніч ${known.n}: ${known.isMafia ? "мафія" : "не мафія"}). Точно перевірити ще раз?`)) return;
+        MG.submitSheriffMove(target);
+      }));
       return;
     }
-
-    content.innerHTML = `<div class="sleeping-screen"><div class="icon">🌙</div>У тебе немає нічної дії. Місто спить.</div>`;
   }
 
+  // ======================================================================
+  // Ранок — газета
+  // ======================================================================
+  const PAPER_DEAD = [
+    "Тіло знайшли на світанку біля старої пекарні. Свідків, як завжди, немає. Поліція розводить руками, а місто шепочеться.",
+    "Сусіди кажуть, що чули вночі кроки й тихий скрип дверей. Вранці на порозі лишилась тільки троянда.",
+    "Мешканці вимагають відповідей. Хтось серед нас знає більше, ніж каже. Редакція закликає не довіряти навіть друзям.",
+    "Капелюх, кинутий у калюжу, і запах дорогих сигар — більше слідчим нічого не дісталось.",
+  ];
+  const PAPER_SAFE = [
+    "Ніч минула тихо — лише дощ барабанив по дахах. Але редакція переконана: мафія нікуди не ділась.",
+    "Цього ранку всі на місці. Надовго? Ніхто не знає. Будьте пильні й придивляйтесь одне до одного.",
+    "Місто прокинулось без втрат. Кажуть, хтось вночі чатував біля чужого вікна — і це був не вбивця.",
+  ];
   function renderNightResult(state, ctx) {
     const result = state.nightResult || {};
-    if (!shouldRender("nightResult", JSON.stringify(result))) return;
-    const me = (state.players || {})[ctx.username];
+    const players = state.players || {};
+    const me = players[ctx.username];
+    const n = state.nightNumber || 1;
+    renderTown(state, ctx, true);
+    if (!shouldRender("nightResult", JSON.stringify([result, state.phase]))) return;
     const dead = result.victim;
+    const lines = dead ? PAPER_DEAD : PAPER_SAFE;
+    const p1 = lines[(n + hashName(dead || "")) % lines.length];
+    let head, photo;
+    if (dead) {
+      head = `<div class="paper-head red">Убивство! Загинув(ла) ${escapeHtml(dead)}</div>`;
+      photo = `<div class="paper-photo dead">${avatarHtml(dead, players[dead])}</div>`;
+    } else {
+      head = `<div class="paper-head">${result.intro ? "Ознайомча ніч: усі живі" : result.savedSomeone ? "Диво! Лікар урятував життя" : "Тиха ніч у місті"}</div>`;
+      photo = `<div class="paper-photo"><span class="sun">${ic(result.savedSomeone ? "syringe" : "sun")}</span></div>`;
+    }
+    const alive = Object.values(players).filter((p) => p.alive !== false).length;
     let sheriffHtml = "";
     if (me && me.role === "sheriff" && result.sheriffCheck) {
-      sheriffHtml = `<div class="sheriff-recap">Перевірка: ${escapeHtml(result.sheriffCheck.username)} — ${result.sheriffCheck.isMafia ? "мафія" : "не мафія"}</div>`;
+      sheriffHtml = `<div class="notebook" style="margin-top:16px"><div class="nb-t">Таємна записка</div>${escapeHtml(result.sheriffCheck.username)} — <span class="${result.sheriffCheck.isMafia ? "bad" : "ok"}">${result.sheriffCheck.isMafia ? "МАФІЯ" : "не мафія"}</span></div>`;
     }
-    document.getElementById("nightResultContent").innerHTML = `
-      <div class="result-card ${dead ? "" : "safe"}">
-        <div class="avatar-big">${dead ? initials(dead) : "🌅"}</div>
-        <div class="result-title">${dead ? `Загинув(ла): ${escapeHtml(dead)}` : "Ніхто не загинув"}</div>
-      </div>${sheriffHtml}`;
+    $("nightResultContent").innerHTML = `
+      <div class="paper">
+        <div class="paper-mast"><span>Ранок ${n}</span><span>Ціна: 1 гривня</span></div>
+        <div class="paper-name">Вісник Міста</div>
+        <div class="paper-mast"><span>Екстрений випуск</span><span>Живих: ${alive}</span></div>
+        ${head}
+        <div class="paper-body">${photo}<div class="paper-cols"><p>${p1}</p></div></div>
+        <div class="paper-foot"><span>Погода: туман</span><span>Хто з вас?</span></div>
+      </div>
+      ${dead === ctx.username ? `<div class="you-dead-note">Це про тебе. Тебе вбили цієї ночі.</div>` : ""}
+      ${sheriffHtml}`;
   }
 
-  // ------------------------- останні слова -------------------------
+  // ======================================================================
+  // Останнє слово
+  // ======================================================================
   function renderLastWords(state, ctx) {
     const lw = state.lastWords || {};
+    renderTown(state, ctx, true);
     if (!shouldRender("lastWords", lw.victim || "")) return;
     const isMe = lw.victim === ctx.username;
-    document.getElementById("lastWordsContent").innerHTML = `
-      <div class="avatar-big">${initials(lw.victim)}</div>
-      <div class="title">${isMe ? "Твоє останнє слово" : `${escapeHtml(lw.victim)} — останнє слово`}</div>
-      <div class="status-line">${isMe ? "Скажи щось на прощання вголос." : "Слухаємо…"}</div>`;
+    const byVote = state.lastWordsNext === "player_elimination_anim";
+    $("lastWordsContent").innerHTML = `
+      ${avatarHtml(lw.victim, (state.players || {})[lw.victim])}
+      <div class="quote">${isMe ? "Твоє останнє слово" : `Останнє слово: ${escapeHtml(lw.victim)}`}</div>
+      <div class="status-line">${byVote ? "Місто проголосувало." : "Ніч забрала ще одного."} ${isMe ? "Скажи щось на прощання вголос — у тебе кілька секунд." : "Тиша в залі. Слухаємо…"}</div>
+      ${isMe ? `<div class="mic"><i></i> Ти в ефірі</div>` : ""}`;
   }
 
-  // ------------------------- день -------------------------
-  function renderChat(state, ctx, containerId) {
-    const rows = window.MafiaGame.visibleChat(state, ctx.username).sort((a, b) => (a.at || 0) - (b.at || 0)).slice(-40);
-    const channel = window.MafiaGame.myChatChannel(state);
+  // ======================================================================
+  // Чат
+  // ======================================================================
+  function renderChat(state, ctx, containerId, short) {
+    const rows = MG.visibleChat(state, ctx.username).sort((a, b) => (a.at || 0) - (b.at || 0)).slice(-50);
+    const channel = MG.myChatChannel(state);
     const players = state.players || {};
     const me = players[ctx.username];
     const showReadyRow = state.phase === "day_discussion" && me && me.alive;
     const skeletonKey = containerId + "|" + (channel ? channel.key : "none") + "|" + showReadyRow;
     if (shouldRender("chatSkeleton", skeletonKey)) {
-      renderMemo.chatLog = undefined; // форсувати перший рендер логу в новому скелеті
-      document.getElementById(containerId).innerHTML = `
-        <div class="chat-log" id="chatLog"></div>
-        ${channel ? `
-          <div class="chat-input-row"><input id="chatInput" placeholder="Повідомлення..." maxlength="300" /><button id="chatSendBtn">➤</button></div>
-          <div class="chat-channel-label">${channel.status === "role_mafia" ? "Канал мафії" : channel.status === "role_spectator" ? "Канал спостерігачів" : "Загальний чат"}</div>` : ""}
-        ${showReadyRow ? `<button class="secondary-btn" id="dayReadyBtn"></button><div class="hint-text" id="dayReadyHint"></div>` : ""}`;
+      renderMemo.chatLog = undefined;
+      const label = !channel ? "" : channel.status === "role_mafia" ? '<div class="chat-channel-label mafia">Канал мафії — бачите лише ви</div>'
+        : channel.status === "role_spectator" ? '<div class="chat-channel-label spectator">Канал привидів</div>' : '<div class="chat-channel-label">Загальний чат міста</div>';
+      $(containerId).innerHTML = `
+        ${showReadyRow ? `<button class="primary-btn" id="dayReadyBtn" style="margin:0 0 4px"></button><div class="hint-text" id="dayReadyHint" style="margin-top:0;margin-bottom:6px"></div>` : ""}
+        <div class="chat-log ${short ? "short" : ""}" id="chatLog"></div>
+        ${channel ? `<div class="chat-input-row"><input id="chatInput" placeholder="${channel.status === "role_mafia" ? "Шепни сім'ї…" : "Повідомлення…"}" maxlength="300" autocomplete="off" /><button id="chatSendBtn">➤</button></div>${label}` : ""}`;
       if (channel) {
         const send = () => {
-          const input = document.getElementById("chatInput");
-          if (input.value.trim()) { window.MafiaGame.sendChatMessage(input.value); input.value = ""; }
+          const input = $("chatInput");
+          if (input.value.trim()) { MG.sendChatMessage(input.value); input.value = ""; }
         };
-        document.getElementById("chatSendBtn").addEventListener("click", send);
-        document.getElementById("chatInput").addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
+        $("chatSendBtn").addEventListener("click", send);
+        $("chatInput").addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
       }
       if (showReadyRow) {
-        document.getElementById("dayReadyBtn").addEventListener("click", () => {
-          const nowMe = window.MafiaGame.me;
-          window.MafiaGame.setDayReady(!(nowMe && (window.MafiaGame.room.dayReady || {})[ctx.username]));
+        $("dayReadyBtn").addEventListener("click", () => {
+          MG.setDayReady(!((MG.room && MG.room.dayReady) || {})[ctx.username]);
         });
       }
     }
     const logSig = JSON.stringify(rows.map((c) => c.at + "|" + c.username + "|" + c.text));
     if (shouldRender("chatLog", logSig)) {
-      const log = document.getElementById("chatLog");
-      log.innerHTML = rows.map((c) => `<div class="chat-line ${c.status === "role_mafia" ? "mafia" : c.status === "role_spectator" ? "spectator" : ""}"><span class="who">${escapeHtml(c.username)}:</span>${escapeHtml(c.text)}</div>`).join("") || '<div class="chat-line">Тиша…</div>';
+      const log = $("chatLog");
+      log.innerHTML = rows.map((c) => {
+        const kind = c.status === "role_mafia" ? "mafia" : c.status === "role_spectator" ? "spectator" : "";
+        const mine = c.username === ctx.username;
+        return `<div class="chat-line ${kind} ${mine ? "mine" : ""}">${avatarHtml(c.username, players[c.username])}<div class="bubble">${mine ? "" : `<span class="who">${escapeHtml(c.username)}</span>`}${escapeHtml(c.text)}</div></div>`;
+      }).join("") || `<div class="chat-empty">${channel && channel.status === "role_mafia" ? "Тихо… сім'я ще мовчить." : "Тиша… Хто заговорить першим?"}</div>`;
       log.scrollTop = log.scrollHeight;
     }
     if (showReadyRow) {
-      const conn = window.MafiaGame.connectedEntries(players).filter(([, p]) => p.alive);
+      const conn = MG.connectedEntries(players).filter(([, p]) => p.alive);
       const ready = state.dayReady || {};
       const readyCount = conn.filter(([u]) => ready[u]).length;
       const sig = readyCount + "/" + conn.length + "|" + !!ready[ctx.username];
       if (shouldRender("dayReady", sig)) {
-        const btn = document.getElementById("dayReadyBtn");
+        const btn = $("dayReadyBtn");
         if (btn) {
-          btn.textContent = ready[ctx.username] ? "✅Готовий голосувати" : "Готовий голосувати";
-          document.getElementById("dayReadyHint").textContent = `Готові: ${readyCount} з ${conn.length}`;
+          btn.textContent = ready[ctx.username] ? "✓ Готовий голосувати" : "Готовий голосувати";
+          btn.style.filter = ready[ctx.username] ? "grayscale(.6)" : "";
+          $("dayReadyHint").textContent = `Готові: ${readyCount} з ${conn.length} — коли всі, голосування почнеться раніше`;
         }
       }
     }
   }
 
+  // ======================================================================
+  // День
+  // ======================================================================
   function renderDay(state, ctx) {
+    const voting = state.phase === "voting";
     if (shouldRender("daySkeleton", state.phase)) {
-      document.getElementById("dayTitle").textContent = (state.phase === "voting" ? "🗳️ Голосування" : "💬 Обговорення") + (isIntroRound(state) ? " · ознайомчий" : "");
-      document.getElementById("dayContent").innerHTML =
-        (state.phase === "voting" ? `<div id="dayVoteArea"></div>` : "") + `<div id="chatArea"></div>`;
+      $("dayContent").innerHTML = (voting ? `<div class="card" id="dayVoteArea"></div>` : "") + `<div id="chatArea" class="chat-wrap card"></div>`;
     }
+    renderTown(state, ctx, !voting);
+    if (!voting) { renderChat(state, ctx, "chatArea"); return; }
 
-    if (state.phase === "day_discussion") {
-      renderChat(state, ctx, "chatArea");
-      return;
-    }
-
-    // voting
     const players = state.players || {};
     const me = players[ctx.username];
     const votes = state.votes || {};
-    const counts = {};
-    Object.entries(votes).forEach(([voter, target]) => { if (players[voter] && players[voter].alive) counts[target] = (counts[target] || 0) + 1; });
-    const voteArea = document.getElementById("dayVoteArea");
-
-    if (!me || !me.alive) {
-      if (shouldRender("voteArea", "spectator")) {
-        voteArea.innerHTML = `<div class="sleeping-screen">Ти вибув — спостерігай за голосуванням.</div>`;
-      }
-    } else {
-      const pool = Object.entries(players).filter(([u, p]) => p.alive && u !== ctx.username);
-      const sig = JSON.stringify({ myVote: votes[ctx.username], counts, pool: pool.map(([u]) => u) });
-      if (shouldRender("voteArea", sig)) {
-        const myVote = votes[ctx.username];
-        voteArea.innerHTML = `
-          <div class="target-grid">
-            ${pool.map(([u]) => `
-              <div class="target-card ${myVote === u ? "selected" : ""}" data-id="${escapeHtml(u)}">
-                ${counts[u] ? `<span class="vote-count">${counts[u]}</span>` : ""}
-                <div class="avatar">${initials(u)}</div><div class="name">${escapeHtml(u)}</div>
-              </div>`).join("")}
-          </div>
-          ${myVote ? `<button class="secondary-btn" id="cancelVoteBtn">🚫 Скасувати голос</button>` : ""}
-          <div class="hint-text">${myVote ? "Голос враховано — можна змінити або скасувати." : "Клікни на аватарку, кого підозрюєш."}</div>`;
-        voteArea.querySelectorAll(".target-card").forEach((el) => {
-          el.addEventListener("click", () => window.MafiaGame.submitVote(el.dataset.id));
-        });
-        const cancelBtn = document.getElementById("cancelVoteBtn");
-        if (cancelBtn) cancelBtn.addEventListener("click", () => window.MafiaGame.submitVote(null));
+    const counts = {}, voters = {};
+    Object.entries(votes).forEach(([voter, target]) => {
+      if (players[voter] && players[voter].alive) { counts[target] = (counts[target] || 0) + 1; (voters[target] = voters[target] || []).push(voter); }
+    });
+    const voteArea = $("dayVoteArea");
+    const names = orderedNames(state);
+    const alivePool = names.filter((u) => players[u].alive);
+    const iCanVote = !!(me && me.alive);
+    const pool = iCanVote ? alivePool.filter((u) => u !== ctx.username) : alivePool;
+    const sig = JSON.stringify({ myVote: votes[ctx.username], voters, pool, iCanVote });
+    if (shouldRender("voteArea", sig)) {
+      const myVote = votes[ctx.username];
+      const totalVotes = Object.values(counts).reduce((a, b) => a + b, 0);
+      voteArea.innerHTML = `
+        <div class="eyebrow" style="margin-bottom:10px">${iCanVote ? "Кого місто виганяє?" : "Ти вибув — спостерігай за голосуванням"} · голосів ${totalVotes}/${alivePool.length}</div>
+        <div class="target-grid mode-vote${pool.length > 9 ? " dense" : ""}">
+          ${pool.map((u) => tokenHtml(u, state, ctx, {
+            cls: myVote === u ? ["selected"] : [],
+            top: counts[u] ? `<span class="vote-count">${counts[u]}</span>` : "",
+            below: `<div class="voters">${(voters[u] || []).map((v) => avatarHtml(v, players[v])).join("")}</div>`,
+          })).join("")}
+        </div>
+        ${iCanVote && myVote ? `<button class="secondary-btn" id="cancelVoteBtn">Забрати голос</button>` : ""}
+        ${iCanVote ? `<div class="hint-text">${myVote ? "Голос враховано — можна змінити або забрати." : "Нічия = ніхто не вибуває."}</div>` : ""}`;
+      if (iCanVote) {
+        voteArea.querySelectorAll(".target-grid .tok").forEach((el) => el.addEventListener("click", () => MG.submitVote(el.dataset.id)));
+        const cancelBtn = $("cancelVoteBtn");
+        if (cancelBtn) cancelBtn.addEventListener("click", () => MG.submitVote(null));
       }
     }
-    renderChat(state, ctx, "chatArea");
+    renderChat(state, ctx, "chatArea", true);
   }
 
-  // ------------------------- вибув -------------------------
-  function renderElimAnim(state) {
+  // ======================================================================
+  // Вирок
+  // ======================================================================
+  function tallyHtml(state, lastVotes) {
+    const players = state.players || {};
+    const t = {};
+    Object.entries(lastVotes || {}).forEach(([voter, target]) => { if (players[voter] && players[target]) t[target] = (t[target] || 0) + 1; });
+    const rows = Object.entries(t).sort((a, b) => b[1] - a[1]);
+    if (!rows.length) return "";
+    const max = rows[0][1];
+    return `<div class="tally">${rows.map(([u, c], i) => `<div class="tally-row">${avatarHtml(u, players[u])}
+      <div><div style="font-size:12px;margin-bottom:3px">${escapeHtml(u)}</div><div class="tally-bar"><i style="width:${(c / max) * 100}%;animation-delay:${i * 0.12}s"></i></div></div>
+      <b>${c}</b></div>`).join("")}</div>`;
+  }
+  function renderElimAnim(state, ctx) {
     const victim = state.lastEliminated;
-    if (!shouldRender("elimAnim", victim || "")) return;
-    document.getElementById("elimAnimContent").innerHTML = `
-      <div class="avatar-big">${initials(victim)}</div>
-      <div class="stamp-out-fallback">ВИБУВ</div>
-      <div class="status-line">${escapeHtml(victim)} вигнаний(а) голосуванням.</div>`;
+    renderTown(state, ctx, true);
+    if (!shouldRender("elimAnim", victim || "-")) return;
+    const players = state.players || {};
+    const intro = isIntroRound(state);
+    $("elimAnimContent").innerHTML = victim ? `
+      <div class="verdict">
+        <div class="chalk">${avatarHtml(victim, players[victim])}</div>
+        <div class="stamp-out">ВИБУВ</div>
+        <div style="font-family:var(--display);font-size:20px;font-weight:900">${escapeHtml(displayName(victim, ctx))} ${victim === ctx.username ? "— тебе вигнали" : "залишає місто"}</div>
+        <div class="status-line" style="margin-top:4px">Хто це був насправді — дізнаєтесь у фіналі.</div>
+        ${tallyHtml(state, state.lastVotes)}
+      </div>` : `
+      <div class="verdict">
+        <div class="scales">${ic("scales")}</div>
+        <div style="font-family:var(--display);font-size:22px;font-weight:900">${intro ? "Ознайомчий день" : "Місто не дійшло згоди"}</div>
+        <div class="status-line" style="margin-top:4px">${intro ? "Цього разу ніхто не вибуває — це була розминка." : state.lastVotes ? "Нічия — ніхто не вибуває." : "Ніхто не проголосував — ніхто не вибуває."}</div>
+        ${tallyHtml(state, state.lastVotes)}
+      </div>`;
   }
 
-  // ------------------------- фінал -------------------------
+  // ======================================================================
+  // Журнал / підсумки
+  // ======================================================================
+  function journalHtml(state, ctx) {
+    const h = Object.values(state.history || {}).sort((a, b) => a.n - b.n || (a.type === "night" ? -1 : 1));
+    if (!h.length) return `<div class="status-line">Поки що в журналі порожньо.</div>`;
+    return `<div class="journal">${h.map((e, i) => {
+      let ico, txt;
+      if (e.type === "night") {
+        ico = ic(e.victim ? "drop" : e.savedSomeone ? "syringe" : "moon", e.victim ? "b-red" : "");
+        txt = e.victim ? `Убито: <b>${escapeHtml(displayName(e.victim, ctx))}</b>` : e.intro ? "Ознайомча ніч" : e.savedSomeone ? "Лікар урятував життя" : "Тиха ніч";
+      } else {
+        ico = ic(e.eliminated ? "scales" : "slash");
+        txt = e.eliminated ? `Вигнано: <b>${escapeHtml(displayName(e.eliminated, ctx))}</b>` : e.intro ? "Ознайомчий день" : e.tie ? "Нічия на голосуванні" : "Ніхто не голосував";
+      }
+      return `<div class="j-row" style="animation-delay:${i * 0.07}s"><span class="j-ico">${ico}</span><span class="j-n">${e.type === "night" ? "Ніч" : "День"} ${e.n}</span><span>${txt}</span></div>`;
+    }).join("")}</div>`;
+  }
+  function renderBannerState(state, ctx) {
+    renderTown(state, ctx, true);
+    if (!shouldRender("bannerState", JSON.stringify([state.history || null, state.nightNumber]))) return;
+    const players = Object.values(state.players || {});
+    const alive = players.filter((p) => p.alive !== false).length;
+    $("bannerStateContent").innerHTML = `
+      <div class="eyebrow">Журнал міста</div>
+      <h2 style="margin:6px 0 8px">Підбиваємо підсумки…</h2>
+      ${journalHtml(state, ctx)}
+      <div class="status-line" style="margin:12px 0 0">Живих: ${alive} з ${players.length}. Гра триває, поки мафію не викрито — або поки її не стане стільки ж, скільки мирних.</div>`;
+  }
+
+  // ======================================================================
+  // Фінал
+  // ======================================================================
   function renderGameOver(state, ctx) {
     const players = state.players || {};
-    const sig = JSON.stringify({ isOwner: ctx.isOwner, players: Object.entries(players).map(([n, p]) => [n, p.role, p.alive, p.isDon]) });
+    const sig = JSON.stringify({ isOwner: ctx.isOwner, w: state.winner, h: state.history || null, players: Object.entries(players).map(([n, p]) => [n, p.role, p.alive, p.isDon]) });
+    renderTown(state, ctx, false);
     if (!shouldRender("gameOver", sig)) return;
-    document.getElementById("gameOverContent").innerHTML = Object.entries(players).map(([name, p]) => `
-      <div class="reveal-row ${p.alive ? "" : "dead"}">
-        <span class="avatar">${initials(name)}</span><span class="name">${escapeHtml(name)}${p.isDon ? " 👑" : ""}</span>
-        <span class="role-tag ${p.role || "civilian"}">${(ROLE_META[p.role] || {}).name || "?"}</span>
-      </div>`).join("");
-    document.getElementById("resetGameBtn").classList.toggle("hidden", !ctx.isOwner);
+    const mafiaWon = state.winner === "mafia";
+    const me = players[ctx.username];
+    const iWon = me && me.role ? (mafiaWon ? me.role === "mafia" : me.role !== "mafia") : null;
+    const order = { mafia: 0, sheriff: 1, doctor: 2, civilian: 3 };
+    const names = orderedNames(state).sort((a, b) => (order[players[a].role] ?? 9) - (order[players[b].role] ?? 9));
+    $("gameOverContent").innerHTML = `
+      <div class="winner ${mafiaWon ? "mafia" : "civilians"}">
+        <div class="crest">${ic(mafiaWon ? "knife" : "scales")}</div>
+        <div class="wt">${mafiaWon ? "Мафія перемогла" : "Місто перемогло"}</div>
+        <div class="ws">${mafiaWon ? "Сім'я взяла місто під контроль." : "Усю мафію викрито. Можна спати спокійно."}</div>
+        ${iWon == null ? "" : `<div class="you ${iWon ? "w" : "l"}">${iWon ? "Твоя перемога" : "Твоя команда програла"}</div>`}
+      </div>
+      <div class="section-t">Хто був ким</div>
+      <div class="reveal-grid">
+        ${names.map((u, i) => {
+          const p = players[u];
+          const role = p.role || "civilian";
+          return `<div class="rcard ${role} ${p.alive === false ? "dead" : ""}" style="animation-delay:${0.25 + i * 0.09}s">
+            ${avatarHtml(u, p)}<div class="nm">${escapeHtml(displayName(u, ctx))}</div>${p.isDon ? `<div class="don-tag">${ic("crown")} дон</div>` : ""}
+            <span class="role-tag ${role}">${ic(ROLE_IC[role] || "person")} ${escapeHtml(role === "civilian" ? "Мирний" : (ROLE_META[role] || {}).name || "?")}</span></div>`;
+        }).join("")}
+      </div>
+      <div class="section-t">Хроніка</div>
+      <div class="card">${journalHtml(state, ctx)}</div>`;
+    $("resetGameBtn").classList.toggle("hidden", !ctx.isOwner);
   }
 
-  // ------------------------- таймери -------------------------
-  // тест-5: смуга анімується ОДИН РАЗ через CSS transition (width 100%→0%
-  // рівно за remainingMs), а не щокадру перемальовується з JS — плавніше й
-  // лаконічніше за цифри. updateTimers() лишається лише для "urgent"
-  // (жовтий→червоний), бо це просто toggle класу, не потребує CSS-рестарту.
-  const TIMER_BAR_IDS = ["roleRevealTimer", "nightTimer", "dayTimer", "bannerStateTimer", "lastWordsTimer"];
-
+  // ======================================================================
+  // Таймер (одна смуга в HUD)
+  // ======================================================================
+  function timerFill() { return $("hudTimerFill"); }
   function startTimerBars(remainingMs) {
+    const fill = timerFill();
     const ms = Math.max(0, remainingMs);
-    TIMER_BAR_IDS.forEach((id) => {
-      const fill = document.querySelector(`#${id} .timer-bar-fill`);
-      if (!fill) return;
-      fill.style.transition = "none";
-      fill.style.width = "100%";
-      
-    });
-    // форсований reflow, інакше браузер схлопне "100% -> transition -> 0%"
-    // в один кадр і смуга просто миттєво зникне без анімації.
+    fill.style.transition = "none";
+    fill.style.width = "100%";
     void document.body.offsetWidth;
-    TIMER_BAR_IDS.forEach((id) => {
-      const fill = document.querySelector(`#${id} .timer-bar-fill`);
-      if (!fill) return;
-      fill.style.transition = `width ${ms}ms linear`;
-      fill.style.width = "0%";
-    });
+    fill.style.transition = `width ${ms}ms linear`;
+    fill.style.width = "0%";
   }
-
-  // Пауза: CSS transition не можна буквально "поставити на паузу", тож
-  // читаємо, скільки смуга реально встигла проїхати НА ЦЮ мить (getBoundingClientRect
-  // під час активного transition повертає живе інтерпольоване значення),
-  // і фіксуємо саме цю ширину без transition — глядач бачить бар, що
-  // застиг рівно там, де був у момент паузи.
   function freezeTimerBars() {
-    TIMER_BAR_IDS.forEach((id) => {
-      const bar = document.getElementById(id);
-      const fill = bar && bar.querySelector(".timer-bar-fill");
-      if (!bar || !fill) return;
-      const pct = bar.clientWidth ? (fill.getBoundingClientRect().width / bar.getBoundingClientRect().width) * 100 : 0;
-      fill.style.transition = "none";
-      fill.style.width = pct + "%";
-    });
+    const bar = $("hudTimer"), fill = timerFill();
+    const bw = bar.getBoundingClientRect().width;
+    const pct = bw ? (fill.getBoundingClientRect().width / bw) * 100 : 0;
+    fill.style.transition = "none";
+    fill.style.width = pct + "%";
   }
-
-  // тест-6 фікс: на відновлення НЕ можна кликати startTimerBars() — вона
-  // першим ділом форсує ширину назад на 100%, через це й "починалось
-  // наново". resumeTimerBars() стартує рівно з тієї ширини, на якій
-  // freezeTimerBars() її заморозив, і лише доводить transition'ом до 0%
-  // за решту часу.
   function resumeTimerBars(remainingMs) {
-    const ms = Math.max(0, remainingMs);
-    TIMER_BAR_IDS.forEach((id) => {
-      const fill = document.querySelector(`#${id} .timer-bar-fill`);
-      if (fill) fill.style.transition = `width ${ms}ms linear`;
-    });
-    // reflow між "приставили transition" і "змінили width" — інакше браузер
-    // зіллє обидва в один кадр і смуга знов стрибне без анімації.
+    const fill = timerFill();
+    fill.style.transition = `width ${Math.max(0, remainingMs)}ms linear`;
     void document.body.offsetWidth;
-    TIMER_BAR_IDS.forEach((id) => {
-      const fill = document.querySelector(`#${id} .timer-bar-fill`);
-      if (fill) fill.style.width = "0%";
-    });
+    fill.style.width = "0%";
   }
-
+  let lastSecs = null;
   function updateTimers() {
-    const state = window.MafiaGame.room;
-    if (!state || state.phaseDeadline == null || state.paused) return;
-    const urgent = (state.phaseDeadline - window.MafiaGame.now()) < 5000;
-    TIMER_BAR_IDS.forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) el.classList.toggle("urgent", urgent);
-    });
+    const state = MG.room;
+    const bar = $("hudTimer");
+    if (!state || state.phaseDeadline == null) { bar.classList.add("none"); return; }
+    bar.classList.remove("none");
+    if (state.paused) return;
+    const left = Math.max(0, state.phaseDeadline - MG.now());
+    bar.classList.toggle("urgent", left < 5000 && !/_wake$|^banner_/.test(state.phase)); // короткі фази не "палають"
+    const secs = Math.ceil(left / 1000);
+    if (secs !== lastSecs) { lastSecs = secs; $("hudSecs").textContent = secs + "с"; }
   }
 
-  // ------------------------- диспетчер -------------------------
+  // ======================================================================
+  // Диспетчер
+  // ======================================================================
   let lastState = null;
   let reactionsMounted = false;
   let wasPaused = false;
+  let lastMeAlive = null;
   function onState(state, ctx) {
     const prevPhase = lastState ? lastState.phase : null;
     lastState = state;
     if (!ctx.username) { showView("locked"); return; }
-    if (!reactionsMounted && window.GameReactions && window.MafiaGame.roomRef) {
+    if (!reactionsMounted && window.GameReactions && MG.roomRef) {
       reactionsMounted = true;
-      window.GameReactions.mount(window.MafiaGame.roomRef, ctx.username);
+      window.GameReactions.mount(MG.roomRef, ctx.username);
     }
 
     const players = state.players || {};
     const iAmIn = !!players[ctx.username];
-    if (!iAmIn && state.phase !== "lobby") { showView("waiting"); return; }
+    if (!iAmIn && state.phase !== "lobby") { showView("waiting"); $("hud").classList.add("hidden"); $("townStrip").classList.add("hidden"); return; }
 
-    if (prevPhase !== state.phase) {
-      resetRenderMemo();
-    }
+    if (prevPhase !== state.phase) resetRenderMemo();
+    updateNoirMap(state, ctx.roomId);
 
-    pageRoot.classList.toggle("phase-night", ["banner_night_start", "mafia_move", "doctor_move", "sheriff_move"].includes(state.phase));
-    pageRoot.classList.toggle("phase-day", !["banner_night_start", "mafia_move", "doctor_move", "sheriff_move", "lobby", "role_reveal"].includes(state.phase));
-    pageRoot.classList.toggle("phase-neutral", ["lobby", "role_reveal"].includes(state.phase));
+    const night = NIGHT_PHASES.includes(state.phase);
+    const neutral = ["lobby", "role_reveal"].includes(state.phase);
+    pageRoot.classList.toggle("phase-night", night);
+    pageRoot.classList.toggle("phase-day", !night && !neutral);
+    pageRoot.classList.toggle("phase-neutral", neutral);
+    pageRoot.classList.toggle("phase-over", state.phase === "game_over");
+    fx.set(state.phase === "game_over" ? (state.winner === "mafia" ? "embers" : "confetti") : night ? "rain" : state.phase === "role_reveal" ? "none" : "dust");
+
+    // смерть «мене» — червоний імпульс і вібрація (раз на перехід alive → dead)
+    const meAlive = iAmIn ? players[ctx.username].alive !== false : null;
+    if (lastMeAlive === true && meAlive === false && state.phase !== "lobby") deathFx();
+    lastMeAlive = meAlive;
 
     cueEnterPhase(prevPhase, state, ctx);
 
     if (!!state.paused !== wasPaused) {
       wasPaused = !!state.paused;
-      if (wasPaused) {
-        window.MafiaSounds.pauseAll();
-        freezeTimerBars(); // тест-5: заморозити смугу рівно там, де застала пауза
-      } else {
+      if (wasPaused) { window.MafiaSounds.pauseAll(); freezeTimerBars(); }
+      else {
         window.MafiaSounds.resumeAll();
-        // resumeGame() на движку вже зсунув phaseDeadline на час паузи —
-        // доводимо смугу з тієї ж (замороженої) ширини до 0% за решту часу.
-        if (state.phaseDeadline != null) resumeTimerBars(state.phaseDeadline - window.MafiaGame.now());
+        if (state.phaseDeadline != null) resumeTimerBars(state.phaseDeadline - MG.now());
       }
     }
-    document.getElementById("pausedOverlay").classList.toggle("visible", !!state.paused);
-    const pauseBtn = document.getElementById("pauseToggleBtn");
+    $("pausedOverlay").classList.toggle("visible", !!state.paused);
+    const pauseBtn = $("pauseToggleBtn");
     const canPause = ctx.isOwner && state.phase !== "lobby" && state.phase !== "game_over";
     pauseBtn.classList.toggle("hidden", !canPause);
     if (canPause) pauseBtn.textContent = state.paused ? "▶" : "❚❚";
 
+    renderHud(state);
+    if (["lobby", "role_reveal", "game_over"].includes(state.phase)) $("townStrip").classList.add("hidden");
+
     switch (state.phase) {
       case "lobby": showView("lobby"); renderLobby(state, ctx); break;
       case "role_reveal": showView("role-reveal"); renderRoleReveal(state, ctx); break;
-      case "banner_night_start": case "mafia_move": case "doctor_move": case "sheriff_move":
+      case "banner_night_start": case "mafia_wake": case "mafia_move": case "doctor_wake": case "doctor_move": case "sheriff_wake": case "sheriff_move":
         showView("night"); renderNight(state, ctx); break;
       case "banner_morning": case "night_reveal": showView("night-result"); renderNightResult(state, ctx); break;
       case "night_resolve": break;
       case "last_words": showView("last-words"); renderLastWords(state, ctx); break;
       case "day_discussion": case "voting": showView("day"); renderDay(state, ctx); break;
-      case "player_elimination_anim": showView("elim-anim"); renderElimAnim(state); break;
-      case "banner_state": showView("banner-state"); break;
+      case "player_elimination_anim": showView("elim-anim"); renderElimAnim(state, ctx); break;
+      case "banner_state": showView("banner-state"); renderBannerState(state, ctx); break;
       case "game_over": showView("game-over"); renderGameOver(state, ctx); break;
     }
 
-    // тест-7 фікс: запускаємо забіг смуги ЛИШЕ ПІСЛЯ switch — до цього
-    // showView() ще не встиг зробити потрібний екран видимим (display:none),
-    // а transition на прихованому елементі браузер просто пропускає й одразу
-    // стрибає в кінцевий стан. Звідси "застигла" смуга на day_discussion.
-    if (prevPhase !== state.phase && state.phaseDeadline != null) {
-      startTimerBars(state.phaseDeadline - window.MafiaGame.now());
+    // Смугу таймера запускаємо після showView — transition на прихованому
+    // елементі браузер пропускає.
+    if (prevPhase !== state.phase && state.phaseDeadline != null && !state.paused) {
+      startTimerBars(state.phaseDeadline - MG.now());
     }
   }
 
-  document.getElementById("doctorToggle").addEventListener("change", (e) => window.MafiaGame.setSettings({ doctorEnabled: e.target.checked }));
-  document.getElementById("sheriffToggle").addEventListener("change", (e) => window.MafiaGame.setSettings({ sheriffEnabled: e.target.checked }));
-  document.getElementById("mafiaCountSelect").addEventListener("change", (e) => window.MafiaGame.setSettings({ mafiaCount: e.target.value === "" ? null : Number(e.target.value) }));
-  document.getElementById("mafiaConsensusSelect").addEventListener("change", (e) => window.MafiaGame.setSettings({ mafiaConsensus: e.target.value }));
-  document.getElementById("introRoundToggle").addEventListener("change", (e) => window.MafiaGame.setSettings({ introRoundEnabled: e.target.checked }));
-  document.getElementById("startGameBtn").addEventListener("click", () => window.MafiaGame.startGame());
-  document.getElementById("toggleReadyBtn").addEventListener("click", () => {
-    const me = window.MafiaGame.me;
-    window.MafiaGame.setReady(!(me && me.ready));
-  });
-  document.getElementById("resetGameBtn").addEventListener("click", () => {
-    if (confirm("Почати нову гру для всіх?")) window.MafiaGame.resetGame();
-  });
-  document.getElementById("pauseToggleBtn").addEventListener("click", () => {
-    const state = window.MafiaGame.room;
-    if (state && state.paused) window.MafiaGame.resumeGame(); else window.MafiaGame.pauseGame();
+  $("doctorToggle").addEventListener("change", (e) => MG.setSettings({ doctorEnabled: e.target.checked }));
+  $("doctorCountSelect").addEventListener("change", (e) => MG.setSettings({ doctorCount: Number(e.target.value) || 1 }));
+  $("sheriffToggle").addEventListener("change", (e) => MG.setSettings({ sheriffEnabled: e.target.checked }));
+  $("mafiaCountSelect").addEventListener("change", (e) => MG.setSettings({ mafiaCount: e.target.value === "" ? null : Number(e.target.value) }));
+  $("mafiaConsensusSelect").addEventListener("change", (e) => MG.setSettings({ mafiaConsensus: e.target.value }));
+  $("introRoundToggle").addEventListener("change", (e) => MG.setSettings({ introRoundEnabled: e.target.checked }));
+  $("startGameBtn").addEventListener("click", () => MG.startGame());
+  $("toggleReadyBtn").addEventListener("click", () => { const me = MG.me; MG.setReady(!(me && me.ready)); });
+  $("resetGameBtn").addEventListener("click", () => { if (confirm("Почати нову гру для всіх?")) MG.resetGame(); });
+  $("pauseToggleBtn").addEventListener("click", () => {
+    const state = MG.room;
+    if (state && state.paused) MG.resumeGame(); else MG.pauseGame();
   });
 
   setInterval(updateTimers, 250);
 
   function beginGame(username, roomId) {
-    window.MafiaGame.onStateChange = (state, ctx) => onState(state, ctx);
-    window.MafiaGame.start(username, roomId);
+    MG.onStateChange = (state, ctx) => onState(state, ctx);
+    MG.start(username, roomId);
   }
 
   const session = window.AppAuth && window.AppAuth.getSession();
@@ -947,10 +1651,10 @@
       codeInputId: "roomCodeInput",
       joinBtnId: "joinRoomBtn",
       createBtnId: "createRoomBtn",
-      watchActiveRooms: window.MafiaGame.watchActiveRooms,
+      watchActiveRooms: MG.watchActiveRooms,
       renderRoomItem: (r) => `
         <div><b>Кімната ${RoomCodeUI.escapeHtml(r.roomId)}</b></div>
-        <div class="status-line">${r.phase === "lobby" ? "Лобі" : "Гра триває"} · Онлайн: ${r.connectedCount}/${r.playerCount}</div>`,
+        <div class="status-line">${r.phase === "lobby" ? "Збираються в лобі" : "Гра триває"} · онлайн ${r.connectedCount}/${r.playerCount}</div>`,
       onEnter: (roomId) => beginGame(session.username, roomId),
     });
     showView("room-entry");
