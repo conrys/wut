@@ -201,9 +201,9 @@ const QUIPLASH_FACTS = [
 // Картинкові раунди завантажуються з ql_img/image-prompts.json.
 // У JSON достатньо вказати ім'я файлу; шлях до ql_img додається тут.
 const QUIPLASH_IMAGE_PROMPTS = [
-  "1.jpg", "2.jpg", "3.png", "4.jpg", "5.jpg", "6.jpg", "7.jpg", "8.png",
-  "9.jpg", "10.jpg", "11.jpg", "12.jpg", "13.jpg", "14.png", "15.jpg", "16.png",
-  "17.png", "18.webp", "19.jpg", "20.jpg", "21.png", "22.webp",
+  "1.webp", "2.webp", "3.webp", "4.webp", "5.webp", "6.webp", "7.webp", "8.webp",
+  "9.webp", "10.webp", "11.webp", "12.webp", "13.webp", "14.webp", "15.webp", "16.webp",
+  "17.webp", "18.webp", "19.webp", "20.webp", "21.webp", "22.webp",
 ].map((image) => ({ image: `ql_img/${image}`, text: "Придумайте смішний підпис до цієї картинки" }));
 const QUIPLASH_IMAGE_PROMPTS_READY = (typeof location !== "undefined" && location.protocol === "file:")
   ? Promise.resolve()
