@@ -174,7 +174,8 @@
         ? SPY_THEMES[Math.floor(Math.random() * SPY_THEMES.length)].name
         : state.settings.theme;
     const theme = SPY_THEMES.find((t) => t.name === themeName);
-    const word = theme.words[Math.floor(Math.random() * theme.words.length)];
+    const word = window.PromptHistory ? PromptHistory.order("spy", theme.words)[0] : theme.words[Math.floor(Math.random() * theme.words.length)];
+    if (window.PromptHistory) PromptHistory.mark("spy", [word]);
 
     const names = conn.map(([n]) => n);
     const shuffled = names.slice().sort(() => Math.random() - 0.5);

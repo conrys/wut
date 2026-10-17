@@ -107,7 +107,10 @@
     const pool = DRAW_PROMPTS[difficulty] || DRAW_PROMPTS[DEFAULT_DIFFICULTY];
     const fresh = pool.filter((p) => !usedMap || !usedMap[usedKey(difficulty, p)]);
     const list = fresh.length ? fresh : pool; // пул вичерпано — починаємо по колу
-    return list[Math.floor(Math.random() * list.length)];
+    // серед свіжих для кімнати — спершу ті, яких компанія ще не малювала
+    const word = window.PromptHistory ? PromptHistory.order("draw", list)[0] : list[Math.floor(Math.random() * list.length)];
+    if (window.PromptHistory) PromptHistory.mark("draw", [word]);
+    return word;
   }
 
   // ------------------------- список активних кімнат -------------------------

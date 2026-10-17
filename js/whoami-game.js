@@ -35,7 +35,8 @@
     const used = usedThisSession[key] || (usedThisSession[key] = new Set());
     let available = pool.filter((w) => !used.has(w));
     if (!available.length) { used.clear(); available = pool; } // пул вичерпано — почали по колу
-    const word = available[Math.floor(Math.random() * available.length)];
+    const word = window.PromptHistory ? PromptHistory.order("whoami", available)[0] : available[Math.floor(Math.random() * available.length)];
+    if (window.PromptHistory) PromptHistory.mark("whoami", [word]);
     used.add(word);
     currentWord = word;
     currentThemeName = themeName;

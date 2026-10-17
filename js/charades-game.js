@@ -237,11 +237,14 @@
   // ------------------------- колода й етапи -------------------------
   function buildItems(level) {
     const all = (window.CharadesPrompts || []).filter((x) => x.level <= level);
-    return shuffle(all).map((x) => ({ text: x.text, alt: x.alt || [], cat: x.cat || "" }));
+    // спершу слова, яких компанія ще не загадувала (js/core/prompt-history.js)
+    const deck = window.PromptHistory ? PromptHistory.order("charades", all, (x) => x.text) : shuffle(all);
+    return deck.map((x) => ({ text: x.text, alt: x.alt || [], cat: x.cat || "" }));
   }
   function encodeStage(room, idx, encoder, rerolled) {
     const items = (room.deck && room.deck.items) || [], it = items[idx % items.length];
     const words = String(it.text).trim().split(/\s+/).length;
+    if (window.PromptHistory) PromptHistory.mark("charades", [it.text]);
     return {
       kind: "encode", title: "Шифрування", hint: "", expect: [encoder], durationMs: ms(room, "encodeSec", DEFAULT_ENCODE_SEC),
       data: { step: "encode", idx, encoder, text: it.text, answers: [it.text].concat(it.alt || []), cat: it.cat, words, rerolled: !!rerolled },
