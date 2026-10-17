@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<title>Блоки</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#1a1f3d" />
+<style>
+  /* Block Blast: поле 8×8, три фігури знизу. Заповнений рядок чи стовпчик зникає; лінії поспіль — комбо. */
+  :root { --bg: #1a1f3d; --bg2: #2a2f63; --ink: #fff; --muted: rgba(255,255,255,.65); --gold: #ffcf3f; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+  html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; overscroll-behavior: none;
+    background: radial-gradient(90% 60% at 50% 0%, #3a3f86, transparent 70%), linear-gradient(180deg, var(--bg2), var(--bg)); color: var(--ink); font-family: 'Fredoka', system-ui, sans-serif; }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  .hud { position: fixed; left: 0; right: 0; top: calc(env(safe-area-inset-top, 0px) + 56px); display: flex; flex-direction: column; align-items: center; pointer-events: none; }
+  .hud .best { font: 600 15px 'Fredoka', sans-serif; color: var(--gold); display: flex; align-items: center; gap: 6px; }
+  .hud .best svg { width: 16px; height: 16px; }
+  .hud .score { font: 700 48px/1.05 'Fredoka', sans-serif; font-variant-numeric: tabular-nums; text-shadow: 0 3px 0 rgba(0,0,0,.25); }
+  #ov { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(10,12,30,.6); padding: 16px; z-index: 20; }
+  #ov[hidden] { display: none; }
+  .card { width: 100%; max-width: 320px; background: #fff; color: #1a1f3d; border-radius: 26px; padding: 26px 22px; text-align: center; box-shadow: 0 8px 0 rgba(0,0,0,.25); display: grid; gap: 10px; }
+  .card h1 { margin: 0; font: 700 32px/1 'Fredoka', sans-serif; }
+  .card p { margin: 0; font: 500 17px/1.4 'Fredoka', sans-serif; color: #4a5080; }
+  .card .big { font: 700 54px/1 'Fredoka', sans-serif; color: #3e6fd8; }
+  .card button { justify-self: center; margin-top: 6px; border: 0; border-radius: 999px; padding: 12px 30px; background: #4cc04a; color: #fff; font: 700 20px 'Fredoka', sans-serif; box-shadow: 0 4px 0 #2e8a2c; cursor: pointer; }
+  .card button:active { transform: translateY(3px); box-shadow: 0 1px 0 #2e8a2c; }
+</style>
+<link rel="stylesheet" href="js/styles/game-header.css">
+<script src="js/core/game-header.js" defer></script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="hud"><div class="best"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5 4h14v3a5 5 0 0 1-4 4.9V14h2v3H7v-3h2v-2.1A5 5 0 0 1 5 7zm-3 1h2v2a2 2 0 0 1-2-2zm18 0h2a2 2 0 0 1-2 2z"/><rect x="6" y="18" width="12" height="2" rx="1"/></svg><span id="best">0</span></div><div class="score" id="score">0</div></div>
+<div id="ov">
+  <div class="card">
+    <h1 id="ovT">Блоки</h1>
+    <div class="big" id="ovS" hidden>0</div>
+    <p id="ovP">Перетягуй фігури на поле. Заповнений рядок чи стовпчик зникає. Кілька ліній одразу й поспіль — комбо.</p>
+    <button id="ovB" type="button">Грати</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+  const $ = (id) => document.getElementById(id);
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const N = 8;
+  const COLORS = ['#ff5d6c', '#ffb340', '#ffe156', '#5ad16b', '#3fc3ff', '#5d7bff', '#b86bff', '#ff7ac8'];
+  // фігури: [x,y] клітинки; вага — як часто випадає
+  const SHAPES = [
+    [1, [[0,0]]],
+    [3, [[0,0],[1,0]]], [3, [[0,0],[0,1]]],
+    [3, [[0,0],[1,0],[2,0]]], [3, [[0,0],[0,1],[0,2]]],
+    [2, [[0,0],[1,0],[2,0],[3,0]]], [2, [[0,0],[0,1],[0,2],[0,3]]],
+    [1, [[0,0],[1,0],[2,0],[3,0],[4,0]]], [1, [[0,0],[0,1],[0,2],[0,3],[0,4]]],
+    [3, [[0,0],[1,0],[0,1],[1,1]]],
+    [1, [[0,0],[1,0],[2,0],[0,1],[1,1],[2,1],[0,2],[1,2],[2,2]]],
+    [2, [[0,0],[1,0],[2,0],[0,1],[1,1],[2,1]]], [2, [[0,0],[1,0],[0,1],[1,1],[0,2],[1,2]]],
+    [2, [[0,0],[0,1],[1,1]]], [2, [[1,0],[0,1],[1,1]]], [2, [[0,0],[1,0],[0,1]]], [2, [[0,0],[1,0],[1,1]]],
+    [1, [[0,0],[0,1],[0,2],[1,2]]], [1, [[1,0],[1,1],[1,2],[0,2]]], [1, [[0,0],[1,0],[0,1],[0,2]]], [1, [[0,0],[1,0],[1,1],[1,2]]],
+    [1, [[0,0],[1,0],[2,0],[2,1]]], [1, [[0,0],[1,0],[2,0],[0,1]]], [1, [[0,1],[1,1],[2,1],[2,0]]], [1, [[0,0],[0,1],[1,1],[2,1]]],
+    [2, [[0,0],[1,0],[2,0],[1,1]]], [2, [[1,0],[0,1],[1,1],[2,1]]], [1, [[0,0],[0,1],[0,2],[1,1]]], [1, [[1,0],[1,1],[1,2],[0,1]]],
+    [1, [[1,0],[2,0],[0,1],[1,1]]], [1, [[0,0],[1,0],[1,1],[2,1]]], [1, [[0,0],[0,1],[1,1],[1,2]]], [1, [[1,0],[1,1],[0,1],[0,2]]],
+    [1, [[0,0],[0,1],[0,2],[1,2],[2,2]]], [1, [[2,0],[2,1],[2,2],[1,2],[0,2]]], [1, [[0,0],[1,0],[2,0],[0,1],[0,2]]], [1, [[0,0],[1,0],[2,0],[2,1],[2,2]]],
+  ];
+  const TOTALW = SHAPES.reduce((a, s) => a + s[0], 0);
+
+  let W, H, cell, BX, BY, trayY, trayCell;
+  let board, tray, score, best = 0, combo, sinceClear, state = 'menu', drag = null, fx = [], pops = [], T = 0, shake = 0;
+  try { best = +localStorage.getItem('blocks_best') || 0; } catch (e) {}
+  $('best').textContent = best;
+
+  function resize() {
+    const d = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight;
+    cv.width = W * d; cv.height = H * d; ctx.setTransform(d, 0, 0, d, 0, 0);
+    const top = 150, trayH = Math.min(170, H * 0.22);
+    cell = Math.floor(Math.min((W - 24) / N, (H - top - trayH - 30) / N, 56));
+    BX = Math.round((W - cell * N) / 2); BY = top + Math.max(0, (H - top - trayH - 20 - cell * N) / 2);
+    trayY = BY + cell * N + 20 + trayH / 2; trayCell = Math.min(cell * 0.55, 28);
+  }
+  addEventListener('resize', resize);
+
+  const rnd = (a) => a[Math.floor(Math.random() * a.length)];
+  function pickShape() { let r = Math.random() * TOTALW; for (const s of SHAPES) { r -= s[0]; if (r <= 0) return s[1]; } return SHAPES[0][1]; }
+  const dims = (sh) => [Math.max(...sh.map((c) => c[0])) + 1, Math.max(...sh.map((c) => c[1])) + 1];
+  function fits(sh, gx, gy) { for (const [x, y] of sh) { const X = gx + x, Y = gy + y; if (X < 0 || Y < 0 || X >= N || Y >= N || board[Y][X]) return false; } return true; }
+  function anyFit(sh) { for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (fits(sh, x, y)) return true; return false; }
+  function newTray() {
+    tray = [0, 1, 2].map(() => ({ sh: pickShape(), col: rnd(COLORS), used: false }));
+    // щоб набір не був одразу програшним: якщо жодна не влазить — підміняємо одну на ту, що влазить
+    if (!tray.some((p) => anyFit(p.sh))) for (let k = 0; k < 40; k++) { const sh = pickShape(); if (anyFit(sh)) { tray[Math.floor(Math.random() * 3)].sh = sh; break; } }
+  }
+  function start() {
+    board = Array.from({ length: N }, () => new Array(N).fill(null));
+    score = 0; combo = 0; sinceClear = 0; fx = []; pops = []; newTray(); state = 'play';
+    $('score').textContent = 0; $('ov').hidden = true;
+  }
+
+  function trayPos(i) { return [W / 2 + (i - 1) * Math.min(W / 3, cell * 3.2), trayY]; }
+
+  // ---------- керування ----------
+  const LIFT = () => cell * 1.6; // фігура над пальцем, щоб її було видно
+  cv.addEventListener('pointerdown', (e) => {
+    if (state !== 'play') return;
+    for (let i = 0; i < 3; i++) {
+      const p = tray[i]; if (p.used) continue;
+      const [tx, ty] = trayPos(i), [w, h] = dims(p.sh);
+      if (Math.abs(e.clientX - tx) < Math.max(w * trayCell, 60) / 2 + 14 && Math.abs(e.clientY - ty) < Math.max(h * trayCell, 60) / 2 + 14) {
+        drag = { i, x: e.clientX, y: e.clientY }; try { cv.setPointerCapture(e.pointerId); } catch (_) {} return;
+      }
+    }
+  });
+  cv.addEventListener('pointermove', (e) => { if (drag) { drag.x = e.clientX; drag.y = e.clientY; } });
+  function dropCell() {
+    const p = tray[drag.i], [w, h] = dims(p.sh);
+    const left = drag.x - w * cell / 2, top = drag.y - LIFT() - h * cell / 2;
+    return [Math.round((left - BX) / cell), Math.round((top - BY) / cell)];
+  }
+  const release = () => {
+    if (!drag) return;
+    const p = tray[drag.i], [gx, gy] = dropCell();
+    if (fits(p.sh, gx, gy)) place(drag.i, gx, gy);
+    drag = null;
+  };
+  cv.addEventListener('pointerup', release); cv.addEventListener('pointercancel', () => { drag = null; });
+
+  function place(i, gx, gy) {
+    const p = tray[i];
+    for (const [x, y] of p.sh) { board[gy + y][gx + x] = { col: p.col, pop: reduce ? 0 : 0.18 }; }
+    p.used = true;
+    let gain = p.sh.length;
+    // повні рядки й стовпчики
+    const rows = [], cols = [];
+    for (let y = 0; y < N; y++) if (board[y].every(Boolean)) rows.push(y);
+    for (let x = 0; x < N; x++) if (board.every((r) => r[x])) cols.push(x);
+    const lines = rows.length + cols.length;
+    if (lines) {
+      combo++; sinceClear = 0;
+      gain += 10 * lines * lines + (combo > 1 ? 10 * (combo - 1) * lines : 0);
+      const gone = new Set();
+      rows.forEach((y) => { for (let x = 0; x < N; x++) gone.add(y * N + x); });
+      cols.forEach((x) => { for (let y = 0; y < N; y++) gone.add(y * N + x); });
+      gone.forEach((k) => {
+        const x = k % N, y = (k / N) | 0, c = board[y][x];
+        fx.push({ x: BX + (x + 0.5) * cell, y: BY + (y + 0.5) * cell, col: c.col, t: 0, d: (rows.includes(y) ? x : y) * 0.025 });
+        board[y][x] = null;
+      });
+      if (!reduce) shake = Math.min(10, 3 + lines * 2);
+      const words = lines >= 4 ? 'Неймовірно!' : lines === 3 ? 'Чудово!' : lines === 2 ? 'Класно!' : '';
+      pops.push({ t: (combo > 1 ? 'Комбо ×' + combo + '  ' : '') + '+' + gain, w: words, x: BX + (gx + dims(p.sh)[0] / 2) * cell, y: BY + gy * cell, l: 1.2 });
+      try { navigator.vibrate && navigator.vibrate(lines > 1 ? 40 : 20); } catch (e) {}
+      if (board.every((r) => r.every((c) => !c))) { gain += 300; pops.push({ t: 'Чисте поле +300', w: '', x: W / 2, y: BY + cell * N / 2, l: 1.6 }); }
+    } else if (++sinceClear >= 3) combo = 0;
+    score += gain; $('score').textContent = score;
+    if (tray.every((q) => q.used)) newTray();
+    if (!tray.some((q) => !q.used && anyFit(q.sh))) setTimeout(over, 600);
+  }
+
+  function over() {
+    if (state !== 'play') return;
+    state = 'over';
+    const rec = score > best;
+    if (rec) { best = score; try { localStorage.setItem('blocks_best', best); } catch (e) {} $('best').textContent = best; }
+    $('ovT').textContent = rec ? 'Новий рекорд!' : 'Місця немає';
+    $('ovS').hidden = false; $('ovS').textContent = score;
+    $('ovP').textContent = rec ? 'Так тримати.' : 'Рекорд: ' + best;
+    $('ovB').textContent = 'Ще раз'; $('ov').hidden = false;
+    if (window.AppScore) window.AppScore.sendScore('blocks', score);
+  }
+  $('ovB').addEventListener('click', start);
+
+  // ---------- малювання ----------
+  function block(x, y, s, col, a) {
+    const r = s * 0.18;
+    ctx.globalAlpha = a == null ? 1 : a;
+    ctx.fillStyle = col; ctx.beginPath(); ctx.roundRect(x + 1.5, y + 1.5, s - 3, s - 3, r); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.roundRect(x + s * 0.16, y + s * 0.12, s * 0.68, s * 0.2, r * 0.6); ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.beginPath(); ctx.roundRect(x + 1.5, y + s * 0.78, s - 3, s * 0.2 - 1.5, [0, 0, r, r]); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  function shapeAt(sh, cx, cy, s, col, a) {
+    const [w, h] = dims(sh);
+    for (const [x, y] of sh) block(cx - w * s / 2 + x * s, cy - h * s / 2 + y * s, s, col, a);
+  }
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.save();
+    if (shake > 0) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+    // поле
+    ctx.fillStyle = 'rgba(8,10,30,.55)'; ctx.beginPath(); ctx.roundRect(BX - 8, BY - 8, cell * N + 16, cell * N + 16, 16); ctx.fill();
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      ctx.fillStyle = 'rgba(255,255,255,.06)'; ctx.beginPath(); ctx.roundRect(BX + x * cell + 2, BY + y * cell + 2, cell - 4, cell - 4, cell * 0.16); ctx.fill();
+    }
+    // підказка: куди ляже фігура + які лінії згорять
+    let hint = null;
+    if (drag) {
+      const p = tray[drag.i], [gx, gy] = dropCell();
+      if (fits(p.sh, gx, gy)) {
+        hint = { gx, gy, p };
+        const tmp = board.map((r) => r.slice()); for (const [x, y] of p.sh) tmp[gy + y][gx + x] = 1;
+        const glowR = [], glowC = [];
+        for (let y = 0; y < N; y++) if (tmp[y].every(Boolean)) glowR.push(y);
+        for (let x = 0; x < N; x++) if (tmp.every((r) => r[x])) glowC.push(x);
+        hint.lines = [glowR, glowC];
+      }
+    }
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      const c = board[y][x]; if (!c) continue;
+      const lit = hint && (hint.lines[0].includes(y) || hint.lines[1].includes(x));
+      const k = c.pop > 0 ? 1 + c.pop : 1, s = cell * k, o = (s - cell) / 2;
+      block(BX + x * cell - o, BY + y * cell - o, s, lit ? hint.p.col : c.col);
+    }
+    if (hint) {
+      for (const [x, y] of hint.p.sh) block(BX + (hint.gx + x) * cell, BY + (hint.gy + y) * cell, cell, hint.p.col, 0.4);
+      if (!reduce) for (const y of hint.lines[0]) { ctx.fillStyle = 'rgba(255,255,255,' + (0.12 + 0.08 * Math.sin(T * 10)) + ')'; ctx.fillRect(BX, BY + y * cell, cell * N, cell); }
+      if (!reduce) for (const x of hint.lines[1]) { ctx.fillStyle = 'rgba(255,255,255,' + (0.12 + 0.08 * Math.sin(T * 10)) + ')'; ctx.fillRect(BX + x * cell, BY, cell, cell * N); }
+    }
+    // згорілі клітинки
+    for (const f of fx) {
+      const k = Math.max(0, f.t - f.d) / 0.35; if (k >= 1) continue;
+      const s = cell * (1 - k * 0.6);
+      ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(k * 0.8); block(-s / 2, -s / 2, s, f.col, 1 - k); ctx.restore();
+    }
+    // лоток
+    for (let i = 0; i < 3; i++) {
+      const p = tray[i]; if (p.used || (drag && drag.i === i)) continue;
+      const [tx, ty] = trayPos(i), fitsAny = anyFit(p.sh);
+      shapeAt(p.sh, tx, ty, trayCell, fitsAny ? p.col : '#5a5f80', fitsAny ? 1 : 0.6);
+    }
+    if (drag) { const p = tray[drag.i]; shapeAt(p.sh, drag.x, drag.y - LIFT(), cell, p.col, 0.95); }
+    // написи
+    ctx.textAlign = 'center';
+    for (const p of pops) {
+      const a = Math.min(1, p.l * 1.5), dy = (1.2 - p.l) * 40;
+      ctx.globalAlpha = a; ctx.font = "700 " + Math.round(cell * 0.6) + "px 'Fredoka', sans-serif";
+      ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(20,20,50,.7)'; ctx.strokeText(p.t, p.x, p.y - dy); ctx.fillStyle = '#fff'; ctx.fillText(p.t, p.x, p.y - dy);
+      if (p.w) { ctx.font = "700 " + Math.round(cell * 0.9) + "px 'Fredoka', sans-serif"; ctx.strokeText(p.w, W / 2, BY + cell * N / 2 - dy); ctx.fillStyle = '#ffcf3f'; ctx.fillText(p.w, W / 2, BY + cell * N / 2 - dy); }
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  }
+
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now; T += dt;
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const c = board && board[y][x]; if (c && c.pop > 0) c.pop = Math.max(0, c.pop - dt); }
+    for (const f of fx) f.t += dt; fx = fx.filter((f) => f.t - f.d < 0.35);
+    for (const p of pops) p.l -= dt; pops = pops.filter((p) => p.l > 0);
+    if (shake > 0) shake = Math.max(0, shake - dt * 40);
+    if (board) draw();
+    requestAnimationFrame(frame);
+  }
+  resize();
+  board = Array.from({ length: N }, () => new Array(N).fill(null)); newTray(); score = 0; combo = 0; sinceClear = 0;
+  requestAnimationFrame(frame);
+})();
+</script>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="js/core/firebase-config.js"></script>
+<script src="js/core/app-settings.js"></script>
+<script src="js/core/login.js"></script>
+<script src="js/core/score-connect.js"></script>
+<script src="js/core/records.js"></script>
+<script src="js/core/back-button.js"></script>
+</body>
+</html>
