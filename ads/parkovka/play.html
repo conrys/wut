@@ -42,62 +42,68 @@ body{background:var(--grass);color:var(--ink);font-family:var(--body);overflow:h
 <canvas id="c"></canvas>
 <div class="hud">
   <span class="chip lv" id="lv">Рівень 1</span>
-  <span class="chip left" id="left">🚗 0</span>
+  <span class="chip left" id="left">0 / 0</span>
   <button class="icon" id="restart" type="button" aria-label="Почати рівень заново">↻</button>
 </div>
 <div class="overlay" id="ov">
   <div class="card">
     <h1 id="ovTitle">Тісна парковка</h1>
-    <p id="ovText">Та сама гра з реклами: всі запаркувались, а виїхати нікому.</p>
-    <p class="hint" id="ovHint">Свайпни машину вперед чи назад, або просто торкнись, і вона поїде капотом уперед. Якщо дорога вільна, машина виїде, а якщо ні — лишиться на місці. Кожен рівень перевірено: розв'язок є.</p>
+    <p id="ovText">Тебе підперли. Виведи червону машину до виїзду.</p>
+    <p class="hint" id="ovHint">Тягни машини вздовж їхнього ряду, щоб звільнити дорогу. З парковки виїжджає лише червона. Кожен рівень перевірено: розв'язок є, а лічильник показує мінімум ходів.</p>
     <button class="btn" id="ovBtn" type="button">Грати</button>
   </div>
 </div>
 
 <script src="parkcore.js" charset="utf-8"></script>
+<script src="levels.js" charset="utf-8"></script>
 <script>
 const $=id=>document.getElementById(id);
 const cv=$('c'),ctx=cv.getContext('2d');
-const {generate,slide,grid,cells}=ParkCore;
+const {N,EXIT,generate,decode,occ,range,goal}=ParkCore;
 const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
-let W,H,S=40,OX=0,OY=0,level=1,C=5,R=6,cars=[],state='menu',T=0,moves=0,fx=[];
-try{level=Math.max(1,parseInt(localStorage.getItem('park_level'))||1)}catch(e){}
+let W,H,S=40,OX=0,OY=0,level=1,C=N,R=N,cars=[],par=0,state='menu',T=0,moves=0,fx=[];
+try{level=Math.max(1,parseInt(localStorage.getItem('park2_level'))||1)}catch(e){}
 function resize(){const d=Math.min(2,devicePixelRatio||1);W=innerWidth;H=innerHeight;cv.width=W*d;cv.height=H*d;ctx.setTransform(d,0,0,d,0,0);fit()}
-function fit(){S=Math.min((W-24)/(C+2.4),(H-90)/(R+2.4));OX=(W-C*S)/2;OY=64+(H-64-R*S)/2}
+function fit(){S=Math.min((W-24)/(C+2.6),(H-90)/(R+2.4));OX=(W-C*S)/2-S*0.3;OY=64+(H-64-R*S)/2}
 addEventListener('resize',resize);
 
+function levelData(l){const P=window.PARK_LEVELS||[];return l<=P.length?decode(P[l-1][0],P[l-1][1],l):generate(l)}
 function load(l){
-  level=l;const g=generate(l);C=g.C;R=g.R;
-  cars=g.cars.map((c,i)=>Object.assign({},c,{id:i,px:c.x,py:c.y,gone:false,leaving:null,wob:0,ph:Math.random()*6}));
-  moves=0;fx=[];state='play';$('ov').hidden=true;$('lv').textContent='Рівень '+l;fit();upd();
+  level=l;const g=levelData(l);par=g.par;
+  cars=g.cars.map((c,i)=>Object.assign({},c,{id:i,px:c.x,py:c.y,leaving:null,gone:false,wob:0}));
+  moves=0;fx=[];drag=null;state='play';$('ov').hidden=true;$('lv').textContent='Рівень '+l;fit();upd();
 }
-const live=()=>cars.filter(c=>!c.gone&&!c.leaving);
-function upd(){$('left').textContent='🚗 '+live().length}
+function upd(){$('left').textContent='Ходи '+moves+' · мін '+par}
 $('restart').addEventListener('click',()=>{if(state==='play')load(level)});
 $('ovBtn').addEventListener('click',()=>load(state==='won'?level+1:level));
 
-/* ---------- input: swipe along a car's axis, or tap = drive nose-first ---------- */
-let down=null;
-function carAt(x,y){const gx=(x-OX)/S,gy=(y-OY)/S;for(const c of cars){if(c.gone||c.leaving)continue;const w=c.h?c.len:1,h=c.h?1:c.len;if(gx>=c.px&&gx<c.px+w&&gy>=c.py&&gy<c.py+h)return c}return null}
-cv.addEventListener('pointerdown',e=>{if(state!=='play')return;const c=carAt(e.clientX,e.clientY);if(c)down={c,x:e.clientX,y:e.clientY}});
-cv.addEventListener('pointerup',e=>{
-  if(!down)return;const {c}=down,dx=e.clientX-down.x,dy=e.clientY-down.y;down=null;
-  const along=c.h?dx:dy;let s=Math.abs(along)>12?Math.sign(along):c.nose;
-  drive(c,s);
-});
-function drive(c,s){
-  if(c.anim||c.bounce)return;
-  const g=grid(C,R,cars.filter(o=>!o.leaving)),r=slide(C,R,g,c,s);moves++;
-  if(r.exits){
-    c.leaving={s,t:0,from:c.h?c.x:c.y,speed:0};c.x=c.y=-99;upd();
-    for(let k=0;k<6;k++)fx.push({x:carCenter(c)[0],y:carCenter(c)[1],vx:-s*(c.h?60:0)+(Math.random()-.5)*30,vy:-s*(c.h?0:60)+(Math.random()-.5)*30,l:0.6,r:5+Math.random()*4});
-    return;
-  }
-  // дорога закрита: під'їхати до перешкоди й повернутися на своє місце (машини не роз'їжджаються по парковці)
-  if(r.steps>0)c.bounce={s,d:r.steps,t:0,dur:0.16+r.steps*0.1};
-  else{c.wob=0.35}
-  const other=cars[r.hit];if(other){other.bumpT=0.45+r.steps*0.08;other.bumpDir=s;other.bumpH=c.h}
-  c.bonk=r.steps>0?r.steps*0.08:0;
+/* стан для ParkCore: fixed + pos */
+const fixedOf=()=>cars.map(c=>({h:c.h,len:c.len,line:c.h?c.y:c.x}));
+const posOf=()=>cars.map(c=>c.h?c.x:c.y);
+function laneRange(i){const f=fixedOf(),p=posOf();return range(f,p,occ(f,p),i)}
+
+/* ---------- input: тягни машину вздовж її осі; торкання — їде капотом до упору ---------- */
+let drag=null;
+function carAt(x,y){const gx=(x-OX)/S,gy=(y-OY)/S;for(const c of cars){if(c.leaving)continue;const w=c.h?c.len:1,h=c.h?1:c.len;if(gx>=c.px&&gx<c.px+w&&gy>=c.py&&gy<c.py+h)return c}return null}
+cv.addEventListener('pointerdown',e=>{if(state!=='play')return;const c=carAt(e.clientX,e.clientY);if(!c)return;
+  const [lo,hi]=laneRange(c.id);drag={c,x:e.clientX,y:e.clientY,from:c.h?c.x:c.y,lo,hi,moved:false};try{cv.setPointerCapture(e.pointerId)}catch(_){}});
+cv.addEventListener('pointermove',e=>{if(!drag)return;const {c}=drag,d=(c.h?e.clientX-drag.x:e.clientY-drag.y)/S;
+  if(Math.abs(d)>0.15)drag.moved=true;const v=Math.max(drag.lo,Math.min(drag.hi,drag.from+d));if(c.h)c.px=v;else c.py=v;
+  if((v===drag.lo&&drag.from+d<drag.lo-0.3)||(v===drag.hi&&drag.from+d>drag.hi+0.3))c.wob=Math.max(c.wob,0.15)});
+const release=()=>{if(!drag)return;const {c}=drag;let to;
+  if(drag.moved)to=Math.round(c.h?c.px:c.py);
+  else{const s=c.nose,far=s>0?drag.hi:drag.lo;to=far!==drag.from?far:(s>0?drag.lo:drag.hi);if(to===drag.from)c.wob=0.35}
+  if(c.h)c.x=to;else c.y=to;if(to!==drag.from){moves++;upd()}drag=null;checkExit()};
+cv.addEventListener('pointerup',release);cv.addEventListener('pointercancel',release);
+
+function checkExit(){
+  const f=fixedOf(),p=posOf();if(state!=='play'||!goal(f,p,occ(f,p)))return;
+  const r=cars[0];if(r.x+r.len<N)moves++;upd();
+  state='won';r.leaving={speed:0};try{localStorage.setItem('park2_level',level+1)}catch(e){}
+  for(let k=0;k<8;k++)fx.push({x:OX+(r.x)*S,y:OY+(r.y+0.5)*S,vx:-60+(Math.random()-.5)*30,vy:(Math.random()-.5)*30,l:0.7,r:5+Math.random()*4});
+  setTimeout(()=>{$('ov').hidden=false;$('ovTitle').textContent='Вирвався!';
+    $('ovText').textContent='Рівень '+level+' за '+moves+' ходів'+(moves<=par?' — ідеально, це мінімум.':' (мінімум — '+par+').');
+    $('ovHint').hidden=true;$('ovBtn').textContent='Далі';setTimeout(()=>$('ovBtn').focus({preventScroll:true}),50)},900);
 }
 function carCenter(c){return[OX+(c.px+(c.h?c.len:1)/2)*S,OY+(c.py+(c.h?1:c.len)/2)*S]}
 
@@ -106,22 +112,14 @@ function update(dt){
   T+=dt;
   for(const c of cars){
     if(c.gone)continue;
-    if(c.leaving){const L=c.leaving;L.speed=Math.min(28,L.speed+dt*60);if(c.h)c.px+=L.s*L.speed*dt;else c.py+=L.s*L.speed*dt;
-      if(c.px<-6||c.px>C+6||c.py<-6||c.py>R+6){c.gone=true;checkWin()}continue}
-    if(c.bounce){const B=c.bounce;B.t+=dt;const k=Math.min(1,B.t/B.dur),o=B.s*B.d*Math.sin(k*Math.PI);
-      if(c.h)c.px=c.x+o;else c.py=c.y+o;if(k>=1){c.bounce=null;c.px=c.x;c.py=c.y;c.wob=0.25}
-      if(c.wob>0)c.wob-=dt;if(c.bumpT>0)c.bumpT-=dt;continue}
-    const tx=c.x,ty=c.y,sp=dt*16;
-    if(Math.abs(c.px-tx)>0.001)c.px+=Math.sign(tx-c.px)*Math.min(Math.abs(tx-c.px),sp);
-    if(Math.abs(c.py-ty)>0.001)c.py+=Math.sign(ty-c.py)*Math.min(Math.abs(ty-c.py),sp);
-    if(c.anim&&Math.abs(c.px-tx)<0.001&&Math.abs(c.py-ty)<0.001){c.anim=false;c.wob=0.25}
-    if(c.wob>0)c.wob-=dt;if(c.bumpT>0)c.bumpT-=dt;
+    if(c.leaving){const L=c.leaving;L.speed=Math.min(26,L.speed+dt*50);c.px+=L.speed*dt;if(c.px>C+8)c.gone=true;continue}
+    if(!drag||drag.c!==c){const tx=c.x,ty=c.y,sp=dt*18;
+      if(Math.abs(c.px-tx)>0.001)c.px+=Math.sign(tx-c.px)*Math.min(Math.abs(tx-c.px),sp);
+      if(Math.abs(c.py-ty)>0.001)c.py+=Math.sign(ty-c.py)*Math.min(Math.abs(ty-c.py),sp)}
+    if(c.wob>0)c.wob-=dt;
   }
   for(const f of fx){f.l-=dt;f.x+=f.vx*dt;f.y+=f.vy*dt;f.r+=dt*14}fx=fx.filter(f=>f.l>0);
 }
-function checkWin(){if(state==='play'&&cars.every(c=>c.gone)){state='won';try{localStorage.setItem('park_level',level+1)}catch(e){};setTimeout(()=>{
-  $('ov').hidden=false;$('ovTitle').textContent='Парковка вільна';$('ovText').textContent='Рівень '+level+' за '+moves+' ходів. Далі машин більше, а місця менше.';
-  $('ovHint').hidden=true;$('ovBtn').textContent='Далі';setTimeout(()=>$('ovBtn').focus({preventScroll:true}),50)},500)}}
 
 /* ---------- drawing ---------- */
 function shade(hex,k){const n=parseInt(hex.slice(1),16);let r=n>>16,g=n>>8&255,b=n&255;const f=v=>Math.round(k>0?v+(255-v)*k:v*(1+k));return`rgb(${f(r)},${f(g)},${f(b)})`}
@@ -130,7 +128,6 @@ function drawCar(c){
   let ang=c.h?(c.nose>0?0:Math.PI):(c.nose>0?Math.PI/2:-Math.PI/2);
   let ox=0,oy=0;
   if(c.wob>0&&!reduce){const k=Math.sin(c.wob*50)*c.wob*6;if(c.h)ox=k;else oy=k}
-  if(c.bumpT>0&&!reduce){const k=Math.sin(c.bumpT*40)*c.bumpT*5;if(c.bumpH)ox+=k*c.bumpDir;else oy+=k*c.bumpDir}
   ctx.save();ctx.translate(cx+ox,cy+oy);ctx.rotate(ang);
   const L=len-S*0.16,Wd=wid*0.74,col=c.color,truck=c.len===3;
   ctx.fillStyle='rgba(0,0,0,.28)';ctx.beginPath();ctx.roundRect(-L/2+3,-Wd/2+4,L,Wd,S*0.18);ctx.fill();
@@ -158,9 +155,8 @@ function drawCar(c){
   // lights
   ctx.fillStyle='#FFF2A8';ctx.beginPath();ctx.ellipse(L/2-S*0.06,-Wd*0.3,S*0.05,S*0.08,0,0,6.283);ctx.ellipse(L/2-S*0.06,Wd*0.3,S*0.05,S*0.08,0,0,6.283);ctx.fill();
   ctx.fillStyle='#D83A3A';ctx.fillRect(-L/2,-Wd*0.38,S*0.05,Wd*0.18);ctx.fillRect(-L/2,Wd*0.2,S*0.05,Wd*0.18);
-  if(c.leaving&&c.leaving.s===c.nose&&!reduce){ctx.fillStyle='rgba(255,242,168,.25)';ctx.beginPath();ctx.moveTo(L/2,-Wd*0.35);ctx.lineTo(L/2+S*1.4,-Wd*0.7);ctx.lineTo(L/2+S*1.4,Wd*0.7);ctx.lineTo(L/2,Wd*0.35);ctx.fill()}
+  if(c.leaving&&!reduce){ctx.fillStyle='rgba(255,242,168,.25)';ctx.beginPath();ctx.moveTo(L/2,-Wd*0.35);ctx.lineTo(L/2+S*1.4,-Wd*0.7);ctx.lineTo(L/2+S*1.4,Wd*0.7);ctx.lineTo(L/2,Wd*0.35);ctx.fill()}
   ctx.restore();
-  if(c.bumpT>0.2){const [x,y]=carCenter(c);ctx.font=Math.round(S*0.5)+'px Bowlby One, "Arial Black", sans-serif';ctx.textAlign='center';ctx.fillStyle='#17161C';ctx.fillText('!',x+ox,y-S*0.55)}
 }
 function draw(){
   ctx.fillStyle='#7CC35A';ctx.fillRect(0,0,W,H);
@@ -172,6 +168,12 @@ function draw(){
   // lot
   ctx.fillStyle='#545A68';ctx.fillRect(OX,OY,C*S,R*S);
   ctx.strokeStyle='#F2E9C9';ctx.lineWidth=2;ctx.strokeRect(OX,OY,C*S,R*S);
+  // виїзд: проріз у правому борті + стрілки
+  const ey=OY+EXIT*S;ctx.fillStyle='#545A68';ctx.fillRect(OX+C*S-2,ey+2,S*0.9+4,S-4);
+  ctx.fillStyle='#FFD23F';ctx.fillRect(OX+C*S-1,ey,4,3);ctx.fillRect(OX+C*S-1,ey+S-3,4,3);
+  const k=reduce?0:(T*1.5)%1;ctx.fillStyle='rgba(255,210,63,.85)';
+  for(let a=0;a<2;a++){const x=OX+C*S+S*(0.18+a*0.32+k*0.12);ctx.beginPath();ctx.moveTo(x,ey+S*0.3);ctx.lineTo(x+S*0.18,ey+S*0.5);ctx.lineTo(x,ey+S*0.7);ctx.lineTo(x+S*0.07,ey+S*0.5);ctx.fill()}
+  ctx.font=Math.round(S*0.26)+'px Bowlby One, "Arial Black", sans-serif';ctx.textAlign='center';ctx.fillStyle='#FFFDF5';ctx.fillText('ВИЇЗД',OX+C*S+S*0.45,ey-S*0.12);
   ctx.strokeStyle='rgba(255,255,255,.18)';ctx.lineWidth=1.5;
   for(let x=1;x<C;x++){ctx.beginPath();ctx.moveTo(OX+x*S,OY+4);ctx.lineTo(OX+x*S,OY+R*S-4);ctx.stroke()}
   for(let y=1;y<R;y++){ctx.beginPath();ctx.moveTo(OX+4,OY+y*S);ctx.lineTo(OX+C*S-4,OY+y*S);ctx.stroke()}
@@ -179,18 +181,18 @@ function draw(){
   // trees in corners
   for(const [x,y] of[[OX-pad-S*0.3,OY-pad-S*0.3],[OX+C*S+pad+S*0.3,OY-pad-S*0.3],[OX-pad-S*0.3,OY+R*S+pad+S*0.3],[OX+C*S+pad+S*0.3,OY+R*S+pad+S*0.3]]){
     ctx.fillStyle='rgba(0,0,0,.2)';ctx.beginPath();ctx.arc(x+4,y+5,S*0.55,0,6.283);ctx.fill();ctx.fillStyle='#3E8F3E';ctx.beginPath();ctx.arc(x,y,S*0.55,0,6.283);ctx.fill();ctx.fillStyle='#5BB35B';ctx.beginPath();ctx.arc(x-S*0.15,y-S*0.15,S*0.35,0,6.283);ctx.fill()}
-  for(const c of cars)if(!c.gone&&!c.leaving)drawCar(c);
+  for(const c of cars)if(!c.gone&&!c.leaving&&!(drag&&drag.c===c))drawCar(c);
+  if(drag)drawCar(drag.c);
   for(const c of cars)if(c.leaving&&!c.gone)drawCar(c);
   for(const f of fx){ctx.fillStyle='rgba(230,230,230,'+Math.max(0,f.l)*0.7+')';ctx.beginPath();ctx.arc(f.x,f.y,f.r,0,6.283);ctx.fill()}
-  if(level===1&&moves===0&&state==='play'&&!reduce){const g=grid(C,R,cars.filter(o=>!o.leaving));const c=live().find(c=>slide(C,R,g,c,c.nose).exits);if(c){const [x,y]=carCenter(c),k=(Math.sin(T*4)+1)/2;
-    ctx.strokeStyle='rgba(255,210,63,'+(0.9-k*0.6)+')';ctx.lineWidth=3;ctx.beginPath();ctx.arc(x,y,S*0.5+k*S*0.3,0,6.283);ctx.stroke()}}
+  if(level<=2&&moves===0&&state==='play'&&!reduce){const [x,y]=carCenter(cars[0]),k=(Math.sin(T*4)+1)/2;
+    ctx.strokeStyle='rgba(255,210,63,'+(0.9-k*0.6)+')';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(x,y,S*1.1+k*S*0.25,S*0.6+k*S*0.2,0,0,6.283);ctx.stroke()}
 }
 let last=performance.now();
 function frame(now){const dt=Math.min(0.1,(now-last)/1000);last=now;update(dt);draw();requestAnimationFrame(frame)}
 resize();load(level);state='menu';$('ov').hidden=false;
-if(level>1)$('ovText').textContent='Продовжуємо з рівня '+level+'. Всі запаркувались, а виїхати нікому.';
+if(level>1)$('ovText').textContent='Продовжуємо з рівня '+level+'. Виведи червону машину до виїзду.';
 requestAnimationFrame(frame);
-window.__solveStep=()=>{const g=grid(C,R,cars.filter(o=>!o.leaving));for(const c of live())for(const s of[c.nose,-c.nose])if(slide(C,R,g,c,s).exits){drive(c,s);return true}return false};
 </script>
 
 <a href="../../index.html" class="__back" aria-label="До списку ігор" style="position:fixed;left:max(10px,env(safe-area-inset-left,0px));top:calc(env(safe-area-inset-top,0px) + 58px);z-index:50;width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,.45);color:#fff;display:grid;place-items:center;text-decoration:none;font:700 18px system-ui">←</a>
