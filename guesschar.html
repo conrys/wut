@@ -155,20 +155,36 @@ html.dark-games .gc-card { background: #f1efff; }
   $("modeSeg").addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (!b) return; settings.mode = b.dataset.v; save(); paintSetup(); sfx("pop"); });
 
   // ---------------- фото з Вікіпедії ----------------
-  const photoCache = new Map(); // назва статті → Promise<url|null>
-  function photoOf(item) {
-    const title = item.w;
-    if (!photoCache.has(title)) {
-      const url = "https://en.wikipedia.org/api/rest_v1/page/summary/" + encodeURIComponent(title.replace(/ /g, "_"));
-      const pr = fetch(url).then((r) => (r.ok ? r.json() : null)).then((j) => {
-        const t = j && (j.thumbnail || j.originalimage);
-        if (!t || !t.source) return null;
-        const src = j.thumbnail ? j.thumbnail.source.replace(/\/\d+px-/, "/640px-") : t.source;
-        return new Promise((res) => { const im = new Image(); im.onload = () => res(src); im.onerror = () => res(j.originalimage ? j.originalimage.source : null); im.src = src; });
-      }).catch(() => null);
-      photoCache.set(title, pr);
+  // Телефон іде у Вікіпедію напряму. Адреси мініатюр беремо ПАКЕТАМИ (до 50 статей за запит)
+  // на старті, лише стандартного розміру (лежить у кеші Вікіпедії, не генерується на льоту),
+  // і заздалегідь підвантажуємо кілька наступних картинок.
+  const THUMB = 500;                       // стандартний крок мініатюр Вікімедіа
+  const urlOf = new Map();                 // назва статті → url | null
+  const pending = new Map();               // назва статті → Promise (поки йде пакетний запит)
+  const imgReady = new Map();              // url → Promise<boolean>
+  function resolveBatch(titles) {
+    const todo = titles.filter((t) => !urlOf.has(t) && !pending.has(t));
+    for (let i = 0; i < todo.length; i += 50) {
+      const chunk = todo.slice(i, i + 50);
+      const api = "https://en.wikipedia.org/w/api.php?action=query&format=json&formatversion=2&origin=*&redirects=1&prop=pageimages&piprop=thumbnail&pilicense=any&pithumbsize=" + THUMB +
+        "&titles=" + encodeURIComponent(chunk.join("|"));
+      const pr = fetch(api).then((r) => (r.ok ? r.json() : null)).then((j) => {
+        const q = (j && j.query) || {}, alias = {};
+        (q.normalized || []).forEach((x) => { alias[x.to] = x.from; });
+        (q.redirects || []).forEach((x) => { alias[x.to] = alias[x.from] || x.from; });
+        (q.pages || []).forEach((p) => { const orig = alias[p.title] || p.title; urlOf.set(orig, p.thumbnail ? p.thumbnail.source : null); });
+      }).catch(() => {}).then(() => { chunk.forEach((t) => { if (!urlOf.has(t)) urlOf.set(t, null); pending.delete(t); }); });
+      chunk.forEach((t) => pending.set(t, pr));
     }
-    return photoCache.get(title);
+  }
+  function loadImg(url) {
+    if (!imgReady.has(url)) imgReady.set(url, new Promise((res) => { const im = new Image(); im.decoding = "async"; im.onload = () => res(true); im.onerror = () => res(false); im.src = url; }));
+    return imgReady.get(url);
+  }
+  async function photoOf(item) {
+    if (!urlOf.has(item.w)) { resolveBatch([item.w]); await pending.get(item.w); }
+    const url = urlOf.get(item.w);
+    return url && (await loadImg(url)) ? url : null;
   }
 
   // ---------------- колода ----------------
@@ -181,8 +197,13 @@ html.dark-games .gc-card { background: #f1efff; }
     }));
     deck = PH ? PH.order("guesschar", pool, (x) => x.n + "|" + x.from) : pool.sort(() => Math.random() - 0.5);
     pos = 0;
+    if (settings.mode === "photo") resolveBatch(deck.slice(0, 100).map((x) => x.w)); // перші ~100 — одразу, решта — по ходу
   }
-  function preload() { if (settings.mode !== "photo") return; for (let i = pos; i < Math.min(deck.length, pos + 3); i++) photoOf(deck[i]); }
+  function preload() {
+    if (settings.mode !== "photo") return;
+    resolveBatch(deck.slice(pos, pos + 50).map((x) => x.w));
+    for (let i = pos; i < Math.min(deck.length, pos + 4); i++) photoOf(deck[i]);
+  }
 
   async function next() {
     const my = ++token;
