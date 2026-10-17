@@ -106,6 +106,8 @@ body.dim .fn-bg::after { background: linear-gradient(180deg, rgba(10,15,36,.75),
   letter-spacing: .08em; text-transform: uppercase; overflow: hidden; }
 .fn-strip b { flex: none; padding: 0 1.4vw; background: #fff; color: var(--accent); }
 .fn-strip span { white-space: nowrap; padding-left: 100%; animation: fnTick 36s linear infinite; }
+#musicBtn { position: fixed; z-index: 5; right: 2vw; bottom: 7vh; width: clamp(34px, 3vw, 54px); height: clamp(34px, 3vw, 54px); border-radius: 50%; border: 0; background: rgba(255,255,255,.12); color: #fff; font: 800 clamp(16px, 1.5vw, 26px) var(--font-b); opacity: .55; transition: opacity .2s; }
+#musicBtn:hover { opacity: 1; } #musicBtn.off { text-decoration: line-through; opacity: .3; }
 #soundBtn { position: fixed; z-index: 5; right: 2vw; bottom: 7vh; padding: 1.2vh 1.4vw; border-radius: 999px; border: 0; background: #fff; color: var(--bg); font: 800 clamp(13px, 1.2vw, 22px) var(--font-b); box-shadow: 0 1vh 3vh rgba(0,0,0,.4); }
 /* реакції гравців — великі, над усім, крім бігучого рядка */
 .reactions-overlay { z-index: 3; }
@@ -130,6 +132,7 @@ body.dim .fn-bg::after { background: linear-gradient(180deg, rgba(10,15,36,.75),
 </div>
 <div class="fn-strip" aria-hidden="true"><b>Терміново</b><span id="tvTicker">Джерела повідомляють: на цій вечірці всі новини — фейкові · Редакція не несе відповідальності за ваші заголовки · Заходьте з телефонів · </span></div>
 <button id="soundBtn">Увімкнути звук</button>
+<button id="musicBtn" class="hidden" title="Музика (M)" aria-label="Музика">♪</button>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
@@ -138,6 +141,7 @@ body.dim .fn-bg::after { background: linear-gradient(180deg, rgba(10,15,36,.75),
 <script src="js/core/firebase-config.js"></script>
 <script src="js/quiplash-avatars.js"></script>
 <script src="js/quiplash-sounds.js"></script>
+<script src="js/fakenews-music.js"></script>
 <script src="js/promts/fakenews-photos.js"></script>
 <script src="js/fakenews-ui.js"></script>
 <script src="js/party-ui.js"></script>
@@ -254,6 +258,7 @@ body.dim .fn-bg::after { background: linear-gradient(180deg, rgba(10,15,36,.75),
     else if (room.phase === "summary") { $("tvLive").textContent = "Підсумок"; renderSummary(); }
     else { $("tvLive").textContent = "Студія"; lastHead = null; renderLobby(); }
     updateTimer();
+    syncMusic();
   }
 
   const RING = 2 * Math.PI * 19;
@@ -267,8 +272,20 @@ body.dim .fn-bg::after { background: linear-gradient(180deg, rgba(10,15,36,.75),
     if (sec <= 5 && sec > 0 && sec !== lastTick) { lastTick = sec; sfx("tick"); }
   }
   setInterval(updateTimer, 250);
+  // ---------------- фонова музика (js/fakenews-music.js) ----------------
+  function syncMusic() {
+    const M = window.FakeNewsMusic; if (!M || !room) return;
+    M.setMood(room.paused ? "off" : room.phase === "round" && room.stage ? room.stage.kind : room.phase === "summary" ? "summary" : "lobby");
+  }
+  function musicBtnState() { $("musicBtn").classList.toggle("off", !(window.FakeNewsMusic && FakeNewsMusic.isOn())); }
+  function toggleMusic() { if (window.FakeNewsMusic) { FakeNewsMusic.toggle(); musicBtnState(); } }
+  $("musicBtn").onclick = toggleMusic;
+  window.addEventListener("keydown", (e) => { if ((e.key === "m" || e.key === "M" || e.key === "ь" || e.key === "Ь") && e.target.tagName !== "INPUT") toggleMusic(); });
   window.addEventListener("resize", () => { lastKey = null; render(); });
-  $("soundBtn").onclick = () => { sfx("chime"); $("soundBtn").remove(); };
+  $("soundBtn").onclick = () => {
+    sfx("chime"); $("soundBtn").remove();
+    if (window.FakeNewsMusic) { FakeNewsMusic.start(); $("musicBtn").classList.remove("hidden"); musicBtnState(); syncMusic(); }
+  };
 
   function connect(code) {
     roomId = code.trim().toUpperCase();
@@ -281,6 +298,7 @@ body.dim .fn-bg::after { background: linear-gradient(180deg, rgba(10,15,36,.75),
     window.rtdb.ref(`fakenews_rooms/${roomId}`).on("value", (snap) => {
       room = snap.val();
       if (tvPause) tvPause.update(room);
+      syncMusic();
       if (!room) { setStage("none", `<div class="tv-join" style="align-items:center;text-align:center"><h1>Fake <i>News</i></h1><p>Кімнату <b>${esc(roomId)}</b> ще не створено — створіть її з телефона</p></div>`, false); return; }
       render();
     });

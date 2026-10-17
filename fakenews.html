@@ -278,6 +278,22 @@ body[data-view="round"] .fn-bg::after { background: linear-gradient(180deg, rgba
 
   const sig = {};
   function paint(id, key, html) { if (sig[id] === key) return false; sig[id] = key; $(id).innerHTML = html; return true; }
+  // Точкове оновлення списку: елементи з тим самим ключем лишаються (картинки не перезавантажуються,
+  // аватарки не «смикаються»), нові — створюються, зайві — прибираються. sigOf змінився → елемент перебудовується.
+  function syncKids(box, items, keyOf, sigOf, create) {
+    const old = new Map();
+    Array.from(box.children).forEach((el) => { if (el.dataset.k != null) old.set(el.dataset.k, el); else el.remove(); });
+    items.forEach((it, i) => {
+      const k = String(keyOf(it)), sg = sigOf ? String(sigOf(it)) : "";
+      let el = old.get(k);
+      if (el && el.dataset.sig !== sg) { const fresh = create(it); fresh.dataset.k = k; fresh.dataset.sig = sg; el.replaceWith(fresh); el = fresh; }
+      else if (!el) { el = create(it); el.dataset.k = k; el.dataset.sig = sg; }
+      old.delete(k);
+      if (box.children[i] !== el) box.insertBefore(el, box.children[i] || null);
+    });
+    old.forEach((el) => el.remove());
+  }
+  function elFrom(html) { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstElementChild; }
   const VIEWS = ["locked", "entry", "waiting", "lobby", "round", "summary"];
   let curView = null;
   function showView(name) {
@@ -318,15 +334,12 @@ body[data-view="round"] .fn-bg::after { background: linear-gradient(180deg, rgba
       el.classList.toggle("sel", sel);
       el.classList.toggle("dim", !sel && full);
     });
-    const box = $("myPhotos");
-    if (box.dataset.ids !== mineIds.join(",")) {
-      box.dataset.ids = mineIds.join(",");
-      box.innerHTML = mineIds.map((id) => `<div class="fn-thumb" data-id="${esc(id)}"><img alt="" /><button data-rm="${esc(id)}" aria-label="Прибрати">${icon("x")}</button></div>`).join("");
-      box.querySelectorAll(".fn-thumb").forEach((el) => {
-        G.loadPhoto({ k: "up", n: ctx.username, id: el.dataset.id }).then((src) => { if (src) el.querySelector("img").src = src; });
-        el.querySelector("[data-rm]").addEventListener("click", () => G.removePhoto(el.dataset.id));
-      });
-    }
+    syncKids($("myPhotos"), mineIds, (id) => id, null, (id) => {
+      const el = elFrom(`<div class="fn-thumb" data-id="${esc(id)}"><img alt="" /><button data-rm="${esc(id)}" aria-label="Прибрати">${icon("x")}</button></div>`);
+      G.loadPhoto({ k: "up", n: ctx.username, id }).then((src) => { if (src) el.querySelector("img").src = src; });
+      el.querySelector("[data-rm]").addEventListener("click", () => G.removePhoto(id));
+      return el;
+    });
     renderMyChannels(room, ctx, picks, mineIds);
     $("photoAddBtn").disabled = full;
     const ps = $("pickStatus");
@@ -341,19 +354,16 @@ body[data-view="round"] .fn-bg::after { background: linear-gradient(180deg, rgba
     const box = $("myChannels"), pool = window.FakeNewsPhotos || [];
     const mine = picks.map((k) => ({ k: "pool", i: Number(k.slice(1)) })).concat(mineIds.map((id) => ({ k: "up", n: ctx.username, id })));
     const keyOf = (p) => (p.k === "pool" ? "pool:" + p.i : "up:" + p.id);
-    const listKey = mine.map(keyOf).join(",");
-    if (box.dataset.list !== listKey) {
-      box.dataset.list = listKey;
-      box.innerHTML = (mine.length ? `<div class="pp-label" style="margin-top:14px">Обери канал для кожного фото</div>` : "") +
-        mine.map((p) => `<div class="fn-chan-row" data-photo="${esc(keyOf(p))}"><div class="cap"><span>${esc(G.photoTitle(p) || "Твоє фото")}</span><b class="cur"></b></div>
-          <div class="fn-chans">${G.CHANNELS.map((c) => `<button type="button" class="chp ch-${c.id}" data-ch="${c.id}" aria-label="${esc(c.name)}"><img alt="" /><span class="lab">${ic(c.id)}${esc(c.short)}</span></button>`).join("")}</div></div>`).join("");
-      box.querySelectorAll(".fn-chan-row").forEach((row, n) => {
-        const p = mine[n];
-        const setSrc = (src) => { if (src) row.querySelectorAll("img").forEach((im) => { im.src = src; }); };
-        if (p.k === "pool") { const it = pool[p.i]; setSrc(it && (it.thumb || it.src)); } else G.loadPhoto(p).then(setSrc);
-        row.querySelectorAll(".chp").forEach((b) => b.addEventListener("click", () => { G.setPhotoChannel(p, b.dataset.ch); sfx("pop"); }));
-      });
-    }
+    if (!box.querySelector(".fn-chan-head")) box.innerHTML = `<div class="pp-label fn-chan-head hidden" style="margin-top:14px">Обери канал для кожного фото</div><div class="fn-chan-list"></div>`;
+    box.querySelector(".fn-chan-head").classList.toggle("hidden", !mine.length);
+    syncKids(box.querySelector(".fn-chan-list"), mine, keyOf, null, (p) => {
+      const row = elFrom(`<div class="fn-chan-row" data-photo="${esc(keyOf(p))}"><div class="cap"><span>${esc(G.photoTitle(p) || "Твоє фото")}</span><b class="cur"></b></div>
+          <div class="fn-chans">${G.CHANNELS.map((c) => `<button type="button" class="chp ch-${c.id}" data-ch="${c.id}" aria-label="${esc(c.name)}"><img alt="" /><span class="lab">${ic(c.id)}${esc(c.short)}</span></button>`).join("")}</div></div>`);
+      const setSrc = (src) => { if (src) row.querySelectorAll("img").forEach((im) => { im.src = src; }); };
+      if (p.k === "pool") { const it = pool[p.i]; setSrc(it && (it.thumb || it.src)); } else G.loadPhoto(p).then(setSrc);
+      row.querySelectorAll(".chp").forEach((b) => b.addEventListener("click", () => { G.setPhotoChannel(p, b.dataset.ch); sfx("pop"); }));
+      return row;
+    });
     box.querySelectorAll(".fn-chan-row").forEach((row, n) => {
       const ch = G.photoChannel(room, ctx.username, mine[n]);
       row.querySelectorAll(".chp").forEach((b) => b.classList.toggle("sel", b.dataset.ch === ch));
@@ -382,15 +392,16 @@ body[data-view="round"] .fn-bg::after { background: linear-gradient(180deg, rgba
     $("lobbyCount").textContent = conn.length;
     const names = Object.keys(players).sort((a, b) => conn.includes(b) - conn.includes(a));
     const ready = (n) => G.photoCount(room, n) >= G.MAX_PHOTOS;
-    const key = names.map((n) => [n, players[n].character, conn.includes(n), n === hostName, ready(n)].join(":")).join("|") + "#" + me;
-    if (paint("playersList", key, names.map((n) => {
+    // кожна плитка оновлюється окремо: коли хтось став «готовий», решта аватарок не перемальовується
+    const plBox = $("playersList");
+    if (!names.length) { plBox.innerHTML = '<div class="pp-note">Ще нікого немає</div>'; }
+    else syncKids(plBox, names, (n) => n, (n) => [players[n].character, conn.includes(n), n === hostName, ready(n), n === me].join(":"), (n) => {
       const mine = n === me;
-      return `<button class="pp-pl ${mine ? "me" : ""} ${conn.includes(n) ? "" : "off"}" ${mine ? 'data-me="1"' : "disabled"}>${avatarHtml(room, n, { size: "lg", mood: mine ? "happy" : ready(n) ? "idle" : "write", badge: ready(n) ? '<span class="rdy">✓</span>' : "" })}
-        <span class="nm">${esc(n)}</span>${n === hostName ? `<span class="tag">${icon("crown")}</span>` : ""}${mine ? `<span class="swap">${icon("swap")}</span>` : ""}</button>`;
-    }).join("") || '<div class="pp-note">Ще нікого немає</div>')) {
-      const mine = $("playersList").querySelector("[data-me]");
-      if (mine) mine.addEventListener("click", () => { G.cycleAvatar(); sfx("pop"); });
-    }
+      const el = elFrom(`<button class="pp-pl ${mine ? "me" : ""} ${conn.includes(n) ? "" : "off"}" ${mine ? 'data-me="1"' : "disabled"}>${avatarHtml(room, n, { size: "lg", mood: mine ? "happy" : ready(n) ? "idle" : "write", badge: ready(n) ? '<span class="rdy">✓</span>' : "" })}
+        <span class="nm">${esc(n)}</span>${n === hostName ? `<span class="tag">${icon("crown")}</span>` : ""}${mine ? `<span class="swap">${icon("swap")}</span>` : ""}</button>`);
+      if (mine) el.addEventListener("click", () => { G.cycleAvatar(); sfx("pop"); });
+      return el;
+    });
     $("hostPanel").classList.toggle("hidden", !ctx.host);
     $("resetBtn").classList.toggle("hidden", !ctx.host);
     $("waitHostLobby").classList.toggle("hidden", !!ctx.host);
