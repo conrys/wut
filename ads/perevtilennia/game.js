@@ -221,7 +221,7 @@ function newChar(role,isPlayer,color,x,z){
 function clearChars(){for(const c of chars){scene.remove(c.mdl.root);if(c.cage)scene.remove(c.cage);if(c.prop)scene.remove(c.prop);if(c.pring)scene.remove(c.pring);if(c.cageLift)scene.remove(c.cageLift)}chars=[];pops=[]}
 
 function startLevel(){
-  const v=Math.floor((level-1)/4)%4;buildWorld(Math.floor((level-1)/2)%2,!!(v&1),!!(v&2),level*977+13);
+  const v=Math.floor((level-1)/4)%4;buildWorld(Math.floor((level-1)/2)%HW.MAPS.length,!!(v&1),!!(v&2),level*977+13);
   clearChars();mode=level%2?'hide':'seek';
   const hx=TX(world.def.spawn[0]),hz=TZ(world.def.spawn[1]);
   if(mode==='hide'){
@@ -684,7 +684,7 @@ function mpCycleColor(){MP.color=(MP.color+1)%PCOL.length;$('colorBtn').style.ba
 /* host: rounds and phases */
 function hostStartRound(){
   const pl=humans().map(p=>p.id);if(!pl.length)return;
-  const r=(MP.g?MP.g.r:0)+1,map=MP.mapSel==='auto'?(r-1)%2:+MP.mapSel;
+  const r=(MP.g?MP.g.r:0)+1,map=MP.mapSel==='auto'?(r-1)%HW.MAPS.length:+MP.mapSel;
   MP.g={r,cl:Math.floor(Math.random()*1e6),ph:'intro',k:1,map,fx:Math.random()<0.5?1:0,fz:Math.random()<0.5?1:0,sk:pl[(r-1)%pl.length],pl,bots:MP.botCount,dark:0,rem:15000,dur:150,res:null};
   MP.hostEnd=performance.now()+15000;
 }
