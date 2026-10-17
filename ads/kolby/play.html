@@ -65,6 +65,9 @@ const {CAP,generate,canPour,pour,done,solved,topRun}=SortCore;
 const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const COLORS=['#E8453C','#2F80ED','#F2C94C','#27AE60','#9B51E0','#F2994A','#56CCF2','#EB5FA8','#8B5A2B','#A3D930','#E0E0E0'];
 
+/* секретні кольори: з 6-го рівня кожен третій — усе, крім верхнього шару, сховане, відкривається, коли стає верхнім */
+const isSecret=l=>l>=6&&l%3===0;
+let hid=[];
 let W,H,level=1,tubes=[],start=[],hist=[],moves=0,extraUsed=false,sel=-1,anims=[],fx=[],T=0,lay=[],shake={},corks={},state='menu';
 try{level=Math.max(1,parseInt(localStorage.getItem('sort_level'))||1)}catch(e){}
 function resize(){const d=Math.min(2,devicePixelRatio||1);W=innerWidth;H=innerHeight;cv.width=W*d;cv.height=H*d;ctx.setTransform(d,0,0,d,0,0);layout()}
@@ -73,7 +76,8 @@ addEventListener('resize',resize);
 function load(l){
   level=l;const g=generate(l);start=g.tubes.map(t=>t.slice());tubes=g.tubes.map(t=>t.slice());
   hist=[];moves=0;extraUsed=false;sel=-1;anims=[];fx=[];shake={};corks={};state='play';
-  $('lv').textContent='Рівень '+l;$('ov').hidden=true;layout();updUI();
+  hid=tubes.map(t=>t.map((_,k)=>isSecret(l)&&k<t.length-1));
+  $('lv').textContent='Рівень '+l+(isSecret(l)?' · секретні кольори':'');$('ov').hidden=true;layout();updUI();
 }
 function updUI(){$('moves').textContent='ходів: '+moves;$('undo').disabled=!hist.length||anims.length>0;$('extra').disabled=extraUsed}
 
@@ -104,11 +108,12 @@ cv.addEventListener('pointerdown',e=>{
   const n=canPour(tubes,sel,hit);
   if(!n){shake[hit]=0.3;sel=tubes[hit].length&&!done(tubes[hit])?hit:-1;return}
   const color=tubes[sel][tubes[sel].length-1];pour(tubes,sel,hit);hist.push([sel,hit,n]);moves++;
+  for(let k=0;k<n;k++){hid[sel].pop();hid[hit].push(false)}if(hid[sel].length)hid[sel][hid[sel].length-1]=false;
   anims.push({src:sel,dst:hit,n,color,t:0});sel=-1;updUI();
 });
-$('undo').addEventListener('click',()=>{if(!hist.length||anims.length)return;const [s,d,n]=hist.pop();for(let k=0;k<n;k++)tubes[s].push(tubes[d].pop());delete corks[d];moves++;updUI()});
+$('undo').addEventListener('click',()=>{if(!hist.length||anims.length)return;const [s,d,n]=hist.pop();for(let k=0;k<n;k++){tubes[s].push(tubes[d].pop());hid[d].pop();hid[s].push(false)}delete corks[d];moves++;updUI()});
 $('restart').addEventListener('click',()=>{if(state==='play')load(level)});
-$('extra').addEventListener('click',()=>{if(extraUsed||state!=='play')return;extraUsed=true;tubes.push([]);start.push([]);layout();updUI()});
+$('extra').addEventListener('click',()=>{if(extraUsed||state!=='play')return;extraUsed=true;tubes.push([]);start.push([]);hid.push([]);layout();updUI()});
 $('ovBtn').addEventListener('click',()=>load(state==='won'?level+1:level));
 
 /* ---------- animation ---------- */
@@ -129,7 +134,7 @@ function sparkle(i){const p=lay[i];for(let k=0;k<18;k++){const a=Math.random()*6
 function confetti(){for(let k=0;k<90;k++)fx.push({x:W/2+(Math.random()-.5)*W*0.6,y:H*0.25,vx:(Math.random()-.5)*360,vy:-Math.random()*360,g:520,l:2.4,c:COLORS[k%COLORS.length],s:4,rect:true,r:Math.random()*6})}
 function showWin(){
   $('ov').hidden=false;$('ovTitle').textContent='Розлито!';$('ovHint').hidden=true;
-  $('ovText').textContent='Рівень '+level+' за '+moves+' ходів.'+(level%2===0?' Далі додається новий колір.':'');$('ovBtn').textContent='Далі';
+  $('ovText').textContent='Рівень '+level+' за '+moves+' ходів.'+(isSecret(level+1)?' Далі — секретні кольори: нижні шари сховані, відкриваються, коли стають верхніми.':level%2===0?' Далі додається новий колір.':'');$('ovBtn').textContent='Далі';
   setTimeout(()=>$('ovBtn').focus({preventScroll:true}),50);
 }
 
@@ -145,10 +150,13 @@ function drawTube(i,x,y,ang,layers){
   // liquid
   ctx.save();tubePath(x,y+3,inner,h-6);ctx.clip();
   let base=y+h-4;
-  for(const [c,amt] of layers){if(amt<=0.001)continue;const hh=amt*unit,col=COLORS[c];
+  for(const [c,amt] of layers){if(amt<=0.001)continue;const hh=amt*unit,col=c<0?'#3A4150':COLORS[c];
     const g=ctx.createLinearGradient(x-inner/2,0,x+inner/2,0);g.addColorStop(0,shade(col,0.18));g.addColorStop(0.45,col);g.addColorStop(1,shade(col,-0.25));
-    ctx.fillStyle=g;ctx.fillRect(x-w,base-hh-0.5,w*2,hh+1);base-=hh}
-  if(layers.length){const top=layers[layers.length-1];if(top&&top[1]>0.001){ctx.fillStyle=shade(COLORS[top[0]],0.35);ctx.beginPath();ctx.ellipse(x,base,inner/2,Math.max(1.5,inner*0.09),0,0,6.283);ctx.fill()}}
+    ctx.fillStyle=g;ctx.fillRect(x-w,base-hh-0.5,w*2,hh+1);
+    if(c<0){ctx.fillStyle='rgba(255,255,255,.75)';ctx.font=Math.round(Math.min(unit*0.62,inner*0.7))+'px Bowlby One, "Arial Black", sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+      for(let u=0;u<Math.round(amt);u++)ctx.fillText('?',x,base-unit*(u+0.5));ctx.textBaseline='alphabetic'}
+    base-=hh}
+  if(layers.length){const top=layers[layers.length-1];if(top&&top[1]>0.001&&top[0]>=0){ctx.fillStyle=shade(COLORS[top[0]],0.35);ctx.beginPath();ctx.ellipse(x,base,inner/2,Math.max(1.5,inner*0.09),0,0,6.283);ctx.fill()}}
   ctx.restore();
   // glass edge + shine
   tubePath(x,y,w,h);ctx.strokeStyle='rgba(225,250,245,.55)';ctx.lineWidth=2.4;ctx.stroke();
@@ -159,7 +167,7 @@ function drawTube(i,x,y,ang,layers){
     ctx.fillStyle='rgba(0,0,0,.18)';ctx.fillRect(x-w*0.36,cy+11,w*0.72,5);ctx.fillStyle='rgba(255,255,255,.2)';ctx.fillRect(x-w*0.3,cy+2,w*0.6,2);ctx.globalAlpha=1}
   ctx.restore();
 }
-function layersOf(arr){const L=[];for(const c of arr){if(L.length&&L[L.length-1][0]===c)L[L.length-1][1]++;else L.push([c,1])}return L}
+function layersOf(arr,h){const L=[];for(let k=0;k<arr.length;k++){const c=h&&h[k]?-1:arr[k];if(L.length&&L[L.length-1][0]===c)L[L.length-1][1]++;else L.push([c,1])}return L}
 function draw(){
   // wall
   const g=ctx.createRadialGradient(W/2,H*0.4,40,W/2,H*0.4,Math.max(W,H)*0.8);g.addColorStop(0,'#1E4642');g.addColorStop(1,'#0B1C1B');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
@@ -173,7 +181,7 @@ function draw(){
     ctx.fillStyle='#6B4527';ctx.fillRect(W/2-s.w/2+14,s.y+14,8,18);ctx.fillRect(W/2+s.w/2-22,s.y+14,8,18);
   }
   // display amounts: logical state with in-flight pours added back to sources / held back from targets
-  const disp=tubes.map(t=>layersOf(t));
+  const disp=tubes.map((t,i)=>layersOf(t,hid[i]));
   for(const a of anims){const k=pourK(a);
     const d=disp[a.dst];d[d.length-1][1]-=a.n*(1-k);if(d[d.length-1][1]<=0.0001)d.pop();
     const s=disp[a.src];if(s.length&&s[s.length-1][0]===a.color)s[s.length-1][1]+=a.n*(1-k);else s.push([a.color,a.n*(1-k)])}

@@ -69,6 +69,10 @@ addEventListener('resize',resize);
 
 function levelData(l){const P=window.PARK_LEVELS||[];return l<=P.length?decode(P[l-1][0],P[l-1][1],l):generate(l)}
 function load(l){
+  // рівні після заготовлених генеруються на пристрої (до кількох секунд) — показати, що гра думає
+  if(l>(window.PARK_LEVELS||[]).length&&!load.ready){state='busy';$('ov').hidden=false;$('ovTitle').textContent='Завантаження…';
+    $('ovText').textContent='Генерую рівень '+l+'. Це кілька секунд.';$('ovHint').hidden=true;$('ovBtn').hidden=true;
+    setTimeout(()=>{load.ready=true;load(l);load.ready=false;$('ovBtn').hidden=false},60);return}
   level=l;const g=levelData(l);par=g.par;
   cars=g.cars.map((c,i)=>Object.assign({},c,{id:i,px:c.x,py:c.y,leaving:null,gone:false,wob:0}));
   moves=0;fx=[];drag=null;state='play';$('ov').hidden=true;$('lv').textContent='Рівень '+l;fit();upd();
