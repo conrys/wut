@@ -6,9 +6,11 @@
    Дані: /{root}/{код}/{peerId} = { p: "<JSON стану гравця>", t: serverTimestamp }.
    Стан пишемо JSON-рядком: RTDB викидає порожні масиви й обʼєкти, а гра на них розраховує.
    Запис — не частіше ~15 разів/с; onDisconnect прибирає гравця, якщо зник звʼязок.
+   У кімнаті до 10 гравців (join кидає Error('full')).
    Гра потребує лише: ready() -> bool, join(code) -> { presence(patch), peers(), leave() }. */
 (function () {
   const root = (document.currentScript && document.currentScript.dataset.root) || "hns";
+  const MAX_PLAYERS = 10; // більше — тісно на картах і рідко шукаєш; одинадцятому — «Кімната повна»
   if (!window.firebase || !firebase.database || !firebase.auth) return; // офлайн — лише гра з ботами
 
   // Запис у базу — лише з входом (як у Змійці). Хто не входив у 41 Games, отримує анонімний вхід.
@@ -28,7 +30,11 @@
     async ready() { return signedIn(); },
     async join(code) {
       const db = firebase.database();
-      const id = db.ref().push().key, roomRef = db.ref(root + "/" + code), meRef = roomRef.child(id);
+      const roomRef = db.ref(root + "/" + code);
+      const before = (await roomRef.once("value")).val() || {};
+      const inRoom = Object.values(before).filter((v) => { try { return !!JSON.parse(v.p).n; } catch (e) { return false; } }).length;
+      if (inRoom >= MAX_PLAYERS) throw new Error("full");
+      const id = db.ref().push().key, meRef = roomRef.child(id);
       let mine = {}, dirty = true, last = 0, list = [{ id, isMe: true, presence: {}, updatedAt: Date.now() }];
       const seen = new Map();
       const meNow = () => ({ id, isMe: true, presence: Object.freeze({ ...mine }), updatedAt: Date.now() });

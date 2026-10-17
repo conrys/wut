@@ -567,7 +567,7 @@ function drawFx(dt){
 const MP={on:false,avail:null,net:null,code:'',me:null,host:false,nick:'',color:0,g:null,hostT:0,round:-1,phKey:'',phEnd:0,
   spectator:false,cg:new Set(),bf:new Set(),botCount:2,mapSel:'auto',sent:0};
 try{MP.nick=localStorage.getItem('hns_nick')||'';MP.color=+localStorage.getItem('hns_color')||Math.floor(Math.random()*6)}catch(e){}
-const PCOL=['#4C8DFF','#4CC97A','#FFC93C','#A779F2','#FF9A3D','#FF7BB0','#3CC8C8','#8BD14B'];
+const PCOL=['#4C8DFF','#4CC97A','#FFC93C','#A779F2','#FF9A3D','#FF7BB0','#3CC8C8','#8BD14B','#F2F2F2','#B5835A'];
 const claudeTransport={async ready(){const r=window.claude&&window.claude.use?await window.claude.use('room'):null;this.r=r;return !!r},
   async join(code){const nr=await this.r.join('hns-'+code);return{presence:p=>nr.presence(p).catch(()=>{}),
     peers:()=>nr.peers().map(p=>({id:p.peer,isMe:p.sameTab,presence:p.presence||{},updatedAt:p.updatedAt})),leave:()=>nr.leave().catch(()=>{})}}};
@@ -583,7 +583,7 @@ function hostId(){const ps=humans();const hs=ps.filter(p=>p.presence.h).sort((a,
 async function mpJoin(code,create){
   au();MP.nick=($('nick').value||'').trim().slice(0,14)||'Гравець';try{localStorage.setItem('hns_nick',MP.nick);localStorage.setItem('hns_color',MP.color)}catch(e){}
   $('mpErr').hidden=true;
-  try{MP.net=await MP.avail.join(code)}catch(e){$('mpErr').textContent='Не вдалося увійти в кімнату. Спробуй ще раз.';$('mpErr').hidden=false;return}
+  try{MP.net=await MP.avail.join(code)}catch(e){$('mpErr').textContent=e&&e.message==='full'?'Кімната повна: уже 10 гравців.':'Не вдалося увійти в кімнату. Спробуй ще раз.';$('mpErr').hidden=false;return}
   MP.code=code;MP.on=true;MP.joinedAt=performance.now();MP.round=-1;MP.phKey='';MP.g=null;MP.cg=new Set();MP.bf=new Set();
   MP.net.presence({n:MP.nick,c:MP.color,h:create?Date.now():null,g:null,b:null,cg:null,f:null});
   $('roomCode').textContent=code.toUpperCase();$('mpA').hidden=true;$('mpB').hidden=false;
