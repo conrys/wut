@@ -3,6 +3,7 @@
 <html lang="uk">
 <head>
 <meta charset="UTF-8" />
+<script>/* темна тема світлих ігор — до першого фарбування; далі керує js/core/app-settings.js */try{var t=JSON.parse(localStorage.getItem("app_settings")||"{}").gameTheme;if(t==="dark"||(t==="system"&&matchMedia("(prefers-color-scheme: dark)").matches))document.documentElement.classList.add("dark-games")}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
 <meta name="theme-color" content="#ff6a3d" />
 <title>Хто я?</title>
@@ -78,6 +79,11 @@ body { background:
 .wa-full .theme { position: absolute; top: 5vh; left: 0; right: 0; text-align: center; font: 800 14px var(--font-b); letter-spacing: .14em; text-transform: uppercase; opacity: .6; }
 .wa-full .word { font-family: var(--font-d); font-weight: 900; text-align: center; line-height: 1.05; max-width: 100%; word-break: break-word; }
 .wa-full .tap { position: absolute; bottom: 5vh; left: 0; right: 0; text-align: center; font-size: 13px; font-weight: 700; opacity: .5; }
+/* ===== темна тема (Налаштування → Тема світлих ігор): той самий настрій, приглушений ===== */
+html.dark-games { --bg: #1e1220; --panel: rgba(255,255,255,.07); --panel-2: rgba(255,255,255,.12); --line: rgba(255,255,255,.18); --hdr-bg: rgba(30,18,32,.9); }
+html.dark-games body { background:
+  linear-gradient(160deg, #2a1424 0%, #241326 55%, #161226 100%) fixed; }
+html.dark-games .pp-card { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.14); }
 </style>
 </head>
 <body>

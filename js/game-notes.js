@@ -70,9 +70,11 @@
         position: static;
         margin: 0;
         width: 36px; height: 36px; border-radius: 50%;
-        border: 1px solid var(--line, rgba(255,255,255,0.15));
-        background: rgba(255,255,255,0.08);
-        color: var(--text, #f4f5f1);
+        /* власна темна підкладка, як у «Назад» і «Рекорди»: на світлих іграх
+           біла кнопка зливалась з фоном */
+        border: 1px solid rgba(255,255,255,0.15);
+        background: rgba(0,0,0,0.5);
+        color: #f4f5f1;
         font-size: 16px; cursor: pointer; touch-action: manipulation;
         display: inline-flex; align-items: center; justify-content: center;
         flex-shrink: 0;

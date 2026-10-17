@@ -2,6 +2,7 @@
 <html lang="uk">
 <head>
   <meta charset="UTF-8" />
+<script>/* темна тема світлих ігор — до першого фарбування; далі керує js/core/app-settings.js */try{var t=JSON.parse(localStorage.getItem("app_settings")||"{}").gameTheme;if(t==="dark"||(t==="system"&&matchMedia("(prefers-color-scheme: dark)").matches))document.documentElement.classList.add("dark-games")}catch(e){}</script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
   <title>Судоку</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -94,8 +95,6 @@
       repeating-linear-gradient(0deg, rgba(43,89,195,.10) 0 1px, transparent 1px 20px),
       repeating-linear-gradient(90deg, rgba(43,89,195,.10) 0 1px, transparent 1px 20px), #f7f5ef; font-family: 'Manrope', sans-serif; }
     .ico { width: 1.05em; height: 1.05em; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; vertical-align: -0.16em; }
-    .sd-title { font: 700 40px/1 'Caveat', cursive; color: var(--text-light); margin: 4px 0 8px; transform: rotate(-2deg); }
-    .sd-title span { color: var(--accent); }
     .diff-tab { background: #fff; color: var(--text-muted); border: 1.5px solid rgba(31,42,68,.2); font-family: 'Manrope', sans-serif; font-weight: 800; }
     .diff-tab.active { background: var(--text-light); color: #fff; border-color: var(--text-light); }
     .stats { font-weight: 700; }
@@ -120,13 +119,28 @@
     .result-panel .title { font: 700 38px 'Caveat', cursive; color: var(--accent); }
     .gen-overlay { background: rgba(247,245,239,.85); }
     .gen-overlay span { font: 700 28px 'Caveat', cursive; color: var(--text-light); }
+    /* ===== темна тема (Налаштування → Тема світлих ігор): нічний зошит ===== */
+    html.dark-games { --bg: #151820; --tile-bg: #20242d; --cell-bg: #1b1f27; --text-light: #e6eaf3; --text-muted: #8e97ab; --accent: #8fb0ff; --error: #ff7b7b; }
+    html.dark-games, html.dark-games body { background:
+      repeating-linear-gradient(0deg, rgba(143,176,255,.05) 0 1px, transparent 1px 20px),
+      repeating-linear-gradient(90deg, rgba(143,176,255,.05) 0 1px, transparent 1px 20px), #151820; }
+    html.dark-games .diff-tab { background: #20242d; border-color: rgba(255,255,255,.12); }
+    html.dark-games .diff-tab.active { background: var(--accent); color: #10141d; border-color: var(--accent); }
+    html.dark-games .sud-board { background: rgba(255,255,255,.10); border-color: #8e97ab; box-shadow: 0 6px 20px rgba(0,0,0,.4); }
+    html.dark-games .sud-cell.box-right { border-right-color: #8e97ab; }
+    html.dark-games .sud-cell.box-bottom { border-bottom-color: #8e97ab; }
+    html.dark-games .sud-cell.peer { background: #222a38; }
+    html.dark-games .sud-cell.same-value { background: #2c3b5e; }
+    html.dark-games .sud-cell.selected { background: #4d4420; }
+    html.dark-games .num-btn, html.dark-games .action-btn { background: #20242d; border-color: rgba(255,255,255,.10); box-shadow: 0 3px 0 rgba(0,0,0,.45); }
+    html.dark-games .num-btn:active { background: #4d4420; }
+    html.dark-games .gen-overlay { background: rgba(21,24,32,.88); }
   </style>
 <link rel="stylesheet" href="js/styles/game-header.css">
 <script src="js/core/game-header.js" defer></script>
 </head>
 <body>
 <div class="page">
-  <div class="sd-title">Судо<span>ку</span></div>
   <div class="tabs" id="diffTabs">
     <div class="diff-tab" data-diff="easy">Легко</div>
     <div class="diff-tab active" data-diff="medium">Середньо</div>

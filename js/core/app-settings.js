@@ -21,7 +21,7 @@
   const STORAGE_KEY = "app_settings";
   const LEGACY_CTRL_KEY = "snake_ctrl_size"; // для м'якої міграції старого значення
 
-  const DEFAULTS = { headerMargin: "M", headerStyle: "bar", homeSections: false, controlSize: "M", soundOn: true, vibrationOn: true, graphics: "auto" };
+  const DEFAULTS = { headerMargin: "M", headerStyle: "bar", homeSections: false, controlSize: "M", soundOn: true, vibrationOn: true, graphics: "auto", gameTheme: "orig" };
 
   // S — шапка впритул до верху екрана (лише безпечна зона телефона над нею)
   const HEADER_MARGINS = { S: "0px", M: "24px", L: "48px", XL: "72px", XXXXL: "100px" };
@@ -71,6 +71,13 @@
     } catch (e) { return false; }
   }
   const WEAK_DEVICE = detectWeakDevice();
+  const DARK_MQ = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+  function isDarkGames() {
+    const t = current && current.gameTheme;
+    return t === "dark" || (t === "system" && !!(DARK_MQ && DARK_MQ.matches));
+  }
+  if (DARK_MQ && DARK_MQ.addEventListener) DARK_MQ.addEventListener("change", () => apply());
+
   function isLite() {
     const g = current && current.graphics;
     return g === "lite" || (g !== "full" && WEAK_DEVICE);
@@ -97,6 +104,8 @@
     // вигляд шапки ігор: смуга з фоном або лише кнопки (js/styles/game-header.css)
     document.documentElement.classList.toggle("hdr-float", current.headerStyle === "float");
     document.documentElement.classList.toggle("hdr-top", current.headerMargin === "S");
+    // темна тема для світлих ігор: кожна така гра має блок html.dark-games { … }
+    document.documentElement.classList.toggle("dark-games", isDarkGames());
 
     root.setProperty(
       "--app-header-margin-top",
@@ -287,6 +296,7 @@
     get,
     set,
     isLite,
+    isDarkGames,
     weakDevice: WEAK_DEVICE,
     isSoundOn,
     isVibrationOn,
@@ -420,6 +430,10 @@
 
         <div class="grp"><div class="grp-t">Головна</div><div class="card">
           ${sw("homeSections", "Розділи", "Групувати ігри: аркади, карти, вечірки…")}
+        </div></div>
+
+        <div class="grp"><div class="grp-t">Тема світлих ігор</div><div class="card">
+          ${seg("gameTheme", "Кольори", "Судоку, 2048, Мемологія, Телефон, Хто я?", [["orig", "Як задумано"], ["dark", "Темна"], ["system", "Як у системі"]])}
         </div></div>
 
         <div class="grp"><div class="grp-t">Шапка в іграх</div><div class="card">

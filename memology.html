@@ -3,6 +3,7 @@
 <html lang="uk">
 <head>
 <meta charset="UTF-8" />
+<script>/* темна тема світлих ігор — до першого фарбування; далі керує js/core/app-settings.js */try{var t=JSON.parse(localStorage.getItem("app_settings")||"{}").gameTheme;if(t==="dark"||(t==="system"&&matchMedia("(prefers-color-scheme: dark)").matches))document.documentElement.classList.add("dark-games")}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
 <meta name="theme-color" content="#fffaf0" />
 <title>Мемологія</title>
@@ -158,6 +159,10 @@ body { background-color: var(--bg);
 .mm-upload { cursor: pointer; }
 .mm-upload.busy { opacity: .6; pointer-events: none; }
 .ico-inline .ic { vertical-align: -2px; }
+/* ===== темна тема (Налаштування → Тема світлих ігор): наліпки на темному ===== */
+html.dark-games { --bg: #17151c; --panel: #24212b; --panel-2: #332b1f; --ink: #f3eee6; --muted: rgba(243,238,230,.62); --line: rgba(243,238,230,.16);
+  --hdr-bg: rgba(23,21,28,.9); --edge: 2px solid #000; --pop: 3px 3px 0 #000; --pop-lg: 5px 5px 0 #000; }
+html.dark-games body { background-color: #17151c; }
 </style>
 </head>
 <body>
