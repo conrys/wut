@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="robots" content="noindex" />
+<title>Прибирання кімнат</title>
+<style>
+  :root { --bg: #14161a; --card: #22252b; --ink: #f4f5f1; --muted: #8b909c; --accent: #38cfa0; --bad: #e5534b; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100dvh; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, sans-serif; display: flex; justify-content: center; padding: 24px 16px; }
+  .wrap { width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 14px; }
+  h1 { margin: 0; font-size: 22px; }
+  .card { background: var(--card); border-radius: 16px; padding: 14px 16px; }
+  .muted { color: var(--muted); font-size: 13px; }
+  button { width: 100%; min-height: 52px; border: 0; border-radius: 14px; font: 700 16px system-ui, sans-serif; background: var(--bad); color: #fff; }
+  button:disabled { opacity: .45; }
+  #list div { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
+  #log { white-space: pre-wrap; font: 12px ui-monospace, monospace; color: var(--muted); }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Прибирання кімнат</h1>
+  <div class="muted">Видаляє всі кімнати всіх онлайн-ігор, разом із фото Fake News і малюнками Зіпсованого телефону. Ігри, що зараз ідуть, обірвуться. Потрібно бути залогіненим.</div>
+  <div class="card"><div id="auth" class="muted">Перевіряю вхід…</div></div>
+  <div class="card"><div id="list" class="muted">Рахую кімнати…</div></div>
+  <button id="go" disabled>Видалити всі кімнати</button>
+  <div id="log"></div>
+  <a href="index.html">← На головну</a>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="js/core/firebase-config.js"></script>
+<script>
+(function () {
+  const ROOT_SUFFIX = "_rooms";
+  const EXTRA = ["fakenews_photos", "teli_drawings"];       // дані, прив'язані до кімнат
+  const $ = (id) => document.getElementById(id);
+  const log = (s) => { $("log").textContent += s + "\n"; };
+  let found = {}; // шлях → [id кімнат]
+
+  function rtdb() { return window.rtdb || firebase.database(); }
+
+  async function scan() {
+    // правила дозволяють читати кожен *_rooms вузол; список вузлів беремо з відомих ігор
+    const nodes = ["draw", "snake", "spy", "quiplash", "whoami", "memology", "poker", "teli", "mafia", "quiz", "checkers", "chess", "durak",
+      "dilemmas", "party", "party_whofrom", "party_court", "party_bets", "fakenews", "charades"].map((g) => g + ROOT_SUFFIX).concat(EXTRA);
+    found = {};
+    await Promise.all(nodes.map(async (path) => {
+      try {
+        const snap = await rtdb().ref(path).once("value");
+        const v = snap.val();
+        if (v && typeof v === "object") found[path] = Object.keys(v);
+      } catch (e) { /* вузол без права читання — пропускаємо */ }
+    }));
+    const rows = Object.entries(found).filter(([, ids]) => ids.length);
+    const total = rows.filter(([p]) => p.endsWith(ROOT_SUFFIX)).reduce((s, [, ids]) => s + ids.length, 0);
+    $("list").innerHTML = rows.length
+      ? rows.map(([p, ids]) => `<div><span>${p}</span><b>${ids.length}</b></div>`).join("") + `<div style="border:0"><span>Усього кімнат</span><b>${total}</b></div>`
+      : "Кімнат немає — прибирати нічого";
+    return rows.length;
+  }
+
+  async function wipe() {
+    if (!confirm("Точно видалити ВСІ кімнати всіх ігор?")) return;
+    $("go").disabled = true;
+    let ok = 0, fail = 0;
+    for (const [path, ids] of Object.entries(found)) {
+      for (const id of ids) {
+        try { await rtdb().ref(`${path}/${id}`).remove(); ok++; }
+        catch (e) { fail++; log(`✗ ${path}/${id}: ${e.code || e.message}`); }
+      }
+    }
+    log(`Готово: видалено ${ok}${fail ? `, не вдалося ${fail}` : ""}`);
+    const left = await scan();
+    $("go").disabled = !left;
+  }
+
+  firebase.auth().onAuthStateChanged(async (user) => {
+    $("auth").textContent = user ? "Вхід є — можна прибирати" : "Ти не залогінений. Увійди в будь-якій грі і повернись сюди.";
+    const n = await scan();
+    $("go").disabled = !user || !n;
+  });
+  $("go").addEventListener("click", wipe);
+})();
+</script>
+</body>
+</html>
