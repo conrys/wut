@@ -31,6 +31,51 @@ const LEVELS=[
     pins:[[256,186,18,186],[256,258,346,186],[40,404,342,404]],
     fills:[['gold',114,110,246,178],['water',266,96,306,206],['lava',52,344,308,398]],
     hero:180 },
+  { name:'Інший бік',
+    tip:'Тепер лава праворуч. Не тягни навмання.',
+    walls:[[174,80,12,226]],
+    pins:[[176,312,342,312],[184,312,18,312]],
+    fills:[['lava',190,250,308,302],['gold',52,250,170,302]],
+    hero:180 },
+  { name:'Три колодязі',
+    tip:'Золото лише в одному. Решта — лава.',
+    walls:[[120,80,12,230],[228,80,12,230]],
+    pins:[[126,316,18,316],[126,316,234,316],[234,316,342,316]],
+    fills:[['lava',52,250,116,310],['gold',136,250,224,310],['lava',244,250,308,310]],
+    hero:180 },
+  { name:'Мокра справа',
+    tip:'Вода гасить лаву — але спершу подумай, яку шпильку тягнути.',
+    walls:[[174,80,12,270]],
+    pins:[[176,206,342,206],[176,358,342,358],[184,358,18,358]],
+    fills:[['water',190,110,308,198],['lava',190,302,308,350],['gold',52,292,170,350]],
+    hero:124 },
+  { name:'Лава над золотом',
+    tip:'Над скарбом — лава. Встигни забрати золото першим.',
+    walls:[[120,80,12,330]],
+    pins:[[126,200,342,200],[126,330,342,330],[126,300,18,300]],
+    fills:[['lava',140,140,306,192],['gold',140,262,306,322],['water',52,150,116,292]],
+    hero:220 },
+  { name:'Подвійний скарб',
+    tip:'Золото з обох боків, лава посередині.',
+    walls:[[120,80,12,300],[228,80,12,300]],
+    pins:[[126,386,18,386],[234,386,342,386],[126,300,234,300]],
+    ramps:[[48,520,150,588],[312,520,210,588]],
+    fills:[['gold',52,320,116,380],['gold',244,320,308,380],['lava',136,230,224,294]],
+    hero:180 },
+  { name:'Сторож ліворуч',
+    tip:'Монстр знову стереже золото. Спершу розберися з ним.',
+    walls:[[174,80,12,392]],
+    pins:[[180,470,180,626],[184,166,18,166],[184,280,18,280]],
+    ramps:[[174,586,48,500]],
+    fills:[['water',52,96,170,160],['lava',52,226,170,274],['gold',60,420,116,492]],
+    monster:146,
+    hero:204 },
+  { name:'Ключі навиворіт',
+    tip:'Три шпильки — і порядок знову має значення.',
+    walls:[[250,80,12,100],[98,80,12,172]],
+    pins:[[104,186,342,186],[104,258,14,186],[320,404,18,404]],
+    fills:[['gold',114,110,246,178],['water',54,96,94,206],['lava',52,344,308,398]],
+    hero:180 },
 ];
 
 function segDist(px,py,x1,y1,x2,y2){
@@ -107,8 +152,8 @@ class Sim{
     }
     this.ps=ps.filter(p=>!p.dead&&p.y<700);
     this.bodiesStep(dt);
-    if(this.state==='play'&&this.got>=this.target){this.winT=(this.winT||0)+dt;if(this.winT>1.2){this.state='win';this.events.push({e:'win'})}}
-    if(this.state==='play'&&this.hero.alive){const h=this.hero;for(const p of this.ps)if(p.t==='gold'&&!p.dead&&p.x>h.x-18&&p.x<h.x+h.w+18&&p.y>h.y-56&&p.y<h.y+h.h+8){p.dead=true;this.got++;this.events.push({e:'coin',x:p.x,y:p.y})}this.ps=this.ps.filter(p=>!p.dead)}
+    if(this.state==='play'&&this.got>=this.target){this.winT=(this.winT||0)+dt;this.tgtT=(this.tgtT||0)+dt;if(this.winT>1.2||this.tgtT>4){this.state='win';this.events.push({e:'win'})}}
+    if(this.state==='play'&&this.hero.alive){const h=this.hero;for(const p of this.ps)if(p.t==='gold'&&!p.dead&&p.x>h.x-18&&p.x<h.x+h.w+18&&p.y>h.y-56&&p.y<h.y+h.h+8){p.dead=true;this.got++;this.winT=0;this.events.push({e:'coin',x:p.x,y:p.y})}this.ps=this.ps.filter(p=>!p.dead)}
   }
   bounce(p,nx,ny){const vn=p.vx*nx+p.vy*ny;if(vn<0){p.vx-=vn*nx*1.1;p.vy-=vn*ny*1.1}const fr=p.t==='water'?0.9995:p.t==='lava'?0.995:p.t==='gold'?0.96:0.97;p.vx*=fr;p.vy*=fr}
   react(a,b){
@@ -119,7 +164,7 @@ class Sim{
   }
   touch(p,b){
     if(b===this.hero){
-      if(p.t==='gold'&&this.state==='play'){p.dead=true;this.got++;this.events.push({e:'coin',x:p.x,y:p.y})}
+      if(p.t==='gold'&&this.state==='play'){p.dead=true;this.got++;this.winT=0;this.events.push({e:'coin',x:p.x,y:p.y})}
       else if(p.t==='lava'&&this.state==='play'){this.lose('lava')}
     }else if(b===this.monster){
       if(p.t==='lava'||(p.t==='stone'&&p.vy>220)){b.alive=false;b.dead=1;this.events.push({e:'monster',x:b.x+b.w/2,y:b.y+b.h/2})}
