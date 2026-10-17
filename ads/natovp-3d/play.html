@@ -126,8 +126,55 @@ function gateTexture(o){
   });
 }
 
+/* ---------- місцевості: щотри рівні нова (пустеля → Карпати → поле → вечірнє місто) ---------- */
+function skyTex(cols){const c=document.createElement('canvas');c.width=2;c.height=256;const g=c.getContext('2d'),gr=g.createLinearGradient(0,0,0,256);
+  cols.forEach((col,i,a)=>gr.addColorStop(i/(a.length-1),col));g.fillStyle=gr;g.fillRect(0,0,2,256);return new THREE.CanvasTexture(c)}
+function groundTex(base,lite,dark){return G3.canvasTex(256,256,(g,w,h)=>{g.fillStyle=base;g.fillRect(0,0,w,h);for(let i=0;i<1400;i++){g.fillStyle=Math.random()<0.5?lite:dark;g.fillRect(Math.random()*w,Math.random()*h,2,2)}},[60,60])}
+const BIOMES=[
+  {name:'Пустеля',sky:['#6FAEDC','#B9D7E6','#F6CF9A','#F2BC80'],fog:'#F2C690',ground:['#E2A866','rgba(255,230,180,.25)','rgba(150,90,40,.18)'],hemiG:0xd9a066,sun:'#FFF6DA',css:'#F6CF9A',
+   scenery(deco,R,len){const MC=['#D9A06C','#C98B58','#E8B886','#CF9460'];
+    for(let i=0;i<34;i++){const s=R()<0.5?-1:1,r=14+R()*30,h=8+R()*26,x=s*(45+R()*150),z=40-R()*(len+260);
+      deco.parts.push(P('cyl6',x,h/2,z,r,h,r*(0.7+R()*0.5),MC[i%4],{ry:R()*3}),P('cyl6',x,h+0.6,z,r*0.92,1.2,r*0.65,'#EAC08E',{ry:R()*3}))}
+    for(let i=0;i<70;i++){const s=R()<0.5?-1:1,x=s*(9+R()*28),z=40-R()*len;
+      if(R()<0.45){const h=1.6+R()*1.6;deco.parts.push(P('cyl',x,h/2,z,0.28,h,0.28,'#4C8A4A'),P('sph',x,h,z,0.28,0.28,0.28,'#4C8A4A'),
+        P('cyl',x-0.45,h*0.62,z,0.18,0.7,0.18,'#5B9E58'),P('box',x-0.25,h*0.42,z,0.45,0.2,0.2,'#5B9E58'),P('cyl',x+0.42,h*0.75,z,0.16,0.55,0.16,'#5B9E58'),P('box',x+0.22,h*0.58,z,0.4,0.18,0.18,'#5B9E58'))}
+      else{const r=0.5+R()*1.4;deco.parts.push(P('sph',x,r*0.3,z,r,r*0.6,r*0.85,R()<0.5?'#B06F44':'#C5895C'))}}}},
+  {name:'Карпати',sky:['#7FA8D6','#BFD5EA','#E8EFF6','#F4F7FA'],fog:'#E3EBF3',ground:['#EEF3F7','rgba(255,255,255,.6)','rgba(150,175,200,.22)'],hemiG:0xc9d6e2,sun:'#FFFFFF',css:'#E3EBF3',
+   scenery(deco,R,len){
+    for(let i=0;i<30;i++){const s=R()<0.5?-1:1,r=30+R()*40,h=30+R()*60,x=s*(60+R()*160),z=40-R()*(len+260);
+      deco.parts.push(P('cone',x,h/2,z,r,h,r,i%2?'#6F8296':'#7C8EA1',{ry:R()*3}),P('cone',x,h*0.86,z,r*0.3,h*0.28,r*0.3,'#F7FAFD',{ry:R()*3}))}
+    for(let i=0;i<90;i++){const s=R()<0.5?-1:1,x=s*(9+R()*30),z=40-R()*len,h=2.4+R()*2.6;
+      if(R()<0.8){deco.parts.push(P('cyl',x,h*0.12,z,0.16,h*0.24,0.16,'#5A3D28'));
+        for(let k=0;k<3;k++){const y=h*(0.3+k*0.22),r=(0.9-k*0.24)*h*0.32;deco.parts.push(P('cone',x,y+r*0.6,z,r,r*1.4,r,k===2?'#2F6B48':'#285E3F'));}
+        deco.parts.push(P('cone',x,h*0.98,z,0.18*h,0.16*h,0.18*h,'#FFFFFF'))}
+      else{const r=0.6+R()*1.0;deco.parts.push(P('sph',x,r*0.25,z,r,r*0.5,r*0.9,'#F2F6FA'))}}}},
+  {name:'Поле',sky:['#4F9BE0','#8EC3EE','#CFE6F7','#F1F6E6'],fog:'#DDEBCF',ground:['#86B85A','rgba(200,230,140,.3)','rgba(60,100,40,.2)'],hemiG:0x9ccf7e,sun:'#FFF2C4',css:'#CFE6F7',
+   scenery(deco,R,len){
+    for(let i=0;i<26;i++){const s=R()<0.5?-1:1,r=40+R()*60,h=6+R()*10,x=s*(70+R()*170),z=40-R()*(len+260);
+      deco.parts.push(P('sph',x,0,z,r,h,r*0.8,i%3?'#7DAE52':'#95BF5E'))}
+    for(let i=0;i<110;i++){const s=R()<0.5?-1:1,x=s*(8.5+R()*30),z=40-R()*len,q=R();
+      if(q<0.6){const h=1.3+R()*0.7;deco.parts.push(P('cyl',x,h/2,z,0.07,h,0.07,'#5E8C3A'),P('cyl',x,h,z,0.42,0.1,0.42,'#F2C230',{rx:-0.5}),P('cyl',x,h+0.02,z-0.03,0.22,0.12,0.22,'#6B4A2A',{rx:-0.5}))}
+      else if(q<0.8){const r=1.0+R()*0.8;deco.parts.push(P('sph',x,r*0.55,z,r,r*1.1,r,'#E2C16B'),P('cone',x,r*1.55,z,r*0.7,r*0.7,r*0.7,'#D6B25B'))}
+      else{deco.parts.push(P('box',x,0.5,z,2.4,1,2,'#F4EEE2'),P('cone',x,1.55,z,1.9,1.1,1.6,'#B5503C',{ry:0.785}))}}}},
+  {name:'Вечірнє місто',sky:['#2B2F5C','#5D4A8A','#E07B6A','#F5B78A'],fog:'#8E6F8E',ground:['#5B5F66','rgba(255,255,255,.06)','rgba(0,0,0,.18)'],hemiG:0x6b5a7a,sun:'#FFC9A0',css:'#E07B6A',
+   scenery(deco,R,len){const BC=['#C9B6A6','#A9B4C2','#D7C5A0','#B8A9C9','#9FB3A8'];
+    for(let i=0;i<80;i++){const s=R()<0.5?-1:1,w=4+R()*6,d=4+R()*6,h=6+R()*(R()<0.2?40:18),x=s*(12+w/2+R()*40),z=40-R()*(len+120);
+      deco.parts.push(P('box',x,h/2,z,w,h,d,BC[i%5]));
+      for(let y=2;y<h-1;y+=3)if(R()<0.5)deco.parts.push(P('box',x-s*(w/2+0.02),y,z,0.05,0.9,d*0.7,R()<0.6?'#FFE29A':'#3A3F55'))}
+    for(let z=40;z>-len+40;z-=14)for(const s of[-1,1])deco.parts.push(P('cyl',s*(ROADW+2.2),2,z,0.08,4,0.08,'#3A3F4B'),P('sph',s*(ROADW+2.2),4.1,z,0.28,0.2,0.28,'#FFE9A8'))}},
+];
+const groundCache={};
+function applyBiome(b){
+  scene.background=skyTex(b.sky);if(scene.fog)scene.fog.color.set(b.fog);
+  if(!groundCache[b.name])groundCache[b.name]=groundTex(...b.ground);
+  sand.material.map=groundCache[b.name];sand.material.needsUpdate=true;
+  if(W3.hemi)W3.hemi.groundColor.setHex(b.hemiG);sunBall.material.color.set(b.sun);
+  document.documentElement.style.setProperty('--sky',b.css);
+}
+
 function gen(lv){
   const R=G3.rng(lv*7919+13);
+  const biome=BIOMES[Math.floor((lv-1)/3)%BIOMES.length];applyBiome(biome);
   kit.clear();scenery.clear();gates.forEach(g=>g.meshes.forEach(m=>{scene.remove(m);m.material.map.dispose();m.material.dispose()}));
   gates=[];enemies=[];units=[];
   speed=Math.min(19,14+lv*0.4);
@@ -164,14 +211,8 @@ function gen(lv){
     if(Math.round(z/2)%2===0)for(const s of[-1,1])deco.parts.push(P('cyl6',s*(ROADW+1.3),0.55,z,0.09,1.1,0.09,'#6B4527'));
   }
   for(const s of[-1,1])for(const y of[0.55,0.95])deco.parts.push(P('box',s*(ROADW+1.3),y,-len/2+40,0.06,0.07,len,'#8A5E37'));
-  // mesas, cacti, rocks
-  const MC=['#D9A06C','#C98B58','#E8B886','#CF9460'];
-  for(let i=0;i<34;i++){const s=R()<0.5?-1:1,r=14+R()*30,h=8+R()*26,x=s*(45+R()*150),z=40-R()*(len+260);
-    deco.parts.push(P('cyl6',x,h/2,z,r,h,r*(0.7+R()*0.5),MC[i%4],{ry:R()*3}),P('cyl6',x,h+0.6,z,r*0.92,1.2,r*0.65,'#EAC08E',{ry:R()*3}))}
-  for(let i=0;i<70;i++){const s=R()<0.5?-1:1,x=s*(9+R()*28),z=40-R()*len;
-    if(R()<0.45){const h=1.6+R()*1.6;deco.parts.push(P('cyl',x,h/2,z,0.28,h,0.28,'#4C8A4A'),P('sph',x,h,z,0.28,0.28,0.28,'#4C8A4A'),
-      P('cyl',x-0.45,h*0.62,z,0.18,0.7,0.18,'#5B9E58'),P('box',x-0.25,h*0.42,z,0.45,0.2,0.2,'#5B9E58'),P('cyl',x+0.42,h*0.75,z,0.16,0.55,0.16,'#5B9E58'),P('box',x+0.22,h*0.58,z,0.4,0.18,0.18,'#5B9E58'))}
-    else{const r=0.5+R()*1.4;deco.parts.push(P('sph',x,r*0.3,z,r,r*0.6,r*0.85,R()<0.5?'#B06F44':'#C5895C'))}}
+  // оточення — за місцевістю рівня (BIOMES вище)
+  biome.scenery(deco,R,len);
   scenery.add(deco);
 
   // gates
@@ -207,7 +248,7 @@ function gen(lv){
 
 function startLevel(){
   gen(level);N=4;shownN=4;pz=0;px=0;cx=0;foe=null;state='run';
-  $('ov').hidden=true;$('lvlLabel').textContent='РІВЕНЬ '+level;
+  $('ov').hidden=true;$('lvlLabel').textContent='РІВЕНЬ '+level+' · '+BIOMES[Math.floor((level-1)/3)%BIOMES.length].name.toUpperCase();
 }
 function showOverlay(kind){
   $('ov').hidden=false;$('ovTitle').classList.toggle('lose',kind==='lose');
@@ -291,7 +332,7 @@ function drawFx(){
   if(state==='run'&&pz<14){ctx.globalAlpha=1-pz/14;G3.pill(ctx,'← веди пальцем →',W3.W/2,W3.H*0.88,15,'rgba(43,29,20,.78)','#FFF4E4',FONT);ctx.globalAlpha=1}
 }
 
-const boot=()=>{gen(level);$('lvlLabel').textContent='РІВЕНЬ '+level;if(level>1)$('ovText').textContent='Продовжуємо з рівня '+level+'. Та сама гра з реклами, тепер у 3D.';
+const boot=()=>{gen(level);$('lvlLabel').textContent='РІВЕНЬ '+level+' · '+BIOMES[Math.floor((level-1)/3)%BIOMES.length].name.toUpperCase();if(level>1)$('ovText').textContent='Продовжуємо з рівня '+level+'. Та сама гра з реклами, тепер у 3D.';
   G3.loop(dt=>{update(dt);W3.render();drawFx()})};
 (document.fonts&&document.fonts.load?document.fonts.load('64px Bungee').catch(()=>{}):Promise.resolve()).then(boot);
 </script>
