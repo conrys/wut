@@ -27,7 +27,7 @@ service cloud.firestore {
     // expiresAt може забрати хтось інший.
     function validClaim(norm) {
       let d = request.resource.data;
-      return d.keys().hasOnly(['uid', 'name', 'guest', 'expiresAt', 'createdAt', 'updatedAt'])
+      return d.keys().hasOnly(['uid', 'name', 'guest', 'expiresAt', 'createdAt', 'updatedAt', 'email', 'resetAt'])
         && d.uid == request.auth.uid
         && d.name is string && d.name.lower() == norm
         && norm.size() >= 2 && norm.size() <= 20
@@ -40,7 +40,9 @@ service cloud.firestore {
       allow create: if signedIn() && validClaim(norm);
       allow update: if signedIn() && validClaim(norm)
         && (resource.data.uid == request.auth.uid
-            || (resource.data.guest == true && resource.data.expiresAt < request.time.toMillis()));
+            || (resource.data.guest == true && resource.data.expiresAt < request.time.toMillis())
+            // «Забув пароль» — ПОКИ НА ДОВІРІ: ім'я акаунта переходить на новий акаунт (login.js → resetPassword)
+            || (resource.data.guest == false && request.resource.data.guest == false && request.resource.data.resetAt is number));
       allow delete: if signedIn() && resource.data.uid == request.auth.uid;
     }
 

@@ -186,14 +186,19 @@
     const auth = fbAuth();
     const norm = normName(rawName);
     if (!norm || !password) throw new Error("Введи ім'я і пароль");
-    try {
-      const cred = await auth.signInWithEmailAndPassword(emailFor(norm), authPassword(password));
-      const snap = await db.collection(NAMES_COLLECTION).doc(norm).get().catch(() => null);
-      const name = snap && snap.exists && snap.data().uid === cred.user.uid ? snap.data().name : norm;
-      setSession(name, cred.user.uid, false);
-      return name;
-    } catch (e) {
-      if (!e || !BAD_CREDENTIALS.has(e.code)) throw friendly(e);
+    const snap = await db.collection(NAMES_COLLECTION).doc(norm).get().catch(() => null);
+    const data = snap && snap.exists ? snap.data() : null;
+    // після скидання пароля акаунт перевидано з іншою прихованою поштою (data.email)
+    const emails = [data && data.email, emailFor(norm)].filter((x, i, a) => x && a.indexOf(x) === i);
+    for (const email of emails) {
+      try {
+        const cred = await auth.signInWithEmailAndPassword(email, authPassword(password));
+        const name = data && data.uid === cred.user.uid ? data.name : norm;
+        setSession(name, cred.user.uid, false);
+        return name;
+      } catch (e) {
+        if (!e || !BAD_CREDENTIALS.has(e.code)) throw friendly(e);
+      }
     }
     return migrateLegacy(norm, password);
   }
@@ -215,6 +220,36 @@
       return norm;
     } catch (e) {
       if (e && e.code === "auth/email-already-in-use") throw new Error("Невірне ім'я або пароль");
+      throw friendly(e);
+    }
+  }
+
+  // Скидання забутого пароля — ПОКИ НА ДОВІРІ: хто знає ім'я, той і задає новий пароль.
+  // Змінити пароль чужого Firebase-акаунта з клієнта не можна, тож ім'я переходить
+  // на новий акаунт (нова прихована пошта), а бронь імені вказує на нього. Рекорди
+  // й стрік Wordle прив'язані до імені — нікуди не діваються.
+  async function resetPassword(rawName, password) {
+    const auth = fbAuth();
+    const norm = normName(rawName);
+    if (!norm) throw new Error("Введи своє ім'я");
+    if (!password || password.length < PASSWORD_MIN) throw new Error(`Новий пароль: щонайменше ${PASSWORD_MIN} символів`);
+    const ref = db.collection(NAMES_COLLECTION).doc(norm);
+    const snap = await ref.get().catch(() => null);
+    const legacy = await db.collection(LEGACY_USERS_COLLECTION).doc(norm).get().catch(() => null);
+    const d = snap && snap.exists ? snap.data() : null;
+    if ((!d || d.guest) && !(legacy && legacy.exists)) throw new Error("Акаунта з таким ім'ям немає");
+    try {
+      if (auth.currentUser) await auth.signOut();
+      const email = emailFor(norm).replace("@", "+r" + Date.now().toString(36) + "@");
+      const user = (await auth.createUserWithEmailAndPassword(email, authPassword(password))).user;
+      const now = Date.now();
+      const name = (d && d.name) || norm;
+      await ref.set({ uid: user.uid, name, guest: false, expiresAt: null,
+        createdAt: (d && d.createdAt) || (legacy && legacy.exists && legacy.data().createdAt) || now, updatedAt: now, email, resetAt: now });
+      if (legacy && legacy.exists) await legacy.ref.delete().catch(() => {});
+      setSession(name, user.uid, false);
+      return name;
+    } catch (e) {
       throw friendly(e);
     }
   }
@@ -456,6 +491,7 @@
       .auth-tab.active { background: #12141b; color: #ffc93c; }
       .auth-error { color: #ff6b6b; font-size: 12px; min-height: 16px; margin-bottom: 6px; }
       .auth-close, .menu-close { text-align: center; margin-top: 10px; font-size: 12px; color: #9aa0ad; cursor: pointer; }
+      .auth-forgot { text-align: center; margin-top: 10px; font-size: 13px; color: #ffc93c; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
       /* Окрема, добре видима кнопка — попередній варіант (дрібний сірий
          текст) на телефоні легко губився й давав замалий тап-таргет. */
       .profile-close {
@@ -644,6 +680,7 @@
         <input id="authUser" type="text" placeholder="Ім'я" autocomplete="username" maxlength="20" autocapitalize="words" />
         <input id="authPass" type="password" placeholder="Пароль" autocomplete="current-password" />
         <div class="row"><button class="auth-primary" id="authSubmit">Грати</button></div>
+        <div class="auth-forgot" id="authForgot">Забув пароль?</div>
         <div class="auth-close" id="authCloseBtn">Закрити</div>
       </div>
     `;
@@ -655,17 +692,20 @@
     const submitBtn = modalEl.querySelector("#authSubmit");
     const userInput = modalEl.querySelector("#authUser");
     const passInput = modalEl.querySelector("#authPass");
+    const forgotEl = modalEl.querySelector("#authForgot");
+    forgotEl.addEventListener("click", () => setAuthMode("reset"));
 
     const MODES = {
       guest: { title: "Грати як гість", button: "Грати", hint: "Без пароля. Гостьовий профіль живе на цьому телефоні, рекорди не зберігаються. Пізніше його можна зберегти як акаунт.", password: false },
       login: { title: "Вхід", button: "Увійти", hint: "", password: true },
       register: { title: "Реєстрація", button: "Зареєструватись", hint: `Ім'я бачать інші гравці (можна кирилицею). Пароль — від ${PASSWORD_MIN} символів.`, password: true },
+      reset: { title: "Новий пароль", button: "Змінити пароль", hint: `Забув пароль? Введи своє ім'я й новий пароль (від ${PASSWORD_MIN} символів). Рекорди лишаться з тобою.`, password: true },
       save: { title: "Зберегти профіль", button: "Зберегти", hint: `Гостьовий профіль стане акаунтом: вигадай пароль від ${PASSWORD_MIN} символів, щоб заходити з будь-якого пристрою.`, password: true },
     };
     setAuthMode = (mode) => {
       authMode = mode;
       const m = MODES[mode];
-      const tab = mode === "save" ? "register" : mode;
+      const tab = mode === "save" ? "register" : mode === "reset" ? "login" : mode;
       modalEl.querySelectorAll(".auth-tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === tab));
       modalEl.querySelector(".auth-tabs").style.display = mode === "save" ? "none" : "";
       titleEl.textContent = m.title;
@@ -674,6 +714,8 @@
       hintEl.style.display = m.hint ? "" : "none";
       passInput.style.display = m.password ? "" : "none";
       passInput.autocomplete = mode === "login" ? "current-password" : "new-password";
+      passInput.placeholder = mode === "reset" ? "Новий пароль" : "Пароль";
+      forgotEl.style.display = mode === "login" ? "" : "none";
       errEl.textContent = "";
     };
     modalEl.querySelectorAll(".auth-tab").forEach((tab) => tab.addEventListener("click", () => setAuthMode(tab.dataset.tab)));
@@ -689,6 +731,7 @@
       try {
         if (authMode === "guest") await guestLogin(userInput.value);
         else if (authMode === "login") await login(userInput.value, passInput.value);
+        else if (authMode === "reset") await resetPassword(userInput.value, passInput.value);
         else await register(userInput.value, passInput.value);
         userInput.value = "";
         passInput.value = "";
