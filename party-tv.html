@@ -1,0 +1,250 @@
+<!-- Вечірка ТВ: «Хто з нас?», «Суд Лінча», «Ставки» на великому екрані. Код кімнати — той самий, гра визначається сама. -->
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Вечірка — ТВ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800;900&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="js/styles/party-shared.css">
+<link rel="stylesheet" href="js/styles/reactions.css">
+<style>
+:root { --bg: #140c24; --ink: #f6f2ff; --muted: rgba(236,228,255,.62); --line: rgba(255,255,255,.14); --accent: #ff4f8b; --gold: #ffcc33;
+  --panel: rgba(20,12,36,.72); --font-d: 'Unbounded', sans-serif; --font-b: 'Manrope', sans-serif; }
+html, body { height: 100%; overflow: hidden; }
+body { display: block; background: radial-gradient(80% 60% at 20% 10%, rgba(255,79,139,.22), transparent 60%), radial-gradient(70% 60% at 90% 90%, rgba(120,90,255,.25), transparent 60%), #140c24; color: var(--ink); cursor: default; }
+body.court { --accent: #e8a33d; } body.bets { --accent: #3ccf8e; }
+#tv { position: relative; z-index: 1; height: 100vh; display: flex; flex-direction: column; padding: 2.4vh 3vw 2vh; }
+.tv-top { display: flex; align-items: center; gap: 2vw; height: 9vh; }
+.tv-logo { font: 900 clamp(22px, 2.6vw, 52px) var(--font-d); }
+.tv-logo i { font-style: normal; color: var(--accent); }
+.tv-live { font: 800 clamp(14px, 1.4vw, 28px) var(--font-d); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.tv-sp { flex: 1; }
+.tv-round { font: 800 clamp(14px, 1.4vw, 28px) var(--font-d); color: var(--muted); } .tv-round b { color: var(--ink); font-size: 1.4em; }
+.tv-codechip { padding: .6vh 1.2vw; border-radius: 10px; background: rgba(0,0,0,.45); border: 1px solid var(--line); font: 800 clamp(14px, 1.3vw, 26px) var(--font-d); }
+.tv-codechip b { color: var(--accent); letter-spacing: .16em; }
+.tv-timer { position: relative; width: 8vh; height: 8vh; } .tv-timer.off { display: none; }
+.tv-timer svg { width: 100%; height: 100%; transform: rotate(-90deg); } .tv-timer circle { fill: none; stroke-width: 4; }
+.tv-timer .trk { stroke: var(--line); } .tv-timer .bar { stroke: var(--accent); stroke-linecap: round; transition: stroke-dashoffset .25s linear; }
+.tv-timer span { position: absolute; inset: 0; display: grid; place-items: center; font: 900 3vh var(--font-d); }
+#stage { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3vh; padding-bottom: 2vh; }
+.tv-in > * { animation: ppIn .6s cubic-bezier(.2,.9,.3,1.1) both; } .tv-in > *:nth-child(2) { animation-delay: .12s; } .tv-in > *:nth-child(3) { animation-delay: .24s; }
+.q { max-width: 84vw; text-align: center; font: 800 clamp(26px, 3.6vw, 76px)/1.2 var(--font-d); text-wrap: balance; }
+.hint { font: 700 clamp(15px, 1.6vw, 32px) var(--font-b); color: var(--muted); text-align: center; }
+.roles { display: flex; gap: 3vw; justify-content: center; flex-wrap: wrap; }
+.role { display: flex; align-items: center; gap: 1vw; padding: 1.4vh 1.6vw; border-radius: 16px; background: var(--panel); border: 2px solid var(--accent); }
+.role .pav { width: 9vh; height: 9vh; } .role small { display: block; font: 800 clamp(11px, 1vw, 20px) var(--font-d); color: var(--accent); text-transform: uppercase; letter-spacing: .08em; }
+.role b { font: 800 clamp(18px, 2vw, 40px) var(--font-b); }
+.opts { display: flex; gap: 2vw; flex-wrap: wrap; justify-content: center; }
+.opt { padding: 1.6vh 2.4vw; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); font: 800 clamp(18px, 2vw, 40px) var(--font-b); }
+.grid { display: grid; grid-template-columns: repeat(var(--cols, 5), minmax(0, 1fr)); gap: 2.4vh 1.6vw; width: min(90vw, 1600px); }
+.tp { display: flex; flex-direction: column; align-items: center; gap: .6vh; min-width: 0; position: relative; }
+.tp .pav { width: var(--av, 10vh); height: var(--av, 10vh); }
+.tp .nm { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 800 clamp(13px, 1.4vw, 28px) var(--font-b); }
+.tp.off { opacity: .35; filter: grayscale(.8); }
+.tp .ok { position: absolute; top: 0; right: 15%; width: 3vh; height: 3vh; border-radius: 50%; display: grid; place-items: center; background: #3ccf8e; color: #06231a; font: 900 2vh var(--font-d); }
+.wait { display: flex; flex-direction: column; align-items: center; gap: 1.2vh; font: 700 clamp(14px, 1.4vw, 28px) var(--font-b); color: var(--muted); }
+.dots { display: flex; gap: .6vw; } .dots i { width: 1.6vh; height: 1.6vh; border-radius: 50%; background: var(--line); } .dots i.on { background: var(--accent); }
+.who { display: flex; gap: .8vw; flex-wrap: wrap; justify-content: center; } .who .pav { width: 6vh; height: 6vh; }
+.head { font: 900 clamp(30px, 4.4vw, 96px)/1.1 var(--font-d); text-align: center; color: var(--gold); text-wrap: balance; max-width: 88vw; }
+.bars { width: min(80vw, 1300px); display: grid; gap: 1.4vh; }
+.barrow { display: grid; grid-template-columns: minmax(0, 22vw) 1fr 6vw; align-items: center; gap: 1.4vw; font: 800 clamp(15px, 1.6vw, 32px) var(--font-b); }
+.barrow .lab { display: flex; align-items: center; gap: .8vw; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.barrow .lab .pav { width: 6vh; height: 6vh; flex: none; }
+.barrow .track { height: 4.4vh; border-radius: 2.2vh; background: rgba(255,255,255,.08); overflow: hidden; }
+.barrow .fill { height: 100%; border-radius: 2.2vh; background: var(--accent); transform-origin: left; animation: grow .9s cubic-bezier(.2,.9,.3,1) both; animation-delay: calc(var(--i) * .12s + .3s); }
+.barrow.top .fill { background: var(--gold); }
+.barrow .v { font: 900 3.4vh var(--font-d); text-align: right; }
+@keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@media (prefers-reduced-motion: reduce) { .barrow .fill, .tv-in > * { animation: none; } }
+.lines { font: 700 clamp(14px, 1.5vw, 30px)/1.5 var(--font-b); color: var(--muted); text-align: center; }
+.drink { display: flex; align-items: center; gap: 1vw; flex-wrap: wrap; justify-content: center; font: 800 clamp(16px, 1.7vw, 34px) var(--font-d); }
+.drink .pav { width: 7vh; height: 7vh; }
+.sum { width: min(92vw, 1600px); display: grid; grid-template-columns: 1fr 1fr; gap: 3vw; }
+.sum h2 { grid-column: 1 / -1; margin: 0; text-align: center; font: 900 clamp(34px, 4vw, 80px) var(--font-d); }
+.sum .pp-card { padding: 3vh 2vw; } .sum .pp-h { font-size: clamp(14px, 1.4vw, 28px); }
+.sum .pp-pod .col { font-size: 4vh; } .sum .pp-pod.p1 .col { height: 18vh; } .sum .pp-pod.p2 .col { height: 13vh; } .sum .pp-pod.p3 .col { height: 9vh; }
+.sum .pp-pod .pav.lg { width: 12vh; height: 12vh; } .sum .pp-pod .pav.md { width: 9vh; height: 9vh; } .sum .pp-pod .nm { font-size: clamp(13px, 1.3vw, 26px); }
+.bigcode { display: inline-flex; align-items: center; gap: 2vw; padding: 2vh 2.4vw; border-radius: 18px; background: rgba(0,0,0,.55); border: 2px solid var(--accent); }
+.bigcode small { font: 800 clamp(12px, 1.2vw, 22px)/1.3 var(--font-d); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.bigcode b { font: 900 clamp(48px, 6.4vw, 130px) var(--font-d); letter-spacing: .14em; }
+h1.t { margin: 0; font: 900 clamp(48px, 7vw, 150px)/.95 var(--font-d); text-align: center; } h1.t i { font-style: normal; color: var(--accent); }
+.enter { display: flex; flex-direction: column; align-items: center; gap: 2vh; }
+.enter input { width: 14ch; text-align: center; font: 900 clamp(28px, 4vw, 64px) var(--font-d); letter-spacing: .2em; text-transform: uppercase; padding: 1vh 1vw; border-radius: 14px; border: 2px solid var(--accent); background: rgba(0,0,0,.5); color: #fff; outline: none; }
+.enter .pp-btn { font-size: clamp(16px, 1.6vw, 30px); min-height: 6vh; padding: 0 3vw; }
+#soundBtn { position: fixed; z-index: 5; right: 2vw; bottom: 3vh; padding: 1.2vh 1.4vw; border-radius: 999px; border: 0; background: #fff; color: var(--bg); font: 800 clamp(13px, 1.2vw, 22px) var(--font-b); }
+.reactions-overlay { z-index: 3; } .reaction-bubble { font-size: clamp(48px, 8vh, 110px); }
+</style>
+</head>
+<body>
+<div id="tv">
+  <header class="tv-top">
+    <div class="tv-logo" id="tvLogo">Вечір<i>ка</i></div>
+    <div class="tv-live" id="tvLive"></div>
+    <div class="tv-sp"></div>
+    <div class="tv-round hidden" id="tvRound"></div>
+    <div class="tv-timer off" id="tvTimer"><svg viewBox="0 0 44 44"><circle class="trk" cx="22" cy="22" r="19"/><circle class="bar" cx="22" cy="22" r="19"/></svg><span></span></div>
+    <div class="tv-codechip hidden" id="tvCode"></div>
+  </header>
+  <main id="stage"></main>
+</div>
+<button id="soundBtn">Увімкнути звук</button>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="js/core/firebase-config.js"></script>
+<script src="js/quiplash-avatars.js"></script>
+<script src="js/quiplash-sounds.js"></script>
+<script src="js/party-ui.js"></script>
+<script src="js/core/reactions.js"></script>
+<script>
+(function () {
+  const { esc, avatar, podium, icon } = window.PartyUI;
+  const $ = (id) => document.getElementById(id);
+  const sfx = (n) => { try { window.QuiplashSfx && QuiplashSfx.play(n); } catch (e) {} };
+  const ONLINE_MS = 2 * 60 * 1000;
+  // гра визначається за тим, у якому просторі є кімната з цим кодом
+  const GAMES = {
+    party_whofrom: { title: "Хто з <i>нас?</i>", cls: "whofrom", how: "Питання на екрані — кожен обирає ім'я на телефоні." },
+    party_court: { title: "Суд <i>Лінча</i>", cls: "court", how: "Звинувачення, адвокат і вирок присяжних." },
+    party_bets: { title: "<i>Ставки</i>", cls: "bets", how: "Чи зробить жертва завдання? Ставте на телефонах." },
+  };
+  let roomId = "", gameKey = null, room = null, offset = 0, lastKey = null, lastStageId = null, lastTick = null;
+  const now = () => Date.now() + offset;
+  const online = (p) => !!(p && p.lastSeen && now() - p.lastSeen < ONLINE_MS);
+
+  function setStage(key, html) {
+    if (key === lastKey) return false;
+    lastKey = key;
+    const el = $("stage"); el.innerHTML = html; el.classList.remove("tv-in"); void el.offsetWidth; el.classList.add("tv-in");
+    return true;
+  }
+  function names() { return Object.keys(room.players || {}).sort((a, b) => ((room.players[a].joinedAt || 0) - (room.players[b].joinedAt || 0))); }
+  function grid(list, opts) {
+    opts = opts || {};
+    const n = list.length, cols = n <= 5 ? Math.max(1, n) : n <= 10 ? 5 : n <= 14 ? 7 : 8, av = n <= 5 ? "16vh" : n <= 10 ? "13vh" : "10vh";
+    return `<div class="grid" style="--cols:${cols};--av:${av}">${list.map((u) => `<div class="tp ${opts.off && opts.off(u) ? "off" : ""}">${avatar(room, u, { mood: opts.mood ? opts.mood(u) : "idle" })}${opts.ok && opts.ok(u) ? '<span class="ok">✓</span>' : ""}<span class="nm">${esc(u)}</span></div>`).join("")}</div>`;
+  }
+  // які відповіді вже прийшли на поточний етап (самі відповіді до результату не показуємо)
+  function answered() {
+    const st = room.stage, out = {};
+    Object.entries(room.inputs || {}).forEach(([n, raw]) => { if (typeof raw !== "string") return; const i = raw.indexOf(":"); if (i > 0 && Number(raw.slice(0, i)) === st.id) out[n] = true; });
+    return out;
+  }
+  function waitBlock(st) {
+    const got = answered(), expect = st.expect || [], players = room.players || {};
+    const waiting = expect.filter((n) => !got[n] && online(players[n])), done = expect.length - waiting.length;
+    if (!expect.length) return "";
+    return `<div class="wait"><div class="dots">${expect.map((_, i) => `<i class="${i < done ? "on" : ""}"></i>`).join("")}</div>
+      <div>Відповіли ${done} з ${expect.length}</div><div class="who">${waiting.map((n) => avatar(room, n, { mood: "write", still: true })).join("")}</div></div>`;
+  }
+  function rolesHtml(st) {
+    return (st.roles || []).length ? `<div class="roles">${st.roles.map((r) => `<div class="role">${avatar(room, r.name, { mood: "shock" })}<div><small>${esc(r.label)}</small><b>${esc(r.name)}</b></div></div>`).join("")}</div>` : "";
+  }
+
+  function renderLobby() {
+    const g = GAMES[gameKey], list = names(), pl = room.players || {};
+    $("tvLive").textContent = "Збираємось";
+    setStage("lobby|" + list.map((n) => [n, pl[n].character, online(pl[n])].join(":")).join("|"), `<h1 class="t">${g.title}</h1>
+      <div class="hint">${esc(g.how)} Відкрийте гру на телефонах і введіть код.</div>
+      <div class="bigcode"><small>Код<br>кімнати</small><b>${esc(roomId)}</b></div>
+      ${list.length ? grid(list, { off: (u) => !online(pl[u]), mood: () => "happy" }) : '<div class="hint">Чекаємо на перших гравців…</div>'}`);
+  }
+
+  function renderRound() {
+    const st = room.stage;
+    $("tvRound").innerHTML = `Раунд <b>${room.roundNo + 1}</b> / ${room.totalRounds}`;
+    $("tvLive").textContent = st.title || "";
+    if (st.kind === "reveal") {
+      const bars = st.bars || [], max = Math.max(1, ...bars.map((b) => b.value || 0)), top = bars.length ? Math.max(...bars.map((b) => b.value || 0)) : 0;
+      const drinkers = Object.keys(st.penalties || {}), pts = Object.entries(st.points || {});
+      setStage("rev|" + st.id, `${st.text ? `<div class="hint">${esc(st.text)}</div>` : ""}<div class="head">${esc(st.headline || "Результат")}</div>
+        ${bars.length ? `<div class="bars">${bars.map((b, i) => `<div class="barrow ${b.value === top && top > 0 ? "top" : ""}" style="--i:${i}">
+          <span class="lab">${b.name ? avatar(room, b.name, { still: true }) + esc(b.name) : esc(b.label || "")}</span>
+          <span class="track"><span class="fill" style="width:${(b.value || 0) / max * 100}%;--i:${i}"></span></span><span class="v">${b.value || 0}</span></div>`).join("")}</div>` : ""}
+        ${(st.lines || []).length ? `<div class="lines">${st.lines.map(esc).join("<br>")}</div>` : ""}
+        ${drinkers.length ? `<div class="drink">${icon("glass")} П'ють:${drinkers.map((n) => avatar(room, n, { mood: "shock", still: true })).join("")}</div>` : ""}
+        ${pts.length ? `<div class="drink" style="color:var(--gold)">${icon("star")} Бали:${pts.map(([n, v]) => avatar(room, n, { mood: "happy", still: true }) + "+" + v).join(" ")}</div>` : ""}`)
+        && (sfx("drum"), setTimeout(() => sfx(drinkers.length ? "wah" : "fanfare"), 900));
+      return;
+    }
+    const got = answered();
+    const body = st.kind === "pick-name" ? grid(st.names || names(), { ok: (u) => got[u], mood: (u) => got[u] ? "happy" : "write" })
+      : st.kind === "choice" ? `<div class="opts">${(st.options || []).map((o) => `<div class="opt">${esc(o.label)}</div>`).join("")}</div>` : "";
+    const built = setStage("st|" + st.id + "|" + JSON.stringify(got), `<div class="q">${esc(st.text || "")}</div>${rolesHtml(st)}
+      ${st.hint ? `<div class="hint">${esc(st.hint)}</div>` : ""}${body}${st.kind === "pick-name" ? "" : waitBlock(st)}`);
+    if (built && st.id !== lastStageId) { if (lastStageId !== null) sfx("whoosh"); lastStageId = st.id; }
+  }
+
+  function renderSummary() {
+    $("tvLive").textContent = "Підсумок";
+    setStage("summary|" + JSON.stringify(room.tally || {}), `<div class="sum"><h2>Підсумок набору</h2>
+      <div class="pp-card"><div class="pp-h">${icon("star")} Бали</div>${podium(room, "points", "happy")}</div>
+      <div class="pp-card"><div class="pp-h">${icon("glass")} Ковтки</div>${podium(room, "drinks", "shock")}</div></div>`) && sfx("fanfare");
+  }
+
+  function render() {
+    if (!room) return;
+    const g = GAMES[gameKey];
+    document.body.className = g.cls;
+    $("tvLogo").innerHTML = g.title;
+    $("tvCode").innerHTML = `Код <b>${esc(roomId)}</b>`;
+    const inGame = room.phase === "round" && room.stage;
+    $("tvCode").classList.toggle("hidden", room.phase === "lobby" || !room.phase);
+    $("tvRound").classList.toggle("hidden", !inGame);
+    if (inGame) renderRound(); else if (room.phase === "summary") renderSummary(); else renderLobby();
+    updateTimer();
+  }
+
+  const RING = 2 * Math.PI * 19;
+  function updateTimer() {
+    const el = $("tvTimer"), st = room && room.phase === "round" && room.stage;
+    if (!st || st.kind === "reveal" || !st.endsAt) { el.className = "tv-timer off"; return; }
+    const total = Math.max(1, st.endsAt - (st.startedAt || st.endsAt - 60000)), left = Math.max(0, st.endsAt - (room.paused && room.pausedAt ? room.pausedAt : now())), sec = Math.ceil(left / 1000);
+    const bar = el.querySelector(".bar"); bar.style.strokeDasharray = RING; bar.style.strokeDashoffset = RING * (1 - left / total);
+    el.querySelector("span").textContent = sec; el.className = "tv-timer";
+    if (sec <= 5 && sec > 0 && sec !== lastTick) { lastTick = sec; sfx("tick"); }
+  }
+  setInterval(updateTimer, 250);
+  window.addEventListener("resize", () => { lastKey = null; render(); });
+  $("soundBtn").onclick = () => { sfx("pop"); $("soundBtn").remove(); };
+
+  function connect(code) {
+    roomId = String(code || "").trim().toUpperCase();
+    if (!roomId) return;
+    history.replaceState(null, "", location.pathname + "?room=" + roomId);
+    window.rtdb.ref(".info/serverTimeOffset").on("value", (s) => { offset = s.val() || 0; });
+    setStage("look", `<h1 class="t">Вечір<i>ка</i></h1><div class="hint">Шукаю кімнату ${esc(roomId)}…</div>`);
+    // слухаємо всі три простори; показуємо той, де кімната є
+    Object.keys(GAMES).forEach((k) => {
+      window.rtdb.ref(`${k}_rooms/${roomId}`).on("value", (snap) => {
+        const val = snap.val();
+        if (val && (gameKey === null || gameKey === k)) {
+          if (gameKey === null) { gameKey = k; if (window.GameReactions) window.GameReactions.mountOverlay(window.rtdb.ref(`${k}_rooms/${roomId}`)); }
+          room = val; render();
+        } else if (!val && gameKey === k) { room = null; setStage("gone", `<h1 class="t">${GAMES[k].title}</h1><div class="hint">Кімнату ${esc(roomId)} закрито.</div>`); }
+      });
+    });
+    setTimeout(() => { if (!gameKey) setStage("none", `<h1 class="t">Вечір<i>ка</i></h1><div class="hint">Кімнату <b>${esc(roomId)}</b> не знайдено. Створіть її з телефона у «Хто з нас?», «Суді Лінча» чи «Ставках» — екран підхопить сам.</div>`); }, 4000);
+  }
+  function askCode() {
+    setStage("enter", `<div class="enter"><h1 class="t">Вечір<i>ка</i> ТВ</h1><div class="hint">«Хто з нас?», «Суд Лінча» чи «Ставки» — введіть код кімнати з телефона</div>
+      <input id="codeIn" maxlength="5" placeholder="КОД" autocomplete="off" /><button class="pp-btn pp-primary" id="codeGo">Показати</button></div>`);
+    const go = () => connect($("codeIn").value);
+    $("codeGo").onclick = go; $("codeIn").onkeydown = (e) => { if (e.key === "Enter") go(); };
+    $("codeIn").focus();
+  }
+  (function wait() {
+    if (!window.rtdbReady) { setTimeout(wait, 300); return; }
+    const code = new URLSearchParams(location.search).get("room");
+    if (code) connect(code); else askCode();
+  })();
+})();
+</script>
+<script src="js/core/back-button.js"></script>
+</body>
+</html>
