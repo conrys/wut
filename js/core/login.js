@@ -319,6 +319,7 @@
     "chess": "Шахи",
     "checkers": "Шашки",
     "whoami": "Хто я?",
+    "guesschar": "Вгадай персонажа",
     "memology": "Мемологія",
     "crocodile": "Крокодил",
     "quiplash": "Сміхлист",
@@ -344,7 +345,7 @@
     "tetris": "🧱", "2048": "🔢", "wordle": "🔤", "sudoku": "🔢",
     "miner": "💣", "doodle": "🐸", "soliter": "🃏", "roulette": "🎰", "poker": "🃏",
     "snake": "🐍", "spy": "🕵️", "chess": "♟️", "checkers": "🔴",
-    "whoami": "❓", "memology": "😂", "crocodile": "🐊", "quiplash": "😆",
+    "whoami": "❓", "guesschar": "🎭", "memology": "😂", "crocodile": "🐊", "quiplash": "😆",
     "mafia": "🔪", "teli": "📞", "quiz": "🧠", "draw": "🎨", "durak": "🃏",
   };
   const GAME_ORDER = Object.keys(GAME_LABELS);
