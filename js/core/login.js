@@ -311,7 +311,6 @@
     "miner": "Сапер",
     "doodle": "Стрибунець",
     "blocks": "Блоки",
-    "merge": "Злиття",
     "soliter": "Косинка",
     "roulette": "Рулетка",
     "poker": "Покер",
@@ -359,14 +358,14 @@
   // колекція (games41_wordle_*) і своя механіка стріків, не games41_scores.
   // Дурак — накопичувальний лічильник перемог (як шахи/шашки), тому теж тут.
   const SCORABLE_GAMES = [
-    "tetris", "2048", "sudoku", "miner", "doodle", "blocks", "merge", "soliter", "roulette", "snake", "chess", "checkers", "whoami", "durak",
+    "tetris", "2048", "sudoku", "miner", "doodle", "blocks", "soliter", "roulette", "snake", "chess", "checkers", "whoami", "durak",
   ];
 
   function gameLabel(gameName) {
     return GAME_LABELS[gameName] || (gameName.charAt(0).toUpperCase() + gameName.slice(1));
   }
   // іконка гри — її обкладинка (img/<гра>_logo.png), а не емодзі
-  const COVER_FILE = { blocks: "blocks_logo.svg", merge: "merge_logo.svg", memology: "meme_logo.png", roulette: "roulette_logo.svg", dilemmas: "dilemmas_logo.svg" };
+  const COVER_FILE = { blocks: "blocks_logo.svg", memology: "meme_logo.png", roulette: "roulette_logo.svg", dilemmas: "dilemmas_logo.svg" };
   function gameIcon(gameName) {
     const file = COVER_FILE[gameName] || (gameName + "_logo.png");
     return `<img src="img/${file}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`;
