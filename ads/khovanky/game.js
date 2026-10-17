@@ -474,7 +474,7 @@ function update(dt){
   const coneOwner=seeker;cone.visible=phase!=='menu'&&coneOwner.state!=='count'&&coneOwner.cover<0.5;
   if(cone.visible)updateCone(coneOwner);
   const wantDark=phase==='play'&&(mode==='seek'||(MP.on?lightsOffRound:lightsOff))?1:0;darkK+=(wantDark-darkK)*Math.min(1,dt*(wantDark?6:1.5));
-  let dk=darkK;if(flickerT>0){flickerT-=dt;dk=(reduce?flickerT<0.4:Math.random()<0.5)?0.1:1;if(flickerT<=0)dk=darkK}
+  let dk=darkK;if(flickerT>0){flickerT-=dt;const k=1-Math.max(0,flickerT)/0.8;dk=darkK*k*k*(3-2*k)}
   const hideDark=mode==='hide';
   hemi.intensity=0.52-(hideDark?0.4:0.37)*dk;sun.intensity=0.62-(hideDark?0.56:0.5)*dk;
   const fo=seeker;flash.intensity=(hideDark?1.9:1.55)*dk;flash.position.set(fo.x,1.4,fo.z);flash.target.position.set(fo.x+Math.sin(fo.look)*3,0,fo.z+Math.cos(fo.look)*3);flash.distance=fo.range?fo.range+1.5:8;
