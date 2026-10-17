@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}[hidden]{display:none!important}img{max-width:100%}</style>
+<title>Колби</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Grandstander:wght@700;900&family=Rubik:wght@500&display=swap">
+<style>
+/* Layout: canvas fills the screen with tubes standing on wooden shelves; top HUD row; bottom tool row (undo, restart, extra tube).
+   Single dim apothecary-lab look in both themes. */
+:root{
+  --wall:#14302E; --wall-2:#0C1F1E; --wood:#8A5A36; --ink:#16100B; --paper:#FFF7EA;
+  --brass:#E8B04B; --brass-deep:#A8741C;
+  --display:'Grandstander','Arial Rounded MT Bold','Trebuchet MS',sans-serif;
+  --body:'Rubik',system-ui,-apple-system,sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%}
+[hidden]{display:none!important}
+body{background:var(--wall);color:var(--paper);font-family:var(--body);overflow:hidden;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block}
+.hud{position:fixed;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 12px);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;align-items:center;justify-content:space-between;gap:8px;pointer-events:none}
+.lv{font-family:var(--display);font-weight:900;font-size:24px;letter-spacing:.01em}
+.moves{font-size:14px;opacity:.75;font-variant-numeric:tabular-nums}
+.tools{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;justify-content:center;gap:14px}
+.tool{display:grid;place-items:center;gap:2px;width:72px;height:62px;border:0;border-radius:16px;background:rgba(255,247,234,.1);color:var(--paper);font-family:var(--body);font-size:12px;cursor:pointer}
+.tool b{font-family:var(--display);font-weight:900;font-size:24px;line-height:1}
+.tool:disabled{opacity:.35;cursor:default}
+.tool:focus-visible,.btn:focus-visible{outline:3px solid var(--brass);outline-offset:3px}
+.overlay{position:fixed;inset:0;display:grid;place-items:center;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));background:rgba(6,14,13,.55)}
+.card{background:var(--paper);color:var(--ink);border-radius:22px;padding:24px 22px;max-width:340px;width:100%;text-align:center;box-shadow:0 10px 0 rgba(0,0,0,.35);display:grid;gap:10px}
+.card h1{font-family:var(--display);font-weight:900;font-size:40px;line-height:1;margin:0;color:#2E6B63;text-wrap:balance}
+.card p{margin:0;font-size:15px;line-height:1.45}
+.card .hint{font-size:13px;opacity:.7}
+.btn{font-family:var(--display);font-weight:900;font-size:22px;background:var(--brass);color:var(--ink);border:0;border-radius:16px;padding:12px 30px;box-shadow:0 5px 0 var(--brass-deep);cursor:pointer;justify-self:center;margin-top:6px}
+.btn:active{transform:translateY(3px);box-shadow:0 2px 0 var(--brass-deep)}
+</style>
+</head>
+<body>
+
+
+<canvas id="c"></canvas>
+<div class="hud"><span class="lv" id="lv">Рівень 1</span><span class="moves" id="moves">ходів: 0</span></div>
+<div class="tools">
+  <button class="tool" id="undo" type="button"><b>↶</b>Назад</button>
+  <button class="tool" id="restart" type="button"><b>↻</b>Заново</button>
+  <button class="tool" id="extra" type="button"><b>+</b>Колба</button>
+</div>
+<div class="overlay" id="ov">
+  <div class="card">
+    <h1 id="ovTitle">Колби</h1>
+    <p id="ovText">Та сама гра з реклами: розлий рідини так, щоб у кожній колбі був один колір.</p>
+    <p class="hint" id="ovHint">Торкнись колби, потім іншої. Лити можна лише на такий самий колір або в порожню колбу. Кожен рівень перевірено: розв'язок є завжди.</p>
+    <button class="btn" id="ovBtn" type="button">Грати</button>
+  </div>
+</div>
+
+<script src="sortcore.js" charset="utf-8"></script>
+<script>
+const $=id=>document.getElementById(id);
+const cv=$('c'),ctx=cv.getContext('2d');
+const {CAP,generate,canPour,pour,done,solved,topRun}=SortCore;
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const COLORS=['#E8453C','#2F80ED','#F2C94C','#27AE60','#9B51E0','#F2994A','#56CCF2','#EB5FA8','#8B5A2B','#A3D930','#E0E0E0'];
+
+let W,H,level=1,tubes=[],start=[],hist=[],moves=0,extraUsed=false,sel=-1,anims=[],fx=[],T=0,lay=[],shake={},corks={},state='menu';
+try{level=Math.max(1,parseInt(localStorage.getItem('sort_level'))||1)}catch(e){}
+function resize(){const d=Math.min(2,devicePixelRatio||1);W=innerWidth;H=innerHeight;cv.width=W*d;cv.height=H*d;ctx.setTransform(d,0,0,d,0,0);layout()}
+addEventListener('resize',resize);
+
+function load(l){
+  level=l;const g=generate(l);start=g.tubes.map(t=>t.slice());tubes=g.tubes.map(t=>t.slice());
+  hist=[];moves=0;extraUsed=false;sel=-1;anims=[];fx=[];shake={};corks={};state='play';
+  $('lv').textContent='Рівень '+l;$('ov').hidden=true;layout();updUI();
+}
+function updUI(){$('moves').textContent='ходів: '+moves;$('undo').disabled=!hist.length||anims.length>0;$('extra').disabled=extraUsed}
+
+/* tubes in 1 or 2 rows, standing on shelves */
+let TW=50,TH=180;
+function layout(){
+  const n=tubes.length;if(!n)return;
+  const rows=n>6?2:1,per=Math.ceil(n/rows);
+  const top=70,bottom=110,availH=H-top-bottom,availW=Math.min(W-32,560);
+  TW=Math.min(56,availW/per*0.62);TH=TW*3.5;
+  if(rows*(TH+70)>availH){TH=Math.max(110,availH/rows-70);TW=TH/3.5}
+  const gap=Math.min(availW/per,TW*1.75),rowH=TH+70,y0=top+(availH-rows*rowH)/2+40;
+  lay=[];
+  for(let i=0;i<n;i++){const r=Math.floor(i/per),inRow=Math.min(per,n-r*per),c=i-r*per;
+    lay.push({x:W/2+(c-(inRow-1)/2)*gap,y:y0+r*rowH,row:r})}
+  lay.shelves=[];for(let r=0;r<rows;r++){const inRow=Math.min(per,n-r*per);lay.shelves.push({y:y0+r*rowH+TH+2,w:inRow*gap+20})}
+}
+
+/* ---------- input ---------- */
+function busy(i){return anims.some(a=>a.src===i||a.dst===i)}
+cv.addEventListener('pointerdown',e=>{
+  if(state!=='play')return;
+  let hit=-1;for(let i=0;i<lay.length;i++){const p=lay[i];if(e.clientX>p.x-TW*0.85&&e.clientX<p.x+TW*0.85&&e.clientY>p.y-40&&e.clientY<p.y+TH+20)hit=i}
+  if(hit<0){sel=-1;return}
+  if(busy(hit))return;
+  if(sel<0){if(tubes[hit].length&&!done(tubes[hit]))sel=hit;else if(tubes[hit].length)shake[hit]=0.3;return}
+  if(sel===hit){sel=-1;return}
+  const n=canPour(tubes,sel,hit);
+  if(!n){shake[hit]=0.3;sel=tubes[hit].length&&!done(tubes[hit])?hit:-1;return}
+  const color=tubes[sel][tubes[sel].length-1];pour(tubes,sel,hit);hist.push([sel,hit,n]);moves++;
+  anims.push({src:sel,dst:hit,n,color,t:0});sel=-1;updUI();
+});
+$('undo').addEventListener('click',()=>{if(!hist.length||anims.length)return;const [s,d,n]=hist.pop();for(let k=0;k<n;k++)tubes[s].push(tubes[d].pop());delete corks[d];moves++;updUI()});
+$('restart').addEventListener('click',()=>{if(state==='play')load(level)});
+$('extra').addEventListener('click',()=>{if(extraUsed||state!=='play')return;extraUsed=true;tubes.push([]);start.push([]);layout();updUI()});
+$('ovBtn').addEventListener('click',()=>load(state==='won'?level+1:level));
+
+/* ---------- animation ---------- */
+const MOVE=0.2,POUR=0.38,BACK=0.2,TOT=MOVE+POUR+BACK;
+function pourK(a){return Math.max(0,Math.min(1,(a.t-MOVE)/POUR))}
+function update(dt){
+  T+=dt;
+  for(const a of anims){a.t+=dt*(reduce?2:1);
+    if(a.t>=MOVE+POUR&&!a.landed){a.landed=true;if(done(tubes[a.dst])&&tubes[a.dst].length){corks[a.dst]=0;sparkle(a.dst)}}}
+  anims=anims.filter(a=>a.t<TOT);
+  for(const k in shake){shake[k]-=dt;if(shake[k]<=0)delete shake[k]}
+  for(const k in corks)corks[k]=Math.min(1,corks[k]+dt*4);
+  for(const f of fx){f.l-=dt;f.x+=f.vx*dt;f.y+=f.vy*dt;f.vy+=(f.g||0)*dt}fx=fx.filter(f=>f.l>0);
+  if(state==='play'&&!anims.length&&solved(tubes)){state='won';try{localStorage.setItem('sort_level',level+1)}catch(e){};confetti();setTimeout(showWin,1100)}
+  updUI();
+}
+function sparkle(i){const p=lay[i];for(let k=0;k<18;k++){const a=Math.random()*6.283,v=60+Math.random()*120;fx.push({x:p.x,y:p.y-6,vx:Math.cos(a)*v,vy:Math.sin(a)*v-60,g:240,l:0.7,c:'#FFF3B0',s:2+Math.random()*2})}}
+function confetti(){for(let k=0;k<90;k++)fx.push({x:W/2+(Math.random()-.5)*W*0.6,y:H*0.25,vx:(Math.random()-.5)*360,vy:-Math.random()*360,g:520,l:2.4,c:COLORS[k%COLORS.length],s:4,rect:true,r:Math.random()*6})}
+function showWin(){
+  $('ov').hidden=false;$('ovTitle').textContent='Розлито!';$('ovHint').hidden=true;
+  $('ovText').textContent='Рівень '+level+' за '+moves+' ходів.'+(level%2===0?' Далі додається новий колір.':'');$('ovBtn').textContent='Далі';
+  setTimeout(()=>$('ovBtn').focus({preventScroll:true}),50);
+}
+
+/* ---------- drawing ---------- */
+function tubePath(x,y,w,h){const r=w/2;ctx.beginPath();ctx.moveTo(x-r,y);ctx.lineTo(x-r,y+h-r);ctx.arc(x,y+h-r,r,Math.PI,0,true);ctx.lineTo(x+r,y);ctx.closePath()}
+function shade(hex,k){const n=parseInt(hex.slice(1),16);let r=n>>16,g=n>>8&255,b=n&255;const f=v=>Math.round(k>0?v+(255-v)*k:v*(1+k));return`rgb(${f(r)},${f(g)},${f(b)})`}
+/* layers drawn in tube space; levels as fractional units so pours fill smoothly */
+function drawTube(i,x,y,ang,layers){
+  const w=TW,h=TH,inner=w-7,unit=(h-14)/CAP;
+  ctx.save();ctx.translate(x,y+h/2);ctx.rotate(ang);ctx.translate(-x,-(y+h/2));
+  // back glass
+  tubePath(x,y,w,h);ctx.fillStyle='rgba(200,240,235,.07)';ctx.fill();
+  // liquid
+  ctx.save();tubePath(x,y+3,inner,h-6);ctx.clip();
+  let base=y+h-4;
+  for(const [c,amt] of layers){if(amt<=0.001)continue;const hh=amt*unit,col=COLORS[c];
+    const g=ctx.createLinearGradient(x-inner/2,0,x+inner/2,0);g.addColorStop(0,shade(col,0.18));g.addColorStop(0.45,col);g.addColorStop(1,shade(col,-0.25));
+    ctx.fillStyle=g;ctx.fillRect(x-w,base-hh-0.5,w*2,hh+1);base-=hh}
+  if(layers.length){const top=layers[layers.length-1];if(top&&top[1]>0.001){ctx.fillStyle=shade(COLORS[top[0]],0.35);ctx.beginPath();ctx.ellipse(x,base,inner/2,Math.max(1.5,inner*0.09),0,0,6.283);ctx.fill()}}
+  ctx.restore();
+  // glass edge + shine
+  tubePath(x,y,w,h);ctx.strokeStyle='rgba(225,250,245,.55)';ctx.lineWidth=2.4;ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,.22)';ctx.beginPath();ctx.roundRect(x-w/2+4,y+10,Math.max(2,w*0.1),h*0.62,3);ctx.fill();
+  ctx.fillStyle='rgba(225,250,245,.6)';ctx.beginPath();ctx.roundRect(x-w/2-3,y-4,w+6,6,3);ctx.fill();
+  // cork on completed tube
+  if(corks[i]!=null){const k=corks[i],cy=y-14+(1-k)*-24;ctx.globalAlpha=k;ctx.fillStyle='#B07B4A';ctx.beginPath();ctx.roundRect(x-w*0.36,cy,w*0.72,16,[4,4,3,3]);ctx.fill();
+    ctx.fillStyle='rgba(0,0,0,.18)';ctx.fillRect(x-w*0.36,cy+11,w*0.72,5);ctx.fillStyle='rgba(255,255,255,.2)';ctx.fillRect(x-w*0.3,cy+2,w*0.6,2);ctx.globalAlpha=1}
+  ctx.restore();
+}
+function layersOf(arr){const L=[];for(const c of arr){if(L.length&&L[L.length-1][0]===c)L[L.length-1][1]++;else L.push([c,1])}return L}
+function draw(){
+  // wall
+  const g=ctx.createRadialGradient(W/2,H*0.4,40,W/2,H*0.4,Math.max(W,H)*0.8);g.addColorStop(0,'#1E4642');g.addColorStop(1,'#0B1C1B');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='rgba(255,255,255,.03)';ctx.lineWidth=1;for(let y=0;y<H;y+=34){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+  if(!tubes.length)return;
+  // shelves
+  for(const s of lay.shelves){
+    ctx.fillStyle='rgba(0,0,0,.35)';ctx.fillRect(W/2-s.w/2+6,s.y+14,s.w,10);
+    ctx.fillStyle='#8A5A36';ctx.beginPath();ctx.roundRect(W/2-s.w/2,s.y,s.w,14,4);ctx.fill();
+    ctx.fillStyle='#A8734A';ctx.fillRect(W/2-s.w/2+3,s.y+2,s.w-6,3);
+    ctx.fillStyle='#6B4527';ctx.fillRect(W/2-s.w/2+14,s.y+14,8,18);ctx.fillRect(W/2+s.w/2-22,s.y+14,8,18);
+  }
+  // display amounts: logical state with in-flight pours added back to sources / held back from targets
+  const disp=tubes.map(t=>layersOf(t));
+  for(const a of anims){const k=pourK(a);
+    const d=disp[a.dst];d[d.length-1][1]-=a.n*(1-k);if(d[d.length-1][1]<=0.0001)d.pop();
+    const s=disp[a.src];if(s.length&&s[s.length-1][0]===a.color)s[s.length-1][1]+=a.n*(1-k);else s.push([a.color,a.n*(1-k)])}
+  const flying={};for(const a of anims)flying[a.src]=a;
+  // shadows + resting tubes
+  for(let i=0;i<tubes.length;i++){if(flying[i])continue;const p=lay[i];
+    const lift=sel===i?-26:0,sx=shake[i]&&!reduce?Math.sin(shake[i]*60)*4:0;
+    ctx.fillStyle='rgba(0,0,0,.28)';ctx.beginPath();ctx.ellipse(p.x,p.y+TH+2,TW*0.55,4,0,0,6.283);ctx.fill();
+    drawTube(i,p.x+sx,p.y+lift,0,disp[i]);
+    if(sel===i){ctx.strokeStyle='rgba(232,176,75,.85)';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(p.x,p.y+TH+2,TW*0.7,6,0,0,6.283);ctx.stroke()}
+  }
+  // pouring tubes on top
+  for(const a of anims){
+    const sp=lay[a.src],dp=lay[a.dst],side=dp.x>=sp.x?1:-1,maxA=side*1.15;
+    const m=a.t<MOVE?a.t/MOVE:a.t<MOVE+POUR?1:1-(a.t-MOVE-POUR)/BACK,e=m*m*(3-2*m);
+    const ang=maxA*e,sinA=Math.sin(maxA),cosA=Math.cos(maxA);
+    const tx=dp.x-side*0-(TH/2)*sinA,ty=dp.y-22+(TH/2)*cosA-TH/2;
+    const x=sp.x+(tx-sp.x)*e,y=sp.y+(ty-sp.y)*e;
+    drawTube(a.src,x,y,ang,disp[a.src]);
+    const k=pourK(a);
+    if(a.t>MOVE&&k<1){const mx=dp.x,my=dp.y-14,lvl=dp.y+TH-4-(tubes[a.dst].length-a.n*(1-k))*((TH-14)/CAP);
+      const wob=reduce?0:Math.sin(T*30)*0.8;ctx.strokeStyle=COLORS[a.color];ctx.lineCap='round';ctx.lineWidth=TW*0.16+wob;
+      ctx.beginPath();ctx.moveTo(mx+side*TW*0.05,my);ctx.lineTo(mx,lvl);ctx.stroke();
+      ctx.fillStyle=shade(COLORS[a.color],0.35);ctx.beginPath();ctx.arc(mx,lvl,TW*0.12,0,6.283);ctx.fill()}
+  }
+  for(const f of fx){ctx.globalAlpha=Math.min(1,f.l*2);ctx.fillStyle=f.c;if(f.rect){ctx.save();ctx.translate(f.x,f.y);ctx.rotate(f.r+T*6);ctx.fillRect(-5,-2.5,10,5);ctx.restore()}else{ctx.beginPath();ctx.arc(f.x,f.y,f.s,0,6.283);ctx.fill()}}
+  ctx.globalAlpha=1;
+  if(level===1&&state==='play'&&moves===0&&!reduce){const p=lay[sel<0?0:3]||lay[0],k=(Math.sin(T*4)+1)/2;
+    ctx.fillStyle='#FFF7EA';ctx.strokeStyle='#16100B';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(p.x+12,p.y+TH*0.55+k*8,9,12,-0.4,0,6.283);ctx.fill();ctx.stroke();ctx.beginPath();ctx.roundRect(p.x+5,p.y+TH*0.38+k*8,8,20,4);ctx.fill();ctx.stroke()}
+}
+
+let last=performance.now();
+function frame(now){const dt=Math.min(0.1,(now-last)/1000);last=now;update(dt);draw();requestAnimationFrame(frame)}
+resize();load(level);state='menu';$('ov').hidden=false;
+if(level>1)$('ovText').textContent='Продовжуємо з рівня '+level+'. Розлий рідини так, щоб у кожній колбі був один колір.';
+requestAnimationFrame(frame);
+</script>
+
+<a href="../../index.html" class="__back" aria-label="До списку ігор" style="position:fixed;left:max(10px,env(safe-area-inset-left,0px));top:calc(env(safe-area-inset-top,0px) + 58px);z-index:50;width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,.45);color:#fff;display:grid;place-items:center;text-decoration:none;font:700 18px system-ui">←</a>
+<script src="../../js/core/back-button.js"></script>
+</body>
+</html>

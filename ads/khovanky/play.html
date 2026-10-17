@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}[hidden]{display:none!important}img{max-width:100%}</style>
+<title>Хованки</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Rubik:wght@500&display=swap">
+<style>
+/* Layout: full-screen WebGL house; overlay canvas for speech pops and joystick; top HUD (level, mode, timer, who is left);
+   centre callouts for countdowns; one card for start and results. Single cosy daylight look in both themes. */
+:root{
+  --ink:#1D1A26; --paper:#FFFBF4; --grass:#9ED38A;
+  --seek:#FF5A5F; --seek-deep:#C8343A; --hide:#4C8DFF; --hide-deep:#2A5FC4; --gold:#FFD23F;
+  --display:'Baloo 2','Arial Rounded MT Bold','Trebuchet MS',sans-serif;
+  --body:'Rubik',system-ui,-apple-system,sans-serif;
+  color-scheme:light;
+}
+html,body{height:100%}
+[hidden]{display:none!important}
+body{background:var(--grass);color:var(--ink);font-family:var(--body);overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+#gl,#fx{position:fixed;inset:0;width:100%;height:100%;display:block}
+#fx{pointer-events:none}
+.hud{position:fixed;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 12px);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;grid-template-columns:minmax(0,1fr);gap:8px;pointer-events:none}
+.row{display:flex;align-items:center;gap:8px;min-width:0}
+.chip{font-family:var(--display);font-weight:800;font-size:17px;line-height:1;background:rgba(29,26,38,.72);color:var(--paper);padding:8px 12px 6px;border-radius:12px;white-space:nowrap}
+.chip.mode.hide{background:var(--hide)}.chip.mode.seek{background:var(--seek)}
+.chip.lvl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;background:rgba(29,26,38,.55)}
+.chip.timer{font-variant-numeric:tabular-nums;min-width:58px;text-align:center;background:var(--paper);color:var(--ink);box-shadow:0 3px 0 rgba(29,26,38,.18)}
+.chip.timer.hot{background:var(--seek);color:#fff;animation:throb .5s ease-in-out infinite alternate}
+@keyframes throb{to{transform:scale(1.08)}}
+.icon{pointer-events:auto;border:0;border-radius:12px;width:40px;height:33px;background:rgba(29,26,38,.55);color:#fff;font-size:16px;cursor:pointer}
+.icon:focus-visible,.btn:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+.dots{display:flex;gap:6px;justify-content:center}
+.dot{width:18px;height:18px;border-radius:50%;border:2.5px solid var(--paper);box-shadow:0 2px 0 rgba(29,26,38,.25);position:relative;transition:transform .3s,opacity .3s}
+.dot.me{width:22px;height:22px;margin-top:-2px}
+.dot.out{opacity:.55;transform:scale(.85)}
+.dot.out::after{content:"";position:absolute;inset:-3px;border-radius:50%;background:repeating-linear-gradient(90deg,transparent 0 4px,#F2C94C 4px 6px);box-shadow:inset 0 0 0 2.5px #F2C94C}
+.say{position:fixed;left:0;right:0;top:34%;text-align:center;font-family:var(--display);font-weight:800;color:#fff;pointer-events:none;opacity:0;
+  text-shadow:0 4px 0 rgba(29,26,38,.28),0 0 24px rgba(29,26,38,.25);padding-left:16px;padding-right:16px}
+.say.big{font-size:52px;line-height:1}.say.num{font-size:110px;line-height:1}
+.say.show{animation:say 1s cubic-bezier(.2,1.4,.4,1) forwards}
+@keyframes say{0%{opacity:0;transform:scale(.4)}18%{opacity:1;transform:scale(1.08)}30%{transform:scale(1)}78%{opacity:1}100%{opacity:0;transform:scale(1.05) translateY(-14px)}}
+@media (prefers-reduced-motion:reduce){.say.show{animation:sayR 1s linear forwards}@keyframes sayR{0%,80%{opacity:1}100%{opacity:0}}}
+.tip{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 124px);margin:0 auto;width:max-content;max-width:calc(100% - 32px);text-align:center;background:rgba(29,26,38,.72);color:#fff;font-size:15px;line-height:1.35;padding:10px 16px;border-radius:14px;pointer-events:none}
+.tip.fade{animation:tipFade 6s ease forwards}
+@keyframes tipFade{0%{opacity:0;transform:translateY(10px)}8%,80%{opacity:1;transform:none}100%{opacity:0}}
+.crouch{position:fixed;right:max(18px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 26px);width:82px;height:82px;border-radius:50%;border:0;
+  background:rgba(255,251,244,.88);color:var(--ink);display:grid;place-items:center;align-content:center;gap:0;font-family:var(--display);font-weight:800;font-size:13px;line-height:1;
+  box-shadow:0 5px 0 rgba(29,26,38,.28);cursor:pointer;touch-action:manipulation;transition:transform .12s,background .2s}
+.crouch.on{background:var(--hide);color:#fff;transform:translateY(3px);box-shadow:0 2px 0 var(--hide-deep)}
+.crouch:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+.switch{display:flex;align-items:center;justify-content:center;gap:10px;font-size:14px;cursor:pointer;user-select:none}
+.switch input{position:absolute;opacity:0;width:1px;height:1px}
+.switch .track{width:44px;height:26px;border-radius:13px;background:#D9D2C5;position:relative;flex:none;transition:background .2s}
+.switch .track::after{content:"";position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .2s}
+.switch input:checked+.track{background:var(--ink)}.switch input:checked+.track::after{transform:translateX(18px)}
+.switch input:focus-visible+.track{outline:3px solid var(--hide);outline-offset:2px}
+.overlay{position:fixed;inset:0;display:grid;place-items:center;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));background:rgba(29,26,38,.28)}
+.overlay{overflow-y:auto;place-items:start center!important;padding-block:calc(env(safe-area-inset-top,0px) + 16px) calc(env(safe-area-inset-bottom,0px) + 16px)}
+.card{margin-block:auto;background:var(--paper);border-radius:24px;padding:24px 22px 22px;max-width:350px;width:100%;text-align:center;box-shadow:0 10px 0 rgba(29,26,38,.2);display:grid;gap:10px;animation:cardIn .45s cubic-bezier(.2,1.3,.4,1)}
+@keyframes cardIn{from{transform:translateY(24px) scale(.94);opacity:0}}
+.card h1{font-family:var(--display);font-weight:800;font-size:44px;line-height:1;margin:0;color:var(--hide-deep);text-wrap:balance}
+.card h1.lose{color:var(--seek-deep)}
+.card p{margin:0;font-size:15px;line-height:1.45}
+.card .hint{font-size:13px;opacity:.72}
+.stars{font-size:38px;line-height:1;letter-spacing:4px;color:#E3DCCF}
+.stars .on{color:var(--gold);text-shadow:0 3px 0 #C99A00}
+.modes{display:flex;gap:8px;justify-content:center;font-size:13px}
+.modes span{padding:4px 10px;border-radius:999px;color:#fff;font-weight:500}
+.btn2{font-family:var(--display);font-weight:800;font-size:19px;background:transparent;color:var(--hide-deep);border:2.5px solid var(--hide);border-radius:16px;padding:7px 22px 5px;cursor:pointer;justify-self:center}
+.btn2:disabled{opacity:.4;cursor:default}.btn2.sm{font-size:17px;padding:6px 14px 4px;flex:none}
+.note{font-size:12px;opacity:.65;margin:0}
+.stack{display:grid;gap:10px}
+.field{display:grid;gap:4px;text-align:left}.field label{font-size:13px;opacity:.75}
+.rowf{display:flex;gap:8px}.rowf input{flex:1;min-width:0}
+input,select{font:inherit;font-size:17px;padding:9px 12px;border-radius:12px;border:2px solid #E3DCCF;background:#fff;color:var(--ink)}
+input:focus-visible,select:focus-visible{outline:3px solid var(--hide);outline-offset:1px}
+#codeIn{text-transform:uppercase;letter-spacing:.2em;font-family:var(--display);font-weight:800}
+.swatch{width:44px;flex:none;border-radius:12px;border:3px solid #fff;box-shadow:0 0 0 2px #E3DCCF;cursor:pointer}
+.or{display:flex;align-items:center;gap:10px;font-size:13px;opacity:.6}.or::before,.or::after{content:"";flex:1;height:1px;background:currentColor;opacity:.35}
+.err{color:var(--seek-deep);font-size:14px;margin:0}
+.link{background:none;border:0;color:var(--ink);opacity:.7;font:inherit;font-size:14px;text-decoration:underline;cursor:pointer;justify-self:center}
+.eyebrow{font-size:12px;letter-spacing:.1em;text-transform:uppercase;opacity:.6;margin:0}
+.code{font-family:var(--display);font-weight:800;font-size:54px;line-height:1;letter-spacing:.14em;color:var(--hide-deep)}
+.plist{list-style:none;margin:0;padding:0;display:grid;gap:6px;text-align:left;max-height:180px;overflow:auto}
+.plist li{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:12px;background:#F4EEE3;font-size:15px}
+.plist em{margin-left:auto;font-style:normal;font-size:12px;opacity:.6}
+.pdot{width:16px;height:16px;border-radius:50%;flex:none}
+.rowf2{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:15px}
+.btn{font-family:var(--display);font-weight:800;font-size:24px;background:var(--hide);color:#fff;border:0;border-radius:16px;padding:10px 34px 8px;box-shadow:0 5px 0 var(--hide-deep);cursor:pointer;justify-self:center;margin-top:4px}
+.btn:active{transform:translateY(3px);box-shadow:0 2px 0 var(--hide-deep)}
+</style>
+</head>
+<body>
+
+
+<canvas id="gl"></canvas>
+<canvas id="fx"></canvas>
+<div class="hud">
+  <div class="row">
+    <span class="chip lvl" id="lvl">Рівень 1</span>
+    <span class="chip mode hide" id="modeChip">Ховайся</span>
+    <span class="chip timer" id="timer">0:00</span>
+    <button class="icon" id="mute" type="button" aria-label="Вимкнути звук">🔊</button>
+  </div>
+  <div class="dots" id="dots"></div>
+</div>
+<div class="say" id="say"></div>
+<button class="crouch" id="crouch" type="button" aria-pressed="false" hidden><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="6" r="3" fill="currentColor"/><path d="M8 12c1.5-1.2 6.5-1.2 8 0l-1 4h2.5l1 4H5.5l1-4H9z" fill="currentColor"/></svg><span>Присісти</span></button>
+<div class="tip" id="tip" hidden></div>
+<div class="overlay" id="ov">
+  <div class="card">
+    <h1 id="ovTitle">Хованки</h1>
+    <div class="stars" id="stars" hidden></div>
+    <p id="ovText">Та сама гра з реклами: шукач із ліхтариком, будинок з купою закутків і ти.</p>
+    <div class="modes" id="ovHint"><span style="background:var(--hide)">Ховайся від променя</span><span style="background:var(--seek)">Шукай у темряві</span></div>
+    <label class="switch"><input type="checkbox" id="lightsOff" checked><span class="track"></span>Гасити світло, коли всі сховались</label>
+    <p class="hint">Веди пальцем по екрану. Крізь стіни й високі меблі промінь не бачить. Присядь кнопкою праворуч: так тебе не чути, а за диваном чи ліжком не видно. Торкнись друга в клітці, щоб звільнити. У темряві кроки тих, хто поруч, видно хвилями на підлозі.</p>
+    <button class="btn" id="ovBtn" type="button">Грати</button>
+    <button class="btn2" id="mpOpen" type="button" disabled>Грати з друзями</button>
+    <p class="note" id="mpNote">Гра з друзями зʼявиться згодом. Поки що — з ботами.</p>
+    <button class="btn2" id="ovLeave" type="button" hidden>Вийти з кімнати</button>
+  </div>
+</div>
+<div class="overlay" id="mp" hidden>
+  <div class="card">
+    <div id="mpA" class="stack">
+      <h1>З друзями</h1>
+      <p>Один шукає, решта ховаються, кожен зі свого телефона. Шукач змінюється щораунду.</p>
+      <div class="field"><label for="nick">Твоє ім'я</label><div class="rowf"><input id="nick" maxlength="14" autocomplete="nickname" placeholder="Наприклад, Влад"><button class="swatch" id="colorBtn" type="button" aria-label="Змінити колір"></button></div></div>
+      <button class="btn" id="mpCreate" type="button">Створити кімнату</button>
+      <div class="or"><span>або</span></div>
+      <div class="field"><label for="codeIn">Код кімнати</label><div class="rowf"><input id="codeIn" maxlength="4" autocapitalize="characters" placeholder="KQRT"><button class="btn2 sm" id="mpJoinBtn" type="button">Увійти</button></div></div>
+      <p class="err" id="mpErr" role="alert" hidden></p>
+      <button class="link" id="mpBack" type="button">Назад</button>
+    </div>
+    <div id="mpB" class="stack" hidden>
+      <p class="eyebrow">Код кімнати</p>
+      <div class="code" id="roomCode">----</div>
+      <button class="link" id="copyCode" type="button">Скопіювати код</button>
+      <ul class="plist" id="plist"></ul>
+      <div id="hostCtl" class="stack" hidden>
+        <div class="rowf2"><label for="mapSel">Карта</label><select id="mapSel"><option value="auto">По черзі</option><option value="0">Будинок</option><option value="1">Супермаркет</option></select></div>
+        <div class="rowf2"><label for="botSel">Боти-хованці</label><select id="botSel"><option>0</option><option>1</option><option selected>2</option><option>3</option><option>4</option></select></div>
+        <button class="btn" id="mpStart" type="button">Почати</button>
+      </div>
+      <p class="hint" id="waitHost">Чекаємо, поки хост почне гру.</p>
+      <button class="link" id="mpQuit" type="button">Вийти з кімнати</button>
+    </div>
+  </div>
+</div>
+
+<script src="../vendor/three.min.js"></script>
+<script src="world.js" charset="utf-8"></script>
+<script src="game.js" charset="utf-8"></script>
+
+<a href="../../index.html" class="__back" aria-label="До списку ігор" style="position:fixed;left:max(10px,env(safe-area-inset-left,0px));top:calc(env(safe-area-inset-top,0px) + 58px);z-index:50;width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,.45);color:#fff;display:grid;place-items:center;text-decoration:none;font:700 18px system-ui">←</a>
+<script src="../../js/core/back-button.js"></script>
+</body>
+</html>

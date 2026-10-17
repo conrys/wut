@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}[hidden]{display:none!important}img{max-width:100%}</style>
+<title>Спіральна вежа</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chango&family=Rubik:wght@500;700&display=swap">
+<style>
+/* Layout: full-screen WebGL tower, overlay canvas for score pops, HUD with level progress, centered card.
+   Each level picks its own palette; chrome stays neutral white-on-colour. */
+:root{
+  --ink:#1A1530; --paper:#FFFFFF; --accent:#FF4D6D; --accent-deep:#C21F43;
+  --display:'Chango','Arial Black',Impact,sans-serif;
+  --body:'Rubik',system-ui,-apple-system,sans-serif;
+  color-scheme:light;
+}
+html,body{height:100%}
+[hidden]{display:none!important}
+body{background:#7FD3E8;color:var(--ink);font-family:var(--body);overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+#gl,#fx{position:fixed;inset:0;width:100%;height:100%;display:block}
+#fx{pointer-events:none}
+.hud{position:fixed;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 14px);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;justify-items:center;gap:8px;pointer-events:none}
+.track{display:flex;align-items:center;gap:8px;width:min(320px,100%)}
+.dot{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-size:14px;background:var(--paper);color:var(--ink);flex:none}
+.dot.next{background:rgba(26,21,48,.14)}
+.bar{flex:1;height:12px;border-radius:6px;background:rgba(26,21,48,.14);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--ink);border-radius:6px}
+.score{font-family:var(--display);font-size:34px;color:var(--ink);text-shadow:0 2px 0 rgba(255,255,255,.7);font-variant-numeric:tabular-nums}
+.overlay{position:fixed;inset:0;display:grid;place-items:center;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));background:rgba(26,21,48,.3)}
+.card{background:var(--paper);border-radius:22px;padding:24px 22px;max-width:340px;width:100%;text-align:center;box-shadow:0 10px 0 rgba(26,21,48,.22);display:grid;gap:10px}
+.card h1{font-family:var(--display);font-weight:400;font-size:34px;line-height:1.05;margin:0;color:var(--accent);text-wrap:balance}
+.card p{margin:0;font-size:15px;line-height:1.45}
+.card .hint{font-size:13px;opacity:.7}
+.btn{font-family:var(--display);font-size:20px;background:var(--accent);color:#fff;border:0;border-radius:16px;padding:12px 30px;box-shadow:0 5px 0 var(--accent-deep);cursor:pointer;justify-self:center;margin-top:6px}
+.btn:active{transform:translateY(3px);box-shadow:0 2px 0 var(--accent-deep)}
+.btn:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+</style>
+</head>
+<body>
+
+
+<canvas id="gl"></canvas>
+<canvas id="fx"></canvas>
+<div class="hud">
+  <div class="track"><span class="dot" id="dA">1</span><div class="bar"><i id="prog"></i></div><span class="dot next" id="dB">2</span></div>
+  <div class="score" id="score">0</div>
+</div>
+<div class="overlay" id="ov">
+  <div class="card">
+    <h1 id="ovTitle">Спіральна вежа</h1>
+    <p id="ovText">Та сама гра з реклами: кулька стрибає, ти крутиш вежу.</p>
+    <p class="hint" id="ovHint">Веди пальцем вліво-вправо, щоб крутити вежу. Кулька провалюється в щілини. Червоне розбиває кульку, але після трьох поверхів поспіль вона розпалюється і трощить усе.</p>
+    <button class="btn" id="ovBtn" type="button">Грати</button>
+  </div>
+</div>
+
+<script src="../vendor/three.min.js"></script>
+<script src="../vendor/engine.js" charset="utf-8"></script>
+<script>
+const $=id=>document.getElementById(id);
+const FONT='Chango, "Arial Black", sans-serif';
+const PALS=[
+  {bg:['#7FD3E8','#C9F1F7'],plat:'#FFB547',pole:'#FFF4E0',ball:'#FF4D6D'},
+  {bg:['#9C8CFF','#E4DEFF'],plat:'#4FD1A5',pole:'#FFFFFF',ball:'#FFD23F'},
+  {bg:['#FF9F80','#FFE3D6'],plat:'#5B8CFF',pole:'#FFF8F2',ball:'#FFFFFF'},
+  {bg:['#6EE7B7','#DFFBEF'],plat:'#FF6FAE',pole:'#FFFFFF',ball:'#3B4CCA'},
+  {bg:['#FFD86E','#FFF6D6'],plat:'#7C5CFF',pole:'#FFFFFF',ball:'#FF5A36'},
+];
+const DANGER='#E8323C',FINISH='#FFFFFF';
+const W3=G3.world({canvas:$('gl'),fx:$('fx'),sky:'#7FD3E8',hemiSky:0xffffff,hemiGround:0x8899aa,hemiI:0.85,sunI:0.55,sunDir:[0.5,1.4,1.2],shadows:false,near:0.5,far:200,fov:55});
+const {scene,camera}=W3,reduce=G3.reduce;
+const parts=new G3.Particles(scene,260,0.22),floats=new G3.Floats();
+
+/* ---------- geometry ---------- */
+const UNITS=12,UA=Math.PI*2/UNITS,R_IN=0.9,R_OUT=2.75,THICK=0.42,GAP=3.1,BALL_R=0.34,BALL_RAD=1.85;
+function wedgeGeo(){
+  const s=new THREE.Shape(),n=6,e=0.012;
+  s.moveTo(Math.cos(e)*R_IN,Math.sin(e)*R_IN);
+  for(let i=0;i<=n;i++){const a=e+(UA-2*e)*i/n;s.lineTo(Math.cos(a)*R_OUT,Math.sin(a)*R_OUT)}
+  for(let i=n;i>=0;i--){const a=e+(UA-2*e)*i/n;s.lineTo(Math.cos(a)*R_IN,Math.sin(a)*R_IN)}
+  const g=new THREE.ExtrudeGeometry(s,{depth:THICK,bevelEnabled:true,bevelThickness:0.06,bevelSize:0.05,bevelSegments:2,curveSegments:4});
+  g.rotateX(-Math.PI/2);g.translate(0,-THICK/2,0);return g;
+}
+const WG=wedgeGeo();
+const tower=new THREE.Group();scene.add(tower);
+const matSafe=new THREE.MeshLambertMaterial(),matDanger=new THREE.MeshLambertMaterial({color:DANGER,emissive:0x330000});
+const matFinish=new THREE.MeshLambertMaterial({color:FINISH});
+const pole=new THREE.Mesh(new THREE.CylinderGeometry(R_IN*0.98,R_IN*0.98,1,24),new THREE.MeshLambertMaterial());tower.add(pole);
+const ball=new THREE.Mesh(new THREE.SphereGeometry(BALL_R,24,16),new THREE.MeshPhongMaterial({shininess:60}));scene.add(ball);
+const ballShadow=new THREE.Mesh(new THREE.CircleGeometry(BALL_R*0.9,20).rotateX(-Math.PI/2),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:0.18,depthWrite:false}));scene.add(ballShadow);
+const glow=new THREE.Mesh(new THREE.SphereGeometry(BALL_R*1.5,16,12),new THREE.MeshBasicMaterial({color:0xFF7A1A,transparent:true,opacity:0,depthWrite:false}));ball.add(glow);
+const splatGeo=new THREE.CircleGeometry(1,14).rotateX(-Math.PI/2),splats=[];
+let ims={};
+
+/* ---------- level ---------- */
+let level=1,rings=[],ballY=0,vy=0,state='menu',T=0,score=0,best=0,streak=0,fury=false,camY=0,squash=0,pal=PALS[0],passed=0,lastBounceRing=-1;
+try{level=Math.max(1,parseInt(localStorage.getItem('helix_level'))||1);best=+localStorage.getItem('helix_best')||0}catch(e){}
+const _m=new THREE.Matrix4(),_q=new THREE.Quaternion(),_v=new THREE.Vector3(),_s=new THREE.Vector3(),_e=new THREE.Euler(),ZERO=new THREE.Matrix4().makeScale(0,0,0);
+
+function gen(lv){
+  const R=G3.rng(lv*4517+3);pal=PALS[(lv-1)%PALS.length];
+  const n=Math.min(40,12+lv*2);rings=[];
+  for(let r=0;r<n;r++){
+    const kind=new Array(UNITS).fill(1);
+    const gapLen=r<2?3:(R()<0.5?2:(lv<4?3:2)),g0=r===0?3+Math.floor(R()*4):Math.floor(R()*UNITS);
+    for(let k=0;k<gapLen;k++)kind[(g0+k)%UNITS]=0;
+    const dChance=r<2?0:Math.min(0.85,0.25+lv*0.07);
+    if(R()<dChance){const len=1+Math.floor(R()*Math.min(4,1+lv/3)),d0=(g0+gapLen+1+Math.floor(R()*(UNITS-gapLen-len-1)))%UNITS;for(let k=0;k<len;k++)if(kind[(d0+k)%UNITS]===1)kind[(d0+k)%UNITS]=2}
+    if(lv>=5&&R()<0.25){const d1=(g0+UNITS/2)%UNITS;if(kind[d1]===1)kind[d1]=2}
+    rings.push({y:-r*GAP,kind,broken:false,bt:0,spin:R()*6.283});
+  }
+  rings.push({y:-n*GAP,kind:new Array(UNITS).fill(3),finish:true,broken:false,spin:0});
+  // make sure the ball starts over a safe unit
+  rings[0].kind[unitAt(0)]=1;
+  buildMeshes();
+}
+function buildMeshes(){
+  for(const k in ims){tower.remove(ims[k]);ims[k].dispose()}
+  const cnt={1:0,2:0,3:0};for(const r of rings)for(const k of r.kind)if(k)cnt[k]++;
+  const mats={1:matSafe,2:matDanger,3:matFinish};ims={};
+  for(const k of[1,2,3]){const im=new THREE.InstancedMesh(WG,mats[k],Math.max(1,cnt[k]));im.n=0;im.frustumCulled=false;ims[k]=im;tower.add(im)}
+  for(const r of rings){r.inst=[];r.kind.forEach((k,u)=>{if(!k)return;const im=ims[k],i=im.n++;r.inst.push({im,i,u});placeUnit(r,{im,i,u},0)})}
+  for(const k in ims)ims[k].instanceMatrix.needsUpdate=true;
+  matSafe.color.set(pal.plat);pole.material.color.set(pal.pole);ball.material.color.set(pal.ball);
+  scene.background=G3.canvasTex(2,256,(g,w,h)=>{const gr=g.createLinearGradient(0,0,0,h);gr.addColorStop(0,pal.bg[0]);gr.addColorStop(1,pal.bg[1]);g.fillStyle=gr;g.fillRect(0,0,w,h)});
+  document.body.style.background=pal.bg[0];
+  const top=GAP*1.2,bot=rings[rings.length-1].y-1.5;pole.scale.y=top-bot;pole.position.y=(top+bot)/2;
+  for(const s of splats)tower.remove(s);splats.length=0;
+}
+/* a broken ring's wedges fly outward, tumble and shrink */
+function placeUnit(r,u,t){
+  const a=u.u*UA;
+  if(!t){_q.setFromEuler(_e.set(0,a,0));_m.compose(_v.set(0,r.y,0),_q,_s.set(1,1,1))}
+  else{if(t>=1){u.im.setMatrixAt(u.i,ZERO);return}
+    const mid=a+UA/2,out=t*6,dx=Math.cos(mid)*out,dz=-Math.sin(mid)*out,sc=1-t;
+    _q.setFromEuler(_e.set(t*2.5*Math.sin(u.u),a+t*1.5,t*2*Math.cos(u.u)));_m.compose(_v.set(dx,r.y-t*t*3+t*1.2,dz),_q,_s.set(sc,sc,sc))}
+  u.im.setMatrixAt(u.i,_m);
+}
+/* which unit of the tower sits under the ball (ball is fixed in front of the camera) */
+function unitAt(rot){const a=((-Math.PI/2-rot)%(Math.PI*2)+Math.PI*4)%(Math.PI*2);return Math.floor(a/UA)%UNITS}
+
+function startLevel(){
+  gen(level);ballY=GAP*0.9;vy=0;streak=0;fury=false;camY=ballY;passed=0;lastBounceRing=-1;tower.rotation.y=0;
+  state='play';$('ov').hidden=true;$('dA').textContent=level;$('dB').textContent=level+1;$('score').textContent=score;
+}
+function lose(){
+  state='lost';parts.burst(0,ballY,BALL_RAD,[pal.ball,'#FFFFFF'],30,6,6);ball.visible=false;
+  if(score>best){best=score;try{localStorage.setItem('helix_best',best)}catch(e){}}
+  setTimeout(()=>{$('ov').hidden=false;$('ovTitle').textContent='Бум!';
+    $('ovText').textContent='Пройдено '+Math.round(passed/(rings.length-1)*100)+'% вежі. Рахунок '+score+', рекорд '+best+'.';
+    $('ovHint').hidden=true;$('ovBtn').textContent='Ще раз';score=0;setTimeout(()=>$('ovBtn').focus({preventScroll:true}),50)},900);
+}
+function win(){
+  state='won';level++;try{localStorage.setItem('helix_level',level)}catch(e){}
+  for(let i=0;i<4;i++)setTimeout(()=>parts.burst((Math.random()-.5)*4,ballY+2,BALL_RAD,['#FFD23F','#FF4D6D','#4FD1A5','#5B8CFF','#FFFFFF'],30,8,10),i*180);
+  setTimeout(()=>{$('ov').hidden=false;$('ovTitle').textContent='Рівень пройдено';$('ovText').textContent='Рахунок '+score+'. Наступна вежа вища й підступніша.';
+    $('ovHint').hidden=true;$('ovBtn').textContent='Далі';setTimeout(()=>$('ovBtn').focus({preventScroll:true}),50)},1100);
+}
+$('ovBtn').addEventListener('click',()=>{ball.visible=true;startLevel()});
+
+/* ---------- input ---------- */
+const drag=G3.drag($('gl'));let lastX=0;drag.onDown=d=>{lastX=d.x};
+
+/* ---------- physics ---------- */
+const GRAV=-34,JUMP=10.5;
+function addSplat(ring,y){
+  const m=new THREE.Mesh(splatGeo,new THREE.MeshBasicMaterial({color:pal.ball,transparent:true,opacity:0.85,depthWrite:false}));
+  const s=BALL_R*(0.9+Math.random()*0.5);m.scale.set(s,1,s);
+  const a=-Math.PI/2-tower.rotation.y;m.position.set(Math.cos(a)*BALL_RAD,y+0.02,-Math.sin(a)*BALL_RAD);m.rotation.y=Math.random()*3;
+  m.ring=ring;tower.add(m);splats.push(m);if(splats.length>24){tower.remove(splats.shift())}
+}
+function breakRing(i){
+  const r=rings[i];if(r.broken)return;r.broken=true;r.bt=0.001;passed++;
+  streak++;const pts=streak*level;score+=pts;$('score').textContent=score;
+  floats.add('+'+pts,0.6,r.y+0.8,BALL_RAD+0.4,'rgba(26,21,48,.55)',streak>=3);
+  for(const s of splats.slice())if(s.ring===i){tower.remove(s);splats.splice(splats.indexOf(s),1)}
+}
+function update(dt){
+  T+=dt;
+  if(drag.active){tower.rotation.y+=(drag.x-lastX)*0.0115;lastX=drag.x}
+  if(drag.keys.ArrowLeft)tower.rotation.y-=dt*3.2;if(drag.keys.ArrowRight)tower.rotation.y+=dt*3.2;
+  if(state==='play'){
+    const steps=3,h=dt/steps;
+    for(let s=0;s<steps&&state==='play';s++){
+      vy+=GRAV*h;const ny=ballY+vy*h;let hit=false;
+      for(let i=0;i<rings.length;i++){
+        const r=rings[i];if(r.broken)continue;const top=r.y+THICK/2+0.05;
+        if(vy<0&&ballY-BALL_R>=top-0.02&&ny-BALL_R<top){
+          const k=r.kind[unitAt(tower.rotation.y)];
+          if(r.finish){ballY=top+BALL_R;vy=0;win();break}
+          if(k===0)continue;
+          if(fury){breakRing(i);fury=false;streak=0;vy=JUMP*0.7;hit=true;ballY=top+BALL_R;parts.burst(0,top,BALL_RAD,['#FF7A1A','#FFD23F',pal.plat],26,7,6);break}
+          if(k===2){ballY=top+BALL_R;lose();break}
+          ballY=top+BALL_R;vy=JUMP;squash=1;streak=0;hit=true;lastBounceRing=i;addSplat(i,r.y+THICK/2+0.07);
+          parts.burst(0,top,BALL_RAD,[pal.ball],5,2.5,3);break;
+        }
+      }
+      if(state!=='play')break;
+      if(!hit)ballY=ny;
+      for(let i=0;i<rings.length;i++){const r=rings[i];if(!r.broken&&!r.finish&&ballY+BALL_R<r.y-THICK/2-0.05)breakRing(i)}
+      if(streak>=3&&!fury)fury=true;
+    }
+  }
+  // broken rings fly away
+  for(const r of rings)if(r.broken&&r.bt<1.2){r.bt+=dt*1.6;for(const u of r.inst)placeUnit(r,u,Math.min(1,r.bt))}
+  for(const k in ims)ims[k].instanceMatrix.needsUpdate=true;
+  // ball
+  squash=Math.max(0,squash-dt*6);const sq=reduce?0:squash*0.35;
+  ball.position.set(0,ballY,BALL_RAD);ball.scale.set(1+sq*0.6,1-sq,1+sq*0.6);
+  glow.material.opacity=fury?0.45+Math.sin(T*20)*0.15:0;ball.material.emissive.set(fury?0x662200:0x000000);
+  if(fury&&Math.random()<0.6)parts.burst(0,ballY,BALL_RAD,['#FF7A1A','#FFD23F'],1,1,2);
+  let below=null;for(const r of rings)if(!r.broken&&r.y<ballY&&r.kind[unitAt(tower.rotation.y)]){below=r;break}
+  ballShadow.visible=!!below&&state==='play';if(below){ballShadow.position.set(0,below.y+THICK/2+0.08,BALL_RAD);const d=ballY-below.y;ballShadow.scale.setScalar(Math.max(0.4,1.2-d*0.12))}
+  // camera only follows downward
+  const target=Math.min(camY,ballY);camY+=(target-camY)*Math.min(1,dt*8);
+  camera.position.set(0,camY+4.6,9.6);camera.lookAt(0,camY-1.6,0);
+  W3.followSun(0,0,10);
+  parts.update(dt);floats.update(dt);
+  const total=rings.length-1;$('prog').style.width=Math.min(100,passed/total*100)+'%';
+}
+function drawFx(){const c=W3.fctx;c.clearRect(0,0,W3.W,W3.H);floats.draw(W3,FONT)}
+
+gen(level);ballY=GAP*0.9;camY=ballY;$('dA').textContent=level;$('dB').textContent=level+1;
+if(level>1)$('ovText').textContent='Продовжуємо з рівня '+level+'. Кулька стрибає, ти крутиш вежу.';
+G3.loop(dt=>{update(dt);W3.render();drawFx()});
+</script>
+
+<a href="../../index.html" class="__back" aria-label="До списку ігор" style="position:fixed;left:max(10px,env(safe-area-inset-left,0px));top:calc(env(safe-area-inset-top,0px) + 58px);z-index:50;width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,.45);color:#fff;display:grid;place-items:center;text-decoration:none;font:700 18px system-ui">←</a>
+<script src="../../js/core/back-button.js"></script>
+</body>
+</html>

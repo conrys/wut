@@ -394,6 +394,7 @@
     .sec small { margin-left: auto; font: 600 12px 'Inter', sans-serif; color: var(--text-muted); }
     .sec::after { content: ""; flex: 0 0 0; }
     .sec[data-sec="arcade"] i { background: linear-gradient(135deg, #3c7de0, #6bc6ff); }
+    .sec[data-sec="ads"] i { background: linear-gradient(135deg, #ff4d6d, #ffb340); }
     .sec[data-sec="cards"] i { background: linear-gradient(135deg, #c8102e, #ff6b8b); }
     .sec[data-sec="party"] i { background: linear-gradient(135deg, #8f5bff, #ff5fa2); }
     .sec[data-sec="tv"] i { background: linear-gradient(135deg, #ff9f1c, #ffd23f); }
@@ -496,6 +497,88 @@
        
       <div class="tile-banner">
         <div class="name">Стрибунець</div>
+      </div>
+    </a>
+
+    <div class="sec" data-sec="ads"><i><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/></svg></i>Як у рекламі<small></small></div>
+
+    <a class="tile" href="ads/natovp-3d/play.html" data-lite-href="ads/natovp-2d/play.html" data-type="solo">
+      <div class="tile-media" style="--icon: url('img/ads_natovp_logo.svg');"></div>
+      <div class="tags"><span class="tag tag-v">NEW</span></div>
+      <div class="tile-banner">
+        <div class="name">Натовп ×3</div>
+      </div>
+    </a>
+
+    <a class="tile" href="ads/dira-3d/play.html" data-lite-href="ads/dira-2d/play.html" data-type="solo">
+      <div class="tile-media" style="--icon: url('img/ads_dira_logo.svg');"></div>
+      <div class="tags"><span class="tag tag-v">NEW</span></div>
+      <div class="tile-banner">
+        <div class="name">Діра-ненажера</div>
+      </div>
+    </a>
+
+    <a class="tile" href="ads/shpylka/play.html" data-type="solo">
+      <div class="tile-media" style="--icon: url('img/ads_shpylka_logo.svg');"></div>
+      <div class="tags"><span class="tag tag-v">NEW</span></div>
+      <div class="tile-banner">
+        <div class="name">Витягни шпильку</div>
+      </div>
+    </a>
+
+    <a class="tile" href="ads/pesyk/play.html" data-type="solo">
+      <div class="tile-media" style="--icon: url('img/ads_pesyk_logo.svg');"></div>
+      <div class="tags"><span class="tag tag-v">NEW</span></div>
+      <div class="tile-banner">
+        <div class="name">Врятуй песика</div>
+      </div>
+    </a>
+
+    <a class="tile" href="ads/kolby/play.html" data-type="solo">
+      <div class="tile-media" style="--icon: url('img/ads_kolby_logo.svg');"></div>
+      <div class="tags"><span class="tag tag-v">NEW</span></div>
+      <div class="tile-banner">
+        <div class="name">Колби</div>
+      </div>
+    </a>
+
+    <a class="tile" href="ads/parkovka/play.html" data-type="solo">
+      <div class="tile-media" style="--icon: url('img/ads_parkovka_logo.svg');"></div>
+      <div class="tags"><span class="tag tag-v">NEW</span></div>
+      <div class="tile-banner">
+        <div class="name">Парковка</div>
+      </div>
+    </a>
+
+    <a class="tile" href="ads/vezha-spiral/play.html" data-type="solo">
+      <div class="tile-media" style="--icon: url('img/ads_vezha-spiral_logo.svg');"></div>
+      <div class="tags"><span class="tag tag-v">NEW</span></div>
+      <div class="tile-banner">
+        <div class="name">Спіральна вежа</div>
+      </div>
+    </a>
+
+    <a class="tile" href="ads/vezha-blokiv/play.html" data-type="solo">
+      <div class="tile-media" style="--icon: url('img/ads_vezha-blokiv_logo.svg');"></div>
+      <div class="tags"><span class="tag tag-v">NEW</span></div>
+      <div class="tile-banner">
+        <div class="name">Вежа з блоків</div>
+      </div>
+    </a>
+
+    <a class="tile" href="ads/khovanky/play.html" data-type="solo">
+      <div class="tile-media" style="--icon: url('img/ads_khovanky_logo.svg');"></div>
+      <div class="tags"><span class="tag tag-v">NEW</span></div>
+      <div class="tile-banner">
+        <div class="name">Хованки</div>
+      </div>
+    </a>
+
+    <a class="tile" href="ads/perevtilennia/play.html" data-type="solo">
+      <div class="tile-media" style="--icon: url('img/ads_perevtilennia_logo.svg');"></div>
+      <div class="tags"><span class="tag tag-v">NEW</span></div>
+      <div class="tile-banner">
+        <div class="name">Перевтілення</div>
       </div>
     </a>
 
@@ -713,6 +796,13 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="js/core/firebase-config.js"></script>
 <script src="js/core/app-settings.js"></script>
+<script>
+  // «Як у рекламі»: у легкому режимі графіки Натовп і Діра відкриваються у 2D
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest && e.target.closest('[data-lite-href]');
+    if (a && document.documentElement.classList.contains('lite')) a.href = a.dataset.liteHref;
+  }, true);
+</script>
 <link rel="stylesheet" href="js/styles/game-header.css">
 <script src="js/core/game-header.js"></script>
 <script src="js/core/login.js"></script>

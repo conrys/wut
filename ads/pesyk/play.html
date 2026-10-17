@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}[hidden]{display:none!important}img{max-width:100%}</style>
+<title>Врятуй песика</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Rubik:wght@500&display=swap">
+<style>
+/* Layout: one canvas holds the scene scaled to fit; HUD row on top; centered card for start/win/lose.
+   Single bright meadow look in both themes. */
+:root{
+  --sky:#BDE6FF; --ink:#1E1A2E; --paper:#FFFDF6;
+  --honey:#FFB627; --honey-deep:#C97F00; --grass:#6CC24A; --red:#E5484D;
+  --display:'Baloo 2','Arial Rounded MT Bold','Trebuchet MS',sans-serif;
+  --body:'Rubik',system-ui,-apple-system,sans-serif;
+  color-scheme:light;
+}
+html,body{height:100%}
+[hidden]{display:none!important}
+body{background:var(--sky);color:var(--ink);font-family:var(--body);overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block}
+.hud{position:fixed;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 12px);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;align-items:center;gap:8px}
+.chip{font-family:var(--display);font-weight:800;font-size:18px;line-height:1;background:rgba(30,26,46,.72);color:var(--paper);padding:8px 12px 6px;border-radius:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.chip.lv{flex:1}
+.chip.timer{background:var(--honey);color:var(--ink);font-variant-numeric:tabular-nums}
+.icon{font-family:var(--display);font-weight:800;font-size:20px;background:rgba(30,26,46,.72);color:var(--paper);border:0;border-radius:12px;width:42px;height:34px;cursor:pointer}
+.icon:focus-visible,.btn:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+.overlay{position:fixed;inset:0;display:grid;place-items:center;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));background:rgba(30,26,46,.35)}
+.card{background:var(--paper);border-radius:22px;padding:24px 22px;max-width:340px;width:100%;text-align:center;box-shadow:0 10px 0 rgba(30,26,46,.25);display:grid;gap:10px}
+.card h1{font-family:var(--display);font-weight:800;font-size:40px;line-height:1;margin:0;color:var(--honey-deep);text-wrap:balance}
+.card h1.lose{color:var(--red)}
+.card p{margin:0;font-size:15px;line-height:1.45}
+.card .hint{font-size:13px;opacity:.7}
+.btn{font-family:var(--display);font-weight:800;font-size:23px;background:var(--honey);color:var(--ink);border:0;border-radius:16px;padding:10px 30px 8px;box-shadow:0 5px 0 var(--honey-deep);cursor:pointer;justify-self:center;margin-top:6px}
+.btn:active{transform:translateY(3px);box-shadow:0 2px 0 var(--honey-deep)}
+</style>
+</head>
+<body>
+
+
+<canvas id="c"></canvas>
+<div class="hud">
+  <span class="chip lv" id="lvName">Рівень 1</span>
+  <span class="chip timer" id="timer" hidden>10</span>
+  <button class="icon" id="restart" type="button" aria-label="Почати рівень заново">↻</button>
+</div>
+<div class="overlay" id="ov">
+  <div class="card">
+    <h1 id="ovTitle">Врятуй песика</h1>
+    <p id="ovText">Та сама гра з реклами: малюєш лінію, а бджоли лютують.</p>
+    <p class="hint" id="ovHint">Намалюй пальцем одну лінію, щоб закрити песика від бджіл. Відпустиш палець, і лінія впаде як справжня. Протримайся 10 секунд.</p>
+    <button class="btn" id="ovBtn" type="button">Грати</button>
+  </div>
+</div>
+
+<script src="../vendor/planck.min.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const cv=$('c'),ctx=cv.getContext('2d');
+const pl=planck,V=pl.Vec2,SC=30,INK=950,HOLD=10;
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* levels in 360x640 px: platforms [x,y,w,h], dog = centre-bottom, hives = where bees come from */
+const LEVELS=[
+  {name:'Перший рій',plats:[[0,560,360,80]],dog:[180,560],hives:[[70,150]],bees:12},
+  {name:'Острівець',plats:[[110,430,140,24]],dog:[180,430],hives:[[300,140]],bees:14},
+  {name:'З двох боків',plats:[[0,560,360,80]],dog:[180,560],hives:[[50,160],[310,160]],bees:9},
+  {name:'Сходинки',plats:[[0,520,170,120],[190,440,170,200]],dog:[290,440],hives:[[60,130]],bees:16},
+  {name:'Рій знизу',plats:[[0,600,360,40],[60,300,240,20]],dog:[180,300],hives:[[180,540]],bees:14},
+  {name:'Над самою головою',plats:[[0,560,360,80],[110,70,140,26]],dog:[180,560],hives:[[180,128]],bees:18},
+];
+
+let W,H,S=1,OX=0,OY=0;
+function resize(){const d=Math.min(2,devicePixelRatio||1);W=innerWidth;H=innerHeight;cv.width=W*d;cv.height=H*d;ctx.setTransform(d,0,0,d,0,0);
+  const top=56;S=Math.min(W/360,(H-top)/640);OX=(W-360*S)/2;OY=top+(H-top-640*S)/2}
+addEventListener('resize',resize);resize();
+
+let lvl=0,state='menu',world,dog,lineBody=null,pts=[],ink=0,bees=[],spawnQ=[],T=0,holdT=0,clouds=[],sad=0,endT=0;
+try{lvl=Math.min(LEVELS.length-1,Math.max(0,parseInt(localStorage.getItem('doge_level'))||0))}catch(e){}
+for(let i=0;i<5;i++)clouds.push({x:Math.random()*360,y:40+Math.random()*200,s:0.6+Math.random()*0.8,v:4+Math.random()*6});
+
+function load(i){
+  lvl=i;const L=LEVELS[i];
+  world=new pl.World({gravity:V(0,30)});
+  for(const [x,y,w,h] of L.plats){const b=world.createBody({position:V((x+w/2)/SC,(y+h/2)/SC)});b.createFixture(pl.Box(w/2/SC,h/2/SC),{friction:0.8,userData:'ground'})}
+  dog=world.createDynamicBody({position:V(L.dog[0]/SC,(L.dog[1]-15)/SC),angularDamping:2});
+  dog.createFixture(pl.Box(20/SC,15/SC),{density:1.4,friction:0.9,userData:'dog'});dog.setAwake(false);
+  lineBody=null;pts=[];ink=0;bees=[];spawnQ=[];holdT=HOLD;sad=0;endT=0;
+  world.on('begin-contact',c=>{const a=c.getFixtureA().getUserData(),b=c.getFixtureB().getUserData();
+    if(state==='run'&&((a==='dog'&&b==='bee')||(a==='bee'&&b==='dog')))lose('bee');
+    if((a==='bee'||b==='bee')&&(a==='line'||b==='line'||a==='ground'||b==='ground'))bump++});
+  state='draw';$('ov').hidden=true;$('timer').hidden=true;
+  $('lvName').textContent='Рівень '+(i+1)+' · '+L.name;
+}
+let bump=0;
+$('restart').addEventListener('click',()=>load(lvl));
+$('ovBtn').addEventListener('click',()=>{if(state==='won')load((lvl+1)%LEVELS.length);else load(lvl)});
+
+/* ---------- drawing the line ---------- */
+function blocked(x,y){
+  for(const [px,py,w,h] of LEVELS[lvl].plats)if(x>px-5&&x<px+w+5&&y>py-5&&y<py+h+5)return true;
+  const d=LEVELS[lvl].dog;if(x>d[0]-26&&x<d[0]+26&&y>d[1]-38&&y<d[1]+4)return true;
+  for(const h of LEVELS[lvl].hives)if(Math.hypot(x-h[0],y-h[1])<26)return true;
+  return false;
+}
+function segClear(a,b){const n=Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/3);for(let i=1;i<=n;i++){const t=i/n;if(blocked(a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t))return false}return true}
+let drawing=false,blockedFlash=0;
+const toL=e=>[(e.clientX-OX)/S,(e.clientY-OY)/S];
+cv.addEventListener('pointerdown',e=>{if(state!=='draw')return;const p=toL(e);if(blocked(p[0],p[1])){blockedFlash=0.3;return}
+  drawing=true;pts=[p];ink=0;try{cv.setPointerCapture(e.pointerId)}catch(_){}});
+cv.addEventListener('pointermove',e=>{if(!drawing)return;const p=toL(e),l=pts[pts.length-1],d=Math.hypot(p[0]-l[0],p[1]-l[1]);
+  if(d<6)return;if(ink+d>INK){finish();return}if(!segClear(l,p)){blockedFlash=0.3;return}pts.push(p);ink+=d});
+const up=()=>{if(drawing)finish()};cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
+function finish(){
+  drawing=false;if(pts.length<2||ink<20){pts=[];ink=0;return}
+  lineBody=world.createDynamicBody({position:V(0,0)});
+  for(let i=0;i<pts.length;i++){const [x,y]=pts[i];lineBody.createFixture(pl.Circle(V(x/SC,y/SC),4.5/SC),{density:1,friction:0.7,userData:'line'});
+    if(i){const [x0,y0]=pts[i-1],len=Math.hypot(x-x0,y-y0);lineBody.createFixture(pl.Box(len/2/SC,4.5/SC,V((x+x0)/2/SC,(y+y0)/2/SC),Math.atan2(y-y0,x-x0)),{density:1,friction:0.7,userData:'line'})}}
+  dog.setAwake(true);state='run';holdT=HOLD;$('timer').hidden=false;
+  const L=LEVELS[lvl];L.hives.forEach((h,hi)=>{for(let k=0;k<L.bees;k++)spawnQ.push({t:0.25+k*0.14+hi*0.05,h})});
+}
+window.drawLine=a=>{pts=a.map(p=>p.slice());ink=500;finish()}; // used by tests
+
+/* ---------- bees ---------- */
+function spawnBee(h){
+  const b=world.createDynamicBody({position:V(h[0]/SC,(h[1]+18)/SC),bullet:true,linearDamping:0.6,gravityScale:0});
+  b.createFixture(pl.Circle(5/SC),{density:0.3,friction:0.1,restitution:0.4,userData:'bee'});
+  const a=Math.random()*6.283;b.setLinearVelocity(V(Math.cos(a)*3,Math.abs(Math.sin(a))*3));
+  bees.push({b,id:Math.random()*100,wob:Math.random()*6.283});
+}
+function steer(dt){
+  const dp=dog.getPosition(),flee=state==='won';
+  for(const e of bees){const p=e.b.getPosition();let dx=dp.x-p.x,dy=dp.y-0.2-p.y;const d=Math.hypot(dx,dy)||1;dx/=d;dy/=d;
+    if(flee){dx=(p.x-6)*0.2;dy=-1}
+    const w=Math.sin(T*7+e.id)*0.9,m=e.b.getMass(),F=flee?12:16;
+    e.b.applyForceToCenter(V((dx-dy*w)*F*m,(dy+dx*w)*F*m),true);
+    const v=e.b.getLinearVelocity(),sp=Math.hypot(v.x,v.y),max=flee?9:7.5;if(sp>max)e.b.setLinearVelocity(V(v.x/sp*max,v.y/sp*max));
+  }
+}
+
+/* ---------- flow ---------- */
+function lose(r){if(state!=='run')return;state='lost';sad=1;setTimeout(()=>end(false,r),1300)}
+function win(){state='won';try{localStorage.setItem('doge_level',(lvl+1)%LEVELS.length)}catch(e){};setTimeout(()=>end(true),1400)}
+function end(won,r){
+  $('ov').hidden=false;$('ovHint').hidden=true;$('ovTitle').classList.toggle('lose',!won);
+  if(won){const last=lvl+1>=LEVELS.length;$('ovTitle').textContent='Песик цілий';$('ovText').textContent=last?'Усі '+LEVELS.length+' рівнів пройдено. Далі почнемо по колу.':'Бджоли відступили. Наступний рій злісніший.';$('ovBtn').textContent='Далі'}
+  else{$('ovTitle').textContent=r==='fall'?'Ой, упав':'Ужалили!';$('ovText').textContent=r==='fall'?'Лінія зіштовхнула песика. Спробуй будувати навколо, а не на ньому.':'Бджола знайшла щілину. Закрий песика щільніше.';$('ovBtn').textContent='Ще раз'}
+  setTimeout(()=>$('ovBtn').focus({preventScroll:true}),50);
+}
+
+let last=performance.now(),acc=0;
+function frame(now){
+  const dt=Math.min(0.1,(now-last)/1000);last=now;T+=dt;if(blockedFlash>0)blockedFlash-=dt;
+  for(const c of clouds){c.x+=c.v*dt;if(c.x>420)c.x=-60}
+  if(world&&(state==='run'||state==='won'||state==='lost')){
+    acc+=dt;while(acc>=1/60){
+      for(const s of spawnQ)if(!s.done){s.t-=1/60;if(s.t<=0){s.done=true;spawnBee(s.h)}}
+      steer(1/60);world.step(1/60,8,3);acc-=1/60;
+      if(state==='run'){holdT-=1/60;if(dog.getPosition().y*SC>700)lose('fall');else if(holdT<=0){holdT=0;win()}}
+    }
+    $('timer').textContent=Math.ceil(holdT);
+  }
+  if(state==='lost')endT+=dt;
+  draw();requestAnimationFrame(frame);
+}
+
+/* ---------- drawing ---------- */
+function cloud(x,y,s){ctx.fillStyle='rgba(255,255,255,.85)';ctx.beginPath();ctx.arc(x,y,18*s,0,6.283);ctx.arc(x+20*s,y-8*s,22*s,0,6.283);ctx.arc(x+44*s,y,16*s,0,6.283);ctx.rect(x,y,44*s,14*s);ctx.fill()}
+function plat([x,y,w,h]){
+  ctx.fillStyle='#8B5A3C';ctx.beginPath();ctx.roundRect(x,y,w,h,8);ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,.08)';for(let i=0;i<w/18;i++)for(let j=0;j<h/18;j++)if((i*7+j*3)%4===0){ctx.beginPath();ctx.arc(x+9+i*18,y+14+j*18,3,0,6.283);ctx.fill()}
+  ctx.fillStyle='#6CC24A';ctx.beginPath();ctx.roundRect(x-2,y-4,w+4,Math.min(14,h),[8,8,4,4]);ctx.fill();
+  ctx.fillStyle='#8EDB62';ctx.fillRect(x+4,y-2,w-8,3);
+  ctx.fillStyle='#5BAF3B';for(let i=6;i<w-6;i+=14){ctx.beginPath();ctx.moveTo(x+i,y+9);ctx.lineTo(x+i+4,y+9);ctx.lineTo(x+i+2,y+14);ctx.fill()}
+}
+function hive([x,y]){
+  ctx.strokeStyle='#6B4527';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x,y-34);ctx.lineTo(x,y-22);ctx.stroke();
+  const rows=[[16,'#F7B733'],[22,'#E9A21E'],[24,'#F7B733'],[20,'#E9A21E'],[12,'#F7B733']];
+  rows.forEach(([w,c],i)=>{ctx.fillStyle=c;ctx.beginPath();ctx.ellipse(x,y-18+i*9,w,7,0,0,6.283);ctx.fill()});
+  ctx.fillStyle='#3B2A12';ctx.beginPath();ctx.ellipse(x,y+10,6,5,0,0,6.283);ctx.fill();
+}
+function drawDog(){
+  const p=dog.getPosition(),a=dog.getAngle(),happy=state==='won',scared=state==='run'&&nearBees();
+  ctx.save();ctx.translate(p.x*SC,p.y*SC);ctx.rotate(a);
+  const shake=scared&&!reduce?Math.sin(T*40)*1:0;ctx.translate(shake,0);
+  if(happy&&!reduce)ctx.translate(0,-Math.abs(Math.sin(T*9))*6);
+  ctx.fillStyle='rgba(0,0,0,.15)';ctx.beginPath();ctx.ellipse(0,15,18,3,0,0,6.283);ctx.fill();
+  // body
+  ctx.fillStyle='#E58E3A';ctx.beginPath();ctx.roundRect(-20,-6,40,20,9);ctx.fill();
+  ctx.fillStyle='#FFF1DE';ctx.beginPath();ctx.ellipse(-2,8,12,6,0,0,6.283);ctx.fill();
+  ctx.fillStyle='#E58E3A';ctx.fillRect(-16,10,6,6);ctx.fillRect(8,10,6,6);
+  // tail
+  const tw=happy&&!reduce?Math.sin(T*18)*0.5:0.2;ctx.save();ctx.translate(18,-2);ctx.rotate(-0.8+tw);ctx.fillStyle='#E58E3A';ctx.beginPath();ctx.ellipse(0,-7,4,8,0,0,6.283);ctx.fill();ctx.fillStyle='#FFF1DE';ctx.beginPath();ctx.arc(0,-13,3,0,6.283);ctx.fill();ctx.restore();
+  // head
+  ctx.save();ctx.translate(-12,-12);
+  ctx.fillStyle='#E58E3A';ctx.beginPath();ctx.moveTo(-12,-6);ctx.lineTo(-9,-20);ctx.lineTo(-2,-10);ctx.fill();ctx.beginPath();ctx.moveTo(12,-6);ctx.lineTo(9,-20);ctx.lineTo(2,-10);ctx.fill();
+  ctx.fillStyle='#C96F24';ctx.beginPath();ctx.moveTo(-9,-8);ctx.lineTo(-8,-16);ctx.lineTo(-4,-10);ctx.fill();ctx.beginPath();ctx.moveTo(9,-8);ctx.lineTo(8,-16);ctx.lineTo(4,-10);ctx.fill();
+  ctx.fillStyle='#E58E3A';ctx.beginPath();ctx.ellipse(0,0,14,12,0,0,6.283);ctx.fill();
+  ctx.fillStyle='#FFF1DE';ctx.beginPath();ctx.ellipse(0,5,10,7,0,0,6.283);ctx.fill();ctx.beginPath();ctx.arc(-6,-3,3.4,0,6.283);ctx.arc(6,-3,3.4,0,6.283);ctx.fill();
+  ctx.fillStyle='#1E1A2E';
+  if(happy){ctx.lineWidth=2;ctx.strokeStyle='#1E1A2E';ctx.beginPath();ctx.arc(-5,-2,2.5,3.4,6);ctx.arc(5,-2,2.5,3.4,6);ctx.stroke()}
+  else{ctx.beginPath();ctx.arc(-5,-2,2.2,0,6.283);ctx.arc(5,-2,2.2,0,6.283);ctx.fill();ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(-4.4,-2.8,0.8,0,6.283);ctx.arc(5.6,-2.8,0.8,0,6.283);ctx.fill()}
+  ctx.fillStyle='#1E1A2E';ctx.beginPath();ctx.ellipse(0,3,2.6,2,0,0,6.283);ctx.fill();
+  ctx.strokeStyle='#1E1A2E';ctx.lineWidth=1.5;ctx.beginPath();
+  if(happy){ctx.arc(0,6,4,0.2,2.9)}else if(sad||scared){ctx.arc(0,10,3,3.5,5.9)}else{ctx.moveTo(-3,7);ctx.quadraticCurveTo(0,9,3,7)}ctx.stroke();
+  if(sad){ctx.fillStyle='#7CC8FF';ctx.beginPath();ctx.ellipse(-7,4+(T*20%8),1.6,2.6,0,0,6.283);ctx.fill();
+    ctx.fillStyle='#E5484D';ctx.beginPath();ctx.arc(8,-8,4+Math.min(3,endT*6),0,6.283);ctx.fill()}
+  if(scared&&!reduce){ctx.fillStyle='#7CC8FF';ctx.beginPath();ctx.ellipse(13,-8,1.8,3,0.3,0,6.283);ctx.fill()}
+  ctx.restore();ctx.restore();
+}
+function nearBees(){const p=dog.getPosition();for(const e of bees){const q=e.b.getPosition();if(Math.hypot(q.x-p.x,q.y-p.y)<2.4)return true}return false}
+function bee(e){
+  const p=e.b.getPosition(),v=e.b.getLinearVelocity(),x=p.x*SC,y=p.y*SC,f=v.x<0?-1:1;
+  ctx.save();ctx.translate(x,y);ctx.scale(f,1);
+  const fl=reduce?0.5:Math.abs(Math.sin(T*45+e.id));
+  ctx.fillStyle='rgba(255,255,255,.75)';ctx.beginPath();ctx.ellipse(-1,-6,4,6*fl+1.5,-0.4,0,6.283);ctx.ellipse(3,-6,3.5,5*fl+1.5,0.4,0,6.283);ctx.fill();
+  ctx.fillStyle='#FFC627';ctx.beginPath();ctx.ellipse(0,0,7,5.4,0,0,6.283);ctx.fill();
+  ctx.fillStyle='#1E1A2E';ctx.fillRect(-3,-5,2.4,10);ctx.fillRect(1.6,-5,2.4,10);
+  ctx.beginPath();ctx.moveTo(-7,0);ctx.lineTo(-10,1);ctx.lineTo(-7,2);ctx.fill();
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(5,-1.5,1.6,0,6.283);ctx.fill();ctx.fillStyle='#1E1A2E';ctx.beginPath();ctx.arc(5.4,-1.5,0.8,0,6.283);ctx.fill();
+  ctx.restore();
+}
+function inkLine(){
+  if(pts.length<1)return;
+  ctx.save();
+  if(lineBody){const p=lineBody.getPosition();ctx.translate(p.x*SC,p.y*SC);ctx.rotate(lineBody.getAngle())}
+  ctx.lineCap='round';ctx.lineJoin='round';
+  ctx.strokeStyle='rgba(0,0,0,.18)';ctx.lineWidth=11;ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p[0]+2,p[1]+3):ctx.moveTo(p[0]+2,p[1]+3));ctx.stroke();
+  ctx.strokeStyle='#2B2440';ctx.lineWidth=9;ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke();
+  ctx.strokeStyle='rgba(255,255,255,.18)';ctx.lineWidth=2;ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p[0]-1,p[1]-2):ctx.moveTo(p[0]-1,p[1]-2));ctx.stroke();
+  ctx.restore();
+}
+function draw(){
+  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#8FD3FF');g.addColorStop(1,'#E6F7FF');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  if(!world)return;
+  ctx.save();ctx.translate(OX,OY);ctx.scale(S,S);
+  ctx.fillStyle='#FFF4B8';ctx.beginPath();ctx.arc(300,70,26,0,6.283);ctx.fill();
+  for(const c of clouds)cloud(c.x,c.y,c.s);
+  ctx.fillStyle='#A9DD8B';ctx.beginPath();ctx.moveTo(-60,640);for(let x=-60;x<=420;x+=20)ctx.lineTo(x,470-Math.sin(x*0.02)*26-Math.sin(x*0.05+1)*10);ctx.lineTo(420,640);ctx.fill();
+  const L=LEVELS[lvl];
+  for(const p of L.plats)plat(p);
+  for(const h of L.hives)hive(h);
+  drawDog();
+  inkLine();
+  for(const e of bees)bee(e);
+  // ink meter while drawing
+  if(state==='draw'){
+    const left=1-ink/INK;ctx.fillStyle='rgba(30,26,46,.25)';ctx.beginPath();ctx.roundRect(80,602,200,12,6);ctx.fill();
+    ctx.fillStyle=left>0.25?'#2B2440':'#E5484D';ctx.beginPath();ctx.roundRect(80,602,200*left,12,6);ctx.fill();
+    if(!pts.length){ctx.font='800 20px "Baloo 2", "Arial Rounded MT Bold", sans-serif';ctx.textAlign='center';ctx.fillStyle='#1E1A2E';ctx.fillText('Намалюй захист для песика',180,594-L.plats.length*0)}
+    if(blockedFlash>0){ctx.fillStyle='rgba(229,72,77,'+blockedFlash+')';ctx.fillRect(-100,-100,560,840)}
+    if(lvl===0&&!pts.length&&!reduce){const k=(T*0.6)%1,a=-Math.PI*0.95+k*Math.PI*0.9,hx=180+Math.cos(a)*70,hy=540+Math.sin(a)*70;
+      ctx.strokeStyle='rgba(43,36,64,.35)';ctx.lineWidth=6;ctx.setLineDash([2,10]);ctx.lineCap='round';ctx.beginPath();ctx.arc(180,540,70,-Math.PI*0.95,-Math.PI*0.05);ctx.stroke();ctx.setLineDash([]);
+      ctx.fillStyle='#FFFDF6';ctx.strokeStyle='#1E1A2E';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(hx+6,hy+16,8,11,-0.4,0,6.283);ctx.fill();ctx.stroke();ctx.beginPath();ctx.roundRect(hx-1,hy,7,18,3.5);ctx.fill();ctx.stroke()}
+  }
+  ctx.restore();
+}
+
+load(lvl);state='menu';$('ov').hidden=false;
+if(lvl>0)$('ovText').textContent='Продовжуємо з рівня '+(lvl+1)+'. Бджоли вже злі.';
+requestAnimationFrame(frame);
+</script>
+
+<a href="../../index.html" class="__back" aria-label="До списку ігор" style="position:fixed;left:max(10px,env(safe-area-inset-left,0px));top:calc(env(safe-area-inset-top,0px) + 58px);z-index:50;width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,.45);color:#fff;display:grid;place-items:center;text-decoration:none;font:700 18px system-ui">←</a>
+<script src="../../js/core/back-button.js"></script>
+</body>
+</html>

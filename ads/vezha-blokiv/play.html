@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}[hidden]{display:none!important}img{max-width:100%}</style>
+<title>Вежа з блоків</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Rubik:wght@500&display=swap">
+<style>
+/* Layout: full-screen isometric WebGL tower, big score centred near the top, start/end hint text under it.
+   Background hue drifts with the tower, so chrome is plain white with a soft shadow. */
+:root{
+  --ink:#141414; --paper:#FFFFFF;
+  --display:'Archivo Black','Arial Black',Impact,sans-serif;
+  --body:'Rubik',system-ui,-apple-system,sans-serif;
+  color-scheme:light;
+}
+html,body{height:100%}
+[hidden]{display:none!important}
+body{background:#F2D6C2;color:var(--paper);font-family:var(--body);overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+#gl{position:fixed;inset:0;width:100%;height:100%;display:block}
+.hud{position:fixed;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 40px);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;justify-items:center;gap:6px;pointer-events:none;text-align:center}
+.score{font-family:var(--display);font-size:72px;line-height:1;text-shadow:0 4px 0 rgba(0,0,0,.12);font-variant-numeric:tabular-nums}
+.combo{font-family:var(--display);font-size:20px;min-height:24px;text-shadow:0 2px 0 rgba(0,0,0,.12)}
+.msg{font-size:16px;line-height:1.4;max-width:30ch;text-shadow:0 1px 2px rgba(0,0,0,.25)}
+.msg b{font-family:var(--display);font-weight:400;font-size:26px;display:block;margin-bottom:4px}
+</style>
+</head>
+<body>
+
+
+<canvas id="gl"></canvas>
+<div class="hud">
+  <div class="score" id="score">0</div>
+  <div class="combo" id="combo"></div>
+  <div class="msg" id="msg"><b>Вежа з блоків</b>Торкайся екрана, щоб скинути блок. Що не влучило, відріжеться. Три точні влучання поспіль повертають розмір.</div>
+</div>
+
+<script src="../vendor/three.min.js"></script>
+<script src="../vendor/engine.js" charset="utf-8"></script>
+<script>
+const $=id=>document.getElementById(id);
+const reduce=G3.reduce;
+const renderer=new THREE.WebGLRenderer({canvas:$('gl'),antialias:true});
+renderer.setPixelRatio(Math.min(G3.mobile?1.75:2,devicePixelRatio||1));
+const scene=new THREE.Scene();
+const cam=new THREE.OrthographicCamera(-1,1,1,-1,0.1,200);
+let W,H,view=13;
+function resize(){W=innerWidth;H=innerHeight;renderer.setSize(W,H,false);setView(view)}
+function setView(v){const a=W/H,h=a<1?v/a*0.62:v*0.62;cam.left=-h*a;cam.right=h*a;cam.top=h;cam.bottom=-h;cam.updateProjectionMatrix()}
+addEventListener('resize',resize);
+scene.add(new THREE.HemisphereLight(0xffffff,0x666688,0.55));
+const sun=new THREE.DirectionalLight(0xffffff,0.75);sun.position.set(-4,10,6);scene.add(sun);
+const fill=new THREE.DirectionalLight(0xffffff,0.25);fill.position.set(6,2,-3);scene.add(fill);
+const parts=new G3.Particles(scene,200,0.12);
+
+const BOX=new THREE.BoxGeometry(1,1,1),HGT=0.6,BASE=3.2;
+let stack=[],debris=[],cur=null,state='ready',score=0,best=0,combo=0,T=0,hue=0,camY=0,speed=4.2,dir=1,ring=null,ringT=0;
+try{best=+localStorage.getItem('stack_best')||0}catch(e){}
+const colorAt=(n)=>new THREE.Color().setHSL(((hue+n*5.5)%360)/360,0.62,0.6);
+function bgAt(n){const a=new THREE.Color().setHSL(((hue+n*5.5+190)%360)/360,0.45,0.82),b=new THREE.Color().setHSL(((hue+n*5.5+150)%360)/360,0.5,0.62);return[a,b]}
+let bgTex=null;
+function paintBg(n){const [a,b]=bgAt(n);if(bgTex)bgTex.dispose();bgTex=G3.canvasTex(2,256,(g,w,h)=>{const gr=g.createLinearGradient(0,0,0,h);gr.addColorStop(0,'#'+a.getHexString());gr.addColorStop(1,'#'+b.getHexString());g.fillStyle=gr;g.fillRect(0,0,w,h)});scene.background=bgTex;document.body.style.background='#'+a.getHexString()}
+
+function block(x,z,w,d,y,n){
+  const m=new THREE.Mesh(BOX,new THREE.MeshLambertMaterial({color:colorAt(n)}));m.scale.set(w,HGT,d);m.position.set(x,y,z);scene.add(m);return m;
+}
+function reset(){
+  for(const b of stack)scene.remove(b.m);for(const d of debris)scene.remove(d.m);stack=[];debris=[];
+  hue=Math.random()*360;score=0;combo=0;speed=4.2;view=13;setView(view);
+  // plinth
+  const p=new THREE.Mesh(BOX,new THREE.MeshLambertMaterial({color:colorAt(0).offsetHSL(0,-0.15,-0.18)}));p.scale.set(BASE,HGT*8,BASE);p.position.set(0,-HGT*4,0);scene.add(p);
+  stack.push({x:0,z:0,w:BASE,d:BASE,y:0,m:p,plinth:true});
+  camY=0;paintBg(0);$('score').textContent='0';$('combo').textContent='';
+}
+function spawn(){
+  const top=stack[stack.length-1],n=stack.length,axis=n%2?'x':'z',y=n*HGT-HGT/2+HGT/2;
+  const yy=top.plinth?HGT/2:top.y+HGT;
+  cur={axis,w:top.w,d:top.d,x:axis==='x'?-7:top.x,z:axis==='z'?-7:top.z,y:yy,n,t:0};cur.m=block(cur.x,cur.z,cur.w,cur.d,cur.y,n);dir=1;
+}
+function drop(){
+  if(state==='ready'){state='play';$('msg').hidden=true;spawn();return}
+  if(state==='over'){reset();state='play';$('msg').hidden=true;spawn();return}
+  if(state!=='play'||!cur)return;
+  const top=stack[stack.length-1],ax=cur.axis,size=ax==='x'?cur.w:cur.d,delta=ax==='x'?cur.x-top.x:cur.z-top.z,over=size-Math.abs(delta);
+  if(over<=0){fall(cur,ax);cur=null;return gameOver()}
+  let nx=cur.x,nz=cur.z,nw=cur.w,nd=cur.d;
+  if(Math.abs(delta)<0.09){
+    combo++;if(ax==='x')nx=top.x;else nz=top.z;
+    if(combo>=3){const g=Math.min(BASE,size+0.18);if(ax==='x')nw=g;else nd=g}
+    pulse(nx,nz,nw,nd,cur.y);
+    $('combo').textContent=combo>=2?'Точно ×'+combo:'Точно!';
+  }else{
+    combo=0;$('combo').textContent='';
+    const cut=Math.abs(delta),s=Math.sign(delta);
+    if(ax==='x'){nw=over;nx=top.x+delta/2;const dx=nx+s*(over/2+cut/2);addDebris(dx,cur.z,cut,cur.d,cur.y,cur.n,ax,s)}
+    else{nd=over;nz=top.z+delta/2;const dz=nz+s*(over/2+cut/2);addDebris(cur.x,dz,cur.w,cut,cur.y,cur.n,ax,s)}
+  }
+  cur.m.scale.set(nw,HGT,nd);cur.m.position.set(nx,cur.y,nz);
+  stack.push({x:nx,z:nz,w:nw,d:nd,y:cur.y,m:cur.m});
+  score++;$('score').textContent=score;speed=Math.min(9,4.2+score*0.08);
+  if(score%6===0)paintBg(score);
+  cur=null;spawn();
+}
+function addDebris(x,z,w,d,y,n,ax,s){const m=block(x,z,w,d,y,n);debris.push({m,vy:0,vx:ax==='x'?s*1.2:0,vz:ax==='z'?s*1.2:0,rx:ax==='z'?s*1.6:0,rz:ax==='x'?-s*1.6:0,t:0})}
+function fall(c,ax){debris.push({m:c.m,vy:0,vx:0,vz:0,rx:ax==='z'?1.4:0,rz:ax==='x'?-1.4:0,t:0})}
+function pulse(x,z,w,d,y){
+  if(ring)scene.remove(ring);
+  const g=new THREE.EdgesGeometry(new THREE.PlaneGeometry(1,1).rotateX(-Math.PI/2));
+  ring=new THREE.LineSegments(g,new THREE.LineBasicMaterial({color:0xffffff,transparent:true}));ring.position.set(x,y+HGT/2+0.01,z);ring.base=[w,d];ringT=0;scene.add(ring);
+  parts.burst(x,y+HGT/2,z,['#FFFFFF'],10,2.5,2.5);
+}
+function gameOver(){
+  state='over';if(score>best){best=score;try{localStorage.setItem('stack_best',best)}catch(e){}}
+  $('msg').innerHTML='<b>'+(score>=best&&score>0?'Новий рекорд!':'Вежа впала')+'</b>Висота '+score+', рекорд '+best+'. Торкнись, щоб будувати знову.';
+  $('msg').hidden=false;$('combo').textContent='';
+}
+addEventListener('pointerdown',e=>{if(e.target.closest&&e.target.closest('a'))return;drop()});
+addEventListener('keydown',e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();drop()}});
+
+function update(dt){
+  T+=dt;
+  if(cur){cur.t+=dt;const p=cur.axis==='x'?'x':'z',top=stack[stack.length-1],c=top[p];
+    cur[p]+=dir*speed*dt;if(cur[p]>c+7){cur[p]=c+7;dir=-1}if(cur[p]<c-7){cur[p]=c-7;dir=1}cur.m.position[p]=cur[p]}
+  for(const d of debris){d.t+=dt;d.vy-=22*dt;d.m.position.x+=d.vx*dt;d.m.position.z+=d.vz*dt;d.m.position.y+=d.vy*dt;d.m.rotation.x+=d.rx*dt;d.m.rotation.z+=d.rz*dt}
+  debris=debris.filter(d=>{if(d.t>4){scene.remove(d.m);d.m.material.dispose();return false}return true});
+  if(ring){ringT+=dt*1.8;const k=1+ringT*0.6;ring.scale.set(ring.base[0]*k,1,ring.base[1]*k);ring.material.opacity=Math.max(0,1-ringT);if(ringT>1){scene.remove(ring);ring=null}}
+  // camera
+  const topY=stack.length?stack[stack.length-1].y:0;
+  if(state==='over'){const want=Math.max(13,topY*1.25+8);view+=(want-view)*Math.min(1,dt*2);setView(view);camY+=((topY/2)-camY)*Math.min(1,dt*2)}
+  else camY+=(topY-camY)*Math.min(1,dt*4);
+  cam.position.set(9,camY+10,9);cam.lookAt(0,camY-0.6,0);
+  parts.update(dt);
+  if(state==='ready'&&!reduce&&stack[0])stack[0].m.rotation.y=Math.sin(T*0.6)*0.08;
+}
+resize();reset();
+G3.loop(dt=>{update(dt);renderer.render(scene,cam)});
+</script>
+
+<a href="../../index.html" class="__back" aria-label="До списку ігор" style="position:fixed;left:max(10px,env(safe-area-inset-left,0px));top:calc(env(safe-area-inset-top,0px) + 58px);z-index:50;width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,.45);color:#fff;display:grid;place-items:center;text-decoration:none;font:700 18px system-ui">←</a>
+<script src="../../js/core/back-button.js"></script>
+</body>
+</html>

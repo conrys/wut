@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}[hidden]{display:none!important}img{max-width:100%}</style>
+<title>Натовп ×3 3D</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Rubik:wght@500;700&display=swap">
+<style>
+/* Layout: full-screen WebGL desert road, overlay canvas for numbers, thin HUD, centered card. One sunny desert look in both themes. */
+:root{
+  --sky:#F6CF9A; --ink:#2B1D14; --paper:#FFF4E4;
+  --blue:#2F7BFF; --blue-deep:#1A4DB3; --red:#E5484D; --gold:#FFC23D;
+  --display:'Bungee','Arial Black',Impact,sans-serif;
+  --body:'Rubik',system-ui,-apple-system,sans-serif;
+  color-scheme:light;
+}
+html,body{height:100%}
+[hidden]{display:none!important}
+body{background:var(--sky);color:var(--ink);font-family:var(--body);overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+#gl,#fx{position:fixed;inset:0;width:100%;height:100%;display:block}
+#fx{pointer-events:none}
+.hud{position:fixed;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 12px);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;align-items:center;gap:12px;pointer-events:none}
+.lvl{font-family:var(--display);font-size:14px;letter-spacing:.04em;background:rgba(43,29,20,.78);color:var(--paper);padding:6px 10px;border-radius:8px;white-space:nowrap}
+.bar{flex:1;min-width:0;height:10px;background:rgba(43,29,20,.3);border-radius:5px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--gold)}
+.overlay{position:fixed;inset:0;display:grid;place-items:center;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));background:rgba(43,29,20,.3)}
+.card{background:var(--paper);border-radius:18px;padding:26px 22px 24px;max-width:340px;width:100%;text-align:center;box-shadow:0 10px 0 rgba(43,29,20,.3);display:grid;gap:12px}
+.card h1{font-family:var(--display);font-weight:400;font-size:36px;line-height:1;margin:0;text-wrap:balance;color:var(--blue-deep)}
+.card h1.lose{color:var(--red)}
+.card p{margin:0;font-size:15px;line-height:1.45}
+.card .hint{font-size:13px;opacity:.7}
+.btn{font-family:var(--display);font-size:20px;letter-spacing:.03em;background:var(--blue);color:#fff;border:0;border-radius:14px;padding:14px 28px;box-shadow:0 5px 0 var(--blue-deep);cursor:pointer;justify-self:center;margin-top:6px}
+.btn:active{transform:translateY(3px);box-shadow:0 2px 0 var(--blue-deep)}
+.btn:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+</style>
+</head>
+<body>
+
+
+<canvas id="gl"></canvas>
+<canvas id="fx"></canvas>
+<div class="hud"><span class="lvl" id="lvlLabel">РІВЕНЬ 1</span><div class="bar"><i id="prog"></i></div></div>
+<div class="overlay" id="ov">
+  <div class="card">
+    <h1 id="ovTitle">Натовп ×3</h1>
+    <p id="ovText">Та сама гра з реклами. Тепер у 3D.</p>
+    <p class="hint" id="ovHint">Веди пальцем вліво-вправо. Обирай вигідні ворота, обходь червоних і розвали вежу в кінці.</p>
+    <button class="btn" id="ovBtn" type="button">Грати</button>
+  </div>
+</div>
+
+<script src="../vendor/three.min.js"></script>
+<script src="../vendor/engine.js" charset="utf-8"></script>
+<script>
+const $=id=>document.getElementById(id);
+const FONT='Bungee, "Arial Black", sans-serif';
+const W3=G3.world({canvas:$('gl'),fx:$('fx'),skyGradient:['#6FAEDC','#B9D7E6','#F6CF9A','#F2BC80'],fog:'#F2C690',fogNear:70,fogFar:240,
+  hemiSky:0xfff3e0,hemiGround:0xd9a066,hemiI:0.7,sunI:0.85,sunDir:[-0.7,1.4,0.6],near:0.5,far:900});
+const {scene,camera}=W3,reduce=G3.reduce;
+const kit=new G3.Kit(scene),scenery=new G3.Kit(scene,{shadow:false}),parts=new G3.Particles(scene,420,0.2),floats=new G3.Floats();
+const P=G3.part;
+
+/* ---------- static desert ---------- */
+const sandTex=G3.canvasTex(256,256,(g,w,h)=>{g.fillStyle='#E2A866';g.fillRect(0,0,w,h);for(let i=0;i<1400;i++){g.fillStyle=Math.random()<0.5?'rgba(255,230,180,.25)':'rgba(150,90,40,.18)';g.fillRect(Math.random()*w,Math.random()*h,2,2)}},[60,60]);
+const sand=new THREE.Mesh(new THREE.PlaneGeometry(1600,1600).rotateX(-Math.PI/2),new THREE.MeshLambertMaterial({map:sandTex}));
+sand.position.set(0,-0.02,-400);sand.receiveShadow=true;scene.add(sand);
+const sunBall=new THREE.Mesh(new THREE.SphereGeometry(30,24,16),new THREE.MeshBasicMaterial({color:'#FFF6DA',fog:false}));scene.add(sunBall);
+const ROADW=5.5;
+const roadTex=G3.canvasTex(128,256,(g,w,h)=>{g.fillStyle='#74665E';g.fillRect(0,0,w,h);for(let i=0;i<500;i++){g.fillStyle=Math.random()<0.5?'rgba(255,255,255,.05)':'rgba(0,0,0,.08)';g.fillRect(Math.random()*w,Math.random()*h,2,2)}
+  g.fillStyle='rgba(255,244,228,.75)';g.fillRect(w/2-3,0,6,h*0.5);g.fillStyle='rgba(255,255,255,.06)';g.fillRect(w*0.22,0,w*0.12,h)});
+let road=null,gatePanels=[];
+
+/* ---------- characters ---------- */
+const TEAM={blue:{main:'#2F7BFF',dark:'#1A4DB3'},red:{main:'#E5484D',dark:'#A8262B'}};
+const legA=s=>(o,T)=>o.walk&&!reduce?Math.sin(T*11+o.ph)*0.75*s:0;
+const swordA=(o,T)=>reduce?-0.7:o.fight?-0.65+Math.sin(T*13+o.ph)*0.95:-0.7+(o.walk?Math.sin(T*11+o.ph)*0.12:0);
+const offA=(o,T)=>o.walk&&!reduce?-Math.sin(T*11+o.ph)*0.5:0;
+function knight(team,o){
+  const t=TEAM[team],steel='#C3CAD4',skin=team==='red'?'#F1C27D':'#F1C27D';
+  const L=[
+    P('box',-0.13,0.23,0,0.18,0.46,0.2,'#3A2A20',{anim:legA(1),pivot:[-0.13,0.46,0]}),
+    P('box',0.13,0.23,0,0.18,0.46,0.2,'#3A2A20',{anim:legA(-1),pivot:[0.13,0.46,0]}),
+    P('box',0,0.76,0,0.52,0.6,0.34,t.main),
+    P('box',0,0.52,0,0.54,0.08,0.36,'#5A3A22'),
+    P('box',0,0.52,0.18,0.1,0.1,0.02,'#FFC23D'),
+    P('sph',0,1.28,0,0.25,0.25,0.25,skin),
+    P('sph',0,1.42,0,0.29,0.22,0.29,steel),
+    P('cyl',0,1.36,0,0.3,0.05,0.3,'#8C95A1'),
+    P('box',-0.36,0.82,0,0.14,0.42,0.14,t.dark,{anim:offA,pivot:[-0.36,1.02,0]}),
+    P('box',0.36,0.82,0,0.14,0.42,0.14,t.dark,{anim:swordA,pivot:[0.36,1.02,0]}),
+    P('metal',0.36,0.62,0.42,0.06,0.03,0.66,'#E4E9F0',{anim:swordA,pivot:[0.36,1.02,0]}),
+    P('box',0.36,0.62,0.07,0.22,0.06,0.06,'#E0A526',{anim:swordA,pivot:[0.36,1.02,0]}),
+  ];
+  if(team==='blue')L.push(P('box',0,1.68,-0.02,0.07,0.24,0.34,'#1E5BD8'));
+  else L.push(P('cone',-0.31,1.56,0,0.06,0.34,0.06,'#F3E6CC',{rz:0.8}),P('cone',0.31,1.56,0,0.06,0.34,0.06,'#F3E6CC',{rz:-0.8}),
+    P('ball',-0.09,1.27,0.22,0.045,0.045,0.03,'#FFFFFF'),P('ball',0.09,1.27,0.22,0.045,0.045,0.03,'#FFFFFF'),
+    P('box',0,1.36,0.27,0.05,0.14,0.04,'#8C95A1'));
+  o.parts=L;o.ph=Math.random()*6.283;return o;
+}
+
+/* ---------- level ---------- */
+const MAXU=100,EMAX=40;
+const OFF=[];for(let i=0;i<MAXU;i++){const a=i*2.39996,r=Math.sqrt(i)*0.5;OFF.push({x:Math.cos(a)*r,z:Math.sin(a)*r})}
+const spreadOf=n=>Math.sqrt(Math.min(n,MAXU))*0.5;
+/* marching column: at most 5 abreast, extra soldiers fall into rear ranks */
+const GAP=0.6,colsOf=n=>Math.min(5,Math.max(1,Math.ceil(Math.sqrt(Math.min(n,MAXU))))),halfW=n=>(colsOf(n)-1)/2*GAP+0.3;
+const slot=(i,n)=>{const c=colsOf(n),m=Math.min(n,MAXU),row=Math.floor(i/c),inRow=Math.min(c,m-row*c);return{x:((i%c)-(inRow-1)/2)*GAP,z:row*0.64}};
+const applyOp=(n,o)=>o.t==='+'?n+o.v:o.t==='x'?n*o.v:o.t==='-'?Math.max(0,n-o.v):Math.floor(n/o.v);
+const opText=o=>({'+':'+','x':'×','-':'−','/':'÷'})[o.t]+o.v;
+const isGood=o=>o.t==='+'||o.t==='x';
+
+let level=1,state='menu',N=4,pz=0,px=0,cx=0,L=200,speed=14,T=0,acc=0,foe=null,shake=0,bumpT=0,shownN=4;
+let gates=[],enemies=[],boss=null,units=[],bossObj=null;
+try{level=Math.max(1,parseInt(localStorage.getItem('n3d_level'))||1)}catch(e){}
+
+function gateTexture(o){
+  return G3.canvasTex(256,128,(g,w,h)=>{
+    const good=isGood(o),gr=g.createLinearGradient(0,0,0,h);
+    gr.addColorStop(0,good?'rgba(130,200,255,.95)':'rgba(255,140,145,.95)');gr.addColorStop(1,good?'rgba(47,123,255,.55)':'rgba(229,72,77,.55)');
+    g.fillStyle=gr;g.fillRect(0,0,w,h);
+    g.fillStyle='rgba(255,255,255,.25)';g.beginPath();g.moveTo(40,0);g.lineTo(70,0);g.lineTo(30,h);g.lineTo(0,h);g.fill();
+    g.font='64px '+FONT;g.textAlign='center';g.textBaseline='middle';g.lineJoin='round';g.lineWidth=12;g.strokeStyle=good?'#1A4DB3':'#A8262B';
+    g.strokeText(opText(o),w/2,h/2+4);g.fillStyle='#fff';g.fillText(opText(o),w/2,h/2+4);
+  });
+}
+
+function gen(lv){
+  const R=G3.rng(lv*7919+13);
+  kit.clear();scenery.clear();gates.forEach(g=>g.meshes.forEach(m=>{scene.remove(m);m.material.map.dispose();m.material.dispose()}));
+  gates=[];enemies=[];units=[];
+  speed=Math.min(19,14+lv*0.4);
+  const rows=Math.min(14,7+lv);
+  let sim=4,d=30;
+  const good=()=>{const r=R();if(r<0.45)return{t:'+',v:5+Math.floor(R()*(6+lv*3))};if(r<0.9)return{t:'x',v:2};return{t:'x',v:3}};
+  const bad=()=>R()<0.6?{t:'-',v:3+Math.floor(R()*(5+lv*2))}:{t:'/',v:2};
+  for(let row=0;row<rows;row++){
+    const ec=row<2?0:Math.min(0.5,0.28+lv*0.02);
+    if(R()<ec){
+      const n=Math.max(3,Math.round(sim*(0.18+R()*0.22)));
+      const e={d,x:R()<0.5?-2.75:2.75,n,units:[]};enemies.push(e);sim=Math.max(1,sim-n);
+    }else{
+      let a=good(),b=R()<0.3?good():bad();if(R()<0.5)[a,b]=[b,a];
+      gates.push({d,ops:[a,b],done:false,pick:-1,meshes:[]});
+      sim=Math.min(99999,Math.max(applyOp(sim,a),applyOp(sim,b)));
+    }
+    d+=26+R()*8;
+  }
+  L=d+6;
+  const hp=Math.max(8,Math.round(sim*Math.min(0.75,0.5+lv*0.025)));
+  boss={d:L+7,hp,hp0:hp};
+
+  // road + edges
+  const len=L+120;
+  if(road){scene.remove(road);road.geometry.dispose()}
+  roadTex.repeat.set(1,len/10);roadTex.wrapS=roadTex.wrapT=THREE.RepeatWrapping;roadTex.needsUpdate=true;
+  road=new THREE.Mesh(new THREE.PlaneGeometry(ROADW*2,len).rotateX(-Math.PI/2),new THREE.MeshLambertMaterial({map:roadTex}));
+  road.position.set(0,0.01,-len/2+40);road.receiveShadow=true;scene.add(road);
+  const deco={x:0,z:0,yaw:0,parts:[]};
+  for(let z=40;z>-len+40;z-=2){
+    const k=Math.round(z/2)&1;
+    for(const s of[-1,1])deco.parts.push(P('box',s*(ROADW+0.25),0.08,z-1,0.5,0.16,2,k?'#E5484D':'#FFF4E4'));
+    if(Math.round(z/2)%2===0)for(const s of[-1,1])deco.parts.push(P('cyl6',s*(ROADW+1.3),0.55,z,0.09,1.1,0.09,'#6B4527'));
+  }
+  for(const s of[-1,1])for(const y of[0.55,0.95])deco.parts.push(P('box',s*(ROADW+1.3),y,-len/2+40,0.06,0.07,len,'#8A5E37'));
+  // mesas, cacti, rocks
+  const MC=['#D9A06C','#C98B58','#E8B886','#CF9460'];
+  for(let i=0;i<34;i++){const s=R()<0.5?-1:1,r=14+R()*30,h=8+R()*26,x=s*(45+R()*150),z=40-R()*(len+260);
+    deco.parts.push(P('cyl6',x,h/2,z,r,h,r*(0.7+R()*0.5),MC[i%4],{ry:R()*3}),P('cyl6',x,h+0.6,z,r*0.92,1.2,r*0.65,'#EAC08E',{ry:R()*3}))}
+  for(let i=0;i<70;i++){const s=R()<0.5?-1:1,x=s*(9+R()*28),z=40-R()*len;
+    if(R()<0.45){const h=1.6+R()*1.6;deco.parts.push(P('cyl',x,h/2,z,0.28,h,0.28,'#4C8A4A'),P('sph',x,h,z,0.28,0.28,0.28,'#4C8A4A'),
+      P('cyl',x-0.45,h*0.62,z,0.18,0.7,0.18,'#5B9E58'),P('box',x-0.25,h*0.42,z,0.45,0.2,0.2,'#5B9E58'),P('cyl',x+0.42,h*0.75,z,0.16,0.55,0.16,'#5B9E58'),P('box',x+0.22,h*0.58,z,0.4,0.18,0.18,'#5B9E58'))}
+    else{const r=0.5+R()*1.4;deco.parts.push(P('sph',x,r*0.3,z,r,r*0.6,r*0.85,R()<0.5?'#B06F44':'#C5895C'))}}
+  scenery.add(deco);
+
+  // gates
+  for(const g of gates){
+    const z=-g.d,f={x:0,z,yaw:0,parts:[]};
+    for(let s=0;s<2;s++){
+      const good=isGood(g.ops[s]),col=good?'#1A4DB3':'#A8262B',x0=s?0.12:-ROADW,x1=s?ROADW:-0.12;
+      f.parts.push(P('cyl',x0,1.45,0,0.13,2.9,0.13,col),P('cyl',x1,1.45,0,0.13,2.9,0.13,col),P('box',(x0+x1)/2,2.95,0,x1-x0+0.3,0.22,0.22,good?'#5AA2FF':'#FF7A7F'));
+      const m=new THREE.Mesh(new THREE.PlaneGeometry(x1-x0-0.1,2.5),new THREE.MeshBasicMaterial({map:gateTexture(g.ops[s]),transparent:true,depthWrite:false,side:THREE.DoubleSide,fog:false}));
+      m.position.set((x0+x1)/2,1.55,z);scene.add(m);g.meshes.push(m);
+    }
+    kit.add(f);
+  }
+  // enemies
+  for(const e of enemies){
+    const m=Math.min(e.n,EMAX),sp=Math.sqrt(m)*0.5;e.r=Math.min(sp,2.4);
+    for(let i=0;i<m;i++){const u=knight('red',{x:e.x+OFF[i].x*Math.min(1,2.4/Math.max(sp,0.01)),z:-e.d-OFF[i].z,yaw:0,i});u.bx=u.x;u.bz=u.z;e.units.push(kit.add(u))}
+  }
+  // player pool
+  for(let i=0;i<MAXU;i++)units.push(kit.add(knight('blue',{x:0,z:0,yaw:Math.PI,i,walk:false})));
+  // boss tower
+  bossObj=kit.add({x:0,z:-boss.d,yaw:0,parts:[
+    P('box',0,3,0,4.2,6,4.2,'#8E78AE'),P('box',-1.05,3,2.11,2.1,6,0.02,'#A390C0'),
+    ...[-1.6,0,1.6].flatMap(x=>[P('box',x,6.45,1.6,0.9,0.9,0.9,'#7A649A'),P('box',x,6.45,-1.6,0.9,0.9,0.9,'#7A649A')]),
+    P('box',1.6,6.45,0,0.9,0.9,0.9,'#7A649A'),P('box',-1.6,6.45,0,0.9,0.9,0.9,'#7A649A'),
+    P('box',0,1,2.12,1.3,2,0.06,'#2B1D14'),P('box',0,4.3,2.12,0.7,0.9,0.06,'#FFC23D'),
+    P('cyl',0,7.9,0,0.06,3,0.06,'#2B1D14'),P('box',0.6,8.9,0,1.2,0.75,0.04,'#E5484D',{anim:(o,T)=>reduce?0:Math.sin(T*5)*0.25,axis:'y',pivot:[0,8.9,0]}),
+    ...[0,1,2,3,4].map(r=>P('box',0,0.6+r*1.2,2.13,4.2,0.05,0.02,'#6F5A8C')),
+  ]});
+  kit.build();scenery.build();
+  for(const u of units){u.hidden=true}
+}
+
+function startLevel(){
+  gen(level);N=4;shownN=4;pz=0;px=0;cx=0;foe=null;state='run';
+  $('ov').hidden=true;$('lvlLabel').textContent='РІВЕНЬ '+level;
+}
+function showOverlay(kind){
+  $('ov').hidden=false;$('ovTitle').classList.toggle('lose',kind==='lose');
+  if(kind==='win'){$('ovTitle').textContent='Вежа впала';$('ovText').textContent='Рівень '+(level-1)+' пройдено. Вціліло бійців: '+N+'.';$('ovHint').textContent='Далі ворота щедріші, але й червоних більше.';$('ovBtn').textContent='Далі'}
+  else{$('ovTitle').textContent='Натовп скінчився';$('ovText').textContent='Рівень '+level+'. Розклад той самий, спробуй інші ворота.';$('ovHint').textContent='Порада: множник на малому натовпі слабший за плюс. Рахуй.';$('ovBtn').textContent='Ще раз'}
+  setTimeout(()=>$('ovBtn').focus({preventScroll:true}),50);
+}
+$('ovBtn').addEventListener('click',startLevel);
+
+/* ---------- input ---------- */
+const drag=G3.drag($('gl'));let dragPx=0;
+drag.onDown=()=>{dragPx=px};
+
+/* ---------- logic ---------- */
+function lose(){N=0;state='lose';setTimeout(()=>showOverlay('lose'),700)}
+function win(){state='win';level++;try{localStorage.setItem('n3d_level',level)}catch(e){};setTimeout(()=>showOverlay('win'),900)}
+function tick(){
+  if(state==='fight'){
+    const d=Math.min(N,foe.n,Math.max(1,Math.ceil(Math.min(N,foe.n)*0.07)));N-=d;foe.n-=d;
+    const zf=-pz-0.8;parts.burst(cx+(Math.random()-.5)*2,1,zf,['#2F7BFF','#E5484D','#FFFFFF'],4,4,5);
+    if(N<=0)return lose();
+    if(foe.n<=0){foe=null;state='run'}
+  }else if(state==='boss'){
+    const d=Math.min(N,boss.hp,Math.max(1,Math.ceil(Math.min(N,boss.hp)*0.08)));N-=d;boss.hp-=d;shake=0.15;
+    parts.burst((Math.random()-.5)*3,2+Math.random()*3,-boss.d+2.2,['#8E78AE','#FFC23D','#7A649A'],3,5,6);
+    if(boss.hp<=0){parts.burst(0,3,-boss.d,['#FFC23D','#8E78AE','#E5484D','#FFFFFF'],90,12,12);bossObj.hidden=true;return win()}
+    if(N<=0)return lose();
+  }
+}
+function update(dt){
+  T+=dt;kit.T=T;
+  if(drag.active)px=dragPx+drag.dx/(Math.min(W3.W,520)*0.38)*ROADW;
+  if(drag.keys.ArrowLeft||drag.keys.a)px-=dt*12;if(drag.keys.ArrowRight||drag.keys.d)px+=dt*12;
+  const hw=halfW(N),lim=Math.max(0.5,ROADW-hw-0.3);
+  px=Math.max(-lim,Math.min(lim,px));cx+=(px-cx)*Math.min(1,dt*12);
+  if(state==='run'){
+    pz+=speed*dt;
+    for(const g of gates)if(!g.done&&pz>=g.d){
+      g.done=true;g.pick=cx<0?0:1;const o=g.ops[g.pick];N=Math.min(99999,applyOp(N,o));
+      floats.add(opText(o),cx,2.6,-pz-1,isGood(o)?'#2F7BFF':'#E5484D',true);
+      parts.burst(cx,1.5,-g.d,isGood(o)?['#7FD4FF','#FFFFFF','#2F7BFF']:['#FF8A8A','#FFFFFF'],26,7,6);
+      g.meshes[1-g.pick].material.opacity=0.15;
+      if(N<=0)return lose();
+    }
+    for(const e of enemies)if(e.n>0&&!e.hit&&pz>=e.d-(e.r+0.8)){
+      e.hit=true;if(Math.abs(cx-e.x)<e.r*0.9+hw+0.2){state='fight';foe=e;break}
+    }
+    if(pz>=L){pz=L;state='boss'}
+  }
+  if(state==='fight'||state==='boss'){acc+=dt;while(acc>0.06&&(state==='fight'||state==='boss')){acc-=0.06;tick()}}else acc=0;
+  if(shake>0)shake-=dt;if(bumpT>0)bumpT-=dt;if(N!==shownN){bumpT=0.25;shownN=N}
+
+  // player crowd
+  const show=Math.min(N,MAXU),walk=state==='run',fight=state==='fight'||state==='boss';
+  for(let i=0;i<MAXU;i++){const u=units[i];u.hidden=i>=show;if(u.hidden){kit.place(u);continue}
+    const sl=slot(i,N);u.ox=u.ox??sl.x;u.oz=u.oz??sl.z;u.ox+=(sl.x-u.ox)*Math.min(1,dt*6);u.oz+=(sl.z-u.oz)*Math.min(1,dt*6);
+    u.x+=(cx+u.ox-u.x)*Math.min(1,dt*12);u.z=-pz+u.oz;u.walk=walk;u.fight=fight;kit.place(u)}
+  // enemies near the action
+  for(const e of enemies){
+    const near=Math.abs(e.d-pz)<70;
+    if(!near&&e.placed)continue;e.placed=true;
+    const m=Math.min(e.n,EMAX),f=foe===e&&state==='fight';
+    e.units.forEach((u,i)=>{u.hidden=i>=m;u.fight=f;u.walk=false;kit.place(u)});
+  }
+  if(bossObj&&!bossObj.hidden){bossObj.sy=Math.max(0.15,boss.hp/boss.hp0*0.85+0.15);bossObj.x=shake>0&&!reduce?(Math.random()-.5)*0.25:0;kit.place(bossObj)}
+  kit.flush();parts.update(dt);floats.update(dt);
+
+  // camera
+  const ck=1+Math.min(0.45,Math.ceil(Math.min(N,MAXU)/colsOf(N))*0.025);camera.position.set(cx*0.45,10.5*ck,-pz+14.5*ck);camera.lookAt(cx*0.3,0.6,-pz-10);
+  W3.followSun(cx,-pz-5,24);
+  sunBall.position.set(camera.position.x+160,90,camera.position.z-520);
+  $('prog').style.width=Math.min(100,pz/L*100)+'%';
+}
+
+function drawFx(){
+  const ctx=W3.fctx;ctx.clearRect(0,0,W3.W,W3.H);
+  for(const e of enemies)if(e.n>0&&e.d-pz<45&&e.d-pz>-3){const p=W3.toScreen(e.x,2.3+e.r*0.3,-e.d);if(p.vis)G3.pill(ctx,e.n+'',p.x,p.y,15,'#C2373C','#fff',FONT)}
+  if(boss&&boss.hp>0&&boss.d-pz<55){const p=W3.toScreen(0,7.2*(bossObj.sy||1)+2.6,-boss.d);if(p.vis)G3.pill(ctx,boss.hp+'',p.x,p.y,17,'#2B1D14','#FFC23D',FONT)}
+  if(N>0&&state!=='menu'){const p=W3.toScreen(cx,2.7,-pz);G3.pill(ctx,N+'',p.x,p.y,18,'#1A4DB3','#fff',FONT,1+(reduce?0:bumpT*1.2))}
+  floats.draw(W3,FONT);
+  if(state==='run'&&pz<14){ctx.globalAlpha=1-pz/14;G3.pill(ctx,'← веди пальцем →',W3.W/2,W3.H*0.88,15,'rgba(43,29,20,.78)','#FFF4E4',FONT);ctx.globalAlpha=1}
+}
+
+const boot=()=>{gen(level);$('lvlLabel').textContent='РІВЕНЬ '+level;if(level>1)$('ovText').textContent='Продовжуємо з рівня '+level+'. Та сама гра з реклами, тепер у 3D.';
+  G3.loop(dt=>{update(dt);W3.render();drawFx()})};
+(document.fonts&&document.fonts.load?document.fonts.load('64px Bungee').catch(()=>{}):Promise.resolve()).then(boot);
+</script>
+
+<a href="../../index.html" class="__back" aria-label="До списку ігор" style="position:fixed;left:max(10px,env(safe-area-inset-left,0px));top:calc(env(safe-area-inset-top,0px) + 58px);z-index:50;width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,.45);color:#fff;display:grid;place-items:center;text-decoration:none;font:700 18px system-ui">←</a>
+<script src="../../js/core/back-button.js"></script>
+</body>
+</html>
