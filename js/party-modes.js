@@ -22,7 +22,11 @@
   const MIN_TIMER_SECONDS = 20, MAX_TIMER_SECONDS = 120, DEFAULT_TIMER_SECONDS = 60;
   const MS = { reveal: 45000 };
 
+  // Етапи з відповідями (є кого чекати) можна грати без таймера — settings.timersOff.
+  // Промова в «Суді» не має кого чекати, тому її таймер не вимикається.
+  const SKIPPABLE_TIMERS = ["voteSeconds", "betSeconds", "decideSeconds"];
   function timerMs(ctx, key) {
+    if (ctx.settings && ctx.settings.timersOff === true && SKIPPABLE_TIMERS.includes(key)) return 0;
     const value = Number(ctx.settings && ctx.settings[key]);
     const seconds = Number.isInteger(value) ? value : DEFAULT_TIMER_SECONDS;
     return Math.min(MAX_TIMER_SECONDS, Math.max(MIN_TIMER_SECONDS, seconds)) * 1000;

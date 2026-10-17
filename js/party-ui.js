@@ -5,6 +5,8 @@
 //
 //   title, tagline, emblem (svg), rules: [рядки], timerNote(room, st, sec)
 //   sliders: [{ key, label }]            — таймери в налаштуваннях ведучого
+//   timerToggle: true                    — перемикач «Таймер: увімк/вимк» (settings.timersOff);
+//                                          без таймера етап чекає, поки всі відповідять (або «Далі» ведучого)
 //   segs:    [{ id, label, items:[[v, текст]], get(settings), set(v), note }]
 //   build(c)  → html сцени; викликається, коли змінився етап (або чи чекають мене)
 //   update(el, c)  — необов'язково, живі зміни без перебудови
@@ -82,13 +84,16 @@
     return `<div class="pp-podium">${slot(1)}${slot(0)}${slot(2)}</div>` +
       (list.length > 3 ? `<div class="pp-rest">${list.slice(3).map(([n, v]) => `<div>${avatar(room, n, { size: "xs", still: true })}<span class="n">${esc(n)}</span><span class="v">${v}</span></div>`).join("")}</div>` : "");
   }
+  // Аватарка з підписом імені (щоб було видно, хто це, а не лише монстрика)
+  function named(room, n, opts) { return `<span class="pp-named">${avatar(room, n, opts)}<small>${esc(n)}</small></span>`; }
+
   // Ковток / бали / хто ще п'є — для етапу-результату (st.penalties, st.points, st.capped)
   function drinkHtml(room, st, me, cap) {
     const pen = st.penalties || {}, pts = st.points || {}, mineSips = pen[me];
     const others = Object.keys(pen).filter((n) => n !== me);
     return (mineSips ? `<div class="pp-drink">${glassSvg()}<div><b>Ковток!${mineSips > 1 ? " ×" + mineSips : ""}</b><small>або будь-який напій — у своєму темпі</small></div></div>` : "") +
       (pts[me] ? `<div class="pp-gain">+${pts[me]} ${pts[me] === 1 ? "бал" : pts[me] < 5 ? "бали" : "балів"}</div>` : "") +
-      (others.length ? `<div class="pp-drinkers">${icon("glass")} П'ють:${others.map((n) => avatar(room, n, { size: "sm", mood: "shock", still: true })).join("")}</div>` : "") +
+      (others.length ? `<div class="pp-drinkers">${icon("glass")} П'ють:${others.map((n) => named(room, n, { size: "sm", mood: "shock", still: true })).join("")}</div>` : "") +
       ((st.capped || []).length ? `<div class="pp-note">Ліміт ${cap || 6} ковтків за набір: ${st.capped.map(esc).join(", ")} — без доданого</div>` : "");
   }
 
@@ -173,8 +178,10 @@
 
     // ---------------- налаштування ведучого ----------------
     $("settingsArea").innerHTML =
-      (cfg.sliders || []).map((s) => `<label class="pp-label" for="sl_${s.key}">${esc(s.label)} <output id="out_${s.key}">60 с</output></label>
-        <input class="pp-range" id="sl_${s.key}" type="range" min="${G.MIN_TIMER_SECONDS}" max="${G.MAX_TIMER_SECONDS}" step="5" value="60" />`).join("") +
+      (cfg.timerToggle ? `<div class="pp-label">Таймер</div><div class="pp-seg" id="timerToggleSeg"><button data-v="1">Увімкнено</button><button data-v="0">Вимкнено</button></div>
+        <div class="pp-note hidden" id="timerOffNote" style="text-align:left;margin-top:6px">Без обмеження часу: раунд іде далі, коли всі відповіли, або за кнопкою ведучого</div>` : "") +
+      (cfg.sliders || []).map((s) => `<div class="pp-slider" data-slider="${s.key}"><label class="pp-label" for="sl_${s.key}">${esc(s.label)} <output id="out_${s.key}">60 с</output></label>
+        <input class="pp-range" id="sl_${s.key}" type="range" min="${G.MIN_TIMER_SECONDS}" max="${G.MAX_TIMER_SECONDS}" step="5" value="60" /></div>`).join("") +
       (cfg.segs || []).map((s) => `<div class="pp-label">${esc(s.label)}</div><div class="pp-seg" id="seg_${s.id}">${s.items.map(([v, t]) =>
         `<button data-v="${v}">${esc(t)}</button>`).join("")}</div>${s.note ? `<div class="pp-note" style="text-align:left;margin-top:6px">${esc(s.note)}</div>` : ""}`).join("");
     (cfg.sliders || []).forEach((s) => {
@@ -182,6 +189,8 @@
       input.addEventListener("input", () => { $("out_" + s.key).textContent = input.value + " с"; });
       input.addEventListener("change", () => G.updateSettings({ [s.key]: Number(input.value) }));
     });
+    if (cfg.timerToggle) $("timerToggleSeg").querySelectorAll("button").forEach((b) =>
+      b.addEventListener("click", () => G.updateSettings({ timersOff: b.dataset.v === "0" })));
     (cfg.segs || []).forEach((s) => $("seg_" + s.id).querySelectorAll("button").forEach((b) =>
       b.addEventListener("click", () => G.updateSettings(s.set(Number(b.dataset.v))))));
     $("levelSeg").innerHTML = [1, 2, 3].map((n) => `<button data-v="${n}" aria-label="Гострота ${n}">${"🌶️".repeat(n)}</button>`).join("");
@@ -213,8 +222,14 @@
         return;
       }
       const s = room.settings || {};
+      const timersOff = !!(cfg.timerToggle && s.timersOff === true);
+      if (cfg.timerToggle) {
+        $("timerToggleSeg").querySelectorAll("button").forEach((b) => b.classList.toggle("selected", (b.dataset.v === "0") === timersOff));
+        $("timerOffNote").classList.toggle("hidden", !timersOff);
+      }
       (cfg.sliders || []).forEach((sl) => {
         const input = $("sl_" + sl.key);
+        input.closest(".pp-slider").classList.toggle("hidden", timersOff);
         if (document.activeElement === input) return;
         const v = Math.min(G.MAX_TIMER_SECONDS, Math.max(G.MIN_TIMER_SECONDS, Number(s[sl.key]) || G.DEFAULT_TIMER_SECONDS));
         input.value = v; $("out_" + sl.key).textContent = v + " с";
@@ -269,7 +284,7 @@
         paint("waitInfo", `${st.id}|${done}|${c.waiting.join(",")}`,
           `<div class="dots">${expect.map((_, i) => `<i class="${i < done ? "on" : ""}"></i>`).join("")}</div>
            <div>Відповіли ${done} з ${expect.length}</div>` +
-          (c.waiting.length && c.waiting.length <= 8 ? `<div class="who">${c.waiting.map((n) => avatar(room, n, { size: "sm", mood: "write", still: true })).join("")}</div>` : ""));
+          (c.waiting.length && c.waiting.length <= 8 ? `<div class="who">${c.waiting.map((n) => named(room, n, { size: "sm", mood: "write", still: true })).join("")}</div>` : ""));
       } else paint("waitInfo", "none", "");
       // ковток / бали
       if (isReveal) {

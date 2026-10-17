@@ -40,7 +40,7 @@
   const SCHEMA = {
     phase: "lobby",
     hostUsername: null,
-    settings: { mode: FIXED_MODE || "whofrom", level: DEFAULT_LEVEL, courtSpeakSeconds: DEFAULT_COURT_SPEAK_SECONDS, voteSeconds: DEFAULT_TIMER_SECONDS, betSeconds: DEFAULT_TIMER_SECONDS, decideSeconds: DEFAULT_TIMER_SECONDS, courtAutoAdvance: true },
+    settings: { mode: FIXED_MODE || "whofrom", level: DEFAULT_LEVEL, courtSpeakSeconds: DEFAULT_COURT_SPEAK_SECONDS, voteSeconds: DEFAULT_TIMER_SECONDS, betSeconds: DEFAULT_TIMER_SECONDS, decideSeconds: DEFAULT_TIMER_SECONDS, courtAutoAdvance: true, timersOff: false },
     setId: null,       // унікальний id набору
     mode: null,        // режим, що зараз грається
     order: null,       // хто грає цей набір (підключені на старті)
@@ -64,7 +64,7 @@
   const modes = () => (window.PartyModes && window.PartyModes.MODES) || {};
   function buildFreshRoom() {
     const modeId = FIXED_MODE || "whofrom";
-    return { players: {}, settings: { mode: modeId, level: DEFAULT_LEVEL, courtSpeakSeconds: DEFAULT_COURT_SPEAK_SECONDS, voteSeconds: DEFAULT_TIMER_SECONDS, betSeconds: DEFAULT_TIMER_SECONDS, decideSeconds: DEFAULT_TIMER_SECONDS, courtAutoAdvance: true } };
+    return { players: {}, settings: { mode: modeId, level: DEFAULT_LEVEL, courtSpeakSeconds: DEFAULT_COURT_SPEAK_SECONDS, voteSeconds: DEFAULT_TIMER_SECONDS, betSeconds: DEFAULT_TIMER_SECONDS, decideSeconds: DEFAULT_TIMER_SECONDS, courtAutoAdvance: true, timersOff: false } };
   }
   function connectedNames(players) {
     return Object.entries(players || {}).filter(([, p]) => engine.isConnected(p)).map(([n]) => n);
@@ -296,6 +296,7 @@
       if (Number.isInteger(seconds) && seconds >= MIN_TIMER_SECONDS && seconds <= MAX_TIMER_SECONDS) next[key] = seconds;
     }
     if (partial && typeof partial.courtAutoAdvance === "boolean") next.courtAutoAdvance = partial.courtAutoAdvance;
+    if (partial && typeof partial.timersOff === "boolean") next.timersOff = partial.timersOff;
     if (Object.keys(next).length) engine.roomRef.child("settings").update(next);
   }
 

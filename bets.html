@@ -95,7 +95,7 @@ body { background:
 .bt-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .bt-col { padding: 10px 8px; border-radius: 12px; background: rgba(0,0,0,.25); border: 2px solid transparent; text-align: center; }
 .bt-col h4 { margin: 0 0 8px; font: 600 13px var(--font-d); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
-.bt-col .who { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; min-height: 32px; }
+.bt-col .who { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 4px; min-height: 32px; }
 .bt-col .tag { margin-top: 8px; font: 700 13px var(--font-d); letter-spacing: .08em; text-transform: uppercase; }
 .bt-col.win { border-color: var(--accent); background: rgba(242,193,78,.12); }
 .bt-col.win .tag { color: var(--accent); } .bt-col.lose .tag { color: #ff8d86; }
@@ -151,6 +151,7 @@ body { background:
       "Потім «подія» вирішує: виконує завдання вголос або здається і п'є.",
       "Вгадав — +1 бал. Не вгадав — ковток.",
     ],
+    timerToggle: true,
     sliders: [{ key: "betSeconds", label: "Час на ставки" }, { key: "decideSeconds", label: "Час на рішення" }],
     stageTitle: (c) => ({ bet: "Ставки приймаються", decide: "Рішення" }[(c.st.data || {}).step] || "Розрахунок"),
 
@@ -180,7 +181,7 @@ body { background:
         const col = (k, title) => {
           const names = side(k), win = k === d.decision;
           return `<div class="bt-col ${win ? "win" : "lose"}"><h4>${title}</h4><div class="who">${names.length
-            ? names.map((n) => c.avatar(n, { size: "sm", mood: win ? "happy" : "sad", still: true })).join("") : '<span class="empty">нікого</span>'}</div>
+            ? names.map((n) => `<span class="pp-named">${c.avatar(n, { size: "sm", mood: win ? "happy" : "sad", still: true })}<small>${esc(n)}</small></span>`).join("") : '<span class="empty">нікого</span>'}</div>
             <div class="tag">${names.length ? (win ? "+1 бал" : "ковток") : "—"}</div></div>`;
         };
         return coupon(c, victim, true) +
