@@ -932,8 +932,27 @@
     try { sessionStorage.setItem(SCROLL_KEY, String(window.scrollY)); } catch (e) {}
   };
 
+  // Плашка UPD тимчасова: відкрив гру — плашка зникла. Нове оновлення тієї ж гри —
+  // поставити плитці data-upd="<дата>", і плашка з'явиться знову.
+  const UPD_KEY = 'games41_upd_seen';
+  let updSeen = {};
+  try { updSeen = JSON.parse(localStorage.getItem(UPD_KEY)) || {}; } catch (e) {}
+  const updVer = (tile) => tile.dataset.upd || '1';
+  tiles.forEach((tile) => {
+    const tag = tile.querySelector('.tag-upd');
+    if (tag && updSeen[tile.getAttribute('href')] === updVer(tile)) tag.remove();
+  });
+
   document.getElementById('games-grid').addEventListener('click', (e) => {
-    if (e.target.closest('a.tile')) saveScroll();
+    const tile = e.target.closest('a.tile');
+    if (!tile) return;
+    saveScroll();
+    const tag = tile.querySelector('.tag-upd');
+    if (tag) {
+      updSeen[tile.getAttribute('href')] = updVer(tile);
+      try { localStorage.setItem(UPD_KEY, JSON.stringify(updSeen)); } catch (e) {}
+      tag.remove(); // і при поверненні «Назад» зі збереженої сторінки (bfcache)
+    }
   });
   window.addEventListener('pagehide', saveScroll);
 
