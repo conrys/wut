@@ -282,6 +282,7 @@
   // ще не давали бонус у цьому раунді — з імовірністю CATCHUP_CHANCE саме він
   // отримує позачерговий хід замість наступного по колу.
   function pickCatchUpPlayer(room) {
+    if (room.round !== 2) return null; // у першому раунді жодних ×2 — «наздоганяюче» лише в другому
     const conn = connectedSorted(room.players);
     if (conn.length < 2) return null;
     const scores = conn.map(([n, p]) => [n, p.score || 0]);
