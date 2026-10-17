@@ -84,6 +84,14 @@
 
     .result-panel { text-align: center; margin: 10px 0 16px; }
     .result-panel .title { font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+    .meaning { max-width: 360px; margin: 0 auto 12px; padding: 12px 14px; border-radius: 14px; background: #1f1f21; border: 1px solid rgba(255,255,255,0.08); text-align: left; }
+    .meaning:empty { display: none; }
+    .meaning .w { font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+    .meaning ol { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.4; }
+    .meaning li + li { margin-top: 4px; }
+    .meaning .src { margin-top: 8px; font-size: 11px; color: var(--text-muted); }
+    .meaning .src a { color: var(--accent); }
+    .meaning .none { font-size: 13px; color: var(--text-muted); }
     .result-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
     .result-actions button { border: none; border-radius: 20px; padding: 10px 20px; font-weight: 700;
         font-size: 13px; cursor: pointer; }
@@ -118,6 +126,7 @@
 
   <div class="result-panel" id="resultPanel" style="display:none">
     <div class="title" id="resultTitle"></div>
+    <div class="meaning" id="meaningBox"></div>
     <div class="result-actions">
       <button class="btn-primary" id="shareBtn">Поділитись</button>
       <button class="btn-secondary" id="feedBtn">👥 Результати сьогодні</button>
@@ -146,6 +155,7 @@
 <script src="js/promts/words-en-guesses.js"></script>
 <script src="js/promts/words-uk-guesses.js"></script>
 <script src="js/wordle.js"></script>
+<script src="js/word-meaning.js"></script>
 <script src="js/core/back-button.js"></script>
 <script>
   (function () {
@@ -288,15 +298,36 @@
       }
     }
 
+    // Тлумачення слова після розкриття (Вікісловник, напряму з телефона)
+    let meaningFor = null;
+    function showMeaning(word, lng) {
+      const box = document.getElementById("meaningBox"), key = lng + ":" + word;
+      if (meaningFor === key) return;
+      meaningFor = key;
+      const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+      const head = `<div class="w">${esc(word)}</div>`;
+      box.innerHTML = head + `<div class="none">${lng === "uk" ? "Шукаю, що означає…" : "Looking up the meaning…"}</div>`;
+      if (!window.WordMeaning) { box.innerHTML = ""; return; }
+      window.WordMeaning.lookup(word, lng).then((r) => {
+        if (meaningFor !== key) return;
+        const fallback = lng === "uk" ? "https://uk.wiktionary.org/wiki/" + encodeURIComponent(word) : "https://en.wiktionary.org/wiki/" + encodeURIComponent(word);
+        box.innerHTML = head + (r
+          ? `<ol>${r.defs.map((d) => `<li>${esc(d)}</li>`).join("")}</ol><div class="src">Джерело: <a href="${r.url}" target="_blank" rel="noopener">${esc(r.source)}</a></div>`
+          : `<div class="none">Тлумачення не знайшлось. <a href="${fallback}" target="_blank" rel="noopener" style="color:var(--accent)">Пошукати у Вікісловнику</a></div>`);
+      });
+    }
+
     function renderResult() {
       if (!state.finished) {
         resultPanel.style.display = "none";
+        meaningFor = null; document.getElementById("meaningBox").innerHTML = "";
         keyboardEl.style.display = "flex";
         return;
       }
       keyboardEl.style.display = "none";
       resultPanel.style.display = "block";
       resultTitle.textContent = state.won ? "🎉 Вгадано!" : `😔 Слово було: ${answer.toUpperCase()}`;
+      showMeaning(answer, lang);
       refreshStreak();
       if (!window.AppAuth || !window.AppAuth.getSession()) {
         msgEl.textContent = "Увійди в профіль, щоб зберігати стрік і бачити результати друзів";
