@@ -26,6 +26,7 @@
 
   /* шапка гри */
   .rl-head { display: flex; align-items: center; gap: 10px; }
+  .rl-head { justify-content: flex-end; }
   .rl-title { font: 400 26px/1 'Prata', serif; color: var(--gold); letter-spacing: .03em; }
   .rl-bal { margin-left: auto; display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); }
   .rl-bal .chip { width: 26px; height: 26px; }
@@ -116,7 +117,6 @@
 <body>
 <div class="page">
   <div class="rl-head">
-    <div class="rl-title">Рулетка</div>
     <div class="rl-bal"><span data-chip="500"></span><b id="balance">0</b></div>
   </div>
   <div class="rl-hist" id="hist"></div>
