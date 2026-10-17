@@ -81,6 +81,7 @@ const opText=o=>({'+':'+','x':'×','-':'−','/':'÷'})[o.t]+o.v;
 const isGood=o=>o.t==='+'||o.t==='x';
 
 function gen(lv){
+  TH=THEMES[Math.floor((lv-1)/3)%THEMES.length];document.documentElement.style.setProperty('--sky',TH.css);
   const R=rng(lv*7919+13);
   L=110+lv*18;speed=Math.min(12,8.5+lv*0.3);
   gates=[];enemies=[];
@@ -107,7 +108,7 @@ function gen(lv){
 
 function startLevel(){
   gen(level);N=4;pz=0;px=0;cx=0;foe=null;parts=[];floats=[];state='run';
-  ov.hidden=true;lvlLabel.textContent='РІВЕНЬ '+level;
+  ov.hidden=true;lvlLabel.textContent='РІВЕНЬ '+level+' · '+THEMES[Math.floor((level-1)/3)%THEMES.length].name.toUpperCase();
 }
 function showOverlay(kind){
   ov.hidden=false;ovTitle.classList.toggle('lose',kind==='lose');
@@ -241,26 +242,48 @@ function ridge(col,amp,f,s,par,base){
   }
   ctx.lineTo(W,HOR+2);ctx.closePath();ctx.fill();
 }
+/* ---------- місцевості: щотри рівні нова (як у 3D) ---------- */
+const THEMES=[
+  {name:'Пустеля',sky:['#7DB9E2','#F3D9B1','#F5C089'],r1:'#E9C29A',r2:'#D9A06C',g:'#E2A866',ga:'#E4AB6B',gb:'#DEA263',haze:'245,196,140',css:'#F4CE9C',decor:(p,r)=>r>0.72?cactus(p):rock(p,r)},
+  {name:'Карпати',sky:['#7FA8D6','#DCE7F2','#F4F7FA'],r1:'#8D9CAD',r2:'#6F8296',g:'#EEF3F7',ga:'#F2F6FA',gb:'#E6EDF3',haze:'227,235,243',css:'#E3EBF3',decor:(p,r)=>r>0.55?fir(p):snowball(p,r)},
+  {name:'Поле',sky:['#4F9BE0','#BFE0F5','#F1F6E6'],r1:'#A7CC7A',r2:'#86B85A',g:'#86B85A',ga:'#8CBE5F',gb:'#80B255',haze:'221,235,207',css:'#CFE6F7',decor:(p,r)=>r>0.62?sunflower(p):haystack(p,r)},
+  {name:'Вечірнє місто',sky:['#2B2F5C','#E07B6A','#F5B78A'],r1:'#4A3F66',r2:'#3A3352',g:'#5B5F66',ga:'#61656C',gb:'#575B62',haze:'142,111,142',css:'#E07B6A',decor:(p,r)=>building(p,r)},
+];
+let TH=THEMES[0];
+function fir(p){const u=p.u,h=u*0.62,w=u*0.2,x=p.x,y=p.y;
+  ctx.fillStyle='#5A3D28';ctx.fillRect(x-w*0.12,y-h*0.18,w*0.24,h*0.18);
+  for(let k=0;k<3;k++){const yy=y-h*0.15-k*h*0.25,ww=w*(1-k*0.25);ctx.fillStyle=k===2?'#2F6B48':'#285E3F';ctx.beginPath();ctx.moveTo(x-ww,yy);ctx.lineTo(x+ww,yy);ctx.lineTo(x,yy-h*0.36);ctx.fill()}
+  ctx.fillStyle='#FFFFFF';ctx.beginPath();ctx.moveTo(x-w*0.22,y-h*0.86);ctx.lineTo(x+w*0.22,y-h*0.86);ctx.lineTo(x,y-h);ctx.fill()}
+function snowball(p,r){const u=p.u,w=u*(0.12+r*0.18),h=w*0.5;ctx.fillStyle='#F7FAFD';ctx.beginPath();ctx.ellipse(p.x,p.y-h*0.4,w,h,0,Math.PI,0);ctx.lineTo(p.x+w,p.y);ctx.lineTo(p.x-w,p.y);ctx.fill();
+  ctx.fillStyle='rgba(150,175,200,.35)';ctx.beginPath();ctx.ellipse(p.x+w*0.3,p.y-h*0.2,w*0.6,h*0.35,0,0,6.283);ctx.fill()}
+function sunflower(p){const u=p.u,h=u*0.42,x=p.x,y=p.y,r=u*0.07;ctx.strokeStyle='#5E8C3A';ctx.lineWidth=Math.max(1,u*0.018);ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x,y-h);ctx.stroke();
+  ctx.fillStyle='#F2C230';for(let i=0;i<10;i++){const a=i/10*6.283;ctx.beginPath();ctx.ellipse(x+Math.cos(a)*r,y-h+Math.sin(a)*r,r*0.55,r*0.25,a,0,6.283);ctx.fill()}
+  ctx.fillStyle='#6B4A2A';ctx.beginPath();ctx.arc(x,y-h,r*0.7,0,6.283);ctx.fill()}
+function haystack(p,r){const u=p.u,w=u*(0.16+r*0.12),h=w*1.2;ctx.fillStyle='#E2C16B';ctx.beginPath();ctx.moveTo(p.x-w,p.y);ctx.quadraticCurveTo(p.x-w,p.y-h,p.x,p.y-h*1.25);ctx.quadraticCurveTo(p.x+w,p.y-h,p.x+w,p.y);ctx.fill();
+  ctx.strokeStyle='rgba(150,110,40,.45)';ctx.lineWidth=1;for(let k=1;k<4;k++){ctx.beginPath();ctx.moveTo(p.x-w*0.9,p.y-h*k*0.25);ctx.lineTo(p.x+w*0.9,p.y-h*k*0.25);ctx.stroke()}}
+function building(p,r){const u=p.u,w=u*(0.3+r*0.25),h=u*(0.6+r*1.2),x=p.x,y=p.y;const BC=['#C9B6A6','#A9B4C2','#D7C5A0','#B8A9C9'];
+  ctx.fillStyle=BC[Math.floor(r*40)%4];ctx.fillRect(x-w/2,y-h,w,h);
+  for(let yy=y-h+u*0.08;yy<y-u*0.1;yy+=u*0.14)for(let xx=x-w/2+u*0.05;xx<x+w/2-u*0.06;xx+=u*0.1){ctx.fillStyle=((xx*7+yy*3)|0)%3?'#FFE29A':'#3A3F55';ctx.fillRect(xx,yy,u*0.05,u*0.07)}}
 function drawSky(){
   const g=ctx.createLinearGradient(0,0,0,HOR);
-  g.addColorStop(0,'#7DB9E2');g.addColorStop(.55,'#F3D9B1');g.addColorStop(1,'#F5C089');
+  g.addColorStop(0,TH.sky[0]);g.addColorStop(.55,TH.sky[1]);g.addColorStop(1,TH.sky[2]);
   ctx.fillStyle=g;ctx.fillRect(0,0,W,HOR+2);
   const sx=W*0.74-cx*W*0.02,sy=HOR*0.45,r=Math.min(W,H)*0.065;
   const rg=ctx.createRadialGradient(sx,sy,0,sx,sy,r*5);
   rg.addColorStop(0,'rgba(255,248,220,.95)');rg.addColorStop(.22,'rgba(255,230,175,.5)');rg.addColorStop(1,'rgba(255,230,175,0)');
   ctx.fillStyle=rg;ctx.fillRect(sx-r*5,sy-r*5,r*10,r*10);
   ctx.fillStyle='#FFF8E2';ctx.beginPath();ctx.arc(sx,sy,r,0,6.283);ctx.fill();
-  ridge('#E9C29A',H*0.075,0.0075,1.2,0.04,6);
-  ridge('#D9A06C',H*0.055,0.012,4.1,0.1,0);
+  ridge(TH.r1,H*0.075,0.0075,1.2,0.04,6);
+  ridge(TH.r2,H*0.055,0.012,4.1,0.1,0);
 }
 function drawGround(){
-  ctx.fillStyle='#E2A866';ctx.fillRect(0,HOR,W,H-HOR);
+  ctx.fillStyle=TH.g;ctx.fillRect(0,HOR,W,H-HOR);
   const z0g=Math.floor((camZ+0.4)/2)*2;
   for(let z=z0g+90;z>=z0g;z-=2){
     const zn=Math.max(z,camZ+0.4),zf=z+2;
     const n1=proj(-1,zn),n2=proj(1,zn),f1=proj(-1,zf),f2=proj(1,zf);if(!n1||!f1)continue;
     const odd=(z/2)&1;
-    quad(proj(-8,zn),proj(8,zn),proj(8,zf),proj(-8,zf),odd?'#E4AB6B':'#DEA263');
+    quad(proj(-8,zn),proj(8,zn),proj(8,zf),proj(-8,zf),odd?TH.ga:TH.gb);
     quad(proj(-1.35,zn),proj(1.35,zn),proj(1.35,zf),proj(-1.35,zf),'rgba(120,60,20,.08)');
     quad(n1,n2,f2,f1,odd?'#76685F':'#6F6159');
     quad(proj(-0.9,zn),proj(-0.6,zn),proj(-0.6,zf),proj(-0.9,zf),'rgba(255,255,255,.025)');
@@ -269,7 +292,7 @@ function drawGround(){
     if(odd)quad(proj(-0.013,zn),proj(0.013,zn),proj(0.013,zf),proj(-0.013,zf),'rgba(255,244,228,.6)');
   }
   const hz=ctx.createLinearGradient(0,HOR-H*0.02,0,HOR+H*0.13);
-  hz.addColorStop(0,'rgba(245,196,140,.95)');hz.addColorStop(1,'rgba(245,196,140,0)');
+  hz.addColorStop(0,'rgba('+TH.haze+',.95)');hz.addColorStop(1,'rgba('+TH.haze+',0)');
   ctx.fillStyle=hz;ctx.fillRect(0,HOR-H*0.02,W,H*0.15);
 }
 function cactus(p){
@@ -293,7 +316,7 @@ function drawDecor(){
       const r=hash(z*1.31+side*7.7);if(r<0.4)continue;
       const p=proj(side*(1.55+hash(z*0.7+side)*2.6),z);if(!p)continue;
       ctx.globalAlpha=Math.max(0,Math.min(1,(75-(z-camZ))/22));
-      r>0.72?cactus(p):rock(p,r);
+      TH.decor(p,r);
     }
   }
   ctx.globalAlpha=1;
@@ -417,7 +440,7 @@ let last=performance.now();
 function frame(now){const dt=Math.min(0.05,(now-last)/1000);last=now;update(dt);draw();requestAnimationFrame(frame)}
 function start(data){
   if(data&&data.level)level=data.level;
-  lvlLabel.textContent='РІВЕНЬ '+level;gen(level);
+  lvlLabel.textContent='РІВЕНЬ '+level+' · '+THEMES[Math.floor((level-1)/3)%THEMES.length].name.toUpperCase();gen(level);
   if(level>1)ovText.textContent='Продовжуємо з рівня '+level+'. Та сама гра з реклами, тільки справжня.';
   requestAnimationFrame(frame);
 }
