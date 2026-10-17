@@ -94,9 +94,11 @@
     desc: "Прокурор звинувачує, адвокат захищає, звинувачений мовчить, решта виносить вирок. Винен — п'є звинувачений, простили — п'є весь суд.",
     startSet(ctx) { return { items: texts("court", SEED.COURT, ctx, ctx.totalRounds), seat: ctx.shuffle(ctx.order.slice()) }; },
     startRound(ctx) {
-      // три ролі по колу: кожен раунд зсув на 3, тож ролі обходять усіх
-      const seat = ctx.state.seat, n = ctx.roundNo, N = seat.length;
-      const accused = seat[(3 * n) % N], prosecutor = seat[(3 * n + 1) % N], lawyer = seat[(3 * n + 2) % N];
+      // три ролі по колу з кроком k = N/3: за N раундів кожен гравець рівно раз звинувачений,
+      // раз прокурор і раз адвокат, і не в сусідніх раундах (зсув на 3 при N кратному 3
+      // давав одним і тим самим людям одну й ту саму роль щоразу)
+      const seat = ctx.state.seat, n = ctx.roundNo, N = seat.length, k = Math.max(1, Math.floor(N / 3));
+      const accused = seat[n % N], prosecutor = seat[(n + k) % N], lawyer = seat[(n + 2 * k) % N];
       return {
         kind: "show", title: "Суд Лінча", text: "Звинувачений " + ctx.state.items[n],
         roles: [{ label: "Звинувачений", name: accused }, { label: "Прокурор", name: prosecutor }, { label: "Адвокат", name: lawyer }],
