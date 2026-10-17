@@ -1,6 +1,6 @@
-// Запуск з кореня проєкту: node tools/check-dilemmas.js   (або шлях до кореня першим аргументом)
+// Запуск з кореня проєкту: node js/check-dilemmas.js   (або шлях до кореня першим аргументом)
 const fs=require('fs'),vm=require('vm'); const root=process.argv[2]||'.';
-const ctx={window:{}}; vm.createContext(ctx); vm.runInContext(fs.readFileSync(root+'/js/dilemmas-seed.js','utf8'),ctx);
+const ctx={window:{}}; vm.createContext(ctx); vm.runInContext(fs.readFileSync(root+'/js/promts/dilemmas-seed.js','utf8'),ctx);
 const {STATEMENTS:D,TASKS:T}=ctx.window.DilemmaSeed; const per=(a)=>{const o={};a.forEach(x=>o[x.level]=(o[x.level]||0)+1);return JSON.stringify(o);};
 console.log('тверджень:',D.length,per(D),'| «Згоден/Не»:',D.filter(x=>x.kind==='agree').length,'| «Прийнятно/Не»:',D.filter(x=>x.kind==='ok').length,'| завдань:',T.length,per(T));
 const issues=[];
