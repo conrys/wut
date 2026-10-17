@@ -88,13 +88,20 @@
     `;
     // У шапці (поруч із профілем) кнопка нічого не перекриває; плаваюча
     // знизу-справа раніше лягала на «Почати гру» і праві краї кнопок.
-    const headerSlot = window.GameHeader && GameHeader.slot ? (() => { try { return GameHeader.slot("right"); } catch (e) { return null; } })() : null;
-    if (headerSlot) {
+    // Шапка вантажиться defer-скриптом — якщо її ще немає, кнопка тимчасово плаває
+    // й переїжджає в шапку, щойно та з'явиться (до DOMContentLoaded).
+    const dock = () => {
+      const headerSlot = window.GameHeader && GameHeader.slot ? (() => { try { return GameHeader.slot("right"); } catch (e) { return null; } })() : null;
+      if (!headerSlot) return false;
       wrap.classList.add("in-header");
       headerSlot.insertBefore(wrap, headerSlot.firstChild);
-      document.addEventListener("click", (e) => { if (!wrap.contains(e.target)) wrap.classList.remove("open"); });
-    } else {
+      return true;
+    };
+    document.addEventListener("click", (e) => { if (wrap.classList.contains("in-header") && !wrap.contains(e.target)) wrap.classList.remove("open"); });
+    if (!dock()) {
       document.body.appendChild(wrap);
+      if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", dock, { once: true });
+      else setTimeout(dock, 0);
     }
 
     const row = wrap.querySelector("#reactionsRow");

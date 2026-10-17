@@ -160,3 +160,18 @@ html:not(.hdr-top) .game-header-spacer--fixed { margin-top: var(--app-header-mar
   position: sticky; bottom: 12px; z-index: 5; width: max-content; margin: 10px auto;
   background: rgba(20, 22, 26, 0.92); padding: 6px 14px; border-radius: 999px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
 }
+
+/* ---------------- Вузькі екрани (≤380px: iPhone SE, малі Android) ----------------
+   Усі службові кнопки шапки (назад, правила, нотатки, реакції, пауза, профіль) — 32px
+   і щільніші відступи, щоб права група вміщалась в один ряд і не переносилась. */
+@media (max-width: 380px) {
+  .game-header { gap: 4px; padding-left: 6px; padding-right: 6px; }
+  .game-header .slot-left, .game-header .slot-center, .game-header .slot-right { gap: 4px; }
+  .game-header .app-back-btn, .game-header .help-btn.in-header, .game-header .gp-btn.in-header,
+  .game-header .auth-pill, .game-header .notes-header-btn,
+  .game-header .reactions-wrap.in-header .reactions-toggle {
+    width: 32px !important; height: 32px !important;
+    min-width: 32px !important; min-height: 32px !important;
+    max-width: 32px !important; max-height: 32px !important;
+  }
+}

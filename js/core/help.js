@@ -126,6 +126,9 @@
       }
       .help-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.3; stroke-linecap: round; stroke-linejoin: round; }
       .help-btn:active { opacity: 0.6; }
+      .help-btn.in-header { position: static; width: 36px; height: 36px; box-shadow: none; flex: none;
+        border: 1px solid var(--line, rgba(255,255,255,.2)); background: var(--panel, rgba(255,255,255,.08)); color: var(--ink, #f4f5f1); }
+      .help-btn.in-header svg { width: 17px; height: 17px; }
       .help-overlay {
         position: fixed; inset: 0; background: rgba(6,8,14,0.66);
         display: none; align-items: flex-end; justify-content: center;
@@ -158,7 +161,20 @@
     btn.className = "help-btn";
     btn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.2 2.8c-.8.4-1.2 1.1-1.2 2V15"/><path d="M12 18.5v.01"/></svg>';
     btn.setAttribute("aria-label", "Правила гри");
-    document.body.appendChild(btn);
+    // У шапці гри (ліворуч, поруч із «Назад») кнопка нічого не перекриває; плаваюча
+    // знизу-справа лягала на кнопки гри на малих екранах. Шапка вантажиться defer-скриптом —
+    // якщо її ще немає, кнопка тимчасово плаває й переїжджає, щойно та з'явиться.
+    const dock = () => {
+      let slot = null;
+      try { slot = window.GameHeader && GameHeader.slot ? GameHeader.slot("left") : null; } catch (e) { slot = null; }
+      if (!slot) return false;
+      btn.classList.add("in-header"); slot.appendChild(btn); return true;
+    };
+    if (!dock()) {
+      document.body.appendChild(btn);
+      if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", dock, { once: true });
+      else setTimeout(dock, 0);
+    }
 
     const overlay = document.createElement("div");
     overlay.className = "help-overlay";

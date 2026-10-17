@@ -61,11 +61,20 @@
     over.innerHTML = `<div class="gp-card"><div class="ico">${ICON_PAUSE}</div><b>Пауза</b><small class="who"></small><div class="clock"></div>
       ${opts.readOnly ? "" : `<button type="button" class="go">${ICON_PLAY} Продовжити</button>`}</div>`;
     if (!opts.readOnly) {
-      // у шапці гри (поруч з реакціями) кнопка нічого не перекриває; без шапки — плаває знизу ліворуч
-      let slot = null;
-      try { slot = window.GameHeader && GameHeader.slot ? GameHeader.slot("right") : null; } catch (e) { slot = null; }
-      if (slot) { btn.classList.add("in-header"); slot.insertBefore(btn, slot.firstChild); }
-      else document.body.appendChild(btn);
+      // у шапці гри (поруч з реакціями) кнопка нічого не перекриває. Шапка вантажиться
+      // defer-скриптом: якщо гра змонтувала паузу раніше, кнопка тимчасово плаває, а щойно
+      // шапка з'явиться (до DOMContentLoaded) — переїжджає в неї. Без шапки (ТВ) — лишається плаваючою.
+      const dock = () => {
+        let slot = null;
+        try { slot = window.GameHeader && GameHeader.slot ? GameHeader.slot("right") : null; } catch (e) { slot = null; }
+        if (!slot) return false;
+        btn.classList.add("in-header"); slot.insertBefore(btn, slot.firstChild); return true;
+      };
+      if (!dock()) {
+        document.body.appendChild(btn);
+        if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", dock, { once: true });
+        else setTimeout(dock, 0);
+      }
     }
     document.body.appendChild(over);
 
