@@ -146,7 +146,7 @@ body { background:
 
   <div class="pp-hostbar hidden" id="hostControls">
     <button class="pp-btn pp-ghost" id="btnReset"><span data-ic="refresh"></span></button>
-    <button class="pp-btn pp-primary hidden" id="btnForceStart">Почати зараз</button>
+    <button class="pp-btn pp-primary hidden" id="btnForceStart">Почати гру</button>
     <button class="pp-btn pp-primary hidden" id="btnSkip">Пропустити питання</button>
     <button class="pp-btn pp-primary hidden" id="btnNextTurn">Наступний хід</button>
   </div>
@@ -235,7 +235,8 @@ body { background:
     }
     const cd = state.phase === "countdown";
     $("countdownBox").classList.toggle("hidden", !cd);
-    $("lobbyHint").textContent = cd ? "" : conn.length < Q.MIN_PLAYERS ? `Гра стартує сама, щойно буде ${Q.MIN_PLAYERS} гравці` : "";
+    $("lobbyHint").textContent = cd ? "" : conn.length < Q.MIN_PLAYERS ? `Потрібно мінімум ${Q.MIN_PLAYERS} гравці онлайн`
+      : ctx.host && !ctx.spectating ? "Усі на місці? Тисни «Почати гру»" : `Чекаємо, поки ${hostName || "ведучий"} почне гру`;
     updateCountdown();
   }
   function updateCountdown() {
@@ -332,6 +333,7 @@ body { background:
     const panel = $("hostControls"), ph = state.phase;
     const host = !!ctx.host && !ctx.spectating;
     $("btnForceStart").classList.toggle("hidden", !(ph === "lobby" || ph === "countdown"));
+    $("btnForceStart").disabled = Q.connectedEntries(state.players).length < Q.MIN_PLAYERS;
     $("btnSkip").classList.toggle("hidden", ph !== "questionActive");
     $("btnNextTurn").classList.toggle("hidden", !(ph === "evaluating" || ph === "resultDisplay"));
     panel.classList.toggle("hidden", !host);

@@ -370,12 +370,9 @@
     const t = now();
 
     switch (room.phase) {
-      case "lobby": {
-        if (connectedSorted(room.players).length >= MIN_PLAYERS) {
-          ref.update({ phase: "countdown", phaseDeadline: t + COUNTDOWN_SECONDS * 1000 });
-        }
+      case "lobby":
+        // гру стартує ведучий кнопкою «Почати гру» (forceStart), без автозапуску
         break;
-      }
       case "countdown": {
         if (connectedSorted(room.players).length < MIN_PLAYERS) {
           ref.update({ phase: "lobby", phaseDeadline: null });
