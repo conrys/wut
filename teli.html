@@ -215,6 +215,8 @@ html.dark-games .pp-card { box-shadow: 0 2px 0 rgba(0,0,0,.4), 0 10px 24px rgba(
 <script src="js/core/online-engine.js"></script>
 <script src="js/quiplash-avatars.js"></script>
 <script src="js/quiplash-sounds.js"></script>
+<script src="js/core/prompt-history.js"></script>
+<script src="js/promts/teli-ideas.js"></script>
 <script src="js/teli-game.js"></script>
 <script src="js/core/room-code-ui.js"></script>
 <script src="js/party-ui.js"></script>
@@ -371,7 +373,8 @@ html.dark-games .pp-card { box-shadow: 0 2px 0 rgba(0,0,0,.4), 0 10px 24px rgba(
       const ideas = $("textIdeas");
       ideas.classList.toggle("hidden", !!assignment.prompt);
       if (!assignment.prompt) {
-        const pick = IDEAS.slice().sort(() => Math.random() - 0.5).slice(0, 3);
+        // свої підказки від ведучого (унікальні на гравця); запасний варіант — старий короткий список
+        const pick = Array.isArray(assignment.ideas) && assignment.ideas.length ? assignment.ideas : IDEAS.slice().sort(() => Math.random() - 0.5).slice(0, 3);
         ideas.innerHTML = pick.map((t) => `<button type="button" data-idea="${esc(t)}">${esc(t)}</button>`).join("");
       }
     } else {

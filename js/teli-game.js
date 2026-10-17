@@ -205,6 +205,29 @@
     return assignments;
   }
 
+  // Підказки для першої фрази: кожному гравцю — свої IDEAS_PER_PLAYER, без перетинів між гравцями
+  // (раніше всі тягнули 3 випадкові з одних і тих самих 10 — і фрази в різних книгах збігались).
+  // Спершу ще не бачені компанією (js/core/prompt-history.js), далі — найдавніші.
+  const IDEAS_PER_PLAYER = 3;
+  const PH = window.PromptHistory;
+  if (PH) PH.preload("teli_ideas");
+  function dealIdeas(playerOrder) {
+    const pool = (window.TeliIdeas || []).slice();
+    if (!pool.length) return {};
+    const ordered = PH ? PH.order("teli_ideas", pool, (x) => x) : pool.sort(() => Math.random() - 0.5);
+    const out = {}, used = [];
+    playerOrder.forEach((name, i) => {
+      const mine = [];
+      for (let k = 0; k < IDEAS_PER_PLAYER; k++) {
+        const t = ordered[(i * IDEAS_PER_PLAYER + k) % ordered.length];
+        if (!mine.includes(t)) mine.push(t);
+      }
+      out[name] = mine; used.push(...mine);
+    });
+    if (PH) PH.mark("teli_ideas", used);
+    return out;
+  }
+
   async function startGame(room) {
     const playerOrder = connectedNames(room.players);
     if (playerOrder.length < MIN_PLAYERS) return;
@@ -212,6 +235,8 @@
     const totalRounds = playerOrder.length;
     const books = Array.from({ length: totalRounds }, () => []);
     const assignments = buildAssignments(playerOrder, 0, totalRounds, books);
+    const ideas = dealIdeas(playerOrder);
+    playerOrder.forEach((name) => { if (ideas[name]) assignments[name].ideas = ideas[name]; });
     await engine.roomRef.update({
       phase: "active",
       gameId: engine.now(),
