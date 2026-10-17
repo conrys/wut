@@ -56,11 +56,33 @@ function guessListFor(lang) {
   return typeof WORDS_EN_GUESSES !== "undefined" ? WORDS_EN_GUESSES : WORDS_EN;
 }
 
+// Слово дня: детермінована перестановка списку, крок — номер дня. За один прохід
+// списку слова не повторюються (раніше — хеш дати % довжина, повтори траплялись).
+// 2026-10-18 список українських слів оновлено; слова цього дня закріплені як були,
+// щоб у тих, хто вже зіграв, нічого не зламалось.
+const WORDLE_SWITCH_DATE = "2026-10-19";
+const WORDLE_PINNED = { "2026-10-18:uk": "ґедзь", "2026-10-18:en": "pesky" };
+const wordleOrderCache = {};
+function wordleOrder(lang) {
+  const list = answerListFor(lang);
+  const key = lang + ":" + list.length;
+  if (!wordleOrderCache[key]) {
+    const idx = list.map((_, i) => i);
+    let s = seededIndex("41games-wordle:" + lang, 2147483647) || 1;
+    const rnd = () => ((s = (Math.imul(s, 48271) % 2147483647 + 2147483647) % 2147483647) / 2147483647);
+    for (let i = idx.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [idx[i], idx[j]] = [idx[j], idx[i]]; }
+    wordleOrderCache[key] = idx;
+  }
+  return wordleOrderCache[key];
+}
 function dailyWord(lang, dateStr) {
   dateStr = dateStr || kyivDateStr();
+  if (WORDLE_PINNED[dateStr + ":" + lang]) return WORDLE_PINNED[dateStr + ":" + lang];
   const list = answerListFor(lang);
-  const idx = seededIndex(dateStr + ":" + lang, list.length);
-  return list[idx].toLowerCase();
+  if (dateStr < WORDLE_SWITCH_DATE) return list[seededIndex(dateStr + ":" + lang, list.length)].toLowerCase();
+  const order = wordleOrder(lang);
+  const n = wordleDayNumber(dateStr) - wordleDayNumber(WORDLE_SWITCH_DATE);
+  return list[order[((n % order.length) + order.length) % order.length]].toLowerCase();
 }
 
 // Класичний двопрохідний алгоритм — коректно рахує повторювані літери.
