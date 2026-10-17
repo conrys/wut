@@ -378,11 +378,9 @@
       display: none !important;
     }
     /* ===== оновлений вигляд головної: заголовок, розділи, мʼякі плитки ===== */
-    .brand-title { gap: 12px; margin-bottom: 4px; font: 800 26px/1 'Unbounded', 'Space Grotesk', sans-serif; letter-spacing: -.01em; }
+    .brand-title { gap: 12px; margin-bottom: 16px; font: 800 26px/1 'Unbounded', 'Space Grotesk', sans-serif; letter-spacing: -.01em; }
     .brand-logo { width: 42px; height: 42px; border-radius: 12px; box-shadow: 0 6px 18px var(--glow-color), 0 0 0 1px rgba(255,255,255,.08); }
     .brand-title span b { background: linear-gradient(135deg, #ffc93c, #ff6b8b 55%, #8f7bff); -webkit-background-clip: text; background-clip: text; color: transparent; }
-    .brand-sub { margin: 0 0 16px 54px; font-size: 13px; color: var(--text-muted); font-weight: 600; }
-    .brand-sub b { color: var(--text-light); }
     .game-search { padding-left: 38px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b909c' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-4-4'/%3E%3C/svg%3E");
       background-repeat: no-repeat; background-position: 12px 50%; background-size: 17px; }
     .filter-btn.active { background: linear-gradient(180deg, #343947, #2a2e39); }
@@ -418,7 +416,6 @@
     <img src="img/icon.png" alt="41 Games Logo" class="brand-logo" />
     <span><b>41</b> Games</span>
   </div>
-  <div class="brand-sub" id="brandSub">Ігри для тебе й компанії</div>
 
   <!-- Верхній блок з перемикачем та кнопкою профілю -->
   <div class="top-bar" id="top-bar">
@@ -890,13 +887,6 @@
       applyFilter(btn.dataset.filter);
     });
   });
-
-  const sub = document.getElementById('brandSub');
-  if (sub) {
-    const n = document.querySelectorAll('#games-grid .tile:not([data-type="host"])').length;
-    const w = n % 10 === 1 && n % 100 !== 11 ? 'гра' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 'гри' : 'ігор';
-    sub.innerHTML = `<b>${n}</b> ${w} для тебе й компанії`;
-  }
 
   const activeBtn = document.querySelector('.filter-btn.active');
   if (activeBtn) {
