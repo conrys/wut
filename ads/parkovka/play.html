@@ -49,7 +49,7 @@ body{background:var(--grass);color:var(--ink);font-family:var(--body);overflow:h
   <div class="card">
     <h1 id="ovTitle">Тісна парковка</h1>
     <p id="ovText">Та сама гра з реклами: всі запаркувались, а виїхати нікому.</p>
-    <p class="hint" id="ovHint">Свайпни машину вперед чи назад, або просто торкнись, і вона поїде капотом уперед. Якщо дорога вільна, машина виїде. Кожен рівень має розв'язок.</p>
+    <p class="hint" id="ovHint">Свайпни машину вперед чи назад, або просто торкнись, і вона поїде капотом уперед. Якщо дорога вільна, машина виїде, а якщо ні — лишиться на місці. Кожен рівень перевірено: розв'язок є.</p>
     <button class="btn" id="ovBtn" type="button">Грати</button>
   </div>
 </div>
@@ -86,14 +86,15 @@ cv.addEventListener('pointerup',e=>{
   drive(c,s);
 });
 function drive(c,s){
-  if(c.anim)return;
+  if(c.anim||c.bounce)return;
   const g=grid(C,R,cars.filter(o=>!o.leaving)),r=slide(C,R,g,c,s);moves++;
   if(r.exits){
     c.leaving={s,t:0,from:c.h?c.x:c.y,speed:0};c.x=c.y=-99;upd();
     for(let k=0;k<6;k++)fx.push({x:carCenter(c)[0],y:carCenter(c)[1],vx:-s*(c.h?60:0)+(Math.random()-.5)*30,vy:-s*(c.h?0:60)+(Math.random()-.5)*30,l:0.6,r:5+Math.random()*4});
     return;
   }
-  if(r.steps>0){if(c.h)c.x+=s*r.steps;else c.y+=s*r.steps;c.anim=true}
+  // дорога закрита: під'їхати до перешкоди й повернутися на своє місце (машини не роз'їжджаються по парковці)
+  if(r.steps>0)c.bounce={s,d:r.steps,t:0,dur:0.16+r.steps*0.1};
   else{c.wob=0.35}
   const other=cars[r.hit];if(other){other.bumpT=0.45+r.steps*0.08;other.bumpDir=s;other.bumpH=c.h}
   c.bonk=r.steps>0?r.steps*0.08:0;
@@ -107,6 +108,9 @@ function update(dt){
     if(c.gone)continue;
     if(c.leaving){const L=c.leaving;L.speed=Math.min(28,L.speed+dt*60);if(c.h)c.px+=L.s*L.speed*dt;else c.py+=L.s*L.speed*dt;
       if(c.px<-6||c.px>C+6||c.py<-6||c.py>R+6){c.gone=true;checkWin()}continue}
+    if(c.bounce){const B=c.bounce;B.t+=dt;const k=Math.min(1,B.t/B.dur),o=B.s*B.d*Math.sin(k*Math.PI);
+      if(c.h)c.px=c.x+o;else c.py=c.y+o;if(k>=1){c.bounce=null;c.px=c.x;c.py=c.y;c.wob=0.25}
+      if(c.wob>0)c.wob-=dt;if(c.bumpT>0)c.bumpT-=dt;continue}
     const tx=c.x,ty=c.y,sp=dt*16;
     if(Math.abs(c.px-tx)>0.001)c.px+=Math.sign(tx-c.px)*Math.min(Math.abs(tx-c.px),sp);
     if(Math.abs(c.py-ty)>0.001)c.py+=Math.sign(ty-c.py)*Math.min(Math.abs(ty-c.py),sp);

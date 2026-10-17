@@ -1,6 +1,7 @@
 /* Parking Jam core: board generator + solvability check. A car slides along its axis;
-   if nothing is in the way it leaves the lot. Removing a car never blocks anything,
-   so "keep removing any car with a clear lane" is a complete solvability test. */
+   if nothing is in the way it leaves the lot, otherwise it bumps and returns to its spot
+   (cars never end up elsewhere). Removing a car never blocks anything, so "keep removing
+   any car with a clear lane" is a complete solvability test — and no move can deadlock. */
 (function(root){
 function rng(s){return()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 const cells=c=>{const o=[];for(let k=0;k<c.len;k++)o.push(c.h?[c.x+k,c.y]:[c.x,c.y+k]);return o};
@@ -42,7 +43,19 @@ function generate(level){
     if(r>=need){return{C,R,cars,rounds:r}}
     if(r>0&&(!best||r>best.rounds))best={C,R,cars,rounds:r};
   }
-  return best;
+  if(best)return best;
+  // запасний варіант: розріджене поле, яке точно розв'язне
+  for(let attempt=0;;attempt++){
+    const cars=[],occ=Array.from({length:R},()=>new Array(C).fill(false));
+    for(let t=0;t<200&&cars.length<Math.max(3,6-attempt);t++){
+      const h=R_()<0.5,len=2,x=Math.floor(R_()*(h?C-len+1:C)),y=Math.floor(R_()*(h?R:R-len+1));
+      const c={x,y,len,h,nose:R_()<0.5?1:-1};if(cells(c).some(([a,b])=>occ[b][a]))continue;
+      for(const [a,b] of cells(c))occ[b][a]=true;c.color=COLORS[cars.length%COLORS.length];cars.push(c);
+    }
+    const r=solveRounds(C,R,cars);if(r>0)return{C,R,cars,rounds:r};
+  }
 }
-root.ParkCore={generate,slide,grid,cells,solveRounds};
+/* валідатор: рівень розв'язний за правилами гри (кожна машина виїжджає вперед або назад) */
+function validate(lv){return lv&&lv.cars.length>0&&solveRounds(lv.C,lv.R,lv.cars)>0}
+root.ParkCore={generate,validate,slide,grid,cells,solveRounds};
 })(typeof window!=='undefined'?window:globalThis);
