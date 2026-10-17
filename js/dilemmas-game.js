@@ -247,6 +247,8 @@
     try {
       const cur = engine.latestRoom;
       if (!cur || cur.phase !== "voting" || cur.currentRound !== room.currentRound) return;
+      const card = (cur.cards || [])[cur.currentRound];
+      if (card && window.PromptHistory) PromptHistory.mark("dilemmas", [card.text]); // показане — в історію
       const voters = {};
       (cur.order || []).forEach((n) => { const c = voteOf(cur, n); if (c) voters[n] = c; });
       const a = Object.values(voters).filter((c) => c === "a").length;
@@ -349,6 +351,7 @@
     if (Object.keys(next).length) engine.roomRef.child("lobbySettings").update(next);
   }
 
+  if (window.PromptHistory) PromptHistory.preload("dilemmas");
   function startGame(room) {
     room = room || engine.latestRoom;
     if (!room || room.phase !== "lobby" || !isHostNow()) return { ok: false, reason: "not-allowed" };
@@ -358,8 +361,9 @@
     if (!seed || !seed.STATEMENTS || !seed.STATEMENTS.length) return { ok: false, reason: "no-content" };
     const settings = room.lobbySettings || {};
     const level = settings.level || DEFAULT_LEVEL;
-    const pool = seed.STATEMENTS.filter((d) => d.level <= level);
-    for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+    let pool = seed.STATEMENTS.filter((d) => d.level <= level);
+    if (window.PromptHistory) pool = PromptHistory.order("dilemmas", pool, (d) => d.text); // спершу ще не бачені
+    else for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
     const cards = pool.map((d) => ({ text: d.text, kind: d.kind }));   // уся колода рівня: грають, доки не набридне
     engine.roomRef.update({
       phase: "voting", gameId: engine.now(), order: names, cards, totalRounds: cards.length,

@@ -28,8 +28,14 @@
     return Math.min(MAX_TIMER_SECONDS, Math.max(MIN_TIMER_SECONDS, seconds)) * 1000;
   }
 
-  function texts(list, ctx, count) {
-    return ctx.shuffle((list || []).filter((x) => x.level <= ctx.level)).slice(0, count).map((x) => x.text);
+  // Спершу питання, яких компанія ще не бачила (js/core/prompt-history.js), далі — найдавніші.
+  const PH = window.PromptHistory;
+  ["whofrom", "court", "bets"].forEach((k) => PH && PH.preload("party_" + k));
+  function texts(key, list, ctx, count) {
+    const pool = (list || []).filter((x) => x.level <= ctx.level);
+    const picked = (PH ? PH.order("party_" + key, pool, (x) => x.text) : ctx.shuffle(pool)).slice(0, count).map((x) => x.text);
+    if (PH) PH.mark("party_" + key, picked);
+    return picked;
   }
   function sortedCounts(counts) { // [[ім'я, голосів]] за спаданням, далі за алфавітом
     return Object.entries(counts).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1));
@@ -47,7 +53,7 @@
   const whofrom = {
     id: "whofrom", title: "Хто з нас?", icon: "🗳️", minPlayers: 3,
     desc: "Питання, усі обирають одне ім'я за таймером. Найпопулярніший п'є, а ще ті, хто проголосував самотньо.",
-    startSet(ctx) { return { items: texts(SEED.WHOFROM, ctx, ctx.totalRounds) }; },
+    startSet(ctx) { return { items: texts("whofrom", SEED.WHOFROM, ctx, ctx.totalRounds) }; },
     startRound(ctx) {
       return { kind: "pick-name", title: "Хто з нас?", text: ctx.state.items[ctx.roundNo], names: ctx.order.slice(), expect: ctx.order.slice(), durationMs: timerMs(ctx, "voteSeconds") };
     },
@@ -82,7 +88,7 @@
   const court = {
     id: "court", title: "Суд Лінча", icon: "⚖️", minPlayers: 3,
     desc: "Двоє виправдовуються й захищають, решта виносить вирок. Винен — п'є звинувачений, простили — п'є весь суд.",
-    startSet(ctx) { return { items: texts(SEED.COURT, ctx, ctx.totalRounds), seat: ctx.shuffle(ctx.order.slice()) }; },
+    startSet(ctx) { return { items: texts("court", SEED.COURT, ctx, ctx.totalRounds), seat: ctx.shuffle(ctx.order.slice()) }; },
     startRound(ctx) {
       const seat = ctx.state.seat, n = ctx.roundNo, N = seat.length;
       const accused = seat[(2 * n) % N], lawyer = seat[(2 * n + 1) % N];
@@ -124,7 +130,7 @@
   const bets = {
     id: "bets", title: "Ставки", icon: "🎲", minPlayers: 3,
     desc: "Жертві дають завдання, а інші ставлять: зробить чи здасться. Хто схибив — п'є, жертва, що здалась, теж.",
-    startSet(ctx) { return { items: texts(SEED.BETS, ctx, ctx.totalRounds), seat: ctx.shuffle(ctx.order.slice()) }; },
+    startSet(ctx) { return { items: texts("bets", SEED.BETS, ctx, ctx.totalRounds), seat: ctx.shuffle(ctx.order.slice()) }; },
     startRound(ctx) {
       const victim = ctx.state.seat[ctx.roundNo % ctx.state.seat.length];
       return {

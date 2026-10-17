@@ -92,6 +92,14 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // історія показаних питань (js/core/prompt-history.js): один документ на гру, { seen: { id: мс } }
+    match /games41_prompt_history/{game} {
+      allow read: if true;
+      allow create, update: if signedIn() && request.resource.data.keys().hasOnly(['seen'])
+        && request.resource.data.seen is map && request.resource.data.seen.size() <= 3000;
+      allow delete: if false;
+    }
+
     match /games41_notes/{noteId} {
       allow read: if true;
       allow create: if ownsName(request.resource.data.author)

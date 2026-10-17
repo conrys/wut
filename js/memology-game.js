@@ -170,12 +170,16 @@
   }
 
   // ------------------------- ситуації -------------------------
+  if (window.PromptHistory) PromptHistory.preload("memology");
   function pickPrompt(state) {
     const all = MEMOLOGY_PROMPTS;
     let used = state.usedPrompts || [];
     let available = all.filter((p) => used.indexOf(p) === -1);
     if (!available.length) { used = []; available = all; }
-    const prompt = available[Math.floor(Math.random() * available.length)];
+    // спершу ситуації, яких компанія ще не бачила в минулих іграх (js/core/prompt-history.js)
+    const prompt = window.PromptHistory ? PromptHistory.order("memology", available)[0]
+      : available[Math.floor(Math.random() * available.length)];
+    if (window.PromptHistory) PromptHistory.mark("memology", [prompt]);
     return { promptText: prompt, usedPrompts: used.concat([prompt]) };
   }
 
