@@ -932,27 +932,37 @@
     try { sessionStorage.setItem(SCROLL_KEY, String(window.scrollY)); } catch (e) {}
   };
 
-  // Плашка UPD тимчасова: відкрив гру — плашка зникла. Нове оновлення тієї ж гри —
-  // поставити плитці data-upd="<дата>", і плашка з'явиться знову.
+  // Плашки UPD і NEW тимчасові: відкрив гру — плашки зникли. Нове оновлення тієї ж гри —
+  // поставити плитці data-upd="<дата>", і UPD з'явиться знову.
   const UPD_KEY = 'games41_upd_seen';
   let updSeen = {};
   try { updSeen = JSON.parse(localStorage.getItem(UPD_KEY)) || {}; } catch (e) {}
-  const updVer = (tile) => tile.dataset.upd || '1';
+  const TEMP_TAGS = [
+    { sel: '.tag-upd', key: (href) => href, ver: (tile) => tile.dataset.upd || '1' },
+    { sel: '.tag-v', key: (href) => 'new:' + href, ver: () => '1' },
+  ];
   tiles.forEach((tile) => {
-    const tag = tile.querySelector('.tag-upd');
-    if (tag && updSeen[tile.getAttribute('href')] === updVer(tile)) tag.remove();
+    const href = tile.getAttribute('href');
+    TEMP_TAGS.forEach((t) => {
+      const tag = tile.querySelector(t.sel);
+      if (tag && updSeen[t.key(href)] === t.ver(tile)) tag.remove();
+    });
   });
 
   document.getElementById('games-grid').addEventListener('click', (e) => {
     const tile = e.target.closest('a.tile');
     if (!tile) return;
     saveScroll();
-    const tag = tile.querySelector('.tag-upd');
-    if (tag) {
-      updSeen[tile.getAttribute('href')] = updVer(tile);
-      try { localStorage.setItem(UPD_KEY, JSON.stringify(updSeen)); } catch (e) {}
+    const href = tile.getAttribute('href');
+    let changed = false;
+    TEMP_TAGS.forEach((t) => {
+      const tag = tile.querySelector(t.sel);
+      if (!tag) return;
+      updSeen[t.key(href)] = t.ver(tile);
       tag.remove(); // і при поверненні «Назад» зі збереженої сторінки (bfcache)
-    }
+      changed = true;
+    });
+    if (changed) try { localStorage.setItem(UPD_KEY, JSON.stringify(updSeen)); } catch (e) {}
   });
   window.addEventListener('pagehide', saveScroll);
 
