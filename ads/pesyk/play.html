@@ -50,7 +50,7 @@ body{background:var(--sky);color:var(--ink);font-family:var(--body);overflow:hid
   <div class="card">
     <h1 id="ovTitle">Врятуй песика</h1>
     <p id="ovText">Та сама гра з реклами: малюєш лінію, а бджоли лютують.</p>
-    <p class="hint" id="ovHint">Намалюй пальцем одну лінію, щоб закрити песика від бджіл. Відпустиш палець, і лінія впаде як справжня. Протримайся 10 секунд.</p>
+    <p class="hint" id="ovHint">Намалюй пальцем одну лінію, щоб закрити песика від бджіл. Відпустиш палець, і лінія впаде як справжня. Бджоли штовхають захист, тож спирай його на землю чи стіни. Протримайся 10 секунд.</p>
     <button class="btn" id="ovBtn" type="button">Грати</button>
   </div>
 </div>
@@ -59,7 +59,7 @@ body{background:var(--sky);color:var(--ink);font-family:var(--body);overflow:hid
 <script>
 const $=id=>document.getElementById(id);
 const cv=$('c'),ctx=cv.getContext('2d');
-const pl=planck,V=pl.Vec2,SC=30,INK=950,HOLD=10;
+const pl=planck,V=pl.Vec2,SC=30,INK=950,HOLD=10,PUSH=4; // PUSH — з якою силою кожна бджола тисне на лінію
 const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* levels in 360x640 px: platforms [x,y,w,h], dog = centre-bottom, hives = where bees come from */
@@ -156,6 +156,8 @@ function steer(dt){
     if(flee){dx=(p.x-6)*0.2;dy=-1}
     const w=Math.sin(T*7+e.id)*0.9,m=e.b.getMass(),F=flee?12:16;
     e.b.applyForceToCenter(V((dx-dy*w)*F*m,(dy+dx*w)*F*m),true);
+    // бджоли штовхають захист до песика: лінія, що просто лежить, з'їде — спирай її на землю й стіни
+    if(!flee&&lineBody)for(let ce=e.b.getContactList();ce;ce=ce.next)if(ce.other===lineBody&&ce.contact.isTouching()){lineBody.applyForce(V(dx*PUSH,dy*PUSH),p,true);break}
     const v=e.b.getLinearVelocity(),sp=Math.hypot(v.x,v.y),max=flee?9:7.5;if(sp>max)e.b.setLinearVelocity(V(v.x/sp*max,v.y/sp*max));
   }
 }
