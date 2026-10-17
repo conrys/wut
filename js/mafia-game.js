@@ -40,6 +40,9 @@
     // механіку без реальних втрат за першу ніч/день. З другого раунду
     // (nightNumber >= 2) гра йде звичайно.
     introRoundEnabled: false,
+    // Режим ведучого: хто натискає «Почати», отримує роль «Ведучий» — без ролі в місті,
+    // бачить усіх, читає текст уголос і перемикає фази («Далі», пауза).
+    narratorMode: false,
   };
 
   const ROLE_META = {
@@ -47,6 +50,7 @@
     doctor: { name: "Лікар", icon: "💉", desc: "Вночі рятуй одного гравця (можна себе)." },
     sheriff: { name: "Шериф", icon: "🕵️", desc: "Вночі перевіряй одного гравця — мафія чи ні." },
     civilian: { name: "Мирний житель", icon: "🙂", desc: "Вдень шукай мафію разом з усіма." },
+    narrator: { name: "Ведучий", icon: "🎩", desc: "Ти без ролі: бачиш усіх, читаєш текст уголос і перемикаєш фази." },
   };
 
   // Тривалості фаз (мс). Єдине джерело правди для тіку.
@@ -97,6 +101,7 @@
     history: {},    // журнал міста: n<номер> — ніч, d<номер> — день
     sheriffLog: {}, // нотатки шерифа (показує лише клієнт шерифа)
     lastVotes: null, // знімок голосів останнього голосування (для екрана вибуття)
+    narrator: null,  // ім'я ведучого (режим ведучого), інакше null
     players: {},
   };
 
@@ -120,6 +125,7 @@
       history: {},
       sheriffLog: {},
       lastVotes: null,
+      narrator: null,
     };
   }
 
@@ -203,7 +209,7 @@
   }
 
   function checkWinCondition(players) {
-    const alive = Object.values(players || {}).filter((p) => p.alive);
+    const alive = Object.values(players || {}).filter((p) => p.alive && p.role !== "narrator");
     const mafia = alive.filter((p) => p.role === "mafia").length;
     const others = alive.length - mafia;
     if (mafia === 0) return "civilians";
@@ -350,9 +356,16 @@
     advancePhase(room);
   }
 
+  // Ведучий перемикає фазу вручну, не чекаючи таймера.
+  function narratorNext() {
+    const room = engine.latestRoom;
+    if (!room || room.narrator !== myUsername || room.paused) return;
+    forceAdvance();
+  }
+
   function pauseGame() {
     const room = engine.latestRoom;
-    if (!room || room.hostUsername !== myUsername || room.paused) return;
+    if (!room || (room.hostUsername !== myUsername && room.narrator !== myUsername) || room.paused) return;
     engine.roomRef.update({ paused: true, pausedAt: engine.now() });
   }
 
@@ -360,7 +373,7 @@
   // фоні, поки гра на паузі.
   function resumeGame() {
     const room = engine.latestRoom;
-    if (!room || room.hostUsername !== myUsername || !room.paused) return;
+    if (!room || (room.hostUsername !== myUsername && room.narrator !== myUsername) || !room.paused) return;
     const pausedFor = engine.now() - (room.pausedAt || engine.now());
     const patch = { paused: false, pausedAt: null };
     if (room.phaseDeadline != null) patch.phaseDeadline = room.phaseDeadline + pausedFor;
@@ -610,6 +623,7 @@
     const players = state.players || {};
     const me = players[myUsername];
     if (!me) return null;
+    if (me.role === "narrator") return (state.phase === "day_discussion" || state.phase === "voting") ? { status: "day", key: "day" } : { status: "role_spectator", key: "always" };
     if (!me.alive) return { status: "role_spectator", key: "always" };
     if (state.phase === "mafia_move" && me.role === "mafia") return { status: "role_mafia", key: "mafia_move" };
     if (state.phase === "day_discussion" || state.phase === "voting") return { status: "day", key: "day" };
@@ -621,7 +635,8 @@
     const me = players[username];
     if (!me) return [];
     let key;
-    if (!me.alive) key = "always";
+    if (me.role === "narrator") key = (state.phase === "day_discussion" || state.phase === "voting") ? "day" : "always";
+    else if (!me.alive) key = "always";
     else if (state.phase === "mafia_move" && me.role === "mafia") key = "mafia_move";
     else if (state.phase === "day_discussion" || state.phase === "voting") key = "day";
     else return [];
@@ -662,7 +677,8 @@
     const conn = connectedEntries(players);
     // Ролі отримують лише ті, хто зараз у лобі (онлайн); хто давно вийшов —
     // прибираємо з кімнати, інакше він "висить" живим і ламає підрахунок перемоги.
-    const names = conn.map(([u]) => u);
+    const narrator = settings.narratorMode ? myUsername : null;
+    const names = conn.map(([u]) => u).filter((u) => u !== narrator);
     if (names.length < MIN_PLAYERS || names.length > MAX_PLAYERS) return;
 
     const mafiaCount = resolveMafiaCount(names.length, settings);
@@ -679,8 +695,9 @@
 
     const patch = { settings, nightNumber: 1, moves: {}, votes: {}, nightResult: null,
       lastEliminated: null, lastWords: null, lastWordsNext: null, winner: null,
-      history: {}, sheriffLog: {}, lastVotes: null, chat: {} };
-    Object.keys(players).forEach((u) => { if (!names.includes(u)) patch["players/" + u] = null; });
+      history: {}, sheriffLog: {}, lastVotes: null, chat: {}, narrator };
+    Object.keys(players).forEach((u) => { if (!names.includes(u) && u !== narrator) patch["players/" + u] = null; });
+    if (narrator) Object.assign(patch, { ["players/" + narrator + "/role"]: "narrator", ["players/" + narrator + "/isDon"]: false, ["players/" + narrator + "/alive"]: false });
     names.forEach((u) => {
       patch["players/" + u + "/role"] = roles[u];
       patch["players/" + u + "/isDon"] = u === donUsername;
@@ -695,7 +712,7 @@
     const players = room.players || {};
     const patch = { nightNumber: 0, moves: {}, votes: {}, nightResult: null,
       lastEliminated: null, lastWords: null, lastWordsNext: null, winner: null,
-      history: {}, sheriffLog: {}, lastVotes: null };
+      history: {}, sheriffLog: {}, lastVotes: null, narrator: null };
     Object.keys(players).forEach((u) => {
       patch["players/" + u + "/role"] = null;
       patch["players/" + u + "/isDon"] = false;
@@ -738,7 +755,7 @@
     setReady, setSettings, startGame, resetGame, setNoir, NOIR_COUNT,
     submitMafiaMove, submitDoctorMove, submitSheriffMove, submitVote,
     sendChatMessage, visibleChat, myChatChannel,
-    setDayReady, pauseGame, resumeGame,
+    setDayReady, pauseGame, resumeGame, narratorNext,
     Skip: forceAdvance, // плейтест-2: window.MafiaGame.Skip() у консолі браузера
     set onStateChange(fn) { gameOnStateChange = fn || (() => {}); },
   };

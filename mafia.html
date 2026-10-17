@@ -434,6 +434,9 @@
   /* --------- пауза --------- */
   #pauseToggleBtn { position: fixed; right: 16px; bottom: 16px; z-index: 999; background: rgba(20,20,26,.85); border-radius: 50%;
       width: 44px; height: 44px; font-size: 16px; font-weight: 700; cursor: pointer; color: var(--text); border: 1px solid var(--line-2); backdrop-filter: blur(6px); }
+  #narratorNextBtn { position: fixed; right: 70px; bottom: 16px; z-index: 999; height: 44px; padding: 0 18px; border-radius: 22px; cursor: pointer;
+      font: 800 15px var(--body, system-ui); color: #1a1408; background: var(--gold-2, #e8c46a); border: 0; box-shadow: 0 4px 14px rgba(0,0,0,.4); }
+  .role-tag.narrator { background: #3a3220; color: #f1dca0; }
   #pausedOverlay { position: fixed; inset: 0; z-index: 22; background: rgba(6,7,10,.86); display: none; align-items: center; justify-content: center;
       flex-direction: column; gap: 8px; text-align: center; padding: 20px; backdrop-filter: grayscale(1); -webkit-backdrop-filter: grayscale(1); }
   #pausedOverlay.visible { display: flex; }
@@ -597,6 +600,7 @@
         <option value="strict">Всі однакову ціль</option>
       </select></label>
       <label><span><i class="ic" data-ic="cap"></i> Перший раунд ознайомчий</span> <span class="toggle-switch"><input type="checkbox" id="introRoundToggle" /><span class="track"></span><span class="knob"></span></span></label>
+      <label><span><i class="ic" data-ic="hat"></i> Я ведучий (без ролі)</span> <span class="toggle-switch"><input type="checkbox" id="narratorToggle" /><span class="track"></span><span class="knob"></span></span></label>
       <button class="primary-btn blood-btn" id="startGameBtn">Почати гру</button>
       <div class="hint-text" id="startHint"></div>
     </div>
@@ -642,6 +646,7 @@
   <div id="cineOverlay" class="cine hidden"></div>
 
   <button id="pauseToggleBtn" class="hidden"></button>
+  <button id="narratorNextBtn" class="hidden" type="button">Далі ▸</button>
 
   <div id="pausedOverlay">
     <div class="big">Гру на паузі</div>
@@ -695,7 +700,8 @@
     eye: '<path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
     reel: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.3"/><circle cx="12" cy="7.2" r="1.9"/><circle cx="12" cy="16.8" r="1.9"/><circle cx="7.2" cy="12" r="1.9"/><circle cx="16.8" cy="12" r="1.9"/>',
   };
-  const ROLE_IC = { mafia: "knife", doctor: "syringe", sheriff: "star", civilian: "person" };
+  const ROLE_IC = { mafia: "knife", doctor: "syringe", sheriff: "star", civilian: "person", narrator: "hat" };
+  const isNarrator = (state, name) => !!(state && name && state.narrator === name && ((state.players || {})[name] || {}).role === "narrator");
   function ic(name, cls) {
     return `<svg class="ic ${cls || ""}" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ""}</svg>`;
   }
@@ -837,6 +843,10 @@
     if (me && me.role === "doctor" && p.role === "doctor" && name !== ctx.username) {
       out.cls.push("colleague"); out.badgeC = ic("syringe", "b-teal");
     }
+    if (me && me.role === "narrator" && name !== ctx.username && p.role) {
+      out.badgeC = p.role === "mafia" ? ic(p.isDon ? "crown" : "knife", p.isDon ? "b-gold" : "b-red") : p.role === "doctor" ? ic("syringe", "b-teal") : p.role === "sheriff" ? ic("star", "b-gold") : "";
+      if (p.role === "mafia") out.cls.push("mate");
+    }
     if (me && me.role === "sheriff") {
       const log = Object.values(state.sheriffLog || {}).find((e) => e && e.target === name);
       if (log) out.badgeC = `<span class="mark ${log.isMafia ? "bad" : "ok"}"></span>`;
@@ -858,7 +868,7 @@
     </div>`;
   }
   function orderedNames(state) {
-    return Object.entries(state.players || {}).sort((a, b) => (a[1].joinedAt || 0) - (b[1].joinedAt || 0)).map(([n]) => n);
+    return Object.entries(state.players || {}).filter(([, p]) => p.role !== "narrator").sort((a, b) => (a[1].joinedAt || 0) - (b[1].joinedAt || 0)).map(([n]) => n);
   }
 
   // ======================================================================
@@ -949,7 +959,7 @@
     if (!inGame) return;
     const n = state.nightNumber || 1;
     const night = NIGHT_PHASES.includes(state.phase);
-    const players = Object.values(state.players || {});
+    const players = Object.values(state.players || {}).filter((p) => p.role !== "narrator");
     const alive = players.filter((p) => p.alive !== false).length;
     const sig = [state.phase, n, alive, players.length, isIntroRound(state)].join("|");
     if (!shouldRender("hud", sig)) return;
@@ -1011,7 +1021,8 @@
     $("lobbyHint").textContent = myTok ? "Торкнись свого аватара, щоб змінити силует" : "";
 
     const settings = Object.assign({}, MG.DEFAULT_SETTINGS, state.settings);
-    const n = Math.max(total, MG.MIN_PLAYERS);
+    const narr = !!(state.settings && state.settings.narratorMode);
+    const n = Math.max(total - (narr ? 1 : 0), MG.MIN_PLAYERS);
     const m = MG.resolveMafiaCount(n, settings);
     const docs = MG.resolveDoctorCount(n, settings);
     const civ = n - m - docs - (settings.sheriffEnabled ? 1 : 0);
@@ -1033,14 +1044,16 @@
     $("sheriffToggle").checked = !!settings.sheriffEnabled;
     $("mafiaConsensusSelect").value = settings.mafiaConsensus;
     $("introRoundToggle").checked = !!settings.introRoundEnabled;
+    $("narratorToggle").checked = !!settings.narratorMode;
     if (!mafiaCountBuilt) {
       $("mafiaCountSelect").innerHTML = `<option value="">авто</option>` + Array.from({ length: MG.MAX_MAFIA }, (_, i) => i + 1).map((k) => `<option value="${k}">${k}</option>`).join("");
       mafiaCountBuilt = true;
     }
     $("mafiaCountSelect").value = settings.mafiaCount == null ? "" : String(settings.mafiaCount);
-    const enough = conn.length >= MG.MIN_PLAYERS && total <= MG.MAX_PLAYERS;
+    const need = MG.MIN_PLAYERS + (narr ? 1 : 0);
+    const enough = conn.length >= need && total <= MG.MAX_PLAYERS;
     $("startGameBtn").disabled = !enough;
-    $("startHint").textContent = enough ? "" : `Потрібно ще ${Math.max(0, MG.MIN_PLAYERS - conn.length)} гравців(я) онлайн`;
+    $("startHint").textContent = enough ? (narr ? "Ти ведучий: ролі отримають інші." : "") : `Потрібно ще ${Math.max(0, need - conn.length)} гравців(я) онлайн`;
   }
 
   // ------------------------- рендер-гейт -------------------------
@@ -1061,6 +1074,7 @@
     const players = state.players || {};
     const me = players[ctx.username] || {};
     const role = me.role || "civilian";
+    if (role === "narrator") { renderNarratorReveal(state, ctx); return; }
     window.MafiaRoleReveal.play(role, { isDon: !!me.isDon, name: ctx.username, avatarHtml: avatarHtml(ctx.username, me) });
     const meta = ROLE_META[role] || ROLE_META.civilian;
     const info = $("roleInfo");
@@ -1080,6 +1094,46 @@
     clearTimeout(roleInfoTimer);
     roleInfoTimer = setTimeout(() => info.classList.add("shown"), window.MafiaRoleReveal.DURATION_MS + 100);
     if (role === "mafia") try { if (navigator.vibrate) navigator.vibrate(120); } catch (e) { /* ignore */ }
+  }
+
+  // ======================================================================
+  // Ведучий
+  // ======================================================================
+  function narratorRoster(state, ctx) {
+    const players = state.players || {};
+    const order = { mafia: 0, sheriff: 1, doctor: 2, civilian: 3 };
+    const names = orderedNames(state).sort((a, b) => (order[players[a].role] ?? 9) - (order[players[b].role] ?? 9));
+    return `<div class="reveal-grid">${names.map((u) => { const p = players[u]; const role = p.role || "civilian";
+      return `<div class="rcard ${role} ${p.alive === false ? "dead" : ""}" style="animation:none;opacity:1">${avatarHtml(u, p)}<div class="nm">${escapeHtml(u)}</div>${p.isDon ? `<div class="don-tag">${ic("crown")} дон</div>` : ""}
+        <span class="role-tag ${role}">${ic(ROLE_IC[role] || "person")} ${escapeHtml(role === "civilian" ? "Мирний" : (ROLE_META[role] || {}).name || "?")}</span></div>`; }).join("")}</div>`;
+  }
+  function renderNarratorReveal(state, ctx) {
+    $("roleRevealStage").innerHTML = "";
+    const info = $("roleInfo");
+    info.className = "role-info shown";
+    info.innerHTML = `<div class="rname">Ти ведучий</div><div class="rdesc">Ролі в місті — нижче. Не показуй екран гравцям. Читай уголос текст кожної фази; «Далі» — наступна фаза без очікування, пауза — зупинити все.</div>
+      <div class="eyebrow" style="margin-top:14px">Хто є хто</div>${narratorRoster(state, ctx)}`;
+  }
+  // Текст для ведучого — що прочитати вголос у кожній фазі.
+  const NARRATOR_SCRIPT = {
+    banner_night_start: "Ніч {n}. Місто засинає. Усі заплющують очі.",
+    mafia_wake: "Прокидається мафія. Мафія, відкрийте очі й подивіться одне на одного.",
+    mafia_move: "Мафія обирає, кого усунути цієї ночі.",
+    doctor_wake: "Мафія засинає. Прокидається лікар.",
+    doctor_move: "Лікарю, кого рятуєш цієї ночі?",
+    sheriff_wake: "Лікар засинає. Прокидається шериф.",
+    sheriff_move: "Шерифе, кого перевіряєш?",
+  };
+  function renderNarratorNight(state, ctx, content) {
+    const players = state.players || {};
+    const activeRole = NIGHT_ROLE_OF_PHASE[state.phase];
+    const moves = state.moves || {};
+    const actors = activeRole ? orderedNames(state).filter((u) => players[u].role === activeRole && players[u].alive) : [];
+    const picks = actors.map((u) => { const m = moves[u]; const t = m && m.choice === "target" ? m.target : m ? "пропуск" : null;
+      return `<div>${escapeHtml(u)}: <b>${t ? escapeHtml(t) : "думає…"}</b></div>`; }).join("");
+    const text = (NARRATOR_SCRIPT[state.phase] || "Ніч").replace("{n}", state.nightNumber || 1);
+    content.innerHTML = `<div class="sleep wake"><div class="eye-open">${ic("hat")}</div><div class="eyebrow">Прочитай уголос</div><div class="big">${escapeHtml(text)}</div></div>
+      ${actors.length && !STEP_OF_PHASE[state.phase] ? `<div class="notebook"><div class="nb-t">Вибір цієї ночі</div>${picks}</div>` : activeRole && !actors.length ? `<div class="status-line">${escapeHtml((ROLE_META[activeRole] || {}).name || "")} вже вибув — просто вичекай паузу, щоб ніхто не здогадався.</div>` : ""}`;
   }
 
   // ======================================================================
@@ -1137,6 +1191,7 @@
     if (showChat) renderChat(state, ctx, "nightChat", true); else if (shouldRender("nightChatClear", "1")) { $("nightChat").innerHTML = ""; renderMemo.chatSkeleton = undefined; }
     if (!shouldRender("night", sig)) return;
 
+    if (me && me.role === "narrator") { renderNarratorNight(state, ctx, content); return; }
     if (!me || !me.alive) {
       content.innerHTML = `<div class="sleep"><div class="ghost big-ic">${ic("ghost")}</div><div class="big">Ти привид цього міста</div>
         <div class="status-line">Спостерігай мовчки. Тут можна шепотітися з іншими вибулими.</div></div>`;
@@ -1390,7 +1445,7 @@
       const myVote = votes[ctx.username];
       const totalVotes = Object.values(counts).reduce((a, b) => a + b, 0);
       voteArea.innerHTML = `
-        <div class="eyebrow" style="margin-bottom:10px">${iCanVote ? "Кого місто виганяє?" : "Ти вибув — спостерігай за голосуванням"} · голосів ${totalVotes}/${alivePool.length}</div>
+        <div class="eyebrow" style="margin-bottom:10px">${iCanVote ? "Кого місто виганяє?" : me && me.role === "narrator" ? "Ти ведучий — стеж за голосуванням" : "Ти вибув — спостерігай за голосуванням"} · голосів ${totalVotes}/${alivePool.length}</div>
         <div class="target-grid mode-vote${pool.length > 9 ? " dense" : ""}">
           ${pool.map((u) => tokenHtml(u, state, ctx, {
             cls: myVote === u ? ["selected"] : [],
@@ -1466,7 +1521,7 @@
   function renderBannerState(state, ctx) {
     renderTown(state, ctx, true);
     if (!shouldRender("bannerState", JSON.stringify([state.history || null, state.nightNumber]))) return;
-    const players = Object.values(state.players || {});
+    const players = Object.values(state.players || {}).filter((p) => p.role !== "narrator");
     const alive = players.filter((p) => p.alive !== false).length;
     $("bannerStateContent").innerHTML = `
       <div class="eyebrow">Журнал міста</div>
@@ -1485,7 +1540,7 @@
     if (!shouldRender("gameOver", sig)) return;
     const mafiaWon = state.winner === "mafia";
     const me = players[ctx.username];
-    const iWon = me && me.role ? (mafiaWon ? me.role === "mafia" : me.role !== "mafia") : null;
+    const iWon = me && me.role && me.role !== "narrator" ? (mafiaWon ? me.role === "mafia" : me.role !== "mafia") : null;
     const order = { mafia: 0, sheriff: 1, doctor: 2, civilian: 3 };
     const names = orderedNames(state).sort((a, b) => (order[players[a].role] ?? 9) - (order[players[b].role] ?? 9));
     $("gameOverContent").innerHTML = `
@@ -1581,7 +1636,7 @@
     fx.set(state.phase === "game_over" ? (state.winner === "mafia" ? "embers" : "confetti") : night ? "rain" : state.phase === "role_reveal" ? "none" : "dust");
 
     // смерть «мене» — червоний імпульс і вібрація (раз на перехід alive → dead)
-    const meAlive = iAmIn ? players[ctx.username].alive !== false : null;
+    const meAlive = iAmIn && players[ctx.username].role !== "narrator" ? players[ctx.username].alive !== false : null;
     if (lastMeAlive === true && meAlive === false && state.phase !== "lobby") deathFx();
     lastMeAlive = meAlive;
 
@@ -1597,9 +1652,11 @@
     }
     $("pausedOverlay").classList.toggle("visible", !!state.paused);
     const pauseBtn = $("pauseToggleBtn");
-    const canPause = ctx.isOwner && state.phase !== "lobby" && state.phase !== "game_over";
+    const iNarrate = isNarrator(state, ctx.username);
+    const canPause = (ctx.isOwner || iNarrate) && state.phase !== "lobby" && state.phase !== "game_over";
     pauseBtn.classList.toggle("hidden", !canPause);
     if (canPause) pauseBtn.textContent = state.paused ? "▶" : "❚❚";
+    $("narratorNextBtn").classList.toggle("hidden", !(iNarrate && canPause && !state.paused));
 
     renderHud(state);
     if (["lobby", "role_reveal", "game_over"].includes(state.phase)) $("townStrip").classList.add("hidden");
@@ -1631,6 +1688,8 @@
   $("mafiaCountSelect").addEventListener("change", (e) => MG.setSettings({ mafiaCount: e.target.value === "" ? null : Number(e.target.value) }));
   $("mafiaConsensusSelect").addEventListener("change", (e) => MG.setSettings({ mafiaConsensus: e.target.value }));
   $("introRoundToggle").addEventListener("change", (e) => MG.setSettings({ introRoundEnabled: e.target.checked }));
+  $("narratorToggle").addEventListener("change", (e) => MG.setSettings({ narratorMode: e.target.checked }));
+  $("narratorNextBtn").addEventListener("click", () => MG.narratorNext());
   $("startGameBtn").addEventListener("click", () => MG.startGame());
   $("toggleReadyBtn").addEventListener("click", () => { const me = MG.me; MG.setReady(!(me && me.ready)); });
   $("resetGameBtn").addEventListener("click", () => { if (confirm("Почати нову гру для всіх?")) MG.resetGame(); });
