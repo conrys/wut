@@ -873,12 +873,15 @@
     document.querySelectorAll('#games-grid .sec').forEach((sec) => {
       let n = 0, el = sec.nextElementSibling;
       while (el && !el.classList.contains('sec')) { if (el.classList.contains('tile') && !el.classList.contains('hidden')) n++; el = el.nextElementSibling; }
-      sec.classList.toggle('hidden', !!q || n === 0);
+      const sectionsOn = window.AppSettings && AppSettings.get('homeSections');
+      sec.classList.toggle('hidden', !sectionsOn || !!q || n === 0);
       const c = sec.querySelector('small'); if (c) c.textContent = n;
     });
     document.getElementById('searchEmpty').classList.toggle('hidden', shown > 0);
   };
   searchInput.addEventListener('input', () => applyFilter(currentFilter));
+  // Розділи вмикаються в Налаштуваннях → Головна
+  document.addEventListener('appsettingschange', (e) => { if (e.detail.key === 'homeSections') applyFilter(currentFilter); });
 
   filterButtons.forEach(btn => {
     btn.addEventListener('click', () => {

@@ -34,7 +34,7 @@ button { font-family: var(--ql-font); }
   background: rgba(255,255,255,0.08); color: #fff; font-family: var(--ql-font); font-weight: 800; box-shadow: none; margin: 0; }
 #gameHeader .auth-pill, #gameHeader .notes-header-btn, #gameHeader .reactions-toggle, #gameHeader .icon-btn {
   width: 38px; min-width: 38px; max-width: 38px; max-height: 38px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
-#gameHeader .app-back-btn { padding: 0 14px; font-size: 14px; }
+#gameHeader .app-back-btn { width: 38px; padding: 0; }
 #gameHeader .auth-pill { background: var(--teal); color: var(--ink); border-color: var(--ink); }
 #gameHeader .reactions-wrap.in-header { position: relative; right: auto; bottom: auto; }
 #gameHeader .reactions-row { z-index: 5; }
@@ -42,8 +42,6 @@ body:not(.playing) .hdr-play { display: none !important; }
 #gameHeader .slot-right > .hdr-tools { order: 1; } #gameHeader .slot-right > #top-bar { order: 2; } #gameHeader .slot-right > .reactions-wrap { order: 3; }
 body.playing .hdr-play { display: flex; }
 body.playing #gameHeader #top-bar { display: none; }
-body.playing #gameHeader .app-back-btn { width: 38px; padding: 0; font-size: 0; }
-body.playing #gameHeader .app-back-btn::before { content: "◀"; font-size: 14px; }
 .hdr-round { display: flex; flex-direction: column; align-items: center; line-height: 1.1; min-width: 0; }
 .hdr-round .ql-chip { white-space: nowrap; font-size: 12px; padding: 4px 10px; }
 #hud-phase { font-weight: 700; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; margin-top: 2px; }

@@ -66,6 +66,29 @@
 .game-header .slot-center { justify-content: center; }
 .game-header .slot-right { justify-content: flex-end; }
 
+/* ----------------- Вигляд шапки (Налаштування → Шапка в іграх) -----------------
+   html.hdr-top   — відступ S: смуга впритул до верху, безпечна зона входить у неї.
+   html.hdr-float — «лише кнопки»: без смуги й фону, кнопки мають свою підкладку.
+   Місце під шапкою (spacer) резервується в обох режимах — гра під кнопки не залазить. */
+html.hdr-top .game-header:not(.game-header--fixed) {
+  top: 0;
+  padding-top: calc(6px + env(safe-area-inset-top));
+}
+html.hdr-top .game-header-spacer:not(.game-header-spacer--fixed) {
+  margin-top: calc(0px - var(--game-header-page-padding-top, 0px));
+}
+html.hdr-float #gameHeader.game-header:not(.game-header--fixed) {
+  background: transparent;
+  border: 0;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  pointer-events: none;
+}
+html.hdr-float .game-header:not(.game-header--fixed) [data-header-slot] > * {
+  pointer-events: auto;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+}
+
 /* ---------------------------- Модифікатори ---------------------------- */
 
 /* quiplash.html: фіксований хедер поверх контенту, свій темний фон замість
@@ -90,22 +113,21 @@
 }
 
 .app-back-btn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 50%;
   background: rgba(0, 0, 0, 0.5);
   border: 1px solid rgba(255,255,255,0.15);
   color: #f4f5f1;
-  border-radius: 20px;
-  padding: 6px 14px;
-  font-family: 'Inter', sans-serif;
-  font-size: 12px;
-  font-weight: 600;
   cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: inline-grid;
+  place-items: center;
   touch-action: manipulation;
   -webkit-user-select: none;
   user-select: none;
 }
+.app-back-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 .app-back-btn:active { opacity: 0.6; }
 /* ---------- Великі компанії: лобі від 9 гравців — у дві колонки ----------
    Інакше при 20 людях кнопка «Почати» опиняється на ~2000 px нижче. */

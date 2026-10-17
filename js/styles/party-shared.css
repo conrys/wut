@@ -27,7 +27,7 @@ button:disabled { opacity: .4; cursor: not-allowed; }
 #gameHeader .app-back-btn, #gameHeader .auth-pill, #gameHeader .notes-header-btn, #gameHeader .reactions-toggle, #gameHeader .help-btn {
   height: 36px; min-height: 36px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--ink);
   font-family: var(--font-b); font-weight: 700; box-shadow: none; margin: 0; }
-#gameHeader .app-back-btn { padding: 0 14px; font-size: 14px; }
+#gameHeader .app-back-btn { width: 36px; padding: 0; }
 
 /* ---------- каркас ---------- */
 /* шапка вставляє над грою розпірку; гра займає лише решту екрана — без зайвого скролу */

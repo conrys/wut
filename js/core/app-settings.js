@@ -21,9 +21,10 @@
   const STORAGE_KEY = "app_settings";
   const LEGACY_CTRL_KEY = "snake_ctrl_size"; // для м'якої міграції старого значення
 
-  const DEFAULTS = { headerMargin: "M", controlSize: "M", soundOn: true, vibrationOn: true, graphics: "auto" };
+  const DEFAULTS = { headerMargin: "M", headerStyle: "bar", homeSections: false, controlSize: "M", soundOn: true, vibrationOn: true, graphics: "auto" };
 
-  const HEADER_MARGINS = { S: "8px", M: "24px", L: "48px", XL: "72px", XXXXL: "100px" };
+  // S — шапка впритул до верху екрана (лише безпечна зона телефона над нею)
+  const HEADER_MARGINS = { S: "0px", M: "24px", L: "48px", XL: "72px", XXXXL: "100px" };
 
   const CONTROL_SIZES = {
     S: { size: "48px", font: "18px", gap: "5px" },
@@ -93,6 +94,9 @@
     const root = document.documentElement.style;
     injectLiteCss();
     document.documentElement.classList.toggle("lite", isLite());
+    // вигляд шапки ігор: смуга з фоном або лише кнопки (js/styles/game-header.css)
+    document.documentElement.classList.toggle("hdr-float", current.headerStyle === "float");
+    document.documentElement.classList.toggle("hdr-top", current.headerMargin === "S");
 
     root.setProperty(
       "--app-header-margin-top",
@@ -302,100 +306,82 @@
   function mountSettingsUI() {
     if (document.getElementById("appSettingsPanel")) return;
 
-    // Плаваюча кнопка ⚙ лишається лише на index.html — на сторінках самих
-    // ігор налаштування тепер відкриваються через меню профілю (login.js),
-    // щоб не дублювати точку входу. Панель монтуємо всюди — вона потрібна
-    // для AppSettings.openPanel(), яким користується те саме меню профілю.
+    // Плаваюча кнопка налаштувань лишається лише на index.html — на сторінках
+    // ігор панель відкривається з меню профілю (login.js). Панель монтуємо
+    // всюди: її відкриває AppSettings.openPanel().
     const currentFile = window.location.pathname.split("/").pop();
     const isIndexPage = currentFile === "index.html" || currentFile === "";
 
     const style = document.createElement("style");
     style.textContent = `
       #appSettingsBtn {
-        position: fixed;
-        left: 16px;
-        bottom: 16px;
-        z-index: 999;
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        border: 1px solid rgba(255,255,255,0.12);
-        background: rgba(30, 30, 36, 0.85);
-        color: #f4f5f1;
-        font-size: 18px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        backdrop-filter: blur(6px);
-        -webkit-backdrop-filter: blur(6px);
+        position: fixed; left: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 999;
+        width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; cursor: pointer;
+        border: 1px solid rgba(255,255,255,0.12); background: rgba(30,30,36,0.88); color: #f4f5f1;
+        box-shadow: 0 6px 18px rgba(0,0,0,.35);
       }
+      #appSettingsBtn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
       #appSettingsPanel {
-        position: fixed;
-        inset: 0;
-        z-index: 1000;
-        display: none;
-        align-items: center;
-        justify-content: center;
-        background: rgba(0, 0, 0, 0.82);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        padding: 16px;
-        box-sizing: border-box;
+        position: fixed; inset: 0; z-index: 10000; display: none; align-items: flex-end; justify-content: center;
+        background: rgba(6,8,14,0.66);
       }
       #appSettingsPanel.open { display: flex; }
+      @keyframes asSheetUp { from { transform: translateY(40px); opacity: 0; } }
       #appSettingsPanel .box {
-        background: #1e2230;
-        border: 1px solid rgba(255,255,255,0.12);
-        border-radius: 20px;
-        padding: 16px;
-        width: 260px;
-        max-width: calc(100vw - 24px);
-        color: #f4f5f1;
-        font-family: inherit;
+        box-sizing: border-box; width: 100%; max-width: 480px; max-height: 86vh; overflow-y: auto;
+        padding: 10px 16px calc(16px + env(safe-area-inset-bottom));
+        background: linear-gradient(180deg, #242836, #171a22); border: 1px solid rgba(255,255,255,0.08); border-bottom: 0;
+        border-radius: 22px 22px 0 0; box-shadow: 0 -16px 40px rgba(0,0,0,.45);
+        color: #f4f5f1; font-family: 'Inter', system-ui, sans-serif; animation: asSheetUp .3s cubic-bezier(.2,.9,.3,1) both;
       }
-      #appSettingsPanel h4 {
-        margin: 0 0 8px;
-        font-size: 12px;
-        color: #9aa0ad;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
+      #appSettingsPanel .box::before { content: ""; display: block; width: 44px; height: 5px; margin: 0 auto 12px; border-radius: 3px; background: rgba(255,255,255,.18); }
+      #appSettingsPanel h3 { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; font: 700 20px 'Space Grotesk', 'Inter', sans-serif; }
+      #appSettingsPanel h3 svg { width: 24px; height: 24px; fill: none; stroke: #ffc93c; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+      #appSettingsPanel .grp { margin-bottom: 14px; }
+      #appSettingsPanel .grp-t { margin: 0 4px 6px; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #8b909c; }
+      #appSettingsPanel .card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; overflow: hidden; }
+      #appSettingsPanel .item { padding: 12px 14px; }
+      #appSettingsPanel .item + .item { border-top: 1px solid rgba(255,255,255,0.06); }
+      #appSettingsPanel .item-h { display: flex; align-items: center; gap: 12px; }
+      #appSettingsPanel .item-l { flex: 1; min-width: 0; }
+      #appSettingsPanel .item-l b { display: block; font-size: 15px; font-weight: 600; }
+      #appSettingsPanel .item-l small { display: block; margin-top: 2px; font-size: 12px; line-height: 1.35; color: #8b909c; }
+
+      /* перемикач */
+      #appSettingsPanel .sw {
+        flex: none; position: relative; width: 50px; height: 30px; border-radius: 15px; border: 0; padding: 0; cursor: pointer;
+        background: rgba(255,255,255,0.14); transition: background .2s ease;
       }
-      #appSettingsPanel .row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+      #appSettingsPanel .sw::after {
+        content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%;
+        background: #f4f5f1; box-shadow: 0 2px 6px rgba(0,0,0,.35); transition: transform .2s cubic-bezier(.2,.9,.3,1.2);
+      }
+      #appSettingsPanel .sw[aria-checked="true"] { background: #ffc93c; }
+      #appSettingsPanel .sw[aria-checked="true"]::after { transform: translateX(20px); background: #2a1c00; }
+
+      /* сегменти */
+      #appSettingsPanel .seg { display: flex; gap: 4px; margin-top: 10px; padding: 4px; border-radius: 12px; background: rgba(0,0,0,0.28); }
       #appSettingsPanel .opt-btn {
-        flex: 1;
-        min-width: 40px;
-        padding: 8px 6px;
-        font-size: 13px;
-        border-radius: 8px;
-        border: 1px solid rgba(255,255,255,0.12);
-        background: rgba(255, 255, 255, 0.06);
-        color: #f4f5f1;
-        cursor: pointer;
+        flex: 1; min-width: 0; padding: 9px 4px; border: 0; border-radius: 9px; cursor: pointer;
+        background: transparent; color: #c9cdd6; font: 600 13px 'Inter', system-ui, sans-serif; white-space: nowrap;
+        transition: background .15s ease, color .15s ease;
       }
-      #appSettingsPanel .opt-btn.active {
-        border-color: #ffc93c;
-        background: rgba(56, 207, 160, 0.15);
-        color: #ffc93c;
+      #appSettingsPanel .opt-btn.active { background: #ffc93c; color: #2a1c00; font-weight: 800; box-shadow: 0 2px 8px rgba(255,201,60,.3); }
+
+      /* живий приклад розміру кнопок керування */
+      #appSettingsPanel .ctrl-prev { display: flex; justify-content: center; gap: var(--ctrl-gap, 6px); margin-top: 12px; }
+      #appSettingsPanel .ctrl-prev span {
+        width: var(--ctrl-size, 58px); height: var(--ctrl-size, 58px); border-radius: 14px; display: grid; place-items: center;
+        background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); transition: width .2s ease, height .2s ease;
       }
+      #appSettingsPanel .ctrl-prev svg { width: 40%; height: 40%; fill: none; stroke: #f4f5f1; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+
       #appSettingsPanel .close-btn {
-        width: 100%;
-        margin-top: 4px;
-        padding: 10px;
-        border-radius: 8px;
-        border: none;
-        background: #ffc93c;
-        color: #14161a;
-        font-weight: 700;
-        cursor: pointer;
+        display: block; width: 100%; margin-top: 4px; padding: 13px; border: 0; border-radius: 14px; cursor: pointer;
+        background: #ffc93c; color: #2a1c00; font: 800 15px 'Inter', system-ui, sans-serif;
       }
-    
-      /* власна палітра — однаково в усіх іграх, як у профілю */
-      #appSettingsPanel .box { background: linear-gradient(180deg, #242836, #171a22); box-shadow: 0 24px 60px rgba(0,0,0,.55); }
-      #appSettingsPanel h4 small { font-weight: 600; color: #9aa0ad; text-transform: none; letter-spacing: 0; }
-      #appSettingsPanel .opt-btn.active { background: rgba(255,201,60,0.15); }
-      #appSettingsPanel .close-btn { color: #2a1c00; font-weight: 800; }
 `;
     document.head.appendChild(style);
 
@@ -403,40 +389,54 @@
     btn.id = "appSettingsBtn";
     btn.type = "button";
     btn.title = "Налаштування";
-    btn.textContent = "⚙";
+    btn.setAttribute("aria-label", "Налаштування");
+    btn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>';
+
+    const sw = (key, title, hint) => `
+      <div class="item"><div class="item-h">
+        <div class="item-l"><b>${title}</b>${hint ? `<small>${hint}</small>` : ""}</div>
+        <button type="button" class="sw" role="switch" data-setting="${key}" aria-label="${title}"></button>
+      </div></div>`;
+    const seg = (key, title, hint, opts, extra) => `
+      <div class="item">
+        <div class="item-l"><b>${title}</b>${hint ? `<small>${hint}</small>` : ""}</div>
+        <div class="seg" data-setting="${key}">
+          ${opts.map(([v, label]) => `<button type="button" class="opt-btn" data-value="${v}">${label}</button>`).join("")}
+        </div>${extra || ""}
+      </div>`;
+    const keys = (obj) => Object.keys(obj).map((k) => [k, k]);
+    const arrow = '<svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg>';
 
     const panel = document.createElement("div");
     panel.id = "appSettingsPanel";
     panel.innerHTML = `
-      <div class="box">
-        <h4>Відступ хедера</h4>
-        <div class="row" data-setting="headerMargin">
-          ${Object.keys(HEADER_MARGINS)
-            .map((k) => `<button type="button" class="opt-btn" data-value="${k}">${k}</button>`)
-            .join("")}
-        </div>
-        <h4>Розмір керування</h4>
-        <div class="row" data-setting="controlSize">
-          ${Object.keys(CONTROL_SIZES)
-            .map((k) => `<button type="button" class="opt-btn" data-value="${k}">${k}</button>`)
-            .join("")}
-        </div>
-        <h4>Звук</h4>
-        <div class="row" data-setting="soundOn">
-          <button type="button" class="opt-btn" data-value="on">Увімк.</button>
-          <button type="button" class="opt-btn" data-value="off">Вимк.</button>
-        </div>
-        <h4>Графіка ${WEAK_DEVICE ? "<small>(слабкий телефон — «Авто» = легка)</small>" : ""}</h4>
-        <div class="row" data-setting="graphics">
-          <button type="button" class="opt-btn" data-value="auto">Авто</button>
-          <button type="button" class="opt-btn" data-value="full">Повна</button>
-          <button type="button" class="opt-btn" data-value="lite">Легка</button>
-        </div>
-        <h4>Вібрація</h4>
-        <div class="row" data-setting="vibrationOn">
-          <button type="button" class="opt-btn" data-value="on">Увімк.</button>
-          <button type="button" class="opt-btn" data-value="off">Вимк.</button>
-        </div>
+      <div class="box" role="dialog" aria-label="Налаштування">
+        <h3><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>Налаштування</h3>
+
+        <div class="grp"><div class="grp-t">Звук і відгук</div><div class="card">
+          ${sw("soundOn", "Звук", "")}
+          ${sw("vibrationOn", "Вібрація", "")}
+        </div></div>
+
+        <div class="grp"><div class="grp-t">Головна</div><div class="card">
+          ${sw("homeSections", "Розділи", "Групувати ігри: аркади, карти, вечірки…")}
+        </div></div>
+
+        <div class="grp"><div class="grp-t">Шапка в іграх</div><div class="card">
+          ${seg("headerStyle", "Вигляд", "Панель — смуга з фоном. Кнопки — лише кнопки, без смуги.", [["bar", "Панель"], ["float", "Лише кнопки"]])}
+          ${seg("headerMargin", "Відступ зверху", "S — впритул до верху екрана", keys(HEADER_MARGINS))}
+        </div></div>
+
+        <div class="grp"><div class="grp-t">Керування</div><div class="card">
+          ${seg("controlSize", "Розмір кнопок", "Стрілки в Змійці, Тетрісі та інших аркадах", keys(CONTROL_SIZES),
+            `<div class="ctrl-prev" aria-hidden="true"><span>${arrow}</span></div>`)}
+        </div></div>
+
+        <div class="grp"><div class="grp-t">Графіка</div><div class="card">
+          ${seg("graphics", "Якість", WEAK_DEVICE ? "Телефон слабкий, тож «Авто» вмикає легку графіку" : "Легка — без розмиття й важких анімацій, для старих телефонів",
+            [["auto", "Авто"], ["full", "Повна"], ["lite", "Легка"]])}
+        </div></div>
+
         <button type="button" class="close-btn" id="appSettingsCloseBtn">Готово</button>
       </div>
     `;
@@ -444,42 +444,36 @@
     document.body.appendChild(panel);
     if (isIndexPage) document.body.appendChild(btn);
 
-    // Дозволяє іншим модулям (напр. меню профілю в login.js) відкрити цю ж
-    // панель, а не будувати свою копію налаштувань.
-    window.AppSettings.openPanel = () => {
-      refreshActive();
-      panel.classList.add("open");
-    };
-
-    const BOOL_KEYS = ["soundOn", "vibrationOn"];
-
     function refreshActive() {
-      panel.querySelectorAll(".row").forEach((row) => {
-        const key = row.dataset.setting;
-        const value = BOOL_KEYS.includes(key) ? (current[key] !== false ? "on" : "off") : current[key];
-        row.querySelectorAll(".opt-btn").forEach((b) => {
-          b.classList.toggle("active", b.dataset.value === value);
-        });
+      panel.querySelectorAll(".sw").forEach((s) => {
+        s.setAttribute("aria-checked", String(current[s.dataset.setting] !== false && current[s.dataset.setting] !== undefined));
+      });
+      panel.querySelectorAll(".seg").forEach((row) => {
+        const value = current[row.dataset.setting];
+        row.querySelectorAll(".opt-btn").forEach((b) => b.classList.toggle("active", b.dataset.value === value));
       });
     }
 
-    if (isIndexPage) {
-      btn.addEventListener("click", () => {
+    const open = () => { refreshActive(); panel.classList.add("open"); };
+    const close = () => panel.classList.remove("open");
+    // Дозволяє іншим модулям (меню профілю в login.js) відкрити цю ж панель.
+    window.AppSettings.openPanel = open;
+
+    if (isIndexPage) btn.addEventListener("click", open);
+    panel.addEventListener("click", (e) => { if (e.target === panel) close(); });
+    document.getElementById("appSettingsCloseBtn").addEventListener("click", close);
+    panel.querySelectorAll(".sw").forEach((s) => {
+      s.addEventListener("click", () => {
+        const key = s.dataset.setting;
+        const value = s.getAttribute("aria-checked") !== "true";
+        set(key, value);
+        if (key === "vibrationOn" && value) testVibrate();
         refreshActive();
-        panel.classList.add("open");
       });
-    }
-    panel.addEventListener("click", (e) => {
-      if (e.target === panel) panel.classList.remove("open");
-    });
-    document.getElementById("appSettingsCloseBtn").addEventListener("click", () => {
-      panel.classList.remove("open");
     });
     panel.querySelectorAll(".opt-btn").forEach((b) => {
       b.addEventListener("click", () => {
-        const key = b.closest(".row").dataset.setting;
-        const value = BOOL_KEYS.includes(key) ? b.dataset.value === "on" : b.dataset.value;
-        set(key, value);
+        set(b.closest(".seg").dataset.setting, b.dataset.value);
         refreshActive();
       });
     });

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
-  <g fill="none" stroke="#fff" stroke-width="30" stroke-linecap="round" stroke-linejoin="round">
-    <ellipse cx="512" cy="700" rx="330" ry="140"/><path d="M300 520V330l90-80 90 80v190"/><path d="M600 470V230h150v240"/><path d="M650 290h50M650 370h50"/>
+  <g fill="none" stroke="#fff" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
+    <ellipse cx="512" cy="740" rx="360" ry="130"/><g transform="rotate(-14 470 420)"><path d="M350 600V380l120-100 120 100v220"/><path d="M430 600v-90h80v90"/></g><path d="M720 260l40-40M780 330l56-20M250 300l-40-40"/>
   </g>
-  <ellipse cx="512" cy="700" rx="250" ry="90" fill="#9b7bff"/>
+  <ellipse cx="512" cy="748" rx="300" ry="96" fill="#9b7bff"/>
 </svg>

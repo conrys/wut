@@ -65,7 +65,9 @@
       backBtn.type = "button";
       backBtn.className = "app-back-btn";
       backBtn.id = "backBtn";
-      backBtn.textContent = "◀ Назад";
+      backBtn.title = "До списку ігор";
+      backBtn.setAttribute("aria-label", "Назад");
+      backBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>';
       backBtn.addEventListener("click", () => {
         const depth = window.location.pathname.split("/").filter(Boolean).length - 1;
         window.location.href = new URL(`${"../".repeat(depth)}index.html`, window.location.href).href;

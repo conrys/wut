@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
   <!-- Обкладинка Рулетки в стилі інших: прозоре тло, білі контури, одна кольорова деталь (кулька) -->
-  <g fill="none" stroke="#fff" stroke-width="30" stroke-linecap="round" stroke-linejoin="round">
+  <g fill="none" stroke="#fff" stroke-width="18" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="512" cy="512" r="330"/>
     <circle cx="512" cy="512" r="215"/>
     <circle cx="512" cy="512" r="58"/>
@@ -11,5 +11,5 @@
     <use href="#t" transform="rotate(300 512 512)"/><use href="#t" transform="rotate(330 512 512)"/>
     <path d="M512 454V350M512 570v104M454 512H350M570 512h104"/>
   </g>
-  <circle cx="512" cy="240" r="34" fill="#f0607a" transform="rotate(15 512 512)"/>
+  <circle cx="512" cy="240" r="30" fill="#f0607a" transform="rotate(15 512 512)"/>
 </svg>

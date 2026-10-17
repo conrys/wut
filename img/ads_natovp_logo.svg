@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
-  <g fill="none" stroke="#fff" stroke-width="30" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M250 470V170h524v300"/><path d="M512 170v300"/><circle cx="330" cy="640" r="34"/><path d="M290 750q40-70 80 0"/><circle cx="450" cy="640" r="34"/><path d="M410 750q40-70 80 0"/><circle cx="570" cy="640" r="34"/><path d="M530 750q40-70 80 0"/><circle cx="690" cy="640" r="34"/><path d="M650 750q40-70 80 0"/><circle cx="390" cy="800" r="34"/><path d="M350 910q40-70 80 0"/><circle cx="510" cy="800" r="34"/><path d="M470 910q40-70 80 0"/><circle cx="630" cy="800" r="34"/><path d="M590 910q40-70 80 0"/>
+  <g fill="none" stroke="#fff" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="250" cy="560" r="46"/><path d="M188 760v-70a62 62 0 0 1 124 0v70"/><circle cx="400" cy="520" r="53"/><path d="M329 750v-70a62 62 0 0 1 143 0v70"/><circle cx="560" cy="560" r="46"/><path d="M498 760v-70a62 62 0 0 1 124 0v70"/>
   </g>
-  <rect x="265" y="185" width="232" height="140" rx="10" fill="#4c8dff"/>
+  <text x="790" y="440" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="300" fill="#ffc93c" text-anchor="middle">×3</text>
 </svg>
