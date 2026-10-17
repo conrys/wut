@@ -136,7 +136,7 @@ input:focus-visible,select:focus-visible{outline:3px solid var(--hide);outline-o
     <p class="hint">Веди пальцем по екрану. Ти стаєш випадковим предметом: знайди, де він виглядає природно (підказка «Схожих поруч»). Рух видає, кожні 20 с усі предмети пищать, а «Пискнути» дає очки, але ризиковано.</p>
     <button class="btn" id="ovBtn" type="button">Грати</button>
     <button class="btn2" id="mpOpen" type="button" disabled>Грати з друзями</button>
-    <p class="note" id="mpNote">Гра з друзями зʼявиться згодом. Поки що — з ботами.</p>
+    <p class="note" id="mpNote">Гра з друзями потребує інтернету. Без нього — з ботами.</p>
     <button class="btn2" id="ovLeave" type="button" hidden>Вийти з кімнати</button>
   </div>
 </div>
@@ -168,6 +168,12 @@ input:focus-visible,select:focus-visible{outline:3px solid var(--hide);outline-o
   </div>
 </div>
 
+<!-- мережа: Realtime Database 41 Games; без інтернету гра з ботами -->
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="../../js/core/firebase-config.js"></script>
+<script src="../net-firebase.js" data-root="ph"></script>
 <script src="../vendor/three.min.js"></script>
 <script src="world.js" charset="utf-8"></script>
 <script src="game.js" charset="utf-8"></script>

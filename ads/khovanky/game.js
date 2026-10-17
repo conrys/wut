@@ -572,7 +572,7 @@ const claudeTransport={async ready(){const r=window.claude&&window.claude.use?aw
   async join(code){const nr=await this.r.join('hns-'+code);return{presence:p=>nr.presence(p).catch(()=>{}),
     peers:()=>nr.peers().map(p=>({id:p.peer,isMe:p.sameTab,presence:p.presence||{},updatedAt:p.updatedAt})),leave:()=>nr.leave().catch(()=>{})}}};
 (async()=>{const t=window.HNS_TRANSPORT||claudeTransport;try{MP.avail=await t.ready()?t:null}catch(e){MP.avail=null}mpMenuState()})();
-function mpMenuState(){const b=$('mpOpen');b.disabled=!MP.avail;$('mpNote').hidden=!!MP.avail;if(!MP.avail&&!window.claude)$('mpNote').textContent='Гра з друзями зʼявиться згодом. Поки що — з ботами.'}
+function mpMenuState(){const b=$('mpOpen');b.disabled=!MP.avail;$('mpNote').hidden=!!MP.avail;if(!MP.avail&&!window.claude)$('mpNote').textContent='Гра з друзями потребує інтернету. Без нього — з ботами.'}
 const rcode=()=>Array.from({length:4},()=>'abcdefghjkmnpqrstuvwxyz'[Math.floor(Math.random()*23)]).join('');
 function peersNow(){return MP.net?MP.net.peers():[]}
 function presOf(id){const p=peersNow().find(p=>p.id===id);return p?p.presence:null}
