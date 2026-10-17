@@ -157,6 +157,7 @@ body { background:
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
 <script src="js/core/firebase-config.js"></script>
+<script src="js/core/prompt-history.js"></script>
 <script src="js/core/app-settings.js"></script>
 <link rel="stylesheet" href="js/styles/reactions.css">
 <script src="js/core/login.js"></script>
@@ -206,7 +207,7 @@ body { background:
   let answeredKey = null, lastPhase = null, lastQKey = null, lastTick = null;
 
   function valueFor(state, ci, qi) {
-    const base = Q.QUIZ_TOPICS[ci].questions[qi].value;
+    const base = quizQuestionAt(state.board, ci, qi).value;
     return base * (state.round === 2 ? Q.ROUND2_VALUE_MULTIPLIER : 1) * (state.isCatchUpTurn ? Q.CATCHUP_VALUE_MULTIPLIER : 1);
   }
   function scoresHtml(state) {
@@ -265,7 +266,7 @@ body { background:
     }
     const cq = state.currentQuestion;
     if (!cq) return;
-    const q = Q.QUIZ_TOPICS[cq.categoryIndex].questions[cq.questionIndex];
+    const q = quizQuestionAt(state.board, cq.categoryIndex, cq.questionIndex);
     const qKey = `${state.round}-${cq.categoryIndex}-${cq.questionIndex}`;
     const ev = state.lastEvaluation;
     const chosen = phase === "questionActive" ? (state.pendingAnswer ? state.pendingAnswer.selectedIndex : answeredKey === qKey ? myPick : null)
@@ -308,7 +309,7 @@ body { background:
     const el = $("timer"), s = lastState;
     if (s && s.paused) return; // пауза: кільце завмирає
     if (!s || s.phase !== "questionActive" || !s.phaseDeadline || !s.currentQuestion) { el.className = "pp-timer off"; return; }
-    const q = Q.QUIZ_TOPICS[s.currentQuestion.categoryIndex].questions[s.currentQuestion.questionIndex];
+    const q = quizQuestionAt(s.board, s.currentQuestion.categoryIndex, s.currentQuestion.questionIndex);
     const total = (q.timeLimit || 30) * 1000, left = Math.max(0, s.phaseDeadline - Q.now()), sec = Math.ceil(left / 1000);
     const bar = el.querySelector(".bar");
     bar.style.strokeDasharray = RING; bar.style.strokeDashoffset = RING * (1 - left / total);

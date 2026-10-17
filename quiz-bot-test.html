@@ -141,8 +141,8 @@
     });
     if (!candidates.length) return;
     const [ci, qi] = candidates[Math.floor(Math.random() * candidates.length)];
-    const qDef = QUIZ_TOPICS[ci].questions[qi];
-    log(`${bot} обирає: ${QUIZ_TOPICS[ci].name} · ${qDef.value}`);
+    const qDef = quizQuestionAt(room.board, ci, qi);
+    log(`${bot} обирає: ${room.board[ci].name} · ${qDef.value}`);
     ref.update({
       phase: "questionActive",
       currentQuestion: { categoryIndex: ci, questionIndex: qi },
@@ -155,7 +155,7 @@
 
   function botAnswer(room, bot) {
     const { categoryIndex, questionIndex } = room.currentQuestion;
-    const qDef = QUIZ_TOPICS[categoryIndex].questions[questionIndex];
+    const qDef = quizQuestionAt(room.board, categoryIndex, questionIndex);
     const idx = Math.floor(Math.random() * qDef.options.length);
     const correct = qDef.correctIndices.includes(idx);
     log(`${bot} відповідає "${qDef.options[idx]}" — ${correct ? "✅ правильно" : "❌ неправильно"}`);
@@ -166,7 +166,7 @@
   // ---------------- фінал одного питання (тільки консоль, як "хост") ----------------
   function finalizeAnswer(room, selectedIndex) {
     const { categoryIndex, questionIndex } = room.currentQuestion;
-    const q = QUIZ_TOPICS[categoryIndex].questions[questionIndex];
+    const q = quizQuestionAt(room.board, categoryIndex, questionIndex);
     const correct = selectedIndex !== null && q.correctIndices.includes(selectedIndex);
     const pointsAwarded = correct ? q.value : -Math.round(q.value * 0.5);
     const activeName = room.currentPlayerUsername;

@@ -230,7 +230,7 @@
   }
 
   function questionValueFor(state, ci, qi) {
-    const base = window.QuizGame.QUIZ_TOPICS[ci].questions[qi].value;
+    const base = quizQuestionAt(state.board, ci, qi).value;
     const roundMult = state.round === 2 ? window.QuizGame.ROUND2_VALUE_MULTIPLIER : 1;
     const catchUpMult = state.isCatchUpTurn ? window.QuizGame.CATCHUP_VALUE_MULTIPLIER : 1;
     return base * roundMult * catchUpMult;
@@ -263,7 +263,7 @@
   let lastQuestionKey = null;
   function renderQuestion(state) {
     const { categoryIndex, questionIndex } = state.currentQuestion;
-    const q = window.QuizGame.QUIZ_TOPICS[categoryIndex].questions[questionIndex];
+    const q = quizQuestionAt(state.board, categoryIndex, questionIndex);
     document.getElementById("qMeta").textContent = `${state.board[categoryIndex].name} · ${questionValueFor(state, categoryIndex, questionIndex)}`;
     document.getElementById("qActivePlayer").textContent = state.currentPlayerUsername || "—";
     document.getElementById("qText").textContent = q.text;
@@ -295,7 +295,7 @@
     const ev = state.lastEvaluation;
     if (!ev) return;
     const { categoryIndex, questionIndex } = state.currentQuestion || {};
-    const q = categoryIndex !== undefined ? window.QuizGame.QUIZ_TOPICS[categoryIndex].questions[questionIndex] : null;
+    const q = categoryIndex !== undefined ? quizQuestionAt(state.board, categoryIndex, questionIndex) : null;
 
     const badge = document.getElementById("resultBadge");
     badge.textContent = ev.selectedIndex == null ? "ЧАС ВИЙШОВ" : ev.correct ? "ПРАВИЛЬНО!" : "НЕПРАВИЛЬНО";

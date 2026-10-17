@@ -47,8 +47,29 @@
     players: {},
   };
 
+  // Поле: 6 тем × 5 цін із великого банку. Спершу теми й питання, яких компанія ще не бачила
+  // (js/core/prompt-history.js), тож від гри до гри поле різне.
+  const BOARD_TOPICS = 6, BOARD_VALUES = [100, 200, 300, 400, 500];
+  const PH = window.PromptHistory;
+  if (PH) { PH.preload("quiz_topics"); PH.preload("quiz"); }
+  function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
   function buildFreshBoard() {
-    return QUIZ_TOPICS.map((t) => ({ name: t.name, questions: t.questions.map(() => ({ played: false })) }));
+    const all = QUIZ_TOPICS.map((t, ti) => ti)
+      .filter((ti) => BOARD_VALUES.every((v) => QUIZ_TOPICS[ti].questions.some((q) => q.value === v)));
+    const ordered = PH ? PH.order("quiz_topics", all, (ti) => QUIZ_TOPICS[ti].name) : all.sort(() => Math.random() - 0.5);
+    const chosen = ordered.slice(0, BOARD_TOPICS);
+    if (PH) PH.mark("quiz_topics", chosen.map((ti) => QUIZ_TOPICS[ti].name));
+    return chosen.map((ti) => {
+      const t = QUIZ_TOPICS[ti];
+      return {
+        ti, name: t.name,
+        questions: BOARD_VALUES.map((v) => {
+          const idx = t.questions.map((q, qi) => qi).filter((qi) => t.questions[qi].value === v);
+          const qi = PH ? PH.order("quiz", idx, (i) => t.questions[i].text)[0] : pickRandom(idx);
+          return { qi, played: false };
+        }),
+      };
+    });
   }
 
   const Engine = window.OnlineEngine.create(GAME_KEY, {
@@ -209,7 +230,8 @@
     if (room.currentPlayerUsername !== username) return;
     const cell = room.board[categoryIndex] && room.board[categoryIndex].questions[questionIndex];
     if (!cell || cell.played) return;
-    const q = QUIZ_TOPICS[categoryIndex].questions[questionIndex];
+    const q = quizQuestionAt(room.board, categoryIndex, questionIndex);
+    if (PH) PH.mark("quiz", [q.text]);
 
     ref.update({
       phase: "questionActive",
@@ -280,7 +302,7 @@
   // ------------------------- оцінювання / перехід ходу (тільки хост) -------------------------
   function finalizeAnswer(room, selectedIndex) {
     const { categoryIndex, questionIndex } = room.currentQuestion;
-    const q = QUIZ_TOPICS[categoryIndex].questions[questionIndex];
+    const q = quizQuestionAt(room.board, categoryIndex, questionIndex);
     const correct = selectedIndex !== null && q.correctIndices.includes(selectedIndex);
     const multiplier = (room.round === 2 ? ROUND2_VALUE_MULTIPLIER : 1) * (room.isCatchUpTurn ? CATCHUP_VALUE_MULTIPLIER : 1);
     const effectiveValue = q.value * multiplier;
