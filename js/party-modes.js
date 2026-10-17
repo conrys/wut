@@ -86,29 +86,30 @@
   };
 
   // ------------------------------------------------------------------
-  // Суд Лінча — звинувачений, адвокат і вердикт присяжних
+  // Суд Лінча — прокурор звинувачує, адвокат захищає, звинувачений мовчить, присяжні судять
   // ------------------------------------------------------------------
   const VERDICT = [{ id: "guilty", label: "Винен" }, { id: "forgive", label: "Простити" }];
   const court = {
-    id: "court", title: "Суд Лінча", icon: "⚖️", minPlayers: 3,
-    desc: "Двоє виправдовуються й захищають, решта виносить вирок. Винен — п'є звинувачений, простили — п'є весь суд.",
+    id: "court", title: "Суд Лінча", icon: "⚖️", minPlayers: 4,
+    desc: "Прокурор звинувачує, адвокат захищає, звинувачений мовчить, решта виносить вирок. Винен — п'є звинувачений, простили — п'є весь суд.",
     startSet(ctx) { return { items: texts("court", SEED.COURT, ctx, ctx.totalRounds), seat: ctx.shuffle(ctx.order.slice()) }; },
     startRound(ctx) {
+      // три ролі по колу: кожен раунд зсув на 3, тож ролі обходять усіх
       const seat = ctx.state.seat, n = ctx.roundNo, N = seat.length;
-      const accused = seat[(2 * n) % N], lawyer = seat[(2 * n + 1) % N];
+      const accused = seat[(3 * n) % N], prosecutor = seat[(3 * n + 1) % N], lawyer = seat[(3 * n + 2) % N];
       return {
         kind: "show", title: "Суд Лінча", text: "Звинувачений " + ctx.state.items[n],
-        roles: [{ label: "Звинувачений", name: accused }, { label: "Адвокат", name: lawyer }],
-        hint: "Слово має звинувачений: виправдовується вголос", durationMs: courtSpeakDuration(ctx), data: { step: "accused", accused, lawyer },
+        roles: [{ label: "Звинувачений", name: accused }, { label: "Прокурор", name: prosecutor }, { label: "Адвокат", name: lawyer }],
+        hint: "Слово має прокурор: звинувачує вголос. Звинувачений мовчить", durationMs: courtSpeakDuration(ctx), data: { step: "prosecutor", accused, prosecutor, lawyer },
       };
     },
     onEnd(ctx, stage, inputs) {
       const d = stage.data;
-      if (d.step === "accused") {
-        return { kind: "show", title: "Суд Лінча", text: stage.text, roles: stage.roles, hint: "Слово має адвокат: захищає будь-яким абсурдом", durationMs: courtSpeakDuration(ctx), data: Object.assign({}, d, { step: "lawyer" }) };
+      if (d.step === "prosecutor") {
+        return { kind: "show", title: "Суд Лінча", text: stage.text, roles: stage.roles, hint: "Слово має адвокат: захищає будь-яким абсурдом. Звинувачений мовчить", durationMs: courtSpeakDuration(ctx), data: Object.assign({}, d, { step: "lawyer" }) };
       }
       if (d.step === "lawyer") {
-        const jurors = ctx.order.filter((n) => n !== d.accused && n !== d.lawyer);
+        const jurors = ctx.order.filter((n) => n !== d.accused && n !== d.lawyer && n !== d.prosecutor);
         return {         kind: "choice", title: "Вердикт", text: stage.text, roles: stage.roles, hint: "Ваш вирок?", options: VERDICT, expect: jurors, durationMs: timerMs(ctx, "voteSeconds"), data: Object.assign({}, d, { step: "verdict", jurors }) };
       }
       // вердикт → результат
@@ -117,11 +118,12 @@
       const f = Object.values(inputs).filter((v) => v === "forgive").length;
       const bars = [{ label: "Винен", value: g }, { label: "Простити", value: f }];
       const vd = (verdict) => Object.assign({}, d, { verdict, guilty: g, forgive: f });
-      if (g > f) return reveal(stage, { headline: `Винен: ${d.accused} п'є`, bars, lines: ["Більшість проти звинуваченого"], penalties: { [d.accused]: 1 }, data: vd("guilty") });
+      if (g > f) return reveal(stage, { headline: `Винен: ${d.accused} п'є`, bars, lines: ["Більшість проти звинуваченого", d.prosecutor ? `${d.prosecutor} переконав(ла) суд: +1 бал` : ""].filter(Boolean), penalties: { [d.accused]: 1 }, points: d.prosecutor ? { [d.prosecutor]: 1 } : {}, data: vd("guilty") });
       if (f > g) {
         const penalties = {}; jurors.forEach((n) => { penalties[n] = 1; });
         return reveal(stage, { headline: "Простили: суд п'є", bars, lines: [`${d.lawyer} переконав(ла) суд: +1 бал`, "Простили — отже п'є вся колегія присяжних"], penalties, points: { [d.lawyer]: 1 }, data: vd("forgive") });
       }
+      if (d.prosecutor) return reveal(stage, { headline: "Порівну: ніхто не переконав", bars, lines: [`${d.prosecutor} і ${d.lawyer} п'ють за нічию`], penalties: { [d.prosecutor]: 1, [d.lawyer]: 1 }, data: vd("tie") });
       return reveal(stage, { headline: "Порівну: адвокат не переконав", bars, lines: [`${d.lawyer} п'є за нічию`], penalties: { [d.lawyer]: 1 }, data: vd("tie") });
     },
   };

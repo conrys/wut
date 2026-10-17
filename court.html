@@ -78,6 +78,8 @@ body { background:
 /* лава підсудних */
 .ct-dock { display: flex; justify-content: center; gap: 22px; }
 .ct-dock div { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 13px; font-weight: 700; }
+.ct-dock div.on { color: var(--accent); }
+.ct-dock em { font: 700 9px var(--font-b); font-style: normal; color: var(--muted); }
 .ct-dock small { font: 700 9px var(--font-b); letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
 
 /* вирок: печатки */
@@ -140,7 +142,7 @@ body { background:
 <script>
 (function () {
   const { esc, icon } = window.PartyUI;
-  const STEPS = ["accused", "lawyer", "verdict", "result"];
+  const STEPS = ["prosecutor", "lawyer", "verdict", "result"];
   const STAMP = { guilty: "Винен", forgive: "Прощено", tie: "Нічия" };
   const GAVEL = `<svg class="ct-gavel" viewBox="0 0 100 100" aria-hidden="true"><g transform="rotate(-30 50 50)">
     <rect x="44" y="44" width="10" height="52" rx="5" fill="#8a5a2e" stroke="#2b1a0e" stroke-width="3"/>
@@ -152,7 +154,12 @@ body { background:
 
   function steps(cur) {
     const idx = STEPS.indexOf(cur);
-    return `<div class="ct-steps">${["Звинувачений", "Адвокат", "Вирок"].map((t, i) => `<i class="${i === idx ? "on" : i < idx ? "done" : ""}">${t}</i>`).join("")}</div>`;
+    return `<div class="ct-steps">${["Прокурор", "Адвокат", "Вирок"].map((t, i) => `<i class="${i === idx ? "on" : i < idx ? "done" : ""}">${t}</i>`).join("")}</div>`;
+  }
+  // лава: усі три ролі на виду; той, хто зараз говорить, підсвічений
+  function dock(c, d, speaking) {
+    const seat = (name, role, mood) => name ? `<div class="${name === speaking ? "on" : ""}">${c.avatar(name, { size: "md", mood: name === speaking ? "write" : mood })}<small>${role}</small>${esc(name)}${name === c.me ? '<em>це ти</em>' : ""}</div>` : "";
+    return `<div class="ct-dock">${seat(d.prosecutor, "Прокурор", "idle")}${seat(d.accused, "Звинувачений", "sad")}${seat(d.lawyer, "Адвокат", "idle")}</div>`;
   }
   function caseFile(c, small, stamp) {
     const text = String(c.st.text || "").replace(/^Звинувачений\s*/i, "");
@@ -168,37 +175,39 @@ body { background:
       <path d="M28 36L16 66M28 36l12 30M12 66a16 7 0 0 0 32 0z"/><path d="M92 36L80 66M92 36l12 30M76 66a16 7 0 0 0 32 0z"/></g>
       <circle cx="60" cy="18" r="6" fill="#c9a24a"/></svg>`,
     rules: [
-      "Кожен раунд суд розглядає абсурдну справу. Одного гравця звинувачують, іншого призначають адвокатом.",
-      "Спершу звинувачений вголос виправдовується, потім адвокат його захищає. На кожен виступ свій час.",
+      "Кожен раунд суд розглядає абсурдну справу. Ролі: звинувачений, прокурор і адвокат.",
+      "Спершу прокурор вголос звинувачує, потім адвокат захищає. Звинувачений мовчить. На кожен виступ свій час.",
       "Решта — присяжні: таємно ставлять печатку «Винен» або «Простити».",
-      "Винен — п'є звинувачений. Простили — п'ють присяжні, а адвокат отримує бал. Порівну — п'є адвокат.",
+      "Винен — п'є звинувачений, прокурор отримує бал. Простили — п'ють присяжні, бал адвокату. Порівну — п'ють прокурор і адвокат.",
+      "Потрібно щонайменше 4 гравці: троє в ролях і хоча б один присяжний.",
     ],
     sliders: [{ key: "courtSpeakSeconds", label: "Час на кожен виступ" }, { key: "voteSeconds", label: "Час на вирок" }],
     segs: [{ id: "adv", label: "Передавання слова", items: [[1, "Автоматично"], [0, "Вручну"]],
       get: (s) => (s.courtAutoAdvance === false ? 0 : 1), set: (v) => ({ courtAutoAdvance: v === 1 }),
       note: "Вручну — після таймера ведучий передає слово кнопкою «Далі»." }],
-    stageTitle: (c) => ({ accused: "Слово звинуваченому", lawyer: "Слово адвокату", verdict: "Присяжні радяться" }[(c.st.data || {}).step] || "Вирок"),
+    stageTitle: (c) => ({ prosecutor: "Слово прокурору", accused: "Слово звинуваченому", lawyer: "Слово адвокату", verdict: "Присяжні радяться" }[(c.st.data || {}).step] || "Вирок"),
     timerNote: (room, st, sec) => (st.kind === "show" && manual(room) && sec === 0 ? "стоп" : null),
 
     build(c) {
       const { st, room } = c, d = st.data || {};
       if (st.kind === "show") {
-        const speaker = d.step === "lawyer" ? d.lawyer : d.accused;
-        const role = d.step === "lawyer" ? "Адвокат" : "Звинувачений";
+        // старі раунди (до прокурора) мали крок "accused" — показуємо як раніше
+        const legacy = d.step === "accused";
+        const speaker = d.step === "lawyer" ? d.lawyer : legacy ? d.accused : d.prosecutor;
+        const role = d.step === "lawyer" ? "Адвокат" : legacy ? "Звинувачений" : "Прокурор";
         const isMe = speaker === c.me;
         const next = d.step === "lawyer" ? "Далі: вирок присяжних" : `Далі: адвокат ${d.lawyer}`;
-        const hint = isMe ? (d.step === "lawyer" ? "Твій вихід! Захищай будь-яким абсурдом" : "Твій вихід! Виправдовуйся вголос")
-          : (d.step === "lawyer" ? "Адвокат захищає підзахисного" : "Звинувачений виправдовується");
-        return steps(d.step) + caseFile(c) +
+        const hint = isMe ? (d.step === "lawyer" ? "Твій вихід! Захищай будь-яким абсурдом" : legacy ? "Твій вихід! Виправдовуйся вголос" : "Твій вихід! Звинувачуй вголос")
+          : c.me === d.accused && !legacy ? "Ти звинувачений — мовчи і тримайся"
+          : (d.step === "lawyer" ? "Адвокат захищає підзахисного" : legacy ? "Звинувачений виправдовується" : "Прокурор звинувачує. Звинувачений мовчить");
+        return steps(legacy ? "prosecutor" : d.step) + caseFile(c) + dock(c, d, speaker) +
           `<div class="ct-floor">${c.avatar(speaker, { size: "xl", mood: "write" })}<div class="ct-plaque"><small>Слово має</small><b>${esc(speaker)}</b><span>${role}</span></div><div class="ct-mic">${icon("mic")}</div></div>` +
           `<div class="ct-hint ${isMe ? "me" : ""}">${esc(hint)}</div><div class="ct-next">${esc(next)}</div>` +
           (manual(room) ? '<div class="pp-note">Слово передає ведучий кнопкою «Далі»</div>' : "");
       }
       if (st.kind === "choice") {
-        const dock = `<div class="ct-dock"><div>${c.avatar(d.accused, { size: "md", mood: "sad" })}<small>Звинувачений</small>${esc(d.accused)}</div>
-          <div>${c.avatar(d.lawyer, { size: "md", mood: "write" })}<small>Адвокат</small>${esc(d.lawyer)}</div></div>`;
-        if (!c.iExpected) return steps("verdict") + caseFile(c, true) + dock + '<div class="ct-hint">Присяжні радяться… Тримайся.</div>';
-        return steps("verdict") + caseFile(c, true) + dock +
+        if (!c.iExpected) return steps("verdict") + caseFile(c, true) + dock(c, d) + '<div class="ct-hint">Присяжні радяться… Тримайся.</div>';
+        return steps("verdict") + caseFile(c, true) + dock(c, d) +
           `<div class="ct-verdict"><button class="ct-stamp guilty" data-answer="guilty">${icon("gavel")}<b>Винен</b><small>п'є звинувачений</small></button>
             <button class="ct-stamp forgive" data-answer="forgive">${icon("dove")}<b>Простити</b><small>п'є весь суд</small></button></div>`;
       }
@@ -206,7 +215,9 @@ body { background:
         const v = d.verdict || "tie";
         const who = v === "tie" ? d.lawyer : d.accused;
         const mood = v === "guilty" ? "sad" : v === "forgive" ? "happy" : "shock";
-        const sub = v === "guilty" ? "Більшість проти. Звинувачений п'є" : v === "forgive" ? `${d.lawyer} переконав(ла) суд: +1 бал. П'ють присяжні` : `${d.lawyer} п'є за нічию`;
+        const sub = v === "guilty" ? (d.prosecutor ? `Більшість проти. Звинувачений п'є, ${d.prosecutor}: +1 бал` : "Більшість проти. Звинувачений п'є")
+          : v === "forgive" ? `${d.lawyer} переконав(ла) суд: +1 бал. П'ють присяжні`
+          : d.prosecutor ? `${d.prosecutor} і ${d.lawyer} п'ють за нічию` : `${d.lawyer} п'є за нічию`;
         return `<div class="ct-bench shake">${GAVEL}${caseFile(c, false, `<div class="ct-stampmark ${v}">${STAMP[v]}</div>`)}</div>` +
           `<div class="pp-card ct-result">${c.avatar(who, { size: "lg", mood })}<div class="t"><b>${esc(st.headline || "")}</b><small>${esc(sub)}</small></div></div>` +
           `<div class="ct-tally"><div class="g ${v === "guilty" ? "win" : ""}"><b>${d.guilty || 0}</b><span>Винен</span></div><div class="f ${v === "forgive" ? "win" : ""}"><b>${d.forgive || 0}</b><span>Простити</span></div></div>`;
