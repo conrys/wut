@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
   <title>Судоку</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&family=Caveat:wght@700&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
   <meta name="theme-color" content="#f7f5ef" />
   <style>
     :root {
@@ -89,8 +89,8 @@
         align-items: center; justify-content: center; z-index: 9997; }
     .gen-overlay.open { display: flex; }
     .gen-overlay span { font-size: 14px; color: var(--text-muted); }
-    /* ===== тема «зошит і олівець»: синя клітинка, друковані цифри — чорнило, твої — синя ручка (Caveat) ===== */
-    :root { --bg: #f7f5ef; --tile-bg: #ffffff; --cell-bg: #ffffff; --text-light: #1f2a44; --text-muted: #6b7591; --accent: #2b59c3; --error: #d43b3b; }
+    /* ===== тема «зошит»: синя клітинка; цифри прямим шрифтом (Manrope): задані — чорнило, твої правильні — зелені, помилки — червоні ===== */
+    :root { --bg: #f7f5ef; --tile-bg: #ffffff; --cell-bg: #ffffff; --text-light: #1f2a44; --text-muted: #6b7591; --accent: #2b59c3; --error: #d43b3b; --good: #1a9a52; }
     html, body { background:
       repeating-linear-gradient(0deg, rgba(43,89,195,.10) 0 1px, transparent 1px 20px),
       repeating-linear-gradient(90deg, rgba(43,89,195,.10) 0 1px, transparent 1px 20px), #f7f5ef; font-family: 'Manrope', sans-serif; }
@@ -101,26 +101,27 @@
     .stats > div { display: flex; align-items: center; gap: 5px; }
     .stats b { font-family: 'Manrope', sans-serif; font-weight: 800; color: var(--text-light); }
     .sud-board { background: rgba(31,42,68,.22); border: 2.5px solid var(--text-light); border-radius: 4px; box-shadow: 4px 4px 0 rgba(31,42,68,.12); }
-    .sud-cell { font: 700 clamp(22px, 6.6vw, 30px)/1 'Caveat', cursive; color: var(--accent); }
+    .sud-cell { font: 700 clamp(17px, 5vw, 23px)/1 'Manrope', sans-serif; color: var(--good); }
     .sud-cell.given { font: 800 clamp(16px, 4.6vw, 21px)/1 'Manrope', sans-serif; color: var(--text-light); }
     .sud-cell.peer { background: #eef3ff; }
-    .sud-cell.same-value { background: #d3e1ff; }
-    .sud-cell.selected { background: #fff1a6; }
-    .sud-cell.error { color: var(--error); text-decoration: line-through 2px; }
+    .sud-cell.same-value { background: #c3d5ff; box-shadow: inset 0 0 0 2px var(--accent); }
+    .sud-cell.error { color: var(--error); background: #ffe4e4; }
+    .sud-cell.selected { background: var(--accent); color: #fff; box-shadow: none; }
+    .sud-cell.selected.error { color: #ffc2c2; }
     .sud-cell.box-right { border-right: 2.5px solid var(--text-light); }
     .sud-cell.box-bottom { border-bottom: 2.5px solid var(--text-light); }
     .num-btn { background: #fff; color: var(--text-light); border: 1.5px solid rgba(31,42,68,.18); box-shadow: 0 3px 0 rgba(31,42,68,.12); border-radius: 10px;
-      font: 700 26px/1 'Caveat', cursive; }
-    .num-btn:active { background: #fff1a6; transform: translateY(2px); box-shadow: none; }
+      font: 700 22px/1 'Manrope', sans-serif; }
+    .num-btn:active { background: #c3d5ff; transform: translateY(2px); box-shadow: none; }
     .num-btn.erase svg { width: 22px; height: 22px; fill: none; stroke: var(--text-muted); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
     .action-btn { display: inline-flex; align-items: center; gap: 6px; background: #fff; color: var(--text-light); border: 1.5px solid rgba(31,42,68,.18);
       box-shadow: 0 3px 0 rgba(31,42,68,.12); font-family: 'Manrope', sans-serif; font-weight: 800; }
     .action-btn:active { transform: translateY(2px); box-shadow: none; }
-    .result-panel .title { font: 700 38px 'Caveat', cursive; color: var(--accent); }
+    .result-panel .title { font: 800 28px 'Manrope', sans-serif; color: var(--accent); }
     .gen-overlay { background: rgba(247,245,239,.85); }
-    .gen-overlay span { font: 700 28px 'Caveat', cursive; color: var(--text-light); }
+    .gen-overlay span { font: 700 18px 'Manrope', sans-serif; color: var(--text-light); }
     /* ===== темна тема (Налаштування → Тема світлих ігор): нічний зошит ===== */
-    html.dark-games { --bg: #151820; --tile-bg: #20242d; --cell-bg: #1b1f27; --text-light: #e6eaf3; --text-muted: #8e97ab; --accent: #8fb0ff; --error: #ff7b7b; }
+    html.dark-games { --bg: #151820; --tile-bg: #20242d; --cell-bg: #1b1f27; --text-light: #e6eaf3; --text-muted: #8e97ab; --accent: #8fb0ff; --error: #ff7b7b; --good: #4fdc8a; }
     html.dark-games, html.dark-games body { background:
       repeating-linear-gradient(0deg, rgba(143,176,255,.05) 0 1px, transparent 1px 20px),
       repeating-linear-gradient(90deg, rgba(143,176,255,.05) 0 1px, transparent 1px 20px), #151820; }
@@ -131,9 +132,11 @@
     html.dark-games .sud-cell.box-bottom { border-bottom-color: #8e97ab; }
     html.dark-games .sud-cell.peer { background: #222a38; }
     html.dark-games .sud-cell.same-value { background: #2c3b5e; }
-    html.dark-games .sud-cell.selected { background: #4d4420; }
+    html.dark-games .sud-cell.error { background: rgba(255,90,90,.16); }
+    html.dark-games .sud-cell.selected { background: var(--accent); color: #10141d; }
+    html.dark-games .sud-cell.selected.error { color: #b3122e; }
     html.dark-games .num-btn, html.dark-games .action-btn { background: #20242d; border-color: rgba(255,255,255,.10); box-shadow: 0 3px 0 rgba(0,0,0,.45); }
-    html.dark-games .num-btn:active { background: #4d4420; }
+    html.dark-games .num-btn:active { background: #2c3b5e; }
     html.dark-games .gen-overlay { background: rgba(21,24,32,.88); }
   </style>
 <link rel="stylesheet" href="js/styles/game-header.css">
