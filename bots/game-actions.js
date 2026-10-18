@@ -200,6 +200,37 @@ function gameActions(game, room, bots, now) {
     return { updates, actions };
   }
 
+  if (game === "remake") {
+    // Дубль: бот «знімає» дубль через 5–20 с (фото з bots/fixtures), голосує за чужий
+    const photos = [];
+    if (room.phase !== "round" || !room.stage) return { updates, actions, photos };
+    const stage = room.stage, expected = stage.expect || [];
+    const mine = (name) => {
+      const raw = room.inputs && room.inputs[name];
+      return typeof raw === "string" && Number(raw.split(":")[0]) === stage.id;
+    };
+    for (const bot of bots) {
+      if (!expected.includes(bot.name) || mine(bot.name)) continue;
+      const seed = stage.id * 7 + bot.index * 3;
+      const seenKey = `rm:${stage.id}:${bot.name}`;
+      if (!memoSeen[seenKey]) memoSeen[seenKey] = now;
+      if (stage.kind === "shoot") {
+        if (now - memoSeen[seenKey] < 5000 + (seed * 1300) % 15000) continue;
+        const key = `bot_${stage.id}`;
+        photos.push({ name: bot.name, key, index: seed });
+        set(`inputs/${bot.name}`, `${stage.id}:${key}`, `${bot.name}: зняв дубль`);
+      } else if (stage.kind === "vote") {
+        if (now - memoSeen[seenKey] < 3000 + (seed * 900) % 6000) continue;
+        const shots = stage.shots || [];
+        const options = shots.map((s, i) => ({ s, i })).filter((o) => o.s.n !== bot.name);
+        const humans = options.filter((o) => !bots.some((b) => b.name === o.s.n));
+        const choice = pick(humans.length ? humans : options, seed);
+        if (choice) set(`inputs/${bot.name}`, `${stage.id}:${choice.i}`, `${bot.name}: голос за ${choice.s.n}`);
+      }
+    }
+    return { updates, actions, photos };
+  }
+
   if (game === "teli") {
     // drawings: [{ ref, seed }] — run-tests пише їх у teli_drawings ДО оновлення кімнати
     const drawings = [];

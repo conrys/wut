@@ -336,6 +336,7 @@
     "bets": "Ставки",
     "charades": "Зіпсовані шаради",
     "fakenews": "Fake News",
+    "remake": "Дубль",
     "naklep": "Наклеп",
     "party": "Вечірка 3-в-1",
   };

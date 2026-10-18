@@ -165,6 +165,24 @@
         ".write": "auth != null"
       }
     },
+    "remake_rooms": {
+      ".read": true,
+      "$roomId": {
+        ".read": true,
+        ".write": "auth != null"
+      }
+    },
+    "remake_photos": {
+      "$roomId": {
+        ".read": true,
+        ".write": "auth != null",
+        "$user": {
+          "$photoId": {
+            ".validate": "newData.isString() && newData.val().length < 150000 && newData.val().matches(/^data:image\\/jpeg;base64,/)"
+          }
+        }
+      }
+    },
     "fakenews_photos": {
       "$roomId": {
         ".read": true,

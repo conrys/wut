@@ -20,6 +20,7 @@ const MIN_PLAYERS = {
   quiplash: 2,
   spy: 2,
   memology: 2,
+  remake: 2,
 };
 const GAME_KEYS = {
   dilemmas: "dilemmas",
@@ -33,12 +34,13 @@ const GAME_KEYS = {
   quiplash: "quiplash",
   spy: "spy",
   memology: "memology",
+  remake: "remake",
 };
 const AVATAR_COLORS = ["#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#9b59b6", "#1abc9c", "#e67e22", "#ff6fa5"];
 
 function usage() {
   console.log("Usage: node bots/run-tests.js <game> <room-code> [bot-count]");
-  console.log("Games: dilemmas, whofrom, court, bets, charades, fakenews, mafia, teli, quiplash, spy, memology");
+  console.log("Games: dilemmas, whofrom, court, bets, charades, fakenews, mafia, teli, quiplash, spy, memology, remake");
   console.log("Example: node bots/run-tests.js charades ROOM42 3");
   console.log("Resume bots already in a running game: node bots/run-tests.js fakenews 1 2 --resume a4679ffc");
 }
@@ -108,6 +110,9 @@ async function cleanupBots(game, roomId, bots) {
     }
   }
   if (room && Object.keys(roomUpdates).length) await patch(roomPath, roomUpdates);
+  if (game === "remake" && room?.phase !== "round") {
+    for (const bot of bots) await request(`remake_photos/${roomId}/${bot.name}`, "DELETE");
+  }
   if (game === "fakenews" && !preserveFakeNewsPhotos) {
     for (const bot of bots) await request(`fakenews_photos/${roomId}/${bot.name}`, "DELETE");
   }
@@ -149,7 +154,7 @@ async function run(game, roomId, count, resumeId) {
   process.once("SIGTERM", () => { stopping = true; });
 
   try {
-    const photoFiles = game === "fakenews" ? await findTestPhotos() : null;
+    const photoFiles = game === "fakenews" || game === "remake" ? await findTestPhotos() : null;
     const existingPlayers = Object.entries(initialRoom.players || {})
       .filter(([, player]) => player.status !== "inactive" && Date.now() - (player.lastSeen || 0) < 120_000)
       .map(([name]) => name);
@@ -214,6 +219,10 @@ async function run(game, roomId, count, resumeId) {
       // пауза (js/core/game-pause.js): боти теж чекають, лише тримають присутність
       if (room.paused) { await wait(POLL_MS); continue; }
       const result = gameActions(game, room, bots, now);
+      // Дубль: фото-дублі ботів — спершу в remake_photos, потім ключ у inputs
+      for (const ph of result.photos || []) {
+        await request(`remake_photos/${roomId}/${ph.name}/${ph.key}`, "PUT", photoFiles[ph.index % photoFiles.length].dataUri);
+      }
       // малюнки (Телефон) — спершу в окремий вузол, потім посилання в кімнату
       for (const d of result.drawings || []) {
         await request(`teli_drawings/${roomId}/${d.ref}`, "PUT", doodleDataUri(d.seed));

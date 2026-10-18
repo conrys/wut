@@ -1,0 +1,653 @@
+<!-- Гра: Дубль — повтори кадр: оригінал на екрані, ви знімаєте свій дубль, голосуєте за найкращий -->
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<title>Дубль</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800;900&family=Inter:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="js/styles/party-shared.css">
+<link rel="stylesheet" href="js/styles/game-header.css">
+<script src="js/core/game-header.js" defer></script>
+<style>
+/* знімальний майданчик: графіт, тепле світло софітів, плівка й хлопавка */
+:root {
+  --bg: #141210; --panel: rgba(255,240,215,.05); --panel-2: rgba(255,240,215,.1);
+  --ink: #f6f0e6; --muted: rgba(240,228,210,.6); --line: rgba(255,240,215,.13);
+  --accent: #ffc23d; --accent-ink: #1d1505; --good: #6fd38a; --bad: #ff6b5b; --gold: #ffc23d;
+  --font-d: 'Unbounded', 'Arial Black', sans-serif; --font-b: 'Inter', sans-serif;
+  --hdr-bg: rgba(20,18,16,.84);
+  --r: 14px; --r-sm: 8px;
+  --ar: 1.33;               /* пропорції поточного оригіналу (ширина/висота), задається зі скрипту */
+  --film: #0b0a09;
+}
+body { background:
+  radial-gradient(60% 45% at 18% -5%, rgba(255,194,61,.22), transparent 70%),
+  radial-gradient(55% 40% at 95% 0%, rgba(255,140,60,.14), transparent 70%),
+  radial-gradient(90% 50% at 50% 110%, rgba(0,0,0,.6), transparent 70%),
+  #141210 fixed; }
+.pp-wrap { padding-bottom: calc(28px + env(safe-area-inset-bottom)); }
+.pp-hero h1, .pp-lobby-head .t b, .pp-sumtitle { font-family: var(--font-d); font-weight: 900; letter-spacing: -.01em; }
+.pp-hero h1 { font-size: 44px; }
+.pp-hero h1 i, .pp-lobby-head .t b i { font-style: normal; color: var(--accent); }
+.pp-primary { box-shadow: 0 6px 18px rgba(255,194,61,.28); }
+.pp-card { background: rgba(28,25,22,.78); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.pp-code b { color: var(--accent); }
+.pp-stagetitle { font-family: var(--font-d); font-weight: 800; font-size: 14px; letter-spacing: .02em; }
+.pp-stagetitle::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: var(--bad); vertical-align: 1px; animation: dbRec 1.2s infinite; }
+@keyframes dbRec { 50% { opacity: .2; } }
+
+/* ---------- кадр на плівці ---------- */
+.db-frame { position: relative; border-radius: var(--r-sm); overflow: hidden; background: var(--film); padding: 0 14px;
+  box-shadow: 0 10px 28px rgba(0,0,0,.45); }
+.db-frame::before, .db-frame::after { content: ""; position: absolute; top: 0; bottom: 0; width: 14px; pointer-events: none;
+  background: repeating-linear-gradient(180deg, transparent 0 6px, rgba(255,240,215,.75) 6px 12px, transparent 12px 18px) center / 6px 100% no-repeat; }
+.db-frame::before { left: 0; } .db-frame::after { right: 0; }
+.db-shot { position: relative; aspect-ratio: var(--ar); width: 100%; overflow: hidden; background: #22201d; }
+.db-shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.db-shot .lbl { position: absolute; left: 8px; top: 8px; padding: 3px 8px; border-radius: 4px; background: rgba(0,0,0,.62);
+  font: 800 10px var(--font-d); letter-spacing: .08em; text-transform: uppercase; color: #fff; }
+.db-shot .lbl.dub { background: var(--accent); color: var(--accent-ink); }
+.db-shot .nm { position: absolute; right: 8px; bottom: 8px; padding: 3px 8px; border-radius: 4px; background: rgba(0,0,0,.62); font-size: 12px; font-weight: 700; color: #fff; }
+.db-split { height: 3px; background: var(--film); }
+.db-empty { display: grid; place-items: center; height: 100%; color: var(--muted); font-size: 13px; }
+
+/* у раунді оригінал має влазити разом з кнопками */
+#v-round { gap: 10px; }
+#v-round .pp-topbar { min-height: 44px; }
+#v-round .pp-timer { width: 44px; height: 44px; }
+#v-round .db-frame.main .db-shot { aspect-ratio: auto; height: min(calc((min(100vw, 480px) - 60px) / var(--ar)), 38dvh); }
+body[data-stage="vote"] #v-round .db-frame.main .db-shot { height: min(calc((min(100vw, 480px) - 60px) / var(--ar)), 22dvh); }
+body[data-stage="reveal"] #v-round .db-frame.main { display: none; }
+
+/* зйомка */
+.db-hint { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: var(--r-sm); background: var(--panel); border-left: 4px solid var(--accent); font-size: 12px; color: var(--muted); }
+.db-hint b { color: var(--ink); }
+.db-hint .ic { flex: none; width: 20px; height: 20px; color: var(--accent); }
+.db-cam { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.db-cam .pp-primary { min-height: 58px; font-size: 16px; }
+.db-cam .pp-btn .ic { width: 22px; height: 22px; }
+.db-mine { display: grid; grid-template-columns: 96px 1fr; gap: 10px; align-items: center; }
+.db-mine .db-shot { border-radius: 6px; aspect-ratio: var(--ar); }
+.db-mine .act { display: flex; flex-direction: column; gap: 6px; }
+.db-ok { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--good); }
+.db-ok .ic { width: 16px; height: 16px; }
+.db-busy { font-size: 13px; color: var(--muted); text-align: center; }
+
+/* голосування */
+.db-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.db-opt { position: relative; padding: 0; border: 3px solid transparent; border-radius: 10px; overflow: hidden; background: var(--film); cursor: pointer; transition: transform .15s, border-color .2s; }
+.db-opt:active { transform: scale(.97); }
+.db-opt .db-shot { aspect-ratio: var(--ar); }
+.db-opt.selected { border-color: var(--accent); box-shadow: 0 0 16px rgba(255,194,61,.45); }
+.db-opt.selected::after { content: ""; position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; border-radius: 50%; background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231d1505' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 15px no-repeat; }
+.db-opt.own { cursor: default; opacity: .55; }
+.db-opt .zoom { position: absolute; left: 6px; bottom: 6px; width: 30px; height: 30px; border-radius: 50%; border: 0; padding: 0; display: grid; place-items: center; background: rgba(0,0,0,.6); color: #fff; }
+.db-opt .zoom .ic { width: 16px; height: 16px; }
+
+/* результат */
+.db-win { display: flex; flex-direction: column; gap: 8px; animation: ppIn .5s both; }
+.db-win .cap { display: flex; align-items: center; gap: 10px; }
+.db-win .cap .t { flex: 1; min-width: 0; }
+.db-win .cap .t small { display: block; font: 800 10px var(--font-d); letter-spacing: .1em; text-transform: uppercase; color: var(--gold); }
+.db-win .cap .t b { font: 800 18px var(--font-d); }
+.db-win .cap .v { flex: none; padding: 4px 10px; border-radius: 8px; font: 900 18px var(--font-d); background: var(--gold); color: var(--accent-ink); }
+.db-win .db-frame .db-shot { aspect-ratio: auto; height: min(calc((min(100vw, 480px) - 60px) / var(--ar)), 26dvh); }
+.db-rest { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+.db-rest::-webkit-scrollbar { display: none; }
+.db-rest button { flex: none; position: relative; width: 84px; padding: 0; border: 0; border-radius: 8px; overflow: hidden; background: var(--film); cursor: pointer; }
+.db-rest .db-shot { aspect-ratio: var(--ar); }
+.db-rest .v { position: absolute; right: 4px; top: 4px; min-width: 22px; padding: 1px 6px; border-radius: 6px; background: rgba(0,0,0,.7); color: #fff; font: 800 12px var(--font-d); }
+.db-rest .n { display: block; padding: 3px 4px; font-size: 11px; font-weight: 700; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
+.db-verdict { text-align: center; font: 900 20px/1.25 var(--font-d); }
+.db-save { display: flex; gap: 8px; }
+.db-save .pp-btn { flex: 1; }
+
+/* свої кадри в лобі */
+.db-refs { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.db-ref { position: relative; width: 84px; height: 84px; border-radius: 8px; overflow: hidden; background: #111; }
+.db-ref img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.db-ref button { position: absolute; top: 3px; right: 3px; width: 24px; height: 24px; padding: 0; border-radius: 50%; border: 0; background: rgba(0,0,0,.7); color: #fff; display: grid; place-items: center; }
+.pav .rdy { position: absolute; right: -3px; bottom: 0; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--accent-ink); font-size: 10px; font-weight: 900; }
+
+/* галерея вечора */
+.db-gallery { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.db-gal { padding: 0; border: 0; border-radius: 8px; overflow: hidden; background: var(--film); cursor: pointer; text-align: left; color: inherit; font: inherit; }
+.db-gal .db-shot { aspect-ratio: 4 / 3; }
+.db-gal .n { display: block; padding: 5px 8px; font-size: 12px; font-weight: 700; }
+
+/* перегляд «оригінал над дублем» на весь екран */
+.db-viewer { position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom)); background: rgba(0,0,0,.88); }
+.db-viewer.hidden { display: none; }
+.db-viewer .db-frame { width: min(100%, 480px); }
+.db-viewer .db-shot { aspect-ratio: auto; height: min(calc((min(100vw, 480px) - 60px) / var(--var-ar, 1.33)), 36dvh); }
+.db-viewer .row { display: flex; gap: 8px; width: min(100%, 480px); }
+.db-viewer .row .pp-btn { flex: 1; }
+.db-toast { min-height: 18px; font-size: 13px; color: var(--muted); text-align: center; }
+</style>
+</head>
+<body>
+<div id="app"><div class="pp-wrap">
+  <section class="pp-view pp-center hidden" id="v-locked"><span class="pp-big-ic" data-ic="lock"></span><div class="pp-note" style="font-size:16px">Увійди в профіль, щоб грати з друзями</div></section>
+  <section class="pp-view pp-center hidden" id="v-waiting"><span class="pp-big-ic" data-ic="hourglass"></span><div class="pp-note" style="font-size:16px">Зйомки вже йдуть — приєднаєшся до наступного вечора</div></section>
+
+  <section class="pp-view hidden" id="v-entry">
+    <div class="pp-hero"><span data-emblem></span><h1>Дуб<i>ль</i></h1><p>Бачите кадр — повторюєте його. Пози, обличчя, реквізит. Найсхожіший дубль перемагає.</p></div>
+    <div class="pp-card"><div class="pp-h"><span data-ic="users"></span> Активні кімнати</div><div class="rooms-list" id="activeRoomsList"></div></div>
+    <div class="pp-or">або за кодом</div>
+    <div class="pp-join"><input class="pp-field" id="roomCodeInput" maxlength="5" placeholder="КОД" autocomplete="off" /><button class="pp-btn" id="joinRoomBtn">Увійти</button></div>
+    <button class="pp-btn pp-primary pp-block pp-big" id="createRoomBtn">Створити кімнату</button>
+  </section>
+
+  <section class="pp-view hidden" id="v-lobby">
+    <div class="pp-lobby-head"><span data-emblem></span><div class="t"><b>Дуб<i>ль</i></b><small id="lobbyStatus"></small></div>
+      <div class="pp-code"><small>Код кімнати</small><b id="roomCodeDisplay"></b></div></div>
+    <div class="pp-card"><div class="pp-h"><span data-ic="users"></span> Знімальна група <span class="cnt" id="lobbyCount"></span></div>
+      <div class="pp-players" id="playersList"></div>
+      <div class="pp-note" style="margin-top:10px">Торкнись своєї аватарки, щоб змінити персонажа</div></div>
+    <div class="pp-card"><div class="pp-h"><span data-ic="film"></span> Свої кадри <span class="cnt" id="refsCount"></span></div>
+      <div class="pp-note" style="text-align:left">Необов'язково. Додай фото чи мем, який хочеш, щоб повторили, — вони підуть у гру першими. Решта кадрів — з мемів Мемології.</div>
+      <div class="db-refs" id="myRefs"></div>
+      <input type="file" accept="image/*" id="refInput" class="hidden" />
+      <button class="pp-btn pp-block" id="refAddBtn"><span data-ic="upload"></span> Додати кадр</button>
+      <div class="pp-err" id="refErr"></div></div>
+    <div class="pp-card hidden" id="hostPanel"><div class="pp-h">Налаштування</div>
+      <label class="pp-label" for="roundsSlider">Кадрів за вечір <output id="roundsValue">5</output></label>
+      <input class="pp-range" id="roundsSlider" type="range" min="3" max="12" step="1" value="5" />
+      <label class="pp-label" for="shootSecSlider">Час на зйомку <output id="shootSecValue">90 с</output></label>
+      <input class="pp-range" id="shootSecSlider" type="range" min="30" max="240" step="10" value="90" />
+      <label class="pp-label" for="voteSecSlider">Час на голос <output id="voteSecValue">40 с</output></label>
+      <input class="pp-range" id="voteSecSlider" type="range" min="20" max="120" step="5" value="40" />
+      <button class="pp-btn pp-primary pp-block pp-big" id="startBtn" style="margin-top:18px"><span data-ic="play"></span> Мотор!</button>
+      <div class="pp-err" id="startHint"></div></div>
+    <div class="pp-card pp-waithost hidden" id="waitHostLobby"></div>
+    <details class="pp-card pp-rules"><summary>Як грати</summary><ol>
+      <li>На екрані з'являється кадр — фото чи мем.</li>
+      <li>Повторіть його якомога точніше: поза, обличчя, кут, реквізит з того, що є поруч. Можна парами чи гуртом — тоді надсилає один телефон.</li>
+      <li>Зніміть дубль камерою або оберіть з галереї. До кінця таймера можна перезняти.</li>
+      <li>Усі голосують за найкращий дубль (за свій не можна). Голос — бал, переможець кадру отримує ще +2.</li>
+      <li>Колаж «оригінал над дублем» можна зберегти чи надіслати друзям.</li></ol></details>
+    <button class="pp-btn pp-ghost pp-block hidden" id="resetBtn"><span data-ic="refresh"></span> Скинути вечір</button>
+  </section>
+
+  <section class="pp-view hidden" id="v-round">
+    <div class="pp-topbar">
+      <div class="pp-round"><small>Кадр</small><b id="roundNo"></b></div>
+      <div class="pp-stagetitle" id="stageTitle"></div>
+      <div class="pp-timer off" id="timer"><svg viewBox="0 0 44 44"><circle class="trk" cx="22" cy="22" r="19"/><circle class="bar" cx="22" cy="22" r="19"/></svg><span></span></div>
+    </div>
+    <div class="db-frame main"><div class="db-shot" id="refShot"><img alt="Оригінал" /><span class="lbl">Оригінал</span></div></div>
+    <div id="inputArea" class="pp-stage"></div>
+    <div class="pp-wait" id="waitInfo"></div>
+    <div id="revealArea" class="pp-stage"></div>
+    <div class="pp-hostbar hidden" id="hostBar">
+      <button class="pp-btn pp-ghost" id="endSetBtn" aria-label="Завершити вечір"><span data-ic="flag"></span></button>
+      <button class="pp-btn pp-ghost sec hidden" id="skipItemBtn"><span data-ic="refresh"></span> Інший кадр</button>
+      <button class="pp-btn pp-primary" id="hostNextBtn">Далі</button></div>
+  </section>
+
+  <section class="pp-view hidden" id="v-summary">
+    <h2 class="pp-sumtitle">Знято!</h2>
+    <div class="pp-card"><div class="pp-h"><span data-ic="star"></span> Бали за вечір</div><div id="sumPoints"></div></div>
+    <div class="pp-card"><div class="pp-h"><span data-ic="film"></span> Найкращі дублі</div><div class="db-gallery" id="sumGallery"></div></div>
+    <button class="pp-btn pp-primary pp-block pp-big hidden" id="toLobbyBtn">Повернутись у лобі</button>
+    <div class="pp-note hidden" id="waitHostSummary">Очікуємо режисера в лобі…</div>
+  </section>
+</div></div>
+
+<div class="db-viewer hidden" id="viewer">
+  <div class="db-frame"><div class="db-shot" id="vRef"><img alt="" /><span class="lbl">Оригінал</span></div><div class="db-split"></div>
+    <div class="db-shot" id="vShot"><img alt="" /><span class="lbl dub">Дубль</span><span class="nm"></span></div></div>
+  <div class="row"><button class="pp-btn pp-ghost" id="vClose">Закрити</button><button class="pp-btn pp-primary" id="vSave"><span data-ic="share"></span> Зберегти колаж</button></div>
+  <div class="db-toast" id="vToast"></div>
+</div>
+<input type="file" accept="image/*" capture="environment" id="camInput" class="hidden" />
+<input type="file" accept="image/*" id="galInput" class="hidden" />
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="js/core/firebase-config.js"></script>
+<script src="js/core/app-settings.js"></script>
+<link rel="stylesheet" href="js/styles/reactions.css">
+<script src="js/core/login.js"></script>
+<script src="js/core/online-engine.js"></script>
+<script src="js/quiplash-avatars.js"></script>
+<script src="js/quiplash-sounds.js"></script>
+<script src="js/promts/memology-cards.js"></script>
+<script src="js/remake-game.js"></script>
+<script src="js/core/room-code-ui.js"></script>
+<script src="js/party-ui.js"></script>
+<script src="js/core/reactions.js"></script>
+<script src="js/core/game-pause.js"></script>
+<script src="js/core/help.js"></script>
+<script src="js/core/back-button.js"></script>
+<script>
+(function () {
+  const G = window.RemakeGame;
+  const { esc, icon, podium, drinkHtml } = window.PartyUI;
+  const $ = (id) => document.getElementById(id);
+  const sfx = (n) => { try { window.QuiplashSfx && QuiplashSfx.play(n); } catch (e) {} };
+  const buzz = (p) => { try { window.QuiplashSfx && QuiplashSfx.vibrate(p); } catch (e) {} };
+  const avatarHtml = (room, name, opts) => window.PartyUI.avatar(room, name, opts);
+
+  const EXTRA = {
+    camera: '<path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/>',
+    image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/>',
+    upload: '<path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/>',
+    film: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 8h4M3 12h4M3 16h4M17 8h4M17 12h4M17 16h4"/>',
+    zoom: '<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5M11 8v6M8 11h6"/>',
+    share: '<path d="M12 15V4M8 8l4-4 4 4M5 13v6a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-6"/>',
+    redo: '<path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/>',
+  };
+  const ic = (n) => (EXTRA[n] ? `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${EXTRA[n]}</svg>` : icon(n));
+  // хлопавка над двома кадрами
+  const EMBLEM = `<svg class="pp-emblem" viewBox="0 0 120 120" aria-hidden="true">
+    <rect x="14" y="44" width="92" height="62" rx="8" fill="#211d18" stroke="#f6f0e6" stroke-width="4"/>
+    <rect x="24" y="54" width="34" height="42" rx="3" fill="#3a332b"/><rect x="62" y="54" width="34" height="42" rx="3" fill="#ffc23d"/>
+    <circle cx="41" cy="68" r="6" fill="#f6f0e6"/><path d="M30 92c2-9 7-13 11-13s9 4 11 13" fill="#f6f0e6"/>
+    <circle cx="79" cy="68" r="6" fill="#1d1505"/><path d="M68 92c2-9 7-13 11-13s9 4 11 13" fill="#1d1505"/>
+    <g transform="rotate(-12 14 40)"><rect x="14" y="26" width="92" height="16" rx="3" fill="#f6f0e6"/>
+      <path d="M26 26l-8 16M44 26l-8 16M62 26l-8 16M80 26l-8 16M98 26l-8 16" stroke="#211d18" stroke-width="6"/></g></svg>`;
+  document.querySelectorAll("[data-ic]").forEach((el) => { el.outerHTML = ic(el.dataset.ic); });
+  document.querySelectorAll("[data-emblem]").forEach((el) => { el.outerHTML = EMBLEM; });
+
+  const sig = {};
+  function paint(id, key, html) { if (sig[id] === key) return false; sig[id] = key; $(id).innerHTML = html; return true; }
+  function elFrom(html) { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstElementChild; }
+  // Підставити фото в усі <img data-photo="…"> всередині box (фото з RTDB вантажаться асинхронно й кешуються).
+  function fillPhotos(box) {
+    box.querySelectorAll("img[data-photo]").forEach((img) => {
+      let p; try { p = JSON.parse(img.dataset.photo); } catch (e) { return; }
+      img.removeAttribute("data-photo");
+      G.loadPhoto(p).then((src) => { if (src) img.src = src; });
+    });
+  }
+  const photoAttr = (p) => esc(JSON.stringify(p));
+  const shotRef = (n, key) => ({ k: "up", n, id: key });
+  const plural = (v, a, b, c) => { const m10 = v % 10, m100 = v % 100; return m10 === 1 && m100 !== 11 ? a : m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20) ? b : c; };
+
+  const VIEWS = ["locked", "entry", "waiting", "lobby", "round", "summary"];
+  let curView = null;
+  function showView(name) {
+    if (curView === name) return;
+    curView = name;
+    VIEWS.forEach((v) => $("v-" + v).classList.toggle("hidden", v !== name));
+    document.body.dataset.view = name;
+    window.scrollTo(0, 0);
+  }
+  let lastRoom = null, lastCtx = null, reactionsMounted = false;
+  let builtStageId = null, uploading = false, uploadErr = "";
+
+  // ---------------- пропорції оригіналу ----------------
+  // Усі дублі показуються в рамці тих самих пропорцій, що й оригінал — так легше порівнювати.
+  const arCache = new Map();
+  function aspectOf(p) {
+    const k = JSON.stringify(p);
+    if (arCache.has(k)) return arCache.get(k);
+    const pr = G.loadPhoto(p).then((src) => new Promise((res) => {
+      if (!src) return res(1.33);
+      const im = new Image();
+      im.onload = () => res(Math.min(1.9, Math.max(0.6, im.naturalWidth / im.naturalHeight || 1.33)));
+      im.onerror = () => res(1.33);
+      im.src = src;
+    }));
+    arCache.set(k, pr);
+    return pr;
+  }
+  let shownRefKey = null;
+  function showRef(ref) {
+    const k = JSON.stringify(ref);
+    if (shownRefKey === k) return;
+    shownRefKey = k;
+    const img = $("refShot").querySelector("img");
+    img.removeAttribute("src");
+    G.loadPhoto(ref).then((src) => { if (src && shownRefKey === k) img.src = src; });
+    aspectOf(ref).then((ar) => { if (shownRefKey === k) document.documentElement.style.setProperty("--ar", ar.toFixed(3)); });
+  }
+
+  // ---------------- колаж ----------------
+  function loadImg(src) {
+    return new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src; });
+  }
+  function drawCover(g, im, x, y, w, h) {
+    const k = Math.max(w / im.naturalWidth, h / im.naturalHeight);
+    const sw = w / k, sh = h / k, sx = (im.naturalWidth - sw) / 2, sy = (im.naturalHeight - sh) / 2;
+    g.drawImage(im, sx, sy, sw, sh, x, y, w, h);
+  }
+  async function makeCollage(ref, shot, name) {
+    const [refSrc, shotSrc] = await Promise.all([G.loadPhoto(ref), G.loadPhoto(shot)]);
+    const [a, b] = await Promise.all([loadImg(refSrc), loadImg(shotSrc)]);
+    const W = 1080, ar = Math.min(1.9, Math.max(0.6, a.naturalWidth / a.naturalHeight)), H = Math.round(W / ar), GAP = 6;
+    const c = document.createElement("canvas"); c.width = W; c.height = H * 2 + GAP;
+    const g = c.getContext("2d");
+    g.fillStyle = "#0b0a09"; g.fillRect(0, 0, W, c.height);
+    drawCover(g, a, 0, 0, W, H);
+    drawCover(g, b, 0, H + GAP, W, H);
+    const text = "Дубль · " + name;
+    g.font = "700 38px Inter, system-ui, sans-serif"; g.textAlign = "right"; g.textBaseline = "alphabetic";
+    g.lineWidth = 6; g.strokeStyle = "rgba(0,0,0,.55)"; g.strokeText(text, W - 30, c.height - 30);
+    g.fillStyle = "#fff"; g.fillText(text, W - 30, c.height - 30);
+    return new Promise((res) => c.toBlob((bl) => res(bl), "image/jpeg", 0.9));
+  }
+  async function saveCollage(ref, shot, name, toast) {
+    toast.textContent = "Збираю колаж…";
+    let blob;
+    try { blob = await makeCollage(ref, shot, name); } catch (e) { blob = null; }
+    if (!blob) { toast.textContent = "Не вдалося зібрати колаж"; return; }
+    const file = typeof File !== "undefined" ? new File([blob], "dubl.jpg", { type: "image/jpeg" }) : null;
+    try {
+      if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], text: "Оригінал чи дубль?" });
+        toast.textContent = ""; return;
+      }
+    } catch (e) { if (e && e.name === "AbortError") { toast.textContent = ""; return; } }
+    const url = URL.createObjectURL(blob), a = document.createElement("a");
+    a.href = url; a.download = "dubl.jpg"; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    toast.textContent = "Колаж збережено";
+  }
+
+  // ---------------- перегляд на весь екран ----------------
+  let viewing = null;
+  function openViewer(ref, shot, name) {
+    viewing = { ref, shot, name };
+    const v = $("viewer");
+    $("vToast").textContent = "";
+    ["vRef", "vShot"].forEach((id) => $(id).querySelector("img").removeAttribute("src"));
+    G.loadPhoto(ref).then((s) => { if (s) $("vRef").querySelector("img").src = s; });
+    G.loadPhoto(shot).then((s) => { if (s) $("vShot").querySelector("img").src = s; });
+    aspectOf(ref).then((ar) => v.style.setProperty("--var-ar", ar.toFixed(3)));
+    $("vShot").querySelector(".nm").textContent = name || "";
+    v.classList.remove("hidden");
+  }
+  function closeViewer() { viewing = null; $("viewer").classList.add("hidden"); }
+  $("vClose").addEventListener("click", closeViewer);
+  $("viewer").addEventListener("click", (e) => { if (e.target === $("viewer")) closeViewer(); });
+  $("vSave").addEventListener("click", () => { if (viewing) saveCollage(viewing.ref, viewing.shot, viewing.name, $("vToast")); });
+
+  // ---------------- свої кадри в лобі ----------------
+  const REF_ERRORS = { limit: `Уже ${G.MAX_REFS} кадри: видали один`, "not-image": "Це не картинка", "too-big": "Фото завелике, спробуй інше", "bad-image": "Не вдалося прочитати фото", "not-allowed": "Зараз додавати не можна" };
+  function renderRefs(room, ctx) {
+    const mine = Object.keys((room.refMeta && room.refMeta[ctx.username]) || {});
+    const box = $("myRefs"), have = new Set(Array.from(box.children).map((el) => el.dataset.id));
+    Array.from(box.children).forEach((el) => { if (!mine.includes(el.dataset.id)) el.remove(); });
+    mine.forEach((id) => {
+      if (have.has(id)) return;
+      const el = elFrom(`<div class="db-ref" data-id="${esc(id)}"><img alt="" /><button aria-label="Прибрати">${icon("x")}</button></div>`);
+      G.loadPhoto(shotRef(ctx.username, id)).then((src) => { if (src) el.querySelector("img").src = src; });
+      el.querySelector("button").addEventListener("click", () => G.removeRef(id));
+      box.appendChild(el);
+    });
+    $("refAddBtn").disabled = mine.length >= G.MAX_REFS;
+    const total = G.availableRefs(room).uploaded;
+    $("refsCount").textContent = total ? total : "";
+  }
+  async function addRefFromInput() {
+    const input = $("refInput"), file = input.files && input.files[0];
+    input.value = "";
+    if (!file) return;
+    $("refErr").textContent = "";
+    $("refAddBtn").disabled = true;
+    const r = await G.addRef(file);
+    if (!r.ok) $("refErr").textContent = REF_ERRORS[r.reason] || "Не вдалося додати кадр";
+    else sfx("pop");
+    if (lastRoom && lastCtx) renderRefs(lastRoom, lastCtx);
+  }
+
+  // ---------------- лобі ----------------
+  function renderLobby(room, ctx) {
+    renderRefs(room, ctx);
+    const conn = G.connectedNames(room.players), hostName = G.computeHost(room.players), me = ctx.username, players = room.players || {};
+    $("roomCodeDisplay").textContent = G.roomId || "";
+    $("lobbyStatus").textContent = `Онлайн: ${conn.length}`;
+    $("lobbyCount").textContent = conn.length;
+    const names = Object.keys(players).sort((a, b) => conn.includes(b) - conn.includes(a));
+    const refsOf = (n) => G.refCount(room, n);
+    paint("playersList", JSON.stringify(names.map((n) => [n, players[n].character, conn.includes(n), n === hostName, refsOf(n)])),
+      names.length ? names.map((n) => {
+        const mine = n === me, r = refsOf(n);
+        return `<button class="pp-pl ${mine ? "me" : ""} ${conn.includes(n) ? "" : "off"}" ${mine ? 'data-me="1"' : "disabled"}>${avatarHtml(room, n, { size: "lg", mood: mine ? "happy" : "idle", badge: r ? `<span class="rdy">${r}</span>` : "" })}
+          <span class="nm">${esc(n)}</span>${n === hostName ? `<span class="tag">${icon("crown")}</span>` : ""}${mine ? `<span class="swap">${icon("swap")}</span>` : ""}</button>`;
+      }).join("") : '<div class="pp-note">Ще нікого немає</div>');
+    const meBtn = $("playersList").querySelector("[data-me]");
+    if (meBtn && !meBtn.dataset.bound) { meBtn.dataset.bound = "1"; meBtn.addEventListener("click", () => { G.cycleAvatar(); sfx("pop"); }); }
+
+    $("hostPanel").classList.toggle("hidden", !ctx.host);
+    $("resetBtn").classList.toggle("hidden", !ctx.host);
+    $("waitHostLobby").classList.toggle("hidden", !!ctx.host);
+    if (!ctx.host) {
+      paint("waitHostLobby", "w" + hostName + (players[hostName] || {}).character,
+        `${hostName ? avatarHtml(room, hostName, { size: "md", mood: "write" }) : ""}<div class="pp-note"><b style="color:var(--ink)">${esc(hostName || "Режисер")}</b> — режисер вечора.<br>Поки чекаємо — додай свій кадр для повтору.</div>`);
+      return;
+    }
+    [["roundsSlider", "roundsValue", "rounds", ""], ["shootSecSlider", "shootSecValue", "shootSec", " с"], ["voteSecSlider", "voteSecValue", "voteSec", " с"]]
+      .forEach(([inp, out, key, unit]) => {
+        if (document.activeElement === $(inp)) return;
+        const v = G.settingOf(room, key);
+        $(inp).value = v; $(out).textContent = v + unit;
+      });
+    const enough = conn.length >= G.MIN_PLAYERS, hasRefs = G.availableRefs(room).total > 0;
+    $("startBtn").disabled = !enough || !hasRefs;
+    $("startHint").textContent = !enough ? `Потрібно мінімум ${G.MIN_PLAYERS} гравці онлайн` : !hasRefs ? "Немає жодного кадру" : "";
+  }
+
+  // ---------------- раунд ----------------
+  const TITLES = { shoot: "Знімаємо дубль", vote: "Голосування", reveal: "Результат" };
+  let lastStageId = null;
+  function renderRound(room, ctx) {
+    const st = room.stage;
+    $("roundNo").innerHTML = `${room.roundNo + 1}<i>/${room.totalRounds}</i>`;
+    $("stageTitle").textContent = TITLES[st.kind] || "";
+    if (st.id !== lastStageId) {
+      if (lastStageId !== null) sfx(st.kind === "reveal" ? "drum" : st.kind === "vote" ? "vs" : "whoosh");
+      if (st.kind === "reveal" && (st.points || {})[ctx.username]) setTimeout(() => sfx("fanfare"), 800);
+      if ((st.expect || []).includes(ctx.username)) buzz(30);
+      lastStageId = st.id; uploadErr = "";
+      if (st.kind !== "shoot") uploading = false;
+    }
+    document.body.dataset.stage = st.kind;
+    showRef(st.ref);
+    const isReveal = st.kind === "reveal";
+    const inputArea = $("inputArea");
+    $("revealArea").classList.toggle("hidden", !isReveal);
+    inputArea.classList.toggle("hidden", isReveal);
+    const waiting = G.waitingNames(room), expect = st.expect || [];
+    const mine = G.inputOf(room, ctx.username), iExpected = expect.includes(ctx.username);
+
+    if (isReveal) {
+      renderReveal(room, st, ctx);
+      paint("waitInfo", "none", "");
+    } else if (st.kind === "shoot" && iExpected) {
+      const key = ["s", st.id, mine || "", uploading ? 1 : 0, uploadErr].join("|");
+      if (paint("inputArea", key, shootHtml(ctx, mine))) {
+        fillPhotos(inputArea);
+        inputArea.querySelectorAll("[data-cam]").forEach((b) => b.addEventListener("click", () => $("camInput").click()));
+        inputArea.querySelectorAll("[data-gal]").forEach((b) => b.addEventListener("click", () => $("galInput").click()));
+      }
+    } else if (st.kind === "vote" && iExpected) {
+      if (builtStageId !== st.id) {
+        builtStageId = st.id; sig.inputArea = null;
+        inputArea.innerHTML = '<div class="pp-note">Чий дубль найкращий? Тапни, щоб обрати. Лупа — порівняти з оригіналом</div><div class="db-grid">' + (st.shots || []).map((s, i) => {
+          const own = s.n === ctx.username;
+          return `<div class="db-opt ${own ? "own" : ""}" data-opt="${i}" role="button" tabindex="0"><div class="db-shot"><img alt="" data-photo="${photoAttr(shotRef(s.n, s.key))}" />${own ? '<span class="lbl dub">Твій</span>' : ""}</div>
+            <button class="zoom" data-zoom="${i}" aria-label="Порівняти">${ic("zoom")}</button></div>`;
+        }).join("") + "</div>";
+        fillPhotos(inputArea);
+        inputArea.querySelectorAll("[data-opt]").forEach((el) => el.addEventListener("click", (e) => {
+          if (e.target.closest("[data-zoom]") || el.classList.contains("own")) return;
+          const r = G.vote(el.dataset.opt); if (r && r.ok) { sfx("pop"); buzz(15); }
+        }));
+        inputArea.querySelectorAll("[data-zoom]").forEach((b) => b.addEventListener("click", () => {
+          const s = st.shots[Number(b.dataset.zoom)];
+          openViewer(st.ref, shotRef(s.n, s.key), s.n === ctx.username ? s.n : "");
+        }));
+      }
+      inputArea.querySelectorAll("[data-opt]").forEach((b) => b.classList.toggle("selected", b.dataset.opt === mine));
+    } else if (st.kind === "vote") {
+      // не голосую (єдиний дубль — мій) — просто показую дублі
+      paint("inputArea", "vw" + st.id, '<div class="pp-note">Голосують інші. Твій дубль у грі</div>');
+    } else {
+      builtStageId = null;
+      paint("inputArea", "none", "");
+    }
+    if (!isReveal) {
+      if (expect.length) {
+        const done = expect.length - waiting.length;
+        paint("waitInfo", `${st.id}|${done}|${waiting.join(",")}`,
+          `<div class="dots">${expect.map((_, i) => `<i class="${i < done ? "on" : ""}"></i>`).join("")}</div><div>${done} з ${expect.length}</div>` +
+          (waiting.length && waiting.length <= 8 ? `<div class="who">${waiting.map((n) => avatarHtml(room, n, { size: "sm", mood: "write", still: true })).join("")}</div>` : ""));
+      } else paint("waitInfo", "none", "");
+    }
+    $("hostBar").classList.toggle("hidden", !ctx.host);
+    $("hostNextBtn").textContent = isReveal ? (room.roundNo + 1 >= room.totalRounds ? "Підсумок" : "Наступний кадр")
+      : st.kind === "shoot" ? "Завершити зйомку" : "Показати результат";
+    $("skipItemBtn").classList.toggle("hidden", st.kind !== "shoot");
+    updateTimer();
+  }
+
+  function shootHtml(ctx, mine) {
+    const hint = `<div class="db-hint">${ic("camera")}<div><b>Повторіть кадр.</b> Поза, обличчя, кут. Гуртом — надсилає один.</div></div>`;
+    if (uploading) return hint + '<div class="db-busy">Надсилаю дубль…</div>';
+    const err = uploadErr ? `<div class="pp-err">${esc(uploadErr)}</div>` : "";
+    if (mine) {
+      return hint + `<div class="db-mine"><div class="db-shot"><img alt="" data-photo="${photoAttr(shotRef(ctx.username, mine))}" /></div>
+        <div class="act"><div class="db-ok">${icon("check")} Дубль надіслано</div>
+        <button class="pp-btn" data-cam="1">${ic("redo")} Перезняти</button><button class="pp-btn pp-ghost" data-gal="1">${ic("image")} З галереї</button></div></div>` + err;
+    }
+    return hint + `<div class="db-cam"><button class="pp-btn pp-primary" data-cam="1">${ic("camera")} Зняти дубль</button>
+      <button class="pp-btn" data-gal="1" aria-label="З галереї">${ic("image")}</button></div>` + err;
+  }
+  const SHOT_ERRORS = { "not-image": "Це не картинка", "too-big": "Фото завелике, спробуй ще раз", "bad-image": "Не вдалося прочитати фото", late: "Зйомка вже закінчилась", "wrong-phase": "Зйомка вже закінчилась" };
+  async function sendShot(input) {
+    const file = input.files && input.files[0];
+    input.value = "";
+    if (!file || uploading) return;
+    uploading = true; uploadErr = "";
+    if (lastRoom && lastCtx && lastRoom.stage) renderRound(lastRoom, lastCtx);
+    const r = await G.submitShot(file);
+    uploading = false;
+    if (r.ok) { sfx("pop"); buzz(15); } else uploadErr = SHOT_ERRORS[r.reason] || "Не вдалося надіслати дубль";
+    if (lastRoom && lastCtx && lastRoom.phase === "round" && lastRoom.stage) renderRound(lastRoom, lastCtx);
+  }
+
+  function renderReveal(room, st, ctx) {
+    const results = st.results || [], w = st.winner;
+    const changed = paint("revealArea", "r" + st.id, (() => {
+      if (!results.length) return `<div class="db-verdict">${esc(st.headline || "Ніхто не зняв дубль")}</div>`;
+      const top = w ? results.find((r) => r.n === w.n && r.key === w.key) : null;
+      const rest = results.filter((r) => r !== top);
+      return (top ? `<div class="db-win"><div class="cap">${avatarHtml(room, top.n, { size: "md", mood: "happy", still: true })}
+            <span class="t"><small>${esc(st.headline || "Найкращий дубль")}</small><b>${esc(top.n)}</b></span>${top.v ? `<span class="v">${top.v}</span>` : ""}</div>
+          <div class="db-frame"><div class="db-shot"><img alt="" data-photo="${photoAttr(st.ref)}" /><span class="lbl">Оригінал</span></div><div class="db-split"></div>
+            <div class="db-shot"><img alt="" data-photo="${photoAttr(shotRef(top.n, top.key))}" /><span class="lbl dub">Дубль</span></div></div>
+          <div class="db-save"><button class="pp-btn" data-view="win">${ic("zoom")} Роздивитись</button><button class="pp-btn pp-primary" data-save="win">${ic("share")} Колаж</button></div>
+          <div class="db-toast" id="winToast"></div></div>`
+        : `<div class="db-verdict">${esc(st.headline || "Голосів немає")}</div>`) +
+        (rest.length ? `<div class="db-rest">${rest.map((r) => `<button data-i="${results.indexOf(r)}"><div class="db-shot"><img alt="" data-photo="${photoAttr(shotRef(r.n, r.key))}" /></div>
+            <span class="v">${r.v}</span><span class="n">${esc(r.n)}</span></button>`).join("")}</div>` : "");
+    })() + ((st.lines || []).length ? `<div class="pp-lines">${st.lines.map((l) => `<div>${esc(l)}</div>`).join("")}</div>` : "") +
+      drinkHtml(room, st, ctx.username, 0));
+    if (!changed) return;
+    const box = $("revealArea");
+    fillPhotos(box);
+    const top = w && results.find((r) => r.n === w.n && r.key === w.key);
+    if (top) {
+      box.querySelector("[data-view]").addEventListener("click", () => openViewer(st.ref, shotRef(top.n, top.key), top.n));
+      box.querySelector("[data-save]").addEventListener("click", () => saveCollage(st.ref, shotRef(top.n, top.key), top.n, $("winToast")));
+    }
+    box.querySelectorAll(".db-rest [data-i]").forEach((b) => b.addEventListener("click", () => {
+      const r = results[Number(b.dataset.i)]; openViewer(st.ref, shotRef(r.n, r.key), r.n);
+    }));
+  }
+
+  const RING = 2 * Math.PI * 19;
+  let lastTick = null;
+  function updateTimer() {
+    const el = $("timer"), room = lastRoom, st = room && room.stage;
+    if (room && room.paused) return;
+    if (!room || room.phase !== "round" || !st || st.kind === "reveal" || !st.endsAt) { el.className = "pp-timer off"; return; }
+    const total = Math.max(1, st.endsAt - (st.startedAt || st.endsAt - 60000));
+    const left = Math.max(0, st.endsAt - G.now()), sec = Math.ceil(left / 1000);
+    const bar = el.querySelector(".bar");
+    bar.style.strokeDasharray = RING; bar.style.strokeDashoffset = RING * (1 - left / total);
+    el.querySelector("span").textContent = sec;
+    el.className = "pp-timer" + (sec <= 10 ? " urgent" : "");
+    if (sec <= 5 && sec > 0 && sec !== lastTick && lastCtx && (st.expect || []).includes(lastCtx.username) && !G.inputOf(room, lastCtx.username)) { lastTick = sec; sfx("tick"); }
+  }
+
+  // ---------------- підсумок ----------------
+  function renderSummary(room, ctx) {
+    const t = room.tally || {};
+    paint("sumPoints", "p" + JSON.stringify(t.points || {}), podium(room, "points", "happy"));
+    const best = Object.entries(room.best || {}).sort((a, b) => Number(a[0].slice(1)) - Number(b[0].slice(1))).map(([, v]) => v).filter((b) => b && b.ref && b.n);
+    if (paint("sumGallery", JSON.stringify(best), best.length
+      ? best.map((b, i) => `<button class="db-gal" data-b="${i}"><div class="db-shot"><img alt="" data-photo="${photoAttr(shotRef(b.n, b.key))}" /><span class="lbl dub">Кадр ${i + 1}</span></div><span class="n">${esc(b.n)}</span></button>`).join("")
+      : '<div class="pp-note">Цього разу без переможців</div>')) {
+      fillPhotos($("sumGallery"));
+      $("sumGallery").querySelectorAll("[data-b]").forEach((el) => el.addEventListener("click", () => {
+        const b = best[Number(el.dataset.b)]; openViewer(b.ref, shotRef(b.n, b.key), b.n);
+      }));
+    }
+    $("toLobbyBtn").classList.toggle("hidden", !ctx.host);
+    $("waitHostSummary").classList.toggle("hidden", !!ctx.host);
+  }
+
+  const gamePause = window.GamePause ? GamePause.mount({ getRef: () => G.roomRef, now: () => G.now(), username: () => lastCtx && lastCtx.username,
+    active: (r) => r.phase === "round", deadlines: () => ["stage/endsAt", "stage/startedAt"] }) : null;
+  function onState(room, ctx) {
+    const prev = lastRoom && lastRoom.phase;
+    lastRoom = room; lastCtx = ctx;
+    if (!ctx.username) { showView("locked"); return; }
+    if (gamePause) gamePause.update(room);
+    if (!reactionsMounted && window.GameReactions && G.roomRef) { reactionsMounted = true; window.GameReactions.mount(G.roomRef, ctx.username); }
+    const iAmIn = room.players && room.players[ctx.username];
+    if (room.phase === "round" && room.stage) {
+      if (!iAmIn || !(room.order || []).includes(ctx.username)) { showView("waiting"); return; }
+      showView("round"); renderRound(room, ctx);
+    } else if (room.phase === "summary") { if (prev === "round") sfx("fanfare"); closeViewer(); showView("summary"); renderSummary(room, ctx); }
+    else { builtStageId = null; lastStageId = null; shownRefKey = null; if (prev && prev !== "lobby") closeViewer(); showView("lobby"); renderLobby(room, ctx); }
+  }
+
+  $("startBtn").addEventListener("click", () => {
+    const r = G.startSet(lastRoom);
+    if (r && !r.ok) $("startHint").textContent = r.reason === "not-enough-players" ? `Потрібно мінімум ${G.MIN_PLAYERS} гравці онлайн` : "Не вдалося почати";
+  });
+  for (const [inputId, outputId, key, unit] of [["roundsSlider", "roundsValue", "rounds", ""], ["shootSecSlider", "shootSecValue", "shootSec", " с"], ["voteSecSlider", "voteSecValue", "voteSec", " с"]]) {
+    const input = $(inputId);
+    input.addEventListener("input", () => { $(outputId).textContent = input.value + unit; });
+    input.addEventListener("change", () => G.updateSettings({ [key]: Number(input.value) }));
+  }
+  $("resetBtn").addEventListener("click", () => { if (confirm("Скинути вечір (рахунок і кадри теж)?")) G.resetAll(); });
+  $("hostNextBtn").addEventListener("click", () => G.skip());
+  $("skipItemBtn").addEventListener("click", () => G.skipItem());
+  $("refAddBtn").addEventListener("click", () => $("refInput").click());
+  $("refInput").addEventListener("change", addRefFromInput);
+  $("camInput").addEventListener("change", () => sendShot($("camInput")));
+  $("galInput").addEventListener("change", () => sendShot($("galInput")));
+  $("endSetBtn").addEventListener("click", () => { if (confirm("Завершити вечір?")) G.endSet(); });
+  $("toLobbyBtn").addEventListener("click", () => G.toLobby());
+  setInterval(updateTimer, 250);
+
+  function beginGame(user, roomId) { G.onStateChange = onState; G.start(user, roomId); }
+  const session = window.AppAuth && window.AppAuth.getSession();
+  if (session && window.rtdbReady) {
+    RoomCodeUI.mount({
+      containerId: "activeRoomsList", codeInputId: "roomCodeInput", joinBtnId: "joinRoomBtn", createBtnId: "createRoomBtn",
+      watchActiveRooms: G.watchActiveRooms,
+      emptyListHtml: '<div class="hint-text">Активних кімнат поки нема — створи нову</div>',
+      renderRoomItem: (r) => `<div class="pp-room"><b>${esc(r.roomId)}</b><small>${icon("users")} ${r.connectedCount}/${r.playerCount}</small>
+        <span class="st ${r.phase === "round" ? "live" : ""}">${r.phase === "lobby" ? "Лобі" : r.phase === "summary" ? "Підсумок" : "Знімають"}</span></div>`,
+      onEnter: (roomId) => beginGame(session.username, roomId),
+    });
+    showView("entry");
+  } else showView("locked");
+  window.addEventListener("beforeunload", () => G.stop());
+})();
+</script>
+</body>
+</html>
