@@ -1,4 +1,4 @@
-<!-- Гра: Еліас — офлайн, один телефон на команду, що пояснює: пояснюй слова, не називаючи їх, за хвилину. Команди, рахунок до цілі, останнє слово для всіх. -->
+<!-- Гра: Еліас онлайн — кожен на своєму телефоні, кімната за кодом. Команди, пояснювач бачить слово, свої вгадують, суперники контролюють. Офлайн-варіант на одному телефоні: alias-solo.html. -->
 <!DOCTYPE html>
 <html lang="uk">
 <head>
@@ -23,316 +23,343 @@
 body { background: linear-gradient(160deg, #19b5a3 0%, #0f9b8e 50%, #0b6a73 100%) fixed; }
 .pp-card { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.26); backdrop-filter: blur(4px); }
 .pp-h { color: #fff; opacity: .85; }
-.pp-hero h1 { font-weight: 900; text-shadow: 0 4px 0 rgba(0,0,0,.15); }
-.pp-hero h1 span { color: var(--accent); }
+.pp-hero h1, .pp-lobby-head .t b { font-weight: 900; }
+.pp-hero h1 span, .pp-lobby-head .t b span { color: var(--accent); }
 .pp-hero p { color: #fff; opacity: .9; }
 .pp-primary { box-shadow: 0 6px 0 #c9ad2a; }
 .pp-primary:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 2px 0 #c9ad2a; }
 .pp-seg button { border-color: rgba(255,255,255,.4); color: #fff; }
 .pp-seg button.selected { background: #fff; color: #0b6a73; }
+.al-solo { display: block; text-align: center; color: #fff; opacity: .85; font-weight: 700; font-size: 14px; margin-top: 4px; }
 
-.al-teams { display: flex; flex-direction: column; gap: 8px; }
-.al-team { display: flex; align-items: center; gap: 8px; }
-.al-team i { width: 14px; height: 14px; border-radius: 50%; flex: none; }
-.al-team input { flex: 1; min-width: 0; min-height: 44px; padding: 0 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,.35); background: rgba(255,255,255,.1); color: #fff; font: 700 15px var(--font-b); }
-.al-team button { width: 40px; height: 40px; border-radius: 12px; border: 1px solid rgba(255,255,255,.35); background: transparent; color: #fff; font-size: 18px; }
-.al-add { min-height: 42px; border-radius: 12px; border: 1px dashed rgba(255,255,255,.5); background: transparent; color: #fff; font: 700 14px var(--font-b); }
+/* команди в лобі */
+.al-tgrid { display: grid; gap: 8px; }
+.al-tcard { padding: 10px 12px; border-radius: 16px; background: rgba(255,255,255,.1); border: 2px solid transparent; }
+.al-tcard.mine { border-color: var(--tc); background: rgba(255,255,255,.18); }
+.al-thead { display: flex; align-items: center; gap: 8px; }
+.al-thead i { width: 12px; height: 12px; border-radius: 50%; background: var(--tc); flex: none; }
+.al-thead b { flex: 1; font-size: 15px; }
+.al-thead small { opacity: .75; font-weight: 700; font-size: 12px; }
+.al-thead button { min-height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,.5); background: transparent; color: #fff; font: 800 13px var(--font-b); }
+.al-tmem { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; min-height: 30px; }
+.al-tmem .empty { font-size: 12px; opacity: .6; align-self: center; }
 
-/* табло */
-.al-board { display: flex; flex-direction: column; gap: 6px; }
-.al-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; background: rgba(255,255,255,.1); }
-.al-row.now { background: rgba(255,225,77,.2); outline: 2px solid var(--accent); }
-.al-row i { width: 12px; height: 12px; border-radius: 50%; flex: none; }
-.al-row b { flex: 1; font-size: 15px; }
-.al-row span { font: 900 22px var(--font-d); }
-.al-bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,.15); overflow: hidden; margin-top: 4px; }
-.al-bar div { height: 100%; background: var(--accent); }
-.al-turnhead { text-align: center; }
-.al-turnhead small { display: block; font-weight: 800; opacity: .8; letter-spacing: .1em; text-transform: uppercase; font-size: 12px; }
-.al-turnhead b { display: block; font: 900 34px/1.1 var(--font-d); margin-top: 4px; }
-
-/* хід */
-.al-top { display: flex; align-items: center; justify-content: space-between; }
-.al-timer { font: 900 54px/1 var(--font-d); text-shadow: 0 4px 0 rgba(0,0,0,.15); }
+/* гра */
+.al-score { display: flex; gap: 6px; }
+.al-score div { flex: 1; min-width: 0; padding: 8px 6px; border-radius: 14px; background: rgba(255,255,255,.1); text-align: center; border: 2px solid transparent; }
+.al-score div.now { border-color: var(--tc); background: rgba(255,255,255,.18); }
+.al-score b { display: block; font: 900 24px/1 var(--font-d); color: var(--tc); }
+.al-score small { display: block; font-size: 11px; font-weight: 800; opacity: .85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.al-meta { display: flex; align-items: center; justify-content: space-between; font-weight: 800; font-size: 13px; opacity: .9; }
+.al-timer { font: 900 46px/1 var(--font-d); text-shadow: 0 4px 0 rgba(0,0,0,.15); text-align: center; }
 .al-timer.urgent { color: var(--bad); animation: alPulse 1s ease-in-out infinite; }
 @keyframes alPulse { 50% { transform: scale(1.08); } }
-.al-cnt { display: flex; gap: 12px; font-weight: 800; }
-.al-cnt span { display: flex; align-items: center; gap: 4px; padding: 6px 12px; border-radius: 999px; background: rgba(255,255,255,.15); }
-.al-word { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 260px; padding: 20px; border-radius: 26px;
+.al-who { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.al-who b { font: 900 26px/1.15 var(--font-d); }
+.al-who small { font-weight: 700; opacity: .85; }
+.al-word { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 220px; padding: 20px; border-radius: 26px;
   background: #fff; color: #08403f; box-shadow: 0 10px 0 rgba(0,0,0,.18), 0 24px 40px rgba(0,0,0,.2); text-align: center; }
 .al-word.in { animation: alIn .25s cubic-bezier(.2,1.3,.4,1); }
 @keyframes alIn { from { transform: translateY(12px) scale(.96); opacity: 0; } }
-.al-word b { font: 900 clamp(30px, 10vw, 52px)/1.05 var(--font-d); word-break: break-word; }
+.al-word b { font: 900 clamp(28px, 10vw, 50px)/1.05 var(--font-d); word-break: break-word; }
 .al-word b::first-letter { text-transform: uppercase; }
 .al-word small { font-size: 13px; font-weight: 700; color: #3c7a78; }
+.al-word.guess { background: var(--accent); color: var(--accent-ink); }
+.al-word.guess b { font-size: clamp(34px, 12vw, 58px); }
 .al-actions { display: grid; grid-template-columns: 1fr 1.3fr; gap: 10px; }
 .al-actions .pp-btn { min-height: 76px; font-size: 18px; border-radius: 20px; }
 .al-skip { background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.4); color: #fff; }
 .al-got { background: var(--good); color: #05301b; border: 0; box-shadow: 0 6px 0 #1aa95e; font-family: var(--font-d); font-weight: 900; }
 .al-got:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 2px 0 #1aa95e; }
-
-/* останнє слово / перевірка */
+.al-cnt { display: flex; justify-content: center; gap: 12px; font-weight: 800; }
+.al-cnt span { padding: 6px 14px; border-radius: 999px; background: rgba(255,255,255,.15); }
 .al-last { display: grid; gap: 8px; }
 .al-last button { min-height: 52px; border-radius: 14px; border: 0; font: 800 16px var(--font-b); color: #08403f; background: #fff; display: flex; align-items: center; justify-content: center; gap: 8px; }
 .al-last button i { width: 12px; height: 12px; border-radius: 50%; }
 .al-last button.none { background: rgba(255,255,255,.16); color: #fff; border: 1px solid rgba(255,255,255,.4); }
 .al-review { display: flex; flex-direction: column; gap: 6px; }
-.al-review button { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 0 12px; border-radius: 12px; border: 0; background: rgba(255,255,255,.12); color: #fff; font: 700 15px var(--font-b); text-align: left; }
-.al-review button .m { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; flex: none; font-weight: 900; }
-.al-review button.ok .m { background: var(--good); color: #05301b; }
-.al-review button.no .m { background: rgba(255,255,255,.2); }
-.al-review button.no span { opacity: .65; text-decoration: line-through; }
-.al-review button.last .tag { margin-left: auto; font-size: 11px; opacity: .8; }
+.al-review .it { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-radius: 12px; border: 0; background: rgba(255,255,255,.12); color: #fff; font: 700 15px var(--font-b); text-align: left; width: 100%; }
+.al-review .it .m { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; flex: none; font-weight: 900; }
+.al-review .it.ok .m { background: var(--good); color: #05301b; }
+.al-review .it.no .m { background: rgba(255,255,255,.2); }
+.al-review .it.no span { opacity: .65; text-decoration: line-through; }
+.al-review .it .tag { margin-left: auto; font-size: 11px; opacity: .8; }
 .al-sum { text-align: center; font: 900 30px var(--font-d); }
 .al-sum small { display: block; font: 700 13px var(--font-b); opacity: .8; }
 .al-win { text-align: center; }
 .al-win .cup { font-size: 72px; }
 .al-win b { display: block; font: 900 36px/1.1 var(--font-d); margin-top: 6px; }
+.pp-hostbar { gap: 8px; }
 html.dark-games { --bg: #0c2a2c; --hdr-bg: rgba(12,42,44,.9); }
 html.dark-games body { background: linear-gradient(160deg, #11393a 0%, #0c2a2c 55%, #081c1f 100%) fixed; }
 html.dark-games .pp-card { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.14); }
-html.dark-games .al-word { background: #e9fbf8; }
+html.dark-games .al-word:not(.guess) { background: #e9fbf8; }
 </style>
 </head>
 <body>
 <div id="app"><div class="pp-wrap">
-  <!-- налаштування -->
-  <section class="pp-view hidden" id="view-setup">
-    <div class="pp-hero"><span data-emblem></span><h1>Елі<span>ас</span></h1><p>Поясни якомога більше слів за хвилину — не називаючи їх. Команда, що першою набере потрібні бали, перемагає.</p></div>
-    <div class="pp-card"><div class="pp-h">Команди</div><div class="al-teams" id="teams"></div>
-      <button class="al-add" id="addTeam" style="margin-top:8px">+ Додати команду</button></div>
-    <div class="pp-card">
+  <section class="pp-view pp-center hidden" id="v-locked"><span class="pp-big-ic" data-ic="lock"></span><div class="pp-note" style="font-size:16px">Увійди в профіль, щоб грати з друзями онлайн</div>
+    <a class="al-solo" href="alias-solo.html">Або грай на одному телефоні →</a></section>
+
+  <section class="pp-view hidden" id="v-entry">
+    <div class="pp-hero"><span data-emblem></span><h1>Елі<span>ас</span></h1><p>Кожен на своєму телефоні. Пояснюй слова команді, не називаючи їх, — суперники бачать слово й стежать за чесністю.</p></div>
+    <div class="pp-card"><div class="pp-h"><span data-ic="users"></span> Активні кімнати</div><div class="rooms-list" id="activeRoomsList"></div></div>
+    <div class="pp-or">або за кодом</div>
+    <div class="pp-join"><input class="pp-field" id="roomCodeInput" maxlength="5" placeholder="КОД" autocomplete="off" /><button class="pp-btn" id="joinRoomBtn">Увійти</button></div>
+    <button class="pp-btn pp-primary pp-block pp-big" id="createRoomBtn">Створити кімнату</button>
+    <a class="al-solo" href="alias-solo.html">Грати на одному телефоні →</a>
+  </section>
+
+  <section class="pp-view hidden" id="v-lobby">
+    <div class="pp-lobby-head"><span data-emblem></span><div class="t"><b>Елі<span>ас</span></b><small id="lobbyStatus"></small></div>
+      <div class="pp-code"><small>Код кімнати</small><b id="roomCodeDisplay"></b></div></div>
+    <div class="pp-card"><div class="pp-h"><span data-ic="users"></span> Команди</div><div class="al-tgrid" id="teamsBox"></div>
+      <div class="pp-note" style="margin-top:8px;color:#fff;opacity:.8">Торкнись своєї аватарки, щоб змінити персонажа</div></div>
+    <div class="pp-card hidden" id="hostPanel"><div class="pp-h">Налаштування</div>
+      <div class="pp-label">Команд</div><div class="pp-seg" id="teamsSeg"><button data-v="2">2</button><button data-v="3">3</button><button data-v="4">4</button></div>
       <div class="pp-label">Час на хід</div><div class="pp-seg" id="timeSeg"><button data-v="30">30 с</button><button data-v="60">60 с</button><button data-v="90">90 с</button></div>
       <div class="pp-label">Грати до</div><div class="pp-seg" id="targetSeg"><button data-v="30">30</button><button data-v="50">50</button><button data-v="80">80</button></div>
       <div class="pp-label">Слова</div><div class="pp-seg" id="diffSeg"><button data-v="easy">Легкі</button><button data-v="mix">Мікс</button><button data-v="hard">Складні</button></div>
       <div class="pp-label">Пропуск</div><div class="pp-seg" id="penSeg"><button data-v="1">−1 бал</button><button data-v="0">Без штрафу</button></div>
-      <button class="pp-btn pp-primary pp-block pp-big" id="startBtn" style="margin-top:18px"><span data-ic="play"></span> Почати гру</button>
-      <button class="pp-btn pp-ghost pp-block hidden" id="resumeBtn" style="margin-top:8px;color:#fff;border-color:rgba(255,255,255,.4)">Продовжити попередню гру</button></div>
+      <button class="pp-btn pp-primary pp-block pp-big" id="startBtn" style="margin-top:16px"><span data-ic="play"></span> Почати гру</button>
+      <div class="pp-note" id="startHint" style="color:#fff;opacity:.85;margin-top:6px"></div></div>
+    <div class="pp-card hidden" id="waitHost"></div>
     <details class="pp-card pp-rules"><summary>Як грати</summary><ol>
-      <li>Діліться на команди. У кожній по черзі хтось пояснює, решта його команди вгадує.</li>
-      <li>Пояснюй слово синонімами, описом, асоціаціями — але не називай його і спільнокореневі слова.</li>
-      <li>Вгадали — «Вгадали!», не виходить — «Пропустити» (за налаштуванням це −1 бал).</li>
-      <li>Коли час вийшов, останнє слово може вгадати будь-яка команда — бал отримує вона.</li>
-      <li>Після ходу можна виправити випадкові натискання. Перемагає команда, що першою набрала ціль (після повного кола).</li></ol></details>
+      <li>Розходьтесь по командах. Хід по черзі, пояснювачі в команді змінюються щоразу.</li>
+      <li>Пояснювач бачить слово й пояснює його своїм — синонімами, описом, асоціаціями, не називаючи слова й спільнокореневих.</li>
+      <li>Суперники теж бачать слово — стежте, щоб ніхто не порушував правил.</li>
+      <li>Коли час вийшов, останнє слово може вгадати будь-яка команда — бал отримає вона.</li>
+      <li>Після ходу пояснювач може виправити випадкові натискання. Перемагає команда, що першою набрала ціль (після повного кола).</li></ol></details>
   </section>
 
-  <!-- черга ходу -->
-  <section class="pp-view hidden" id="view-turn">
-    <div class="al-turnhead"><small id="roundLbl">Коло 1</small><b id="turnTeam">—</b><div class="pp-note" style="margin-top:6px;color:#fff;opacity:.85">Передайте телефон тому, хто пояснює</div></div>
-    <button class="pp-btn pp-primary pp-block pp-big" id="goBtn"><span data-ic="play"></span> Почати хід</button>
-    <div class="pp-card"><div class="pp-h">Рахунок · до <span id="targetLbl"></span></div><div class="al-board" id="board"></div></div>
-    <button class="pp-btn pp-ghost pp-block" id="quitBtn" style="color:#fff;border-color:rgba(255,255,255,.4)"><span data-ic="refresh"></span> Завершити гру</button>
+  <section class="pp-view hidden" id="v-game">
+    <div class="al-score" id="scoreBar"></div>
+    <div class="al-meta"><span id="metaRound"></span><span id="metaTeam"></span></div>
+    <div id="stage"></div>
   </section>
 
-  <!-- хід -->
-  <section class="pp-view hidden" id="view-play">
-    <div class="al-top"><div class="al-timer" id="timer">60</div><div class="al-cnt"><span>✓ <b id="gotN">0</b></span><span>↷ <b id="skipN">0</b></span></div></div>
-    <div class="al-word" id="word"><b>—</b></div>
-    <div class="al-actions">
-      <button class="pp-btn al-skip" id="skipBtn">Пропустити</button>
-      <button class="pp-btn al-got" id="gotBtn"><span data-ic="check"></span> Вгадали!</button>
-    </div>
-  </section>
-
-  <!-- останнє слово -->
-  <section class="pp-view hidden" id="view-last">
-    <div class="al-turnhead"><small>Час вийшов! Останнє слово</small><b id="lastWord">—</b><div class="pp-note" style="margin-top:6px;color:#fff;opacity:.85">Хто встиг вгадати? Бал отримає ця команда</div></div>
-    <div class="al-last" id="lastBtns"></div>
-  </section>
-
-  <!-- перевірка ходу -->
-  <section class="pp-view hidden" id="view-review">
-    <div class="al-sum"><span id="sumN">0</span><small id="sumLbl">балів за хід</small></div>
-    <div class="pp-card"><div class="pp-h">Слова ходу · торкнись, щоб виправити</div><div class="al-review" id="review"></div></div>
-    <button class="pp-btn pp-primary pp-block pp-big" id="confirmBtn">Зарахувати</button>
-  </section>
-
-  <!-- перемога -->
-  <section class="pp-view hidden" id="view-win">
+  <section class="pp-view hidden" id="v-over">
     <div class="al-win"><div class="cup">🏆</div><b id="winName">—</b><div class="pp-note" style="color:#fff;opacity:.9;margin-top:6px">перемагає!</div></div>
-    <div class="pp-card"><div class="pp-h">Підсумок</div><div class="al-board" id="finalBoard"></div></div>
-    <button class="pp-btn pp-primary pp-block pp-big" id="againBtn"><span data-ic="refresh"></span> Ще раз</button>
+    <div class="al-score" id="finalBar"></div>
+    <div class="pp-card hidden" id="overWait"><div class="pp-note" style="color:#fff">Ведучий почне нову гру</div></div>
   </section>
+
+  <div class="pp-hostbar hidden" id="hostBar">
+    <button class="pp-btn pp-ghost" id="lobbyBtn" title="У лобі"><span data-ic="refresh"></span></button>
+    <button class="pp-btn pp-primary hidden" id="swapBtn">Інший пояснювач</button>
+    <button class="pp-btn pp-primary hidden" id="againBtn">Нова гра</button>
+  </div>
 </div></div>
 
-<script src="js/promts/alias-words.js"></script>
-<script src="js/promts/crocodile-words.js"></script>
-<script src="js/promts/whoami-words.js"></script>
-<script src="js/quiplash-sounds.js"></script>
-<script src="js/party-ui.js"></script>
-<script src="js/core/back-button.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
 <script src="js/core/firebase-config.js"></script>
 <script src="js/core/prompt-history.js"></script>
 <script>PromptHistory.preload("alias");</script>
 <script src="js/core/app-settings.js"></script>
+<link rel="stylesheet" href="js/styles/reactions.css">
 <script src="js/core/login.js"></script>
+<script src="js/promts/alias-words.js"></script>
+<script src="js/promts/crocodile-words.js"></script>
+<script src="js/promts/whoami-words.js"></script>
+<script src="js/core/online-engine.js"></script>
+<script src="js/quiplash-avatars.js"></script>
+<script src="js/quiplash-sounds.js"></script>
+<script src="js/alias-game.js"></script>
+<script src="js/core/room-code-ui.js"></script>
+<script src="js/party-ui.js"></script>
+<script src="js/core/reactions.js"></script>
+<script src="js/core/game-pause.js"></script>
+<script src="js/core/back-button.js"></script>
 <script>
 (function () {
+  const G = window.AliasGame;
   const { esc, icon } = window.PartyUI;
-  const PH = window.PromptHistory;
   const $ = (id) => document.getElementById(id);
   const sfx = (n) => { try { window.QuiplashSfx && QuiplashSfx.play(n); } catch (e) {} };
   const buzz = (p) => { try { window.QuiplashSfx && QuiplashSfx.vibrate(p); } catch (e) {} };
-  const STORE = "alias_game_v1";
-  const COLORS = ["#ffe14d", "#ff7eb6", "#7cc7ff", "#b6f36b", "#ffa94d", "#c9a7ff"];
-  const DEFAULT_NAMES = ["Котики", "Їжаки", "Совенята", "Лисички", "Бобри", "Панди"];
+  const avatar = (room, name, opts) => window.PartyUI.avatar(room, name, opts);
   const EMBLEM = `<svg class="pp-emblem" viewBox="0 0 120 120" aria-hidden="true">
     <path d="M20 30h62a10 10 0 0 1 10 10v26a10 10 0 0 1-10 10H50l-18 14V76H20a10 10 0 0 1-10-10V40a10 10 0 0 1 10-10z" fill="#fff"/>
     <path d="M58 52h44a8 8 0 0 1 8 8v20a8 8 0 0 1-8 8h-6v12l-14-12H58a8 8 0 0 1-8-8V60a8 8 0 0 1 8-8z" fill="#ffe14d"/>
     <circle cx="34" cy="53" r="5" fill="#0f9b8e"/><circle cx="50" cy="53" r="5" fill="#0f9b8e"/><circle cx="66" cy="53" r="5" fill="#0f9b8e"/></svg>`;
   document.querySelectorAll("[data-ic]").forEach((el) => { el.outerHTML = icon(el.dataset.ic); });
   document.querySelectorAll("[data-emblem]").forEach((el) => { el.outerHTML = EMBLEM; });
+  const tName = (t) => G.TEAM_NAMES[t] || "Команда " + (t + 1);
+  const tColor = (t) => G.TEAM_COLORS[t % G.TEAM_COLORS.length];
+  const sig = {};
+  function paint(id, key, html) { if (sig[id] === key) return false; sig[id] = key; $(id).innerHTML = html; return true; }
 
-  // ---------------- стан ----------------
-  let S = { teams: [{ name: DEFAULT_NAMES[0], score: 0 }, { name: DEFAULT_NAMES[1], score: 0 }], time: 60, target: 50, diff: "mix", penalty: 1, turn: 0, round: 1, deck: [], pos: 0, active: false };
-  try { const saved = JSON.parse(localStorage.getItem(STORE) || "null"); if (saved && Array.isArray(saved.teams)) S = Object.assign(S, saved); } catch (e) {}
-  const save = () => { try { localStorage.setItem(STORE, JSON.stringify(S)); } catch (e) {} };
-  const color = (i) => COLORS[i % COLORS.length];
-
+  const VIEWS = ["locked", "entry", "lobby", "game", "over"];
+  let curView = null;
   function showView(name) {
-    ["setup", "turn", "play", "last", "review", "win"].forEach((v) => $("view-" + v).classList.toggle("hidden", v !== name));
+    if (curView === name) return;
+    curView = name;
+    VIEWS.forEach((v) => $("v-" + v).classList.toggle("hidden", v !== name));
     window.scrollTo(0, 0);
   }
 
-  // ---------------- налаштування ----------------
-  function paintSetup() {
-    $("teams").innerHTML = S.teams.map((t, i) => `<div class="al-team"><i style="background:${color(i)}"></i><input data-i="${i}" maxlength="20" value="${esc(t.name)}" />${S.teams.length > 2 ? `<button data-rm="${i}" aria-label="Прибрати">×</button>` : ""}</div>`).join("");
-    $("addTeam").classList.toggle("hidden", S.teams.length >= 6);
-    [["timeSeg", S.time], ["targetSeg", S.target], ["diffSeg", S.diff], ["penSeg", S.penalty]].forEach(([id, v]) =>
-      $(id).querySelectorAll("button").forEach((b) => b.classList.toggle("selected", String(b.dataset.v) === String(v))));
-    $("resumeBtn").classList.toggle("hidden", !S.active);
-  }
-  $("teams").addEventListener("input", (e) => { const i = e.target.dataset.i; if (i != null) { S.teams[i].name = e.target.value; save(); } });
-  $("teams").addEventListener("click", (e) => { const b = e.target.closest("[data-rm]"); if (!b) return; S.teams.splice(+b.dataset.rm, 1); save(); paintSetup(); });
-  $("addTeam").addEventListener("click", () => { if (S.teams.length < 6) { S.teams.push({ name: DEFAULT_NAMES[S.teams.length] || "Команда " + (S.teams.length + 1), score: 0 }); save(); paintSetup(); sfx("pop"); } });
-  [["timeSeg", "time", Number], ["targetSeg", "target", Number], ["diffSeg", "diff", String], ["penSeg", "penalty", Number]].forEach(([id, key, cast]) =>
-    $(id).addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (!b) return; S[key] = cast(b.dataset.v); save(); paintSetup(); sfx("pop"); }));
+  let room = null, ctx = null, reactionsMounted = false, lastPhase = null, lastCur = null, lastTickSec = null;
 
-  // ---------------- колода ----------------
-  function buildDeck() {
-    const lvls = S.diff === "mix" ? ["easy", "medium", "hard"] : S.diff === "easy" ? ["easy", "medium"] : ["medium", "hard"];
-    const pool = new Set();
-    const A = window.ALIAS_WORDS || {};
-    lvls.forEach((l) => (A[l] || []).forEach((w) => pool.add(w)));
-    const extra = [];   // теми Крокодила й «Хто я?» оголошені як const — беремо напряму, якщо підключені
-    try { if (typeof CROCODILE_THEMES !== "undefined") extra.push(...CROCODILE_THEMES); if (typeof WHOAMI_THEMES !== "undefined") extra.push(...WHOAMI_THEMES); } catch (e) {}
-    extra.forEach((t) => lvls.forEach((l) => (t[l] || []).forEach((w) => pool.add(String(w).trim()))));
-    const list = Array.from(pool).filter(Boolean);
-    S.deck = PH ? PH.order("alias", list, (x) => x.toLowerCase()) : list.sort(() => Math.random() - 0.5);
-    S.pos = 0;
-  }
-  function nextWord() {
-    if (S.pos >= S.deck.length) buildDeck();
-    const w = S.deck[S.pos++];
-    if (PH) PH.mark("alias", [w.toLowerCase()]);
-    save();
-    return w;
-  }
-
-  // ---------------- черга ходу ----------------
-  function boardHtml(highlight) {
-    const max = Math.max(S.target, ...S.teams.map((t) => t.score));
-    return S.teams.map((t, i) => `<div class="al-row ${i === highlight ? "now" : ""}"><i style="background:${color(i)}"></i><div style="flex:1"><b>${esc(t.name || "Команда " + (i + 1))}</b>
-      <div class="al-bar"><div style="width:${Math.max(0, Math.min(100, t.score / max * 100))}%"></div></div></div><span>${t.score}</span></div>`).join("");
-  }
-  function paintTurn() {
-    $("roundLbl").textContent = "Коло " + S.round;
-    $("turnTeam").textContent = S.teams[S.turn].name || "Команда " + (S.turn + 1);
-    $("turnTeam").style.color = color(S.turn);
-    $("targetLbl").textContent = S.target;
-    $("board").innerHTML = boardHtml(S.turn);
-    showView("turn");
-  }
-
-  // ---------------- хід ----------------
-  let words = [], cur = null, endsAt = 0, tick = null, lastTickSec = null;
-  function showWord() {
-    const el = $("word");
-    el.innerHTML = `<b>${esc(cur)}</b><small>Поясни, не називаючи слова</small>`;
-    el.classList.remove("in"); void el.offsetWidth; el.classList.add("in");
-    $("gotN").textContent = words.filter((w) => w.ok).length;
-    $("skipN").textContent = words.filter((w) => !w.ok).length;
-  }
-  function startTurn() {
-    words = []; cur = nextWord(); endsAt = Date.now() + S.time * 1000; lastTickSec = null;
-    showView("play"); showWord(); sfx("whoosh");
-    clearInterval(tick); tick = setInterval(onTick, 200); onTick();
-  }
-  function onTick() {
-    const left = Math.max(0, endsAt - Date.now()), sec = Math.ceil(left / 1000);
-    $("timer").textContent = sec;
-    $("timer").classList.toggle("urgent", sec <= 10);
-    if (sec <= 5 && sec > 0 && sec !== lastTickSec) { lastTickSec = sec; sfx("tick"); }
-    if (left <= 0) { clearInterval(tick); tick = null; timeUp(); }
-  }
-  $("gotBtn").addEventListener("click", () => { if (!tick) return; words.push({ w: cur, ok: true }); cur = nextWord(); showWord(); sfx("ding"); buzz(15); });
-  $("skipBtn").addEventListener("click", () => { if (!tick) return; words.push({ w: cur, ok: false }); cur = nextWord(); showWord(); sfx("pop"); });
-
-  let lastBy = -1; // хто вгадав останнє слово (-1 — ніхто)
-  function timeUp() {
-    sfx("buzz"); buzz([80, 50, 80]);
-    $("lastWord").textContent = cur;
-    $("lastBtns").innerHTML = S.teams.map((t, i) => `<button data-t="${i}"><i style="background:${color(i)}"></i>${esc(t.name || "Команда " + (i + 1))}</button>`).join("") +
-      `<button class="none" data-t="-1">Ніхто не вгадав</button>`;
-    showView("last");
-  }
-  $("lastBtns").addEventListener("click", (e) => { const b = e.target.closest("[data-t]"); if (!b) return; lastBy = +b.dataset.t; paintReview(); sfx("pop"); });
-
-  function turnPoints() {
-    const got = words.filter((w) => w.ok).length, sk = words.filter((w) => !w.ok).length;
-    return got - (S.penalty ? sk : 0) + (lastBy === S.turn ? 1 : 0);
-  }
-  function paintReview() {
-    const rows = words.map((w, i) => `<button class="${w.ok ? "ok" : "no"}" data-i="${i}"><span class="m">${w.ok ? "✓" : "✗"}</span><span>${esc(w.w)}</span></button>`);
-    if (lastBy >= 0) rows.push(`<button class="ok last" disabled><span class="m">✓</span><span>${esc(cur)}</span><span class="tag">останнє · ${esc(S.teams[lastBy].name)}</span></button>`);
-    $("review").innerHTML = rows.join("") || '<div class="pp-note" style="color:#fff">Жодного слова — буває</div>';
-    const p = turnPoints();
-    $("sumN").textContent = (p > 0 ? "+" : "") + p;
-    $("sumLbl").textContent = `балів для «${S.teams[S.turn].name}»` + (lastBy >= 0 && lastBy !== S.turn ? ` · +1 для «${S.teams[lastBy].name}»` : "");
-    showView("review");
-  }
-  $("review").addEventListener("click", (e) => { const b = e.target.closest("button[data-i]"); if (!b) return; const w = words[+b.dataset.i]; w.ok = !w.ok; paintReview(); sfx("pop"); });
-
-  $("confirmBtn").addEventListener("click", () => {
-    S.teams[S.turn].score += turnPoints();
-    if (lastBy >= 0 && lastBy !== S.turn) S.teams[lastBy].score += 1;
-    lastBy = -1;
-    const endOfCircle = S.turn === S.teams.length - 1;
-    S.turn = (S.turn + 1) % S.teams.length;
-    if (endOfCircle) {
-      S.round++;
-      const best = Math.max(...S.teams.map((t) => t.score));
-      const leaders = S.teams.filter((t) => t.score === best);
-      if (best >= S.target && leaders.length === 1) { save(); return win(); }
+  // ---------------- лобі ----------------
+  function renderLobby() {
+    const conn = G.connectedNames(room.players), me = ctx.username, T = G.teamCount(room), myTeam = G.teamOf(room, me);
+    const hostName = G.computeHost(room.players);
+    $("roomCodeDisplay").textContent = G.roomId || "";
+    $("lobbyStatus").textContent = `Онлайн: ${conn.length}`;
+    const key = JSON.stringify([T, myTeam, me, hostName, Object.entries(room.players || {}).map(([n, p]) => [n, p.team, p.character, conn.includes(n)])]);
+    if (paint("teamsBox", key, Array.from({ length: T }, (_, t) => {
+      const list = G.members(room, t, false);
+      return `<div class="al-tcard ${t === myTeam ? "mine" : ""}" style="--tc:${tColor(t)}"><div class="al-thead"><i></i><b>${esc(tName(t))}</b><small>${G.members(room, t, true).length} онлайн</small>
+        ${t === myTeam ? "" : `<button data-team="${t}">Перейти</button>`}</div>
+        <div class="al-tmem">${list.length ? list.map((n) => `<span class="pp-named" ${n === me ? 'data-me="1" style="cursor:pointer"' : ""}>${avatar(room, n, { size: "sm", mood: n === me ? "happy" : "idle", still: !conn.includes(n) })}<small>${esc(n)}${n === hostName ? " 👑" : ""}</small></span>`).join("") : '<span class="empty">порожньо</span>'}</div></div>`;
+    }).join(""))) {
+      $("teamsBox").querySelectorAll("[data-team]").forEach((b) => b.addEventListener("click", () => { G.joinTeam(+b.dataset.team); sfx("pop"); }));
+      const mine = $("teamsBox").querySelector("[data-me]"); if (mine) mine.addEventListener("click", () => { G.cycleAvatar(); sfx("pop"); });
     }
-    save(); paintTurn(); sfx("whoosh");
-  });
+    $("hostPanel").classList.toggle("hidden", !ctx.host);
+    $("waitHost").classList.toggle("hidden", !!ctx.host);
+    if (!ctx.host) { paint("waitHost", "w" + hostName, `<div class="pp-note" style="color:#fff"><b>${esc(hostName || "Ведучий")}</b> налаштовує гру. Обирай команду — почнемо, щойно ведучий натисне «Почати».</div>`); return; }
+    const s = room.settings || {};
+    [["teamsSeg", s.teams || 2], ["timeSeg", s.time || 60], ["targetSeg", s.target || 50], ["diffSeg", s.diff || "mix"], ["penSeg", s.penalty == null ? 1 : s.penalty]].forEach(([id, v]) =>
+      $(id).querySelectorAll("button").forEach((b) => b.classList.toggle("selected", String(b.dataset.v) === String(v))));
+    const can = G.canStart(room);
+    $("startBtn").disabled = !can.ok;
+    $("startHint").textContent = can.ok ? "" : can.reason;
+  }
+  [["teamsSeg", "teams", Number], ["timeSeg", "time", Number], ["targetSeg", "target", Number], ["diffSeg", "diff", String], ["penSeg", "penalty", Number]].forEach(([id, key, cast]) =>
+    $(id).addEventListener("click", (e) => { const b = e.target.closest("button[data-v]"); if (!b) return; G.updateSettings({ [key]: cast(b.dataset.v) }); sfx("pop"); }));
+  $("startBtn").addEventListener("click", () => G.startGame());
 
-  function win() {
-    S.active = false; save();
-    const order = S.teams.map((t, i) => ({ t, i })).sort((a, b) => b.t.score - a.t.score);
-    $("winName").textContent = order[0].t.name; $("winName").style.color = color(order[0].i);
-    $("finalBoard").innerHTML = boardHtml(order[0].i);
-    showView("win"); sfx("fanfare"); setTimeout(() => sfx("cheer"), 700);
+  // ---------------- гра ----------------
+  function scoreBarHtml(highlight) {
+    const T = G.teamCount(room), sc = room.scores || {};
+    return Array.from({ length: T }, (_, t) => `<div class="${t === highlight ? "now" : ""}" style="--tc:${tColor(t)}"><b>${sc[t] || 0}</b><small>${esc(tName(t))}</small></div>`).join("");
+  }
+  function renderGame() {
+    const me = ctx.username, ph = room.phase, myTeam = G.teamOf(room, me), ex = room.explainer, iEx = ex === me, team = room.team;
+    const mineTurn = myTeam === team, drive = G.canDrive(room);
+    paint("scoreBar", JSON.stringify([room.scores, team, G.teamCount(room)]), scoreBarHtml(team));
+    $("metaRound").textContent = `Коло ${room.round || 1} · до ${(room.settings && room.settings.target) || 50}`;
+    $("metaTeam").innerHTML = `хід: <span style="color:${tColor(team)}">${esc(tName(team))}</span>`;
+    const st = $("stage");
+    const words = room.words || [], got = words.filter((w) => w && w.ok).length, sk = words.filter((w) => w && !w.ok).length;
+
+    if (ph === "ready") {
+      paint("stage", `r|${room.turnNo}|${ex}|${iEx}|${drive}`, `<div class="al-who">${ex ? avatar(room, ex, { size: "xl", mood: iEx ? "happy" : "write" }) : ""}
+          <small>${iEx ? "Твій хід!" : `Пояснює · <span style="color:${tColor(team)}">${esc(tName(team))}</span>`}</small><b>${esc(ex || "—")}</b>
+          <small>${iEx ? "Тисни, коли команда готова слухати" : mineTurn ? "Готуйтеся вгадувати!" : "Ви стежите за чесністю"}</small></div>` +
+        (drive ? `<button class="pp-btn pp-primary pp-block pp-big" id="beginBtn">${icon("play")} ${iEx ? "Почати хід" : "Почати за пояснювача"}</button>` : ""));
+      const b = $("beginBtn"); if (b && !b.dataset.wired) { b.dataset.wired = 1; b.addEventListener("click", () => G.beginTurn()); }
+    } else if (ph === "playing") {
+      if (iEx) {
+        paint("stage", "p|ex", `<div class="al-timer" id="timer"></div><div class="al-word" id="wordCard"><b id="wordTxt"></b><small>Поясни, не називаючи слова</small></div>
+          <div class="al-actions"><button class="pp-btn al-skip" id="skipBtn">Пропустити</button><button class="pp-btn al-got" id="gotBtn">${icon("check")} Вгадали!</button></div>
+          <div class="al-cnt"><span>✓ <b id="gotN">0</b></span><span>↷ <b id="skipN">0</b></span></div>`);
+        if (!$("gotBtn").dataset.wired) {
+          $("gotBtn").dataset.wired = 1;
+          $("gotBtn").addEventListener("click", () => { if (G.mark(true)) { sfx("ding"); buzz(15); } });
+          $("skipBtn").addEventListener("click", () => { if (G.mark(false)) sfx("pop"); });
+        }
+        if ($("wordTxt").textContent !== room.cur) { $("wordTxt").textContent = room.cur || ""; const c = $("wordCard"); c.classList.remove("in"); void c.offsetWidth; c.classList.add("in"); }
+        $("gotN").textContent = got; $("skipN").textContent = sk;
+      } else if (mineTurn) {
+        paint("stage", "p|team|" + ex, `<div class="al-timer" id="timer"></div><div class="al-word guess"><b>Вгадуйте!</b><small style="color:#5a4a00">Пояснює ${esc(ex || "")}</small></div>
+          <div class="al-cnt"><span>✓ <b id="gotN">0</b></span><span>↷ <b id="skipN">0</b></span></div>`);
+        $("gotN").textContent = got; $("skipN").textContent = sk;
+        if (lastCur !== null && room.cur !== lastCur && got > 0) buzz(10);
+      } else {
+        paint("stage", "p|opp", `<div class="al-timer" id="timer"></div><div class="al-word" id="wordCard"><b id="wordTxt"></b><small>Стежте, щоб слово не назвали</small></div>
+          <div class="al-cnt"><span>✓ <b id="gotN">0</b></span><span>↷ <b id="skipN">0</b></span></div>`);
+        if ($("wordTxt").textContent !== room.cur) { $("wordTxt").textContent = room.cur || ""; const c = $("wordCard"); c.classList.remove("in"); void c.offsetWidth; c.classList.add("in"); }
+        $("gotN").textContent = got; $("skipN").textContent = sk;
+      }
+      lastCur = room.cur;
+    } else if (ph === "last") {
+      const T = G.teamCount(room);
+      paint("stage", `l|${room.turnNo}|${drive}`, `<div class="al-who"><small>Час вийшов! Останнє слово</small><div class="al-word" style="min-height:120px;width:100%"><b>${esc(room.cur || "")}</b></div>
+          <small>${drive ? "Хто встиг вгадати? Бал отримає ця команда" : `${esc(ex || "Пояснювач")} обирає, хто вгадав`}</small></div>` +
+        (drive ? `<div class="al-last" id="lastBtns">${Array.from({ length: T }, (_, t) => `<button data-t="${t}"><i style="background:${tColor(t)}"></i>${esc(tName(t))}</button>`).join("")}<button class="none" data-t="-1">Ніхто не вгадав</button></div>` : ""));
+      const lb = $("lastBtns"); if (lb && !lb.dataset.wired) { lb.dataset.wired = 1; lb.addEventListener("click", (e) => { const b = e.target.closest("[data-t]"); if (b) { G.setLast(+b.dataset.t); sfx("pop"); } }); }
+    } else if (ph === "review") {
+      const p = G.turnPoints(room), lastBy = room.lastBy;
+      const rows = words.map((w, i) => w ? `<${drive ? "button" : "div"} class="it ${w.ok ? "ok" : "no"}" data-i="${i}"><span class="m">${w.ok ? "✓" : "✗"}</span><span>${esc(w.w)}</span></${drive ? "button" : "div"}>` : "");
+      if (Number.isInteger(lastBy) && lastBy >= 0) rows.push(`<div class="it ok"><span class="m">✓</span><span>${esc(room.cur || "")}</span><span class="tag">останнє · ${esc(tName(lastBy))}</span></div>`);
+      const fresh = paint("stage", "v|" + JSON.stringify([words, lastBy, drive]), `<div class="al-sum">${p > 0 ? "+" : ""}${p}<small>для «${esc(tName(team))}»${Number.isInteger(lastBy) && lastBy >= 0 && lastBy !== team ? ` · +1 для «${esc(tName(lastBy))}»` : ""}</small></div>
+        <div class="pp-card"><div class="pp-h">${drive ? "Слова ходу · торкнись, щоб виправити" : "Слова ходу"}</div><div class="al-review" id="reviewList">${rows.join("") || '<div class="pp-note" style="color:#fff">Жодного слова — буває</div>'}</div></div>` +
+        (drive || ctx.host ? `<button class="pp-btn pp-primary pp-block pp-big" id="confirmBtn">Зарахувати</button>` : `<div class="pp-note" style="color:#fff;text-align:center">${esc(ex || "Пояснювач")} перевіряє слова…</div>`));
+      const rl = $("reviewList"); if (fresh && rl && drive) rl.addEventListener("click", (e) => { const b = e.target.closest("button[data-i]"); if (b) { G.toggleWord(+b.dataset.i); sfx("pop"); } });
+      const cb = $("confirmBtn"); if (fresh && cb) cb.addEventListener("click", () => G.confirmTurn());
+    }
+    updateTimer();
+  }
+  function renderOver() {
+    const w = room.winner;
+    $("winName").textContent = Number.isInteger(w) ? tName(w) : "—";
+    $("winName").style.color = Number.isInteger(w) ? tColor(w) : "";
+    paint("finalBar", JSON.stringify(room.scores), scoreBarHtml(w));
+    $("overWait").classList.toggle("hidden", !!ctx.host);
   }
 
-  // ---------------- кнопки ----------------
-  $("startBtn").addEventListener("click", () => {
-    S.teams.forEach((t, i) => { t.name = (t.name || "").trim() || "Команда " + (i + 1); t.score = 0; });
-    S.turn = 0; S.round = 1; S.active = true; buildDeck(); save(); paintTurn(); sfx("whoosh");
-  });
-  $("resumeBtn").addEventListener("click", () => { if (!S.deck || !S.deck.length) buildDeck(); paintTurn(); });
-  $("goBtn").addEventListener("click", startTurn);
-  $("quitBtn").addEventListener("click", () => { if (!confirm("Завершити гру? Рахунок буде втрачено.")) return; S.active = false; save(); paintSetup(); showView("setup"); });
-  $("againBtn").addEventListener("click", () => { paintSetup(); showView("setup"); });
+  function updateTimer() {
+    const el = $("timer"); if (!el || !room || room.phase !== "playing") return;
+    if (room.paused) return;
+    const left = Math.max(0, (room.endsAt || 0) - G.now()), sec = Math.ceil(left / 1000);
+    el.textContent = sec;
+    el.classList.toggle("urgent", sec <= 10);
+    if (sec <= 5 && sec > 0 && sec !== lastTickSec) { lastTickSec = sec; sfx("tick"); }
+  }
+  setInterval(updateTimer, 250);
 
-  // вийшли посеред ходу (перезавантаження) — повертаємось до черги ходу без втрати рахунку
-  paintSetup();
-  showView("setup");
-  document.addEventListener("selectstart", (e) => { if (e.target.tagName !== "INPUT") e.preventDefault(); });
+  // ---------------- панель ведучого ----------------
+  function renderHostBar() {
+    const ph = room.phase, show = !!ctx.host && ph !== "lobby";
+    $("hostBar").classList.toggle("hidden", !show);
+    $("swapBtn").classList.toggle("hidden", ph !== "ready");
+    $("againBtn").classList.toggle("hidden", ph !== "over");
+  }
+  $("lobbyBtn").addEventListener("click", () => { if (confirm("Повернути всіх у лобі? Рахунок обнулиться.")) G.toLobby(); });
+  $("swapBtn").addEventListener("click", () => G.nextExplainer());
+  $("againBtn").addEventListener("click", () => G.startGame());
+
+  // пауза для всіх (js/core/game-pause.js)
+  const gamePause = window.GamePause ? GamePause.mount({ getRef: () => G.roomRef, now: () => G.now(), username: () => ctx && ctx.username,
+    active: (r) => ["ready", "playing", "last", "review"].includes(r.phase), deadlines: () => ["endsAt", "startedAt"] }) : null;
+
+  function onState(r, c) {
+    room = r; ctx = c;
+    if (gamePause) gamePause.update(r);
+    if (!reactionsMounted && window.GameReactions && G.roomRef) { reactionsMounted = true; window.GameReactions.mount(G.roomRef, c.username); }
+    const ph = r.phase;
+    if (ph !== lastPhase) {
+      if (ph === "ready" && lastPhase) { sfx("whoosh"); if (r.explainer === c.username) buzz([30, 40, 30]); }
+      else if (ph === "playing") { sfx("whoosh"); lastTickSec = null; }
+      else if (ph === "last") { sfx("buzz"); buzz([80, 50, 80]); }
+      else if (ph === "over") { sfx("fanfare"); setTimeout(() => sfx("cheer"), 700); }
+    }
+    lastPhase = ph;
+    renderHostBar();
+    if (ph === "lobby") { showView("lobby"); renderLobby(); }
+    else if (ph === "over") { showView("over"); renderOver(); }
+    else { showView("game"); renderGame(); }
+  }
+
+  function beginGame(username, roomId) { G.onStateChange = onState; G.start(username, roomId); }
+  const session = window.AppAuth && window.AppAuth.getSession();
+  if (session && window.rtdbReady) {
+    RoomCodeUI.mount({
+      containerId: "activeRoomsList", codeInputId: "roomCodeInput", joinBtnId: "joinRoomBtn", createBtnId: "createRoomBtn",
+      watchActiveRooms: G.watchActiveRooms,
+      emptyListHtml: '<div class="hint-text">Активних кімнат поки нема — створи нову</div>',
+      renderRoomItem: (r) => `<div class="pp-room"><b>${esc(r.roomId)}</b><small>${icon("users")} ${r.connectedCount}/${r.playerCount}</small>
+        <span class="st ${r.phase === "lobby" ? "" : "live"}">${r.phase === "lobby" ? "Лобі" : "Гра йде"}</span></div>`,
+      onEnter: (roomId) => beginGame(session.username, roomId),
+    });
+    showView("entry");
+  } else showView("locked");
+  window.addEventListener("beforeunload", () => G.stop());
 })();
 </script>
 </body>

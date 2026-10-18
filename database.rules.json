@@ -151,6 +151,13 @@
         ".write": "auth != null"
       }
     },
+    "alias_rooms": {
+      ".read": true,
+      "$roomId": {
+        ".read": true,
+        ".write": "auth != null"
+      }
+    },
     "charades_rooms": {
       ".read": true,
       "$roomId": {
