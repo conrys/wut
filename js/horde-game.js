@@ -329,7 +329,9 @@
       const def = D.WEAPONS[w.id];
       const has = def.evo && s.passives.some((p) => p.id === def.evo.with);
       const ev = def.evo && D.PASSIVES[def.evo.with];
-      const hint = !w.evolved && def.evo ? `<small class="${has ? "ready" : ""}">Еволюція: рів. 8 + ${ev.name}${has ? " ✓" : ""} → ${def.evo.name}</small>` : "";
+      const used = s.weapons.some((x) => x.evolved);
+      const hint = w.evolved || !def.evo ? "" : used ? `<small>Еволюція вже використана в цьому забігу</small>`
+        : `<small class="${has ? "ready" : ""}">Еволюція: рів. 8 + ${ev.name}${has ? " ✓" : ""} → ${def.evo.name}</small>`;
       html += `<div class="it">${img(w.id, w.evolved)}<div class="it-txt">${w.evolved ? def.evo.name : def.name}${hint}</div><em>${w.evolved ? "ЕВО" : "рів. " + w.level}</em></div>`;
     }
     for (const p of s.passives) {
@@ -397,9 +399,9 @@
       const def = D.WEAPONS[o.id];
       icon = img(o.id); name = def.name;
       tag = o.level === 1 ? `<small class="new">нове</small>` : `<small>рів. ${o.level}</small>`;
-      if (o.level === D.WEAPON_MAX_LEVEL && def.evo) {
+      if (o.level === D.WEAPON_MAX_LEVEL && def.evo && !state.weapons.some((x) => x.evolved)) {
         const p = D.PASSIVES[def.evo.with];
-        extra = `<div class="evo-hint">Далі — еволюція зі скрині, якщо маєш «${p.name}»</div>`;
+        extra = `<div class="evo-hint">Далі — еволюція зі скрині, якщо маєш «${p.name}» (лише одна зброя за забіг)</div>`;
       }
     } else if (o.kind === "passive") {
       const def = D.PASSIVES[o.id];

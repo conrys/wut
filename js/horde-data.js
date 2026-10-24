@@ -84,13 +84,13 @@
       evo: { with: "armor", name: "Мур душі", icon: "👻", desc: "Аура більша і лікує тебе.", mods: { dmg: 5, area: 0.5 }, flags: { heal: true } },
     },
     bolt: {
+      // ослаблена і без еволюції: раніше з першого рівня чистила весь екран
       name: "Блискавка", icon: "⚡", behavior: "bolt",
-      desc: "Б'є випадкових ворогів на екрані.",
-      base: { dmg: 15, cd: 4.5, amount: 2, area: 1 },
+      desc: "Б'є випадкового ворога на екрані. Не еволюціонує.",
+      base: { dmg: 12, cd: 5.5, amount: 1, area: 1 },
       levels: [
-        { amount: 1 }, { area: 1, dmg: 10 }, { amount: 1 }, { area: 1, dmg: 20 }, { amount: 1 }, { area: 1, dmg: 20 }, { amount: 1 },
+        { amount: 1 }, { dmg: 6, area: 0.3 }, { cd: -0.5 }, { dmg: 8 }, { amount: 1 }, { area: 0.3, dmg: 8 }, { cd: -0.5 },
       ],
-      evo: { with: "crown", name: "Гнів небес", icon: "🌩️", desc: "Блискавки стрибають по ланцюгу.", mods: { amount: 3, dmg: 10 }, flags: { chain: true } },
     },
   };
 

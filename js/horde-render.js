@@ -464,7 +464,7 @@
         let ang = pr.kind === "axe" ? Math.round((pr.spin || 0) / (Math.PI / 4)) * (Math.PI / 4) : Math.atan2(pr.vy, pr.vx);
         if (useAt && pr.kind === "knife") ang += Math.PI / 2; // у атласі ніж дивиться вгору
         g.save(); g.translate(X, Y); g.rotate(ang);
-        const k = pr.kind === "axe" ? Math.max(1, Math.round(pr.r / 11)) : 1;
+        const k = pr.kind === "axe" ? Math.min(2, Math.max(1, Math.round(pr.r / (useAt ? 18 : 11)))) : 1; // не роздувати сокири на пізній грі
         g.drawImage(img, -(img.width * k >> 1), -(img.height * k >> 1), img.width * k, img.height * k);
         g.restore();
       }

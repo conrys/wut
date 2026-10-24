@@ -140,13 +140,14 @@
 
   // ------------------------------------------------------------- enemies
   // здоров'я ворогів росте швидше з часом (квадратично), щоб пізня гра не ставала прогулянкою
-  function hpMul(s) { const m = s.t / 60, late = Math.max(0, m - 8); return 1 + m * 0.16 + late * late * 0.06; }
+  function hpMul(s) { const m = s.t / 60, late = Math.max(0, m - 8), end = Math.max(0, m - 10); return 1 + m * 0.16 + late * late * 0.06 + end * end * 0.12; }
 
   function spawnEnemy(s, type, x, y, opt) {
     const def = D.ENEMIES[type];
     const o = opt || {};
     const elite = !!o.elite, boss = !!def.boss;
-    const mul = (boss ? 1 : hpMul(s) * (elite ? 12 : 1)) * (def.prop ? 1 : D.NIGHTS[s.night].hp);
+    // боси теж ростуть з часом: фінальний на 15-й хв ≈ ×9 від бази (раніше лопався за 2 с)
+    const mul = hpMul(s) * (boss ? 1 : elite ? 12 : 1) * (def.prop ? 1 : D.NIGHTS[s.night].hp);
     const e = {
       id: s.nextId++, type, x, y,
       r: def.r * (elite ? 1.8 : 1),
@@ -920,9 +921,7 @@
       pool.splice(idx, 1);
     }
     if (!out.length) {
-      // усе прокачано — рівні далі дають маленькі, але безкінечні посилення
-      out.push({ kind: "bonus", stat: "might", v: 0.04 }, { kind: "bonus", stat: "maxHp", v: 10 },
-        { kind: "bonus", stat: "cooldown", v: -0.02 }, { kind: "food", v: 40 });
+      out.push({ kind: "gold", v: 25 }, { kind: "food", v: 30 });
     }
     return out;
   }
@@ -979,7 +978,8 @@
     const items = [];
     const count = s.rand() < 0.12 * s.stats.luck ? 3 : 1;
     for (let i = 0; i < count; i++) {
-      const evo = s.weapons.find((w) => !w.evolved && w.level >= D.WEAPON_MAX_LEVEL && D.WEAPONS[w.id].evo &&
+      // еволюціонувати за забіг може лише одна зброя
+      const evo = !s.weapons.some((w) => w.evolved) && s.weapons.find((w) => !w.evolved && w.level >= D.WEAPON_MAX_LEVEL && D.WEAPONS[w.id].evo &&
         s.passives.some((p) => p.id === D.WEAPONS[w.id].evo.with));
       if (evo) { const o = { kind: "evolve", id: evo.id }; apply(s, o); items.push(o); continue; }
       const pool = upgradePool(s).filter((o) => o.level > 1);
@@ -1016,6 +1016,10 @@
     d.passives = (d.passives || []).filter((p) => D.PASSIVES[p.id]);
     d.enemies = (d.enemies || []).filter((e) => D.ENEMIES[e.type]);
     d.pois = (d.pois || []).filter((o) => D.POIS[o.kind]);
+    // зброя, яка більше не еволюціонує (блискавка), повертається до звичайної;
+    // бонуси «понад межу» з минулих версій прибрано
+    for (const w of d.weapons) if (w.evolved && !D.WEAPONS[w.id].evo) w.evolved = false;
+    d.bonus = {};
     const s = create({ charId: d.charId, night: d.night || 0, meta: d.meta, viewW: opts.viewW, viewH: opts.viewH, seed: opts.seed });
     for (const k of ["t", "kills", "coins", "weapons", "passives", "enemies", "projectiles", "zones", "pickups", "spawnAcc",
       "eventIdx", "nextId", "pendingLevels", "rerollsLeft", "revivesLeft", "won", "bonus", "pois", "poiTimer", "propTimer", "challenge"]) if (d[k] !== undefined) s[k] = d[k];
