@@ -74,6 +74,8 @@
       const def = D.PASSIVES[p.id];
       add(def.stat, def.per * p.level);
     }
+    // бонуси після повного білду (коли прокачувати вже нічого)
+    if (s.bonus) for (const k in s.bonus) add(k, s.bonus[k]);
     st.cooldown = Math.max(0.35, st.cooldown);
     s.stats = st;
     if (s.player && st.maxHp > prevMax) s.player.hp += st.maxHp - prevMax;
@@ -904,7 +906,9 @@
       pool.splice(idx, 1);
     }
     if (!out.length) {
-      out.push({ kind: "gold", v: 25 }, { kind: "food", v: 30 });
+      // усе прокачано — рівні далі дають маленькі, але безкінечні посилення
+      out.push({ kind: "bonus", stat: "might", v: 0.04 }, { kind: "bonus", stat: "maxHp", v: 10 },
+        { kind: "bonus", stat: "cooldown", v: -0.02 }, { kind: "food", v: 40 });
     }
     return out;
   }
@@ -923,6 +927,11 @@
       const p = s.passives.find((x) => x.id === o.id);
       if (p) p.level++; else s.passives.push({ id: o.id, level: 1 });
       recomputeStats(s);
+    } else if (o.kind === "bonus") {
+      s.bonus = s.bonus || {};
+      s.bonus[o.stat] = (s.bonus[o.stat] || 0) + o.v;
+      recomputeStats(s);
+      if (o.stat === "maxHp") heal(s, o.v);
     } else if (o.kind === "gold") {
       s.coins += o.v;
     } else if (o.kind === "food") {
@@ -981,7 +990,7 @@
       pickups: s.pickups, spawnAcc: s.spawnAcc, eventIdx: s.eventIdx, nextId: s.nextId,
       pendingLevels: s.pendingLevels + (s.menu && s.menu.type === "levelup" ? 1 : 0),
       rerollsLeft: s.rerollsLeft, revivesLeft: s.revivesLeft, won: s.won,
-      pois: s.pois || [], poiTimer: s.poiTimer, propTimer: s.propTimer, challenge: s.challenge || null,
+      bonus: s.bonus || {}, pois: s.pois || [], poiTimer: s.poiTimer, propTimer: s.propTimer, challenge: s.challenge || null,
     });
   }
   function restore(json, opts) {
@@ -995,7 +1004,7 @@
     d.pois = (d.pois || []).filter((o) => D.POIS[o.kind]);
     const s = create({ charId: d.charId, meta: d.meta, viewW: opts.viewW, viewH: opts.viewH, seed: opts.seed });
     for (const k of ["t", "kills", "coins", "weapons", "passives", "enemies", "projectiles", "zones", "pickups", "spawnAcc",
-      "eventIdx", "nextId", "pendingLevels", "rerollsLeft", "revivesLeft", "won", "pois", "poiTimer", "propTimer", "challenge"]) if (d[k] !== undefined) s[k] = d[k];
+      "eventIdx", "nextId", "pendingLevels", "rerollsLeft", "revivesLeft", "won", "bonus", "pois", "poiTimer", "propTimer", "challenge"]) if (d[k] !== undefined) s[k] = d[k];
     Object.assign(s.player, d.player);
     recomputeStats(s);
     s.player.hp = Math.min(Math.max(1, s.player.hp), s.stats.maxHp);

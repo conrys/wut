@@ -349,6 +349,7 @@
       const show = (x) => STAT_FMT[def.stat] ? STAT_FMT[def.stat](x) : fmt(x);
       return `${def.desc}<br><span class="now">${STAT_NAME[def.stat]}: ${show(v)} → <b>${show(v + def.per)}</b></span>`;
     }
+    if (o.kind === "bonus") return o.text || "";
     if (o.kind === "gold") return `+${o.v} золота`;
     if (o.kind === "food") return `+${o.v} здоров'я`;
     const def = D.WEAPONS[o.id];
@@ -391,6 +392,10 @@
     } else if (o.kind === "evolve") {
       const def = D.WEAPONS[o.id];
       icon = img(o.id, true); name = def.evo.name; tag = `<small>еволюція</small>`; cls += " evolve";
+    } else if (o.kind === "bonus") {
+      const B = { might: ["might", "Сила понад межу", `+${Math.round(o.v * 100)}% шкоди`], maxHp: ["heart", "Загартування", `+${o.v} до макс. здоров'я`],
+        cooldown: ["hourglass", "Швидкі руки", `−${Math.round(-o.v * 100)}% перезарядки`] }[o.stat] || ["skull", "Бонус", ""];
+      icon = img(B[0], true); name = B[1]; tag = `<small>понад межу</small>`; o.text = B[2];
     } else if (o.kind === "gold") { icon = img("gold"); name = "Золото"; }
     else { icon = img("food"); name = "Зілля здоров'я"; }
     return { cls, html: `<div class="ico">${icon}</div><div class="card-txt"><div class="t">${name} ${tag}</div><div class="d">${levelText(o)}</div>${extra}</div>` };
