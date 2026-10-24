@@ -145,7 +145,35 @@
   function fmtTime(sec) { sec = Math.max(0, Math.floor(sec)); return String(Math.floor(sec / 60)).padStart(2, "0") + ":" + String(sec % 60).padStart(2, "0"); }
   function goldHtml(v) { return img("gold") + `<span>${v}</span>`; }
 
+  // ---------- кнопка/жест «Назад» браузера ----------
+  // Екрани гри — не окремі сторінки, тому «Назад» вело одразу на головну Ігротеки.
+  // Поки ми не в меню гри, в історії лежить один запис-«запобіжник»: «Назад»
+  // його знімає, а ми робимо крок назад усередині гри й ставимо запобіжник знову.
+  let guard = false, skipPop = false;
+  function ensureGuard() {
+    if (guard) return;
+    try { history.pushState({ horde: 1 }, ""); guard = true; } catch (e) {}
+  }
+  function dropGuard() {
+    if (!guard) return;
+    guard = false; skipPop = true;
+    try { history.back(); } catch (e) { skipPop = false; }
+  }
+  window.addEventListener("popstate", () => {
+    if (skipPop) { skipPop = false; return; }
+    if (!guard) return; // ми в меню гри — нехай браузер іде на головну
+    guard = false;
+    if (openId === "scrHeroes" || openId === "scrShop") { openMenu(); return; }
+    if (openId === "scrSettings") { if (settingsBack === "pause") { ensureGuard(); show("scrPause"); } else openMenu(); return; }
+    if (openId === "scrResult") { openMenu(); return; }
+    ensureGuard();
+    if (mode === "play") pause();                 // під час гри — пауза
+    else if (openId === "scrPause") resume();      // на паузі — назад у гру
+    // рівень/скриня: лишаємось, треба зробити вибір
+  });
+
   function openMenu() {
+    dropGuard();
     mode = "menu";
     $("challenge").hidden = true;
     $("hud").classList.remove("on");
@@ -211,6 +239,7 @@
       }));
       box.appendChild(el);
     }
+    ensureGuard();
     show("scrSettings");
   }
   $("btnSettings").addEventListener("click", () => openSettings("menu"));
@@ -240,6 +269,7 @@
       });
       list.appendChild(el);
     }
+    ensureGuard();
     show("scrHeroes");
   }
 
@@ -266,11 +296,13 @@
       });
       list.appendChild(row);
     }
+    ensureGuard();
     show("scrShop");
   }
 
   // ---------- забіг ----------
   function startRun() {
+    ensureGuard();
     resize();
     // почали новий, а старий не дограли — зараховуємо його результат
     const old = loadRun() && C.restore(loadRun(), { viewW: view.viewW, viewH: view.viewH, seed: 1 });
@@ -527,6 +559,7 @@
   $("btnMenu").addEventListener("click", openMenu);
   $("btnPlay").addEventListener("click", startRun);
   function resumeRun() {
+    ensureGuard();
     resize();
     const s = C.restore(loadRun(), { viewW: view.viewW, viewH: view.viewH, seed: (Date.now() ^ (Math.random() * 1e9)) >>> 0 });
     if (!s) { clearRun(); openMenu(); return; }
