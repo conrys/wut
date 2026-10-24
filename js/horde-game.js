@@ -478,6 +478,8 @@
     mode = "modal";
     joy.active = false; syncJoy();
     chestEvolve = false;
+    $("scrChest").classList.remove("evolve-mode");
+    $("chestCards").classList.remove("evo-cards");
     $("chestTitle").textContent = "Скриня!";
     $("chestSub").hidden = true;
     $("btnChestOk").textContent = "Забрати";
@@ -492,23 +494,32 @@
     }
     show("scrChest");
   }
-  // Скриня з еволюцією: обираєш, яку зброю еволюціонувати, або відмовляєшся.
+  // Скриня з еволюцією: дві картки «зброя → еволюція», обираєш одну або відмовляєшся.
+  function evoCardHtml(o) {
+    const def = D.WEAPONS[o.id], ev = def.evo, ps = D.PASSIVES[ev.with];
+    return `<div class="evo-row">${img(o.id, false, "evo-from")}<span class="evo-arrow">➜</span>${img(o.id, true, "evo-to")}</div>` +
+      `<div class="evo-names"><span>${def.name}</span><b>${ev.name}</b></div>` +
+      `<div class="d">${ev.desc}</div>` +
+      `<div class="evo-need">${img(ev.with, false, "sm")} ${ps.name} + ${def.name} 8 рів.</div>`;
+  }
   function showEvolve(options) {
     mode = "modal";
     joy.active = false; syncJoy();
     chestEvolve = true;
-    $("chestTitle").textContent = "Скриня: еволюція";
-    $("chestSub").textContent = "За забіг еволюціонує лише одна зброя. Можна відмовитись — тоді звичайне посилення.";
+    $("scrChest").classList.add("evolve-mode");
+    $("chestTitle").textContent = "Еволюція!";
+    $("chestSub").textContent = options.length > 1 ? "Обери одну — за забіг еволюціонує лише одна зброя" : "За забіг еволюціонує лише одна зброя";
     $("chestSub").hidden = false;
-    $("btnChestOk").textContent = "Не еволюціонувати";
+    $("btnChestOk").textContent = "Не зараз — звичайне посилення";
     $("btnChestOk").classList.remove("main");
     const box = $("chestCards");
     box.innerHTML = "";
+    box.classList.add("evo-cards");
     for (const o of options) {
-      const c = cardHtml(o);
       const el = document.createElement("button");
       el.type = "button";
-      el.className = c.cls; el.innerHTML = c.html;
+      el.className = "evo-card";
+      el.innerHTML = evoCardHtml(o);
       el.addEventListener("click", () => { C.chooseEvolve(state, o.id); afterModal(); }, { once: true });
       box.appendChild(el);
     }

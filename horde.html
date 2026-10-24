@@ -104,6 +104,26 @@
   .card .evo-hint { color: var(--gold); font-size: 13px; margin-top: 3px; }
   .card.evolve { background: #3a3018; box-shadow: inset 0 0 0 2px var(--gold), inset 0 -5px 0 2px var(--gold-lo); }
 
+  /* еволюція: окремий вигляд — золоте сяйво, «зброя ➜ еволюція» */
+  #scrChest.evolve-mode { background: radial-gradient(ellipse at 50% 35%, rgba(244,204,76,.28), rgba(16,13,22,.9) 60%); }
+  #scrChest.evolve-mode h2 { font-size: 40px; animation: evoGlow 1.2s steps(6) infinite alternate; }
+  @keyframes evoGlow { from { text-shadow: 3px 3px 0 var(--night), 0 0 0 var(--gold); } to { text-shadow: 3px 3px 0 var(--night), 0 0 18px var(--gold); } }
+  .evo-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  .evo-card { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 10px; text-align: center; color: var(--ink);
+    background: #2e2614; border: 3px solid var(--night); box-shadow: inset 0 0 0 2px var(--gold), inset 0 -5px 0 2px var(--gold-lo); animation: cardIn .25s steps(4) both; }
+  .evo-card:nth-child(2) { animation-delay: .08s; }
+  .evo-card:active { transform: translateY(2px); }
+  .evo-row { display: flex; align-items: center; gap: 6px; }
+  .evo-row img.px.evo-from { width: 36px; height: 36px; opacity: .7; }
+  .evo-row img.px.evo-to { width: 56px; height: 56px; animation: evoPulse 0.9s steps(3) infinite alternate; }
+  @keyframes evoPulse { to { transform: scale(1.12); } }
+  .evo-arrow { color: var(--gold); font-size: 18px; }
+  .evo-names { display: flex; flex-direction: column; gap: 2px; }
+  .evo-names span { font-size: 13px; color: var(--muted); text-decoration: line-through; }
+  .evo-names b { font: 700 19px/1.1 var(--px); color: var(--gold); }
+  .evo-card .d { color: var(--ink); font-size: 14px; line-height: 1.3; }
+  .evo-need { font-size: 12px; color: var(--muted); display: inline-flex; gap: 4px; align-items: center; }
+  @media (prefers-reduced-motion: reduce) { #scrChest.evolve-mode h2, .evo-row img.px.evo-to { animation: none; } }
   /* герої */
   .heroes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; width: min(100%, 400px); }
   .hero { padding: 10px 8px 12px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 3px; }

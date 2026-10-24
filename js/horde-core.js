@@ -1009,6 +1009,8 @@
   function openChest(s) {
     const count = s.rand() < 0.12 * s.stats.luck ? 3 : 1;
     const evos = evoCandidates(s);
+    // на вибір — щонайбільше дві еволюції (випадкові з готових)
+    while (evos.length > 2) evos.splice(Math.floor(s.rand() * evos.length), 1);
     if (evos.length) return { evolve: evos, extra: count - 1 };
     const items = [];
     for (let i = 0; i < count; i++) items.push(chestItem(s));
