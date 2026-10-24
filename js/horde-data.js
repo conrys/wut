@@ -114,11 +114,11 @@
   // ---------- Персонажі ----------
   // bonus — зміни статів (як у пасивок, адитивно). cost — ціна в золоті.
   const CHARACTERS = {
-    knight:  { name: "Лицар",     weapon: "sword", hp: 120, color: "#c9cfd8", cape: "#b8323a", cost: 0,    bonus: { armor: 1 },          perk: "+1 броні, 120 ❤" },
+    knight:  { name: "Лицар",     weapon: "sword", hp: 120, color: "#c9cfd8", cape: "#b8323a", cost: 0,    bonus: { armor: 1 },          perk: "+1 броні, 120 здоров'я" },
     huntress:{ name: "Мисливиця", weapon: "knife", hp: 90,  color: "#7aa35a", cape: "#3f6b2a", cost: 400,  bonus: { moveSpeed: 0.15 },   perk: "+15% швидкості" },
     mage:    { name: "Чарівниця", weapon: "wand",  hp: 80,  color: "#7b6be0", cape: "#3b2f8f", cost: 700,  bonus: { cooldown: -0.10 },   perk: "−10% перезарядки" },
-    priest:  { name: "Жрець",     weapon: "pool",  hp: 100, color: "#e8e2cf", cape: "#d6a93a", cost: 1000, bonus: { regen: 0.4 },        perk: "+0.4 ❤/с" },
-    barbarian:{ name: "Варвар",   weapon: "axe",   hp: 140, color: "#c98a5a", cape: "#6b3b1f", cost: 1400, bonus: { might: 0.10 },       perk: "+10% шкоди, 140 ❤" },
+    priest:  { name: "Жрець",     weapon: "pool",  hp: 100, color: "#e8e2cf", cape: "#d6a93a", cost: 1000, bonus: { regen: 0.4 },        perk: "+0.4 здоров'я/с" },
+    barbarian:{ name: "Варвар",   weapon: "axe",   hp: 140, color: "#c98a5a", cape: "#6b3b1f", cost: 1400, bonus: { might: 0.10 },       perk: "+10% шкоди, 140 здоров'я" },
     witch:   { name: "Відьма",    weapon: "bolt",  hp: 85,  color: "#5ab8a8", cape: "#1f4f4a", cost: 1800, bonus: { area: 0.10, luck: 0.1 }, perk: "+10% області й удачі" },
     scholar: { name: "Книжник",   weapon: "orbit", hp: 95,  color: "#d8b46a", cape: "#5a3b8a", cost: 2400, bonus: { duration: 0.20 },   perk: "+20% тривалості" },
   };
@@ -127,27 +127,28 @@
   // shape — як малювати (horde-render.js). fly — без штовхання з натовпом.
   // heavy — майже не відкидається.
   const ENEMIES = {
-    bat:      { name: "Кажан",   shape: "bat",      r: 9,  hp: 5,   spd: 95,  dmg: 5,  xp: 1, color: "#6b4a8a", fly: true },
-    zombie:   { name: "Зомбі",   shape: "zombie",   r: 13, hp: 12,  spd: 45,  dmg: 8,  xp: 1, color: "#5f8a45" },
-    skeleton: { name: "Скелет",  shape: "skeleton", r: 12, hp: 20,  spd: 60,  dmg: 10, xp: 2, color: "#ddd6c2" },
-    wolf:     { name: "Вовк",    shape: "wolf",     r: 13, hp: 18,  spd: 110, dmg: 10, xp: 2, color: "#7d6e60" },
-    ghost:    { name: "Привид",  shape: "ghost",    r: 12, hp: 25,  spd: 75,  dmg: 12, xp: 2, color: "#a9d4ea", fly: true },
-    cultist:  { name: "Культист", shape: "cultist", r: 12, hp: 45,  spd: 70,  dmg: 14, xp: 3, color: "#8f2c3e" },
-    golem:    { name: "Ґолем",   shape: "golem",    r: 22, hp: 120, spd: 38,  dmg: 18, xp: 6, color: "#80848c", heavy: true },
+    bat:      { name: "Кажан",   shape: "bat",      r: 9,  hp: 5,   spd: 68,  dmg: 5,  xp: 1, color: "#6b4a8a", fly: true },
+    zombie:   { name: "Зомбі",   shape: "zombie",   r: 12, hp: 12,  spd: 34,  dmg: 8,  xp: 1, color: "#5f8a45" },
+    skeleton: { name: "Скелет",  shape: "skeleton", r: 12, hp: 20,  spd: 46,  dmg: 10, xp: 2, color: "#ddd6c2" },
+    wolf:     { name: "Вовк",    shape: "wolf",     r: 12, hp: 18,  spd: 80, dmg: 10, xp: 2, color: "#7d6e60" },
+    ghost:    { name: "Привид",  shape: "ghost",    r: 12, hp: 25,  spd: 56,  dmg: 12, xp: 2, color: "#a9d4ea", fly: true },
+    cultist:  { name: "Культист", shape: "cultist", r: 12, hp: 45,  spd: 54,  dmg: 14, xp: 3, color: "#8f2c3e" },
+    golem:    { name: "Ґолем",   shape: "golem",    r: 18, hp: 120, spd: 30,  dmg: 18, xp: 6, color: "#80848c", heavy: true },
     // боси
-    ogre:     { name: "Огр",     shape: "ogre",     r: 36, hp: 1600,  spd: 55, dmg: 25, xp: 60,  color: "#7a8f3a", heavy: true, boss: "dash" },
-    lich:     { name: "Ліч",     shape: "lich",     r: 32, hp: 4500,  spd: 60, dmg: 30, xp: 120, color: "#3d6f8f", heavy: true, boss: "summon" },
-    reaper:   { name: "Жнець",   shape: "reaper",   r: 34, hp: 16000, spd: 85, dmg: 45, xp: 0,   color: "#1b1b24", heavy: true, boss: "final" },
+    ogre:     { name: "Огр",     shape: "ogre",     r: 40, hp: 1600,  spd: 46, dmg: 25, xp: 60,  color: "#7a8f3a", heavy: true, boss: "dash" },
+    lich:     { name: "Ліч",     shape: "lich",     r: 38, hp: 4500,  spd: 48, dmg: 30, xp: 120, color: "#3d6f8f", heavy: true, boss: "summon" },
+    reaper:   { name: "Жнець",   shape: "reaper",   r: 40, hp: 16000, spd: 72, dmg: 45, xp: 0,   color: "#1b1b24", heavy: true, boss: "final" },
   };
 
   // ---------- Хвилі ----------
-  // По хвилинах (індекс = хвилина): скільки ворогів тримати на мапі і кого
+  // По хвилинах (індекс = хвилина): скільки ворогів тримати на мапі (на базовий екран
+  // 390×720; на більшому огляді ядро множить ліміт) і кого
   // спавнити (вага = частота). Після 15-ї хвилини діє останній запис.
   const WAVES = [
-    { max: 18,  types: { bat: 3, zombie: 2 } },
-    { max: 30,  types: { bat: 2, zombie: 3, skeleton: 1 } },
-    { max: 45,  types: { zombie: 2, skeleton: 2, wolf: 1 } },
-    { max: 60,  types: { skeleton: 3, wolf: 2, bat: 2 } },
+    { max: 10,  types: { bat: 1, zombie: 3 } },
+    { max: 18,  types: { bat: 2, zombie: 3, skeleton: 1 } },
+    { max: 30,  types: { zombie: 2, skeleton: 2, wolf: 1 } },
+    { max: 45,  types: { skeleton: 3, wolf: 2, bat: 2 } },
     { max: 75,  types: { skeleton: 2, ghost: 2, zombie: 3 } },
     { max: 85,  types: { wolf: 3, ghost: 2, skeleton: 2 } },
     { max: 100, types: { golem: 1, ghost: 3, skeleton: 3 } },
@@ -189,7 +190,7 @@
     might:     { name: "Сила",        icon: "💪", stat: "might",     per: 0.05, max: 5, cost: 100, desc: "+5% шкоди" },
     maxHp:     { name: "Здоров'я",    icon: "❤️", stat: "maxHp",     per: 10,   max: 5, cost: 80, desc: "+10 здоров'я" },
     armor:     { name: "Броня",       icon: "🛡️", stat: "armor",     per: 1,    max: 3, cost: 180, desc: "+1 броні" },
-    regen:     { name: "Відновлення", icon: "🌿", stat: "regen",     per: 0.2,  max: 5, cost: 110, desc: "+0.2 ❤/с" },
+    regen:     { name: "Відновлення", icon: "🌿", stat: "regen",     per: 0.2,  max: 5, cost: 110, desc: "+0.2 здоров'я/с" },
     cooldown:  { name: "Спритність",  icon: "⏱️", stat: "cooldown",  per: -0.03, max: 3, cost: 210, desc: "−3% перезарядки" },
     area:      { name: "Розмах",      icon: "⭕", stat: "area",      per: 0.05, max: 3, cost: 180, desc: "+5% області" },
     moveSpeed: { name: "Біг",         icon: "👟", stat: "moveSpeed", per: 0.05, max: 3, cost: 140, desc: "+5% швидкості" },

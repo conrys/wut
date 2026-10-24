@@ -1,25 +1,27 @@
 // ==========================================================================
 // «Орда» — сторінка: ігровий цикл, ввід (джойстик/клавіатура), HUD, меню,
-// крамниця, герої, збереження прогресу в localStorage (працює без мережі).
-// Рекорд іде в спільні рекорди через AppScore, якщо гравець увійшов.
+// налаштування, крамниця, герої, збереження прогресу в localStorage
+// (працює без мережі). Рекорд іде в спільні рекорди через AppScore.
 // ==========================================================================
 (function () {
-  const D = window.HordeData, C = window.HordeCore, R = window.HordeRender;
+  const D = window.HordeData, C = window.HordeCore, HR = window.HordeRender;
   const SAVE_KEY = "hordeSave";
   const STEP = 1 / 60;
   const $ = (id) => document.getElementById(id);
 
-  const canvas = $("game"), ctx = canvas.getContext("2d"), area = $("gameArea");
-  let W = 0, H = 0, DPR = 1;
+  const canvas = $("game"), area = $("gameArea");
+  const R = HR.create(canvas);
+  let W = 0, H = 0, view = { viewW: 560, viewH: 1000 };
   function resize() {
     W = area.clientWidth; H = area.clientHeight;
-    DPR = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
-    canvas.style.width = W + "px"; canvas.style.height = H + "px";
-    if (state) C.setView(state, W, H);
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    view = R.resize(W, H, dpr);
+    if (state) C.setView(state, view.viewW, view.viewH);
+    if (menuState) C.setView(menuState, view.viewW, view.viewH);
   }
 
   // ---------- збереження ----------
+  const DEFAULT_SETTINGS = { joy: "touch", joySize: "m", numbers: true, shake: true, vibrate: true };
   function loadSave() {
     let s = null;
     try { s = JSON.parse(localStorage.getItem(SAVE_KEY) || "null"); } catch (e) { s = null; }
@@ -28,40 +30,61 @@
       gold: s.gold | 0, shop: s.shop || {}, chars: Array.isArray(s.chars) ? s.chars : ["knight"],
       char: s.char && D.CHARACTERS[s.char] ? s.char : "knight",
       best: s.best || null, runs: s.runs | 0, wins: s.wins | 0,
+      settings: Object.assign({}, DEFAULT_SETTINGS, s.settings || {}),
     };
   }
   let save = loadSave();
   if (!save.chars.includes("knight")) save.chars.push("knight");
   function writeSave() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} }
+  const set = () => save.settings;
 
   // ---------- стан ----------
-  let state = null;
+  let state = null, menuState = null;
   let mode = "menu"; // menu | play | modal
   let modalQueue = [];
   let acc = 0, last = 0, T = 0;
 
-  // ---------- ввід ----------
+  // ---------- іконки ----------
+  const SHOP_ICON = { might: "might", maxHp: "heart", armor: "armor", regen: "regen", cooldown: "tome", area: "candle", moveSpeed: "boots",
+    magnet: "magnet", growth: "scroll", greed: "greed", luck: "clover", rerolls: "dice", revivals: "feather" };
+  const img = (name, gold, cls) => `<img class="px ${cls || ""}" alt="" src="${HR.iconURL(name, gold)}">`;
+
+  // ---------- ввід: джойстик у трьох режимах ----------
+  const JOY_SIZES = { s: 40, m: 52, l: 66 };
   const keys = new Set();
-  const joy = { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0, R: 52 };
+  const joy = { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0, R: 52, always: false };
   function local(e) { const r = area.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+  function fixedBase() { return { x: W / 2, y: H - JOY_SIZES[set().joySize] - 46 }; }
+  function syncJoy() {
+    joy.R = JOY_SIZES[set().joySize] || 52;
+    joy.always = set().joy === "fixed";
+    if (joy.always && !joy.active) { const b = fixedBase(); joy.ox = b.x; joy.oy = b.y; joy.x = joy.y = 0; }
+  }
+  function aim(p) {
+    let dx = p.x - joy.ox, dy = p.y - joy.oy;
+    const d = Math.hypot(dx, dy);
+    if (set().joy === "follow" && d > joy.R) { // база повзе за пальцем
+      joy.ox += dx / d * (d - joy.R); joy.oy += dy / d * (d - joy.R);
+      dx = p.x - joy.ox; dy = p.y - joy.oy;
+    }
+    const m = Math.hypot(dx, dy) / joy.R;
+    if (m > 1) { dx /= m; dy /= m; }
+    joy.x = dx / joy.R; joy.y = dy / joy.R;
+    if (Math.hypot(joy.x, joy.y) < 0.12) joy.x = joy.y = 0; // мертва зона
+  }
   canvas.addEventListener("pointerdown", (e) => {
     if (mode !== "play" || joy.active) return;
     const p = local(e);
-    joy.active = true; joy.id = e.pointerId; joy.ox = p.x; joy.oy = p.y; joy.x = 0; joy.y = 0;
+    joy.active = true; joy.id = e.pointerId;
+    if (set().joy === "fixed") { const b = fixedBase(); joy.ox = b.x; joy.oy = b.y; aim(p); }
+    else { joy.ox = p.x; joy.oy = p.y; joy.x = joy.y = 0; }
     try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
   });
   canvas.addEventListener("pointermove", (e) => {
     if (!joy.active || e.pointerId !== joy.id) return;
-    const p = local(e);
-    let dx = p.x - joy.ox, dy = p.y - joy.oy;
-    const d = Math.hypot(dx, dy);
-    if (d > joy.R) { // база джойстика повзе за пальцем
-      joy.ox += dx / d * (d - joy.R); joy.oy += dy / d * (d - joy.R);
-      dx = p.x - joy.ox; dy = p.y - joy.oy;
-    }
-    joy.x = dx / joy.R; joy.y = dy / joy.R;
+    aim(local(e));
   });
-  const joyEnd = (e) => { if (e.pointerId === joy.id) { joy.active = false; joy.x = joy.y = 0; } };
+  const joyEnd = (e) => { if (e.pointerId === joy.id) { joy.active = false; joy.x = joy.y = 0; syncJoy(); } };
   canvas.addEventListener("pointerup", joyEnd);
   canvas.addEventListener("pointercancel", joyEnd);
   document.addEventListener("keydown", (e) => {
@@ -92,50 +115,69 @@
   for (const b of document.querySelectorAll("[data-back]")) b.addEventListener("click", openMenu);
 
   function fmtTime(sec) { sec = Math.max(0, Math.floor(sec)); return String(Math.floor(sec / 60)).padStart(2, "0") + ":" + String(sec % 60).padStart(2, "0"); }
-  function goldText(v) { return "● " + v; }
+  function goldHtml(v) { return img("gold") + `<span>${v}</span>`; }
 
   function openMenu() {
     mode = "menu";
     $("hud").classList.remove("on");
-    $("menuGold").textContent = goldText(save.gold);
+    $("menuGold").innerHTML = goldHtml(save.gold);
     const b = save.best;
     $("menuBest").innerHTML = b
-      ? `Найкраще: ${fmtTime(b.time)} · ☠ ${b.kills} · рахунок ${b.score}<br>Забігів: ${save.runs}${save.wins ? ` · перемог: ${save.wins}` : ""}`
+      ? `Найкраще: ${fmtTime(b.time)} · ${b.kills} вбито · рахунок ${b.score}<br>Забігів: ${save.runs}${save.wins ? ` · перемог: ${save.wins}` : ""}`
       : "Ще жодного забігу";
-    const ch = D.CHARACTERS[save.char];
-    $("btnPlay").textContent = `Грати · ${ch.name}`;
+    $("menuHero").innerHTML = `<img class="px hero-big" alt="" src="${HR.heroURL(save.char)}"><b>${D.CHARACTERS[save.char].name}</b>`;
     show("scrMenu");
   }
 
-  // ---------- герої ----------
-  function heroPortrait(c, id) {
-    const ch = D.CHARACTERS[id];
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    c.width = 64 * dpr; c.height = 64 * dpr;
-    const g = c.getContext("2d");
-    g.scale(dpr * 2, dpr * 2);
-    g.translate(16, 18);
-    g.fillStyle = "rgba(0,0,0,.3)"; g.beginPath(); g.ellipse(0, 12, 11, 4, 0, 0, 6.283); g.fill();
-    g.fillStyle = ch.cape; g.beginPath(); g.moveTo(-6, -6); g.quadraticCurveTo(-15, 4, -11, 12); g.lineTo(4, 12); g.closePath(); g.fill();
-    g.fillStyle = ch.color; g.globalAlpha = 0.8; g.fillRect(-8, -2, 16, 14); g.globalAlpha = 1;
-    g.beginPath(); g.arc(0, -8, 9, 0, 6.283); g.fill();
-    g.fillStyle = "#1a1c22"; g.fillRect(1, -10, 7, 4);
-    g.fillStyle = "#fff"; g.fillRect(5, -9.5, 1.6, 1.6);
+  // ---------- налаштування ----------
+  let settingsBack = "menu";
+  const SETTINGS_UI = [
+    { key: "joy", label: "Джойстик", opts: [["touch", "Під пальцем"], ["fixed", "Фіксований"], ["follow", "Тягнеться"]],
+      hint: { touch: "З'являється там, де торкнувся, і стоїть на місці.", fixed: "Завжди внизу екрана. Керуй, торкаючись будь-де.", follow: "Основа повзе за пальцем, якщо відвести далеко." } },
+    { key: "joySize", label: "Розмір джойстика", opts: [["s", "Малий"], ["m", "Середній"], ["l", "Великий"]] },
+    { key: "numbers", label: "Цифри шкоди", opts: [[true, "Так"], [false, "Ні"]] },
+    { key: "shake", label: "Тремтіння екрана", opts: [[true, "Так"], [false, "Ні"]] },
+    { key: "vibrate", label: "Вібрація", opts: [[true, "Так"], [false, "Ні"]] },
+  ];
+  function openSettings(from) {
+    settingsBack = from || "menu";
+    const box = $("settingsList");
+    box.innerHTML = "";
+    for (const row of SETTINGS_UI) {
+      const el = document.createElement("div");
+      el.className = "set-row";
+      const cur = set()[row.key];
+      el.innerHTML = `<div class="set-label">${row.label}</div><div class="seg">${row.opts.map(([v, t]) =>
+        `<button type="button" class="${v === cur ? "on" : ""}" data-v="${v}">${t}</button>`).join("")}</div>` +
+        (row.hint ? `<div class="set-hint">${row.hint[cur] || ""}</div>` : "");
+      el.querySelectorAll("button").forEach((b, i) => b.addEventListener("click", () => {
+        set()[row.key] = row.opts[i][0];
+        writeSave(); syncJoy(); openSettings(settingsBack);
+      }));
+      box.appendChild(el);
+    }
+    show("scrSettings");
   }
+  $("btnSettings").addEventListener("click", () => openSettings("menu"));
+  $("btnPauseSettings").addEventListener("click", () => openSettings("pause"));
+  $("btnSettingsBack").addEventListener("click", () => { if (settingsBack === "pause") show("scrPause"); else openMenu(); });
+
+  // ---------- герої ----------
   function openHeroes() {
-    $("heroGold").textContent = goldText(save.gold);
+    $("heroGold").innerHTML = goldHtml(save.gold);
     const list = $("heroList");
     list.innerHTML = "";
     for (const id in D.CHARACTERS) {
       const ch = D.CHARACTERS[id];
       const owned = save.chars.includes(id);
       const el = document.createElement("button");
+      el.type = "button";
       el.className = "hero" + (save.char === id ? " sel" : "") + (owned ? "" : " locked");
       const wpn = D.WEAPONS[ch.weapon];
-      el.innerHTML = `<canvas></canvas><b>${ch.name}</b><span>${wpn.icon} ${wpn.name}<br>${ch.perk}</span>` +
-        (owned ? (save.char === id ? `<div class="price">Обрано</div>` : `<div class="price no">Обрати</div>`)
-               : `<div class="price${save.gold >= ch.cost ? "" : " no"}">🔒 ● ${ch.cost}</div>`);
-      heroPortrait(el.querySelector("canvas"), id);
+      el.innerHTML = `<img class="px hero-img" alt="" src="${HR.heroURL(id)}"><b>${ch.name}</b>` +
+        `<span class="hero-wpn">${img(ch.weapon, false, "sm")}${wpn.name}</span><span>${ch.perk}</span>` +
+        (owned ? `<div class="price">${save.char === id ? "Обрано" : "Обрати"}</div>`
+               : `<div class="price${save.gold >= ch.cost ? " can" : ""}">${img("gold", false, "sm")}${ch.cost}</div>`);
       el.addEventListener("click", () => {
         if (owned) { save.char = id; writeSave(); openHeroes(); return; }
         if (save.gold < ch.cost) return;
@@ -149,7 +191,7 @@
   // ---------- крамниця ----------
   function shopCost(def, lvl) { return def.cost * (lvl + 1); }
   function openShop() {
-    $("shopGold").textContent = goldText(save.gold);
+    $("shopGold").innerHTML = goldHtml(save.gold);
     const list = $("shopList");
     list.innerHTML = "";
     for (const id in D.SHOP) {
@@ -161,8 +203,8 @@
       row.className = "row";
       let pips = "";
       for (let i = 0; i < def.max; i++) pips += `<i class="${i < lvl ? "on" : ""}"></i>`;
-      row.innerHTML = `<div class="ico">${def.icon}</div><div><b>${def.name}</b><span>${def.desc}</span><div class="pips">${pips}</div></div>` +
-        `<button class="buy" ${maxed || save.gold < cost ? "disabled" : ""}>${maxed ? "МАКС" : "● " + cost}</button>`;
+      row.innerHTML = `${img(SHOP_ICON[id] || "skull", false, "ico")}<div class="row-txt"><b>${def.name}</b><span>${def.desc}</span><div class="pips">${pips}</div></div>` +
+        `<button type="button" class="buy" ${maxed || save.gold < cost ? "disabled" : ""}>${maxed ? "МАКС" : img("gold", false, "sm") + cost}</button>`;
       row.querySelector(".buy").addEventListener("click", () => {
         if (maxed || save.gold < cost) return;
         save.gold -= cost; save.shop[id] = lvl + 1; writeSave(); openShop();
@@ -175,22 +217,22 @@
   // ---------- забіг ----------
   function startRun() {
     resize();
-    state = C.create({ charId: save.char, meta: save.shop, viewW: W, viewH: H, seed: (Date.now() ^ (Math.random() * 1e9)) >>> 0 });
+    state = C.create({ charId: save.char, meta: save.shop, viewW: view.viewW, viewH: view.viewH, seed: (Date.now() ^ (Math.random() * 1e9)) >>> 0 });
     modalQueue = [];
     mode = "play";
     acc = 0;
+    syncJoy();
     hideScreens();
     $("hud").classList.add("on");
     lastHud = {};
-    renderSlots();
   }
 
   function pause() {
     if (mode !== "play") return;
     mode = "modal";
-    joy.active = false;
+    joy.active = false; syncJoy();
     const s = state;
-    $("pauseStats").innerHTML = statBoxes([[fmtTime(s.t), "час"], ["☠ " + s.kills, "вбито"], ["Рів. " + s.player.level, "рівень"], [Math.ceil(s.player.hp) + "/" + s.stats.maxHp, "здоров'я"]]);
+    $("pauseStats").innerHTML = statBoxes([[fmtTime(s.t), "час"], [s.kills, "вбито"], ["Рів. " + s.player.level, "рівень"], [Math.ceil(s.player.hp) + "/" + s.stats.maxHp, "здоров'я"]]);
     $("pauseBuild").innerHTML = buildList(s);
     show("scrPause");
   }
@@ -207,14 +249,14 @@
     let html = "";
     for (const w of s.weapons) {
       const def = D.WEAPONS[w.id];
-      const evoName = w.evolved ? def.evo.name : def.name;
       const has = def.evo && s.passives.some((p) => p.id === def.evo.with);
-      const hint = !w.evolved && def.evo ? `<small class="${has ? "ready" : ""}">Еволюція: рів. 8 + ${D.PASSIVES[def.evo.with].icon} ${D.PASSIVES[def.evo.with].name}${has ? " ✓" : ""} → ${def.evo.name}</small>` : "";
-      html += `<div class="it"><span class="ic">${w.evolved ? def.evo.icon : def.icon}</span><div>${evoName}${hint}</div><em>${w.evolved ? "ЕВО" : "рів. " + w.level}</em></div>`;
+      const ev = def.evo && D.PASSIVES[def.evo.with];
+      const hint = !w.evolved && def.evo ? `<small class="${has ? "ready" : ""}">Еволюція: рів. 8 + ${ev.name}${has ? " ✓" : ""} → ${def.evo.name}</small>` : "";
+      html += `<div class="it">${img(w.id, w.evolved)}<div class="it-txt">${w.evolved ? def.evo.name : def.name}${hint}</div><em>${w.evolved ? "ЕВО" : "рів. " + w.level}</em></div>`;
     }
     for (const p of s.passives) {
       const def = D.PASSIVES[p.id];
-      html += `<div class="it"><span class="ic">${def.icon}</span><div>${def.name}<small>${def.desc}</small></div><em>рів. ${p.level}</em></div>`;
+      html += `<div class="it">${img(p.id)}<div class="it-txt">${def.name}<small>${def.desc}</small></div><em>рів. ${p.level}</em></div>`;
     }
     return html;
   }
@@ -243,55 +285,49 @@
     let icon, name, tag = "", cls = "card", extra = "";
     if (o.kind === "weapon") {
       const def = D.WEAPONS[o.id];
-      icon = def.icon; name = def.name;
+      icon = img(o.id); name = def.name;
       tag = o.level === 1 ? `<small class="new">нове</small>` : `<small>рів. ${o.level}</small>`;
       if (o.level === D.WEAPON_MAX_LEVEL && def.evo) {
         const p = D.PASSIVES[def.evo.with];
-        extra = `<div class="evo-hint">Далі еволюція зі скрині, якщо маєш ${p.icon} ${p.name}</div>`;
+        extra = `<div class="evo-hint">Далі — еволюція зі скрині, якщо маєш «${p.name}»</div>`;
       }
     } else if (o.kind === "passive") {
       const def = D.PASSIVES[o.id];
-      icon = def.icon; name = def.name;
+      icon = img(o.id); name = def.name;
       tag = o.level === 1 ? `<small class="new">нове</small>` : `<small>рів. ${o.level}</small>`;
     } else if (o.kind === "evolve") {
       const def = D.WEAPONS[o.id];
-      icon = def.evo.icon; name = def.evo.name; tag = `<small>еволюція</small>`; cls += " evolve";
-    } else if (o.kind === "gold") { icon = "💰"; name = "Золото"; }
-    else { icon = "🍗"; name = "Окіст"; }
-    return { cls, html: `<div class="ico">${icon}</div><div><div class="t">${name} ${tag}</div><div class="d">${levelText(o)}</div>${extra}</div>` };
+      icon = img(o.id, true); name = def.evo.name; tag = `<small>еволюція</small>`; cls += " evolve";
+    } else if (o.kind === "gold") { icon = img("gold"); name = "Золото"; }
+    else { icon = img("food"); name = "Окіст"; }
+    return { cls, html: `<div class="ico">${icon}</div><div class="card-txt"><div class="t">${name} ${tag}</div><div class="d">${levelText(o)}</div>${extra}</div>` };
   }
 
   function showLevelUp(options) {
     mode = "modal";
-    joy.active = false;
+    joy.active = false; syncJoy();
     const box = $("levelCards");
     box.innerHTML = "";
     for (const o of options) {
       const c = cardHtml(o);
       const el = document.createElement("button");
+      el.type = "button";
       el.className = c.cls; el.innerHTML = c.html;
-      el.addEventListener("click", () => {
-        C.choose(state, o);
-        renderSlots();
-        afterModal();
-      }, { once: true });
+      el.addEventListener("click", () => { C.choose(state, o); afterModal(); }, { once: true });
       box.appendChild(el);
     }
-    $("levelSub").textContent = `Рівень ${state.player.level - state.pendingLevels}`;
+    $("levelSub").textContent = `Рівень ${state.player.level - state.pendingLevels} · обери одне`;
     const rb = $("btnReroll");
-    rb.textContent = `🎲 Перекинути (${state.rerollsLeft})`;
-    rb.style.display = state.rerollsLeft > 0 ? "" : "none";
+    rb.textContent = `Перекинути (${state.rerollsLeft})`;
+    rb.hidden = state.rerollsLeft <= 0;
     show("scrLevel");
   }
-  $("btnReroll").addEventListener("click", () => {
-    const opts = C.reroll(state);
-    if (opts) showLevelUp(opts);
-  });
+  $("btnReroll").addEventListener("click", () => { const opts = C.reroll(state); if (opts) showLevelUp(opts); });
   $("btnSkip").addEventListener("click", () => { C.skip(state); afterModal(); });
 
   function showChest(items) {
     mode = "modal";
-    joy.active = false;
+    joy.active = false; syncJoy();
     const box = $("chestCards");
     box.innerHTML = "";
     for (const o of items) {
@@ -302,9 +338,8 @@
     }
     show("scrChest");
   }
-  $("btnChestOk").addEventListener("click", () => { C.skip(state); renderSlots(); afterModal(); });
+  $("btnChestOk").addEventListener("click", () => { C.skip(state); afterModal(); });
 
-  // Після закриття вікна: новий level-up/скриня могли з'явитись у ядрі.
   function afterModal() {
     hideScreens();
     mode = "play";
@@ -334,10 +369,11 @@
     if (!evs.length) return;
     state.events = [];
     for (const ev of evs) {
-      if (ev.type === "announce") announce(ev.text, ev.boss);
+      if (ev.type === "announce") { announce(ev.text, ev.boss); if (ev.boss) R.shake(3); }
       else if (ev.type === "hurt") {
+        R.shake(1);
         const now = performance.now();
-        if (navigator.vibrate && now - lastHurtBuzz > 400) { lastHurtBuzz = now; try { navigator.vibrate(25); } catch (_) {} }
+        if (set().vibrate && navigator.vibrate && now - lastHurtBuzz > 400) { lastHurtBuzz = now; try { navigator.vibrate(25); } catch (_) {} }
       }
       else if (ev.type === "levelup" || ev.type === "chest") modalQueue.push(ev);
       else if (ev.type === "gameover" || ev.type === "victory") { endRun(ev); return; }
@@ -348,6 +384,7 @@
   function endRun(ev) {
     mode = "modal";
     modalQueue = [];
+    joy.active = false;
     const r = ev.result;
     save.gold += r.gold;
     save.runs++;
@@ -358,8 +395,8 @@
     if (window.AppScore) { try { window.AppScore.sendScore("horde", r.score); } catch (_) {} }
 
     $("resTitle").textContent = r.won ? "Перемога!" : "Тебе здолали";
-    $("resSub").textContent = r.won ? "Жнець упав. Орда розбіглась — до наступної ночі." : (isBest ? "Новий особистий рекорд!" : `Рахунок: ${r.score}`);
-    $("resStats").innerHTML = statBoxes([[fmtTime(r.time), "протримався"], ["☠ " + r.kills, "вбито"], ["Рів. " + r.level, "рівень"], ["+" + r.gold, "золота"]], 3);
+    $("resSub").textContent = r.won ? "Жнець упав. Орда розбіглась до наступної ночі." : (isBest ? "Новий особистий рекорд!" : `Рахунок: ${r.score}`);
+    $("resStats").innerHTML = statBoxes([[fmtTime(r.time), "протримався"], [r.kills, "вбито"], ["Рів. " + r.level, "рівень"], ["+" + r.gold, "золота"]], 3);
     $("resBuild").innerHTML = buildList(state);
     $("hud").classList.remove("on");
     show("scrResult");
@@ -372,13 +409,13 @@
 
   // ---------- HUD ----------
   let lastHud = {};
-  function setText(id, v) { if (lastHud[id] !== v) { lastHud[id] = v; $(id).textContent = v; } }
+  function setHtml(id, v) { if (lastHud[id] !== v) { lastHud[id] = v; $(id).innerHTML = v; } }
   function updateHud() {
     const s = state, p = s.player;
-    setText("timer", fmtTime(s.t));
-    setText("kills", "☠ " + s.kills);
-    setText("coins", "● " + s.coins);
-    setText("lvl", "РІВ. " + p.level);
+    setHtml("timer", fmtTime(s.t));
+    setHtml("killsN", String(s.kills));
+    setHtml("coinsN", String(s.coins));
+    setHtml("lvl", "РІВ. " + p.level);
     const w = Math.min(100, (p.xp / p.need) * 100).toFixed(1) + "%";
     if (lastHud.xp !== w) { lastHud.xp = w; $("xpFill").style.width = w; }
     let sig = "";
@@ -387,24 +424,22 @@
     if (lastHud.slots !== sig) { lastHud.slots = sig; renderSlots(); }
   }
   function renderSlots() {
-    if (!state) return;
     let html = "";
-    for (const w of state.weapons) {
-      const def = D.WEAPONS[w.id];
-      html += `<span class="${w.evolved ? "evo" : ""}">${w.evolved ? def.evo.icon : def.icon}<em>${w.evolved ? "" : w.level}</em></span>`;
-    }
-    for (const p of state.passives) html += `<span>${D.PASSIVES[p.id].icon}<em>${p.level}</em></span>`;
+    for (const w of state.weapons) html += `<span class="${w.evolved ? "evo" : ""}">${img(w.id, w.evolved)}<em>${w.evolved ? "" : w.level}</em></span>`;
+    html += `<i class="gap"></i>`;
+    for (const p of state.passives) html += `<span>${img(p.id)}<em>${p.level}</em></span>`;
     $("slots").innerHTML = html;
   }
+  $("killsIco").innerHTML = img("skull", false, "sm");
+  $("coinsIco").innerHTML = img("gold", false, "sm");
 
-  // ---------- фон для меню: порожній світ ----------
-  let menuState = null;
+  // ---------- фон для меню: світ без героя ----------
   function menuBackdrop(dt) {
     if (!menuState) {
-      menuState = C.create({ charId: save.char, viewW: W, viewH: H, seed: 7 });
+      menuState = C.create({ charId: save.char, viewW: view.viewW, viewH: view.viewH, seed: 7 });
       menuState.weapons = [];
     }
-    menuState.player.x += dt * 30; menuState.player.moving = true; menuState.player.fx = 1;
+    menuState.player.x += dt * 24; menuState.player.y += dt * 8;
     menuState.t += dt;
     return menuState;
   }
@@ -414,7 +449,6 @@
     const dt = Math.min(0.1, (now - (last || now)) / 1000);
     last = now;
     T += dt;
-    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     if (mode === "play" && state) {
       acc += dt;
       let n = 0;
@@ -427,18 +461,19 @@
       if (n >= 5) acc = 0;
       updateHud();
     }
-    const view = { W, H, dpr: DPR };
-    if (state && mode !== "menu") R.render(ctx, state, view, T, mode === "play" ? joy : null);
-    else R.render(ctx, menuBackdrop(dt), Object.assign({ noPlayer: true }, view), T, null);
+    const ui = { numbers: set().numbers, shake: set().shake, joy: mode === "play" ? joy : null };
+    if (state && mode !== "menu") R.render(state, T, ui);
+    else R.render(menuBackdrop(dt), T, { noPlayer: true });
     requestAnimationFrame(frame);
   }
 
-  window.addEventListener("resize", resize);
-  if (window.ResizeObserver) new ResizeObserver(resize).observe(area);
+  window.addEventListener("resize", () => { resize(); syncJoy(); });
+  if (window.ResizeObserver) new ResizeObserver(() => { resize(); syncJoy(); }).observe(area);
   resize();
+  syncJoy();
   openMenu();
   requestAnimationFrame(frame);
 
   document.addEventListener("contextmenu", (e) => e.preventDefault());
-  window.HordeGame = { get state() { return state; }, startRun, get save() { return save; } };
+  window.HordeGame = { get state() { return state; }, startRun, get save() { return save; }, renderer: R };
 })();

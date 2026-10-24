@@ -1,454 +1,544 @@
 // ==========================================================================
-// «Орда» — малювання стану з horde-core.js на canvas. Нічого не змінює в
-// стані гри. Вороги малюються простими фігурами один раз у кеш-спрайти
-// (offscreen canvas), далі — лише drawImage: так 300+ ворогів не гальмують.
+// «Орда» — піксельний рендер.
+// Світ малюється в маленький буфер (1 піксель буфера = 2 одиниці світу), а
+// потім збільшується цілим множником без згладжування — пікселі чіткі на
+// будь-якому екрані. Спрайти будуються з текстових сіток (horde-sprites.js)
+// один раз і кешуються, з автоматичною обводкою та «спалахом» удару.
 // ==========================================================================
 (function () {
-  const D = window.HordeData;
+  const D = window.HordeData, SP = window.HordeSprites;
   const TAU = Math.PI * 2;
+  const WPP = 2;           // одиниць світу на піксель арту
+  const TARGET_W = 280;    // бажана ширина буфера в пікселях арту
+  const OUTLINE = "#16131d";
 
-  function makeCanvas(w, h) {
+  // ------------------------------------------------------------ спрайти
+  function hexRgb(h) { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; }
+  function normalize(rows, mirror) {
+    const w = Math.max(...rows.map((r) => r.length));
+    return rows.map((r) => {
+      const p = r.padEnd(w, ".");
+      return mirror ? p + p.split("").reverse().join("") : p;
+    });
+  }
+  // Будує canvas зі сітки: обводка 1px навколо, варіанти: normal / flash / tint.
+  function build(rows, opts) {
+    const o = opts || {};
+    const map = o.map || {};
+    const h = rows.length, w = rows[0].length;
+    const W = w + 2, H = h + 2;
     const c = document.createElement("canvas");
-    c.width = Math.ceil(w); c.height = Math.ceil(h);
+    c.width = W; c.height = H;
+    const g = c.getContext("2d");
+    const img = g.createImageData(W, H);
+    const solid = new Uint8Array(W * H);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      let ch = rows[y][x];
+      if (ch === ".") continue;
+      if (map[ch]) ch = map[ch];
+      let col = (o.colors && o.colors[ch]) || SP.PALETTE[ch];
+      if (!col) continue;
+      if (o.flash) col = "#ffffff";
+      else if (o.tint) col = o.tint;
+      const [r, gg, b] = hexRgb(col);
+      const i = ((y + 1) * W + (x + 1));
+      solid[i] = 1;
+      img.data[i * 4] = r; img.data[i * 4 + 1] = gg; img.data[i * 4 + 2] = b;
+      img.data[i * 4 + 3] = Math.round(255 * (o.alpha || 1));
+    }
+    if (!o.noOutline) {
+      const [r, gg, b] = hexRgb(o.outline || OUTLINE);
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        const i = y * W + x;
+        if (solid[i]) continue;
+        const n = (x > 0 && solid[i - 1]) || (x < W - 1 && solid[i + 1]) || (y > 0 && solid[i - W]) || (y < H - 1 && solid[i + W]);
+        if (n) { img.data[i * 4] = r; img.data[i * 4 + 1] = gg; img.data[i * 4 + 2] = b; img.data[i * 4 + 3] = 255; }
+      }
+    }
+    g.putImageData(img, 0, 0);
+    return c;
+  }
+  function scaled(src, k) {
+    const c = document.createElement("canvas");
+    c.width = src.width * k; c.height = src.height * k;
+    const g = c.getContext("2d");
+    g.imageSmoothingEnabled = false;
+    g.drawImage(src, 0, 0, c.width, c.height);
     return c;
   }
 
-  // ---------- фігури ворогів (у локальних координатах, радіус r) ----------
-  function eyes(ctx, r, ox, oy, col, size) {
-    ctx.fillStyle = col || "#ffe36b";
-    const s = size || r * 0.18;
-    ctx.beginPath(); ctx.arc(-r * 0.3 + (ox || 0), -r * 0.15 + (oy || 0), s, 0, TAU); ctx.arc(r * 0.3 + (ox || 0), -r * 0.15 + (oy || 0), s, 0, TAU); ctx.fill();
-  }
-  const SHAPES = {
-    bat(ctx, r, c, frame) {
-      const flap = frame ? 0.35 : -0.15;
-      ctx.fillStyle = shade(c, -0.25);
-      for (const sgn of [-1, 1]) {
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(sgn * r * 2.1, -r * (0.6 + flap));
-        ctx.lineTo(sgn * r * 1.6, r * 0.2);
-        ctx.lineTo(sgn * r * 1.1, -r * 0.1 + flap * r);
-        ctx.lineTo(sgn * r * 0.7, r * 0.5);
-        ctx.closePath(); ctx.fill();
-      }
-      ctx.fillStyle = c; ctx.beginPath(); ctx.arc(0, 0, r * 0.8, 0, TAU); ctx.fill();
-      eyes(ctx, r * 0.8, 0, 0, "#ff5a5a");
-    },
-    zombie(ctx, r, c) {
-      ctx.fillStyle = shade(c, -0.3); ctx.beginPath(); ctx.ellipse(0, r * 0.35, r * 0.95, r * 0.75, 0, 0, TAU); ctx.fill();
-      ctx.fillStyle = c; ctx.beginPath(); ctx.arc(0, -r * 0.1, r * 0.82, 0, TAU); ctx.fill();
-      ctx.fillStyle = "#1b1f14"; ctx.fillRect(-r * 0.4, -r * 0.3, r * 0.25, r * 0.22); ctx.fillRect(r * 0.15, -r * 0.35, r * 0.28, r * 0.28);
-      ctx.fillRect(-r * 0.35, r * 0.25, r * 0.7, r * 0.12);
-      // простягнуті руки
-      ctx.fillStyle = c; ctx.fillRect(-r * 1.15, r * 0.05, r * 0.45, r * 0.28); ctx.fillRect(r * 0.7, r * 0.05, r * 0.45, r * 0.28);
-    },
-    skeleton(ctx, r, c) {
-      ctx.fillStyle = shade(c, -0.15); ctx.fillRect(-r * 0.35, r * 0.4, r * 0.7, r * 0.6);
-      ctx.fillStyle = c; ctx.beginPath(); ctx.arc(0, -r * 0.05, r * 0.85, 0, TAU); ctx.fill();
-      ctx.fillStyle = "#1a1a22";
-      ctx.beginPath(); ctx.arc(-r * 0.32, -r * 0.1, r * 0.22, 0, TAU); ctx.arc(r * 0.32, -r * 0.1, r * 0.22, 0, TAU); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(0, r * 0.12); ctx.lineTo(-r * 0.1, r * 0.3); ctx.lineTo(r * 0.1, r * 0.3); ctx.fill();
-      for (let i = -2; i <= 2; i++) ctx.fillRect(i * r * 0.15 - r * 0.04, r * 0.45, r * 0.08, r * 0.2);
-    },
-    wolf(ctx, r, c) {
-      ctx.fillStyle = shade(c, -0.25);
-      ctx.beginPath(); ctx.moveTo(-r * 0.75, -r * 0.4); ctx.lineTo(-r * 0.55, -r * 1.15); ctx.lineTo(-r * 0.15, -r * 0.6); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(r * 0.75, -r * 0.4); ctx.lineTo(r * 0.55, -r * 1.15); ctx.lineTo(r * 0.15, -r * 0.6); ctx.fill();
-      ctx.fillStyle = c; ctx.beginPath(); ctx.ellipse(0, 0, r * 0.95, r * 0.8, 0, 0, TAU); ctx.fill();
-      ctx.fillStyle = shade(c, 0.35); ctx.beginPath(); ctx.ellipse(0, r * 0.35, r * 0.45, r * 0.32, 0, 0, TAU); ctx.fill();
-      ctx.fillStyle = "#111"; ctx.beginPath(); ctx.arc(0, r * 0.22, r * 0.12, 0, TAU); ctx.fill();
-      eyes(ctx, r, 0, -r * 0.05, "#ffcf3a", r * 0.13);
-    },
-    ghost(ctx, r, c) {
-      ctx.globalAlpha = 0.82;
-      ctx.fillStyle = c;
-      ctx.beginPath();
-      ctx.arc(0, -r * 0.15, r * 0.9, Math.PI, 0);
-      ctx.lineTo(r * 0.9, r * 0.8);
-      for (let i = 0; i < 4; i++) {
-        const x0 = r * 0.9 - (i + 0.5) * r * 0.45;
-        ctx.quadraticCurveTo(x0, (i % 2 ? r * 1.1 : r * 0.5), r * 0.9 - (i + 1) * r * 0.45, r * 0.8);
-      }
-      ctx.closePath(); ctx.fill();
-      ctx.globalAlpha = 1;
-      ctx.fillStyle = "#1c2a40";
-      ctx.beginPath(); ctx.ellipse(-r * 0.3, -r * 0.2, r * 0.16, r * 0.24, 0, 0, TAU); ctx.ellipse(r * 0.3, -r * 0.2, r * 0.16, r * 0.24, 0, 0, TAU); ctx.fill();
-      ctx.beginPath(); ctx.ellipse(0, r * 0.25, r * 0.15, r * 0.2, 0, 0, TAU); ctx.fill();
-    },
-    cultist(ctx, r, c) {
-      ctx.fillStyle = c;
-      ctx.beginPath(); ctx.moveTo(0, -r * 1.2); ctx.lineTo(r * 0.95, r * 0.95); ctx.lineTo(-r * 0.95, r * 0.95); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = "#14080c"; ctx.beginPath(); ctx.ellipse(0, -r * 0.05, r * 0.42, r * 0.5, 0, 0, TAU); ctx.fill();
-      eyes(ctx, r * 0.7, 0, -r * 0.05, "#ff3b3b", r * 0.1);
-    },
-    golem(ctx, r, c) {
-      ctx.fillStyle = shade(c, -0.3); roundRect(ctx, -r, -r * 0.8, r * 2, r * 1.8, r * 0.35); ctx.fill();
-      ctx.fillStyle = c; roundRect(ctx, -r * 0.85, -r * 0.95, r * 1.7, r * 1.6, r * 0.3); ctx.fill();
-      ctx.strokeStyle = shade(c, -0.45); ctx.lineWidth = Math.max(1, r * 0.08);
-      ctx.beginPath(); ctx.moveTo(-r * 0.5, -r * 0.9); ctx.lineTo(-r * 0.2, -r * 0.4); ctx.lineTo(-r * 0.4, 0); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(r * 0.6, r * 0.1); ctx.lineTo(r * 0.3, r * 0.45); ctx.stroke();
-      eyes(ctx, r, 0, -r * 0.15, "#7df7ff", r * 0.13);
-    },
-    ogre(ctx, r, c) {
-      ctx.fillStyle = shade(c, -0.3); ctx.beginPath(); ctx.ellipse(0, r * 0.25, r, r * 0.8, 0, 0, TAU); ctx.fill();
-      ctx.fillStyle = c; ctx.beginPath(); ctx.arc(0, -r * 0.1, r * 0.8, 0, TAU); ctx.fill();
-      ctx.fillStyle = "#f2ead0";
-      ctx.beginPath(); ctx.moveTo(-r * 0.35, r * 0.25); ctx.lineTo(-r * 0.25, -r * 0.05); ctx.lineTo(-r * 0.15, r * 0.25); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(r * 0.35, r * 0.25); ctx.lineTo(r * 0.25, -r * 0.05); ctx.lineTo(r * 0.15, r * 0.25); ctx.fill();
-      eyes(ctx, r * 0.8, 0, -r * 0.15, "#ffdd33", r * 0.1);
-      ctx.fillStyle = "#5a3b1f"; ctx.fillRect(r * 0.75, -r * 0.6, r * 0.22, r * 1.2); // кийок
-    },
-    lich(ctx, r, c) {
-      ctx.fillStyle = c;
-      ctx.beginPath(); ctx.moveTo(0, -r * 0.9); ctx.lineTo(r, r); ctx.lineTo(-r, r); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = "#e6e0cc"; ctx.beginPath(); ctx.arc(0, -r * 0.3, r * 0.45, 0, TAU); ctx.fill();
-      ctx.fillStyle = "#0b1a24"; ctx.beginPath(); ctx.arc(-r * 0.17, -r * 0.35, r * 0.11, 0, TAU); ctx.arc(r * 0.17, -r * 0.35, r * 0.11, 0, TAU); ctx.fill();
-      ctx.fillStyle = "#e8c84a"; // корона
-      ctx.beginPath(); ctx.moveTo(-r * 0.45, -r * 0.65); ctx.lineTo(-r * 0.3, -r * 1.0); ctx.lineTo(-r * 0.1, -r * 0.72); ctx.lineTo(0, -r * 1.1);
-      ctx.lineTo(r * 0.1, -r * 0.72); ctx.lineTo(r * 0.3, -r * 1.0); ctx.lineTo(r * 0.45, -r * 0.65); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = "#7fe0ff"; ctx.beginPath(); ctx.arc(r * 0.85, -r * 0.4, r * 0.18, 0, TAU); ctx.fill();
-    },
-    reaper(ctx, r, c) {
-      ctx.fillStyle = c;
-      ctx.beginPath(); ctx.moveTo(0, -r * 1.1); ctx.quadraticCurveTo(r * 1.1, -r * 0.6, r * 0.9, r); ctx.lineTo(-r * 0.9, r); ctx.quadraticCurveTo(-r * 1.1, -r * 0.6, 0, -r * 1.1); ctx.fill();
-      ctx.fillStyle = "#000"; ctx.beginPath(); ctx.ellipse(0, -r * 0.3, r * 0.45, r * 0.5, 0, 0, TAU); ctx.fill();
-      eyes(ctx, r * 0.7, 0, -r * 0.25, "#ff2b2b", r * 0.1);
-      ctx.strokeStyle = "#c9ccd6"; ctx.lineWidth = r * 0.1;
-      ctx.beginPath(); ctx.moveTo(r * 0.9, r * 0.9); ctx.lineTo(r * 0.9, -r * 1.1); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(r * 0.9, -r * 1.1); ctx.quadraticCurveTo(r * 0.1, -r * 1.3, -r * 0.3, -r * 0.7); ctx.stroke();
-    },
-  };
-
-  function roundRect(ctx, x, y, w, h, r) {
-    ctx.beginPath();
-    ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
-  }
-  function hexRgb(h) { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; }
-  function shade(h, k) {
-    const c = hexRgb(h);
-    const f = (v) => Math.round(k < 0 ? v * (1 + k) : v + (255 - v) * k);
-    return `rgb(${f(c[0])},${f(c[1])},${f(c[2])})`;
-  }
-
-  // ---------- кеш спрайтів ----------
   const cache = new Map();
-  function sprite(type, scale, frame, flash, dpr) {
-    const key = `${type}|${scale}|${frame}|${flash ? 1 : 0}|${dpr}`;
+  // name — ключ у SPRITES; variant: "" | "flash" | "elite" | "eliteFlash"; frame — індекс кадру
+  function sprite(name, frame, variant) {
+    const key = name + "|" + frame + "|" + (variant || "");
     let c = cache.get(key);
     if (c) return c;
-    const def = D.ENEMIES[type];
-    const r = def.r * scale;
-    const pad = r * 1.4 + 4;
-    const size = (r * 2 + pad * 2) * dpr;
-    c = makeCanvas(size, size);
-    const g = c.getContext("2d");
-    g.scale(dpr, dpr);
-    g.translate(r + pad, r + pad);
-    // тінь
-    g.fillStyle = "rgba(0,0,0,.28)";
-    g.beginPath(); g.ellipse(0, r * 0.95, r * 0.9, r * 0.32, 0, 0, TAU); g.fill();
-    SHAPES[def.shape](g, r, def.color, frame);
-    if (flash) {
-      g.globalCompositeOperation = "source-atop";
-      g.fillStyle = "rgba(255,255,255,.85)";
-      g.fillRect(-r - pad, -r - pad, r * 2 + pad * 2, r * 2 + pad * 2);
-      g.globalCompositeOperation = "source-over";
-    }
-    c._half = (r + pad);
+    const def = SP.SPRITES[name];
+    const f = def.frames[frame % def.frames.length];
+    const rows = normalize(f, def.mirror);
+    const v = variant || "";
+    const base = build(rows, {
+      map: def.map, alpha: def.alpha,
+      flash: v.indexOf("lash") >= 0,
+      outline: v.indexOf("elite") === 0 ? "#f4cc4c" : undefined,
+    });
+    c = v.indexOf("elite") === 0 || def.big ? scaled(base, 2) : base;
     cache.set(key, c);
     return c;
   }
+  function bigSprite(name, frame, flash) {
+    const key = "big|" + name + "|" + frame + "|" + (flash ? 1 : 0);
+    let c = cache.get(key);
+    if (c) return c;
+    c = scaled(sprite(name, frame, flash ? "flash" : ""), 2);
+    cache.set(key, c);
+    return c;
+  }
+  function heroSprite(charId, frame, variant) {
+    const key = "hero|" + charId + "|" + frame + "|" + (variant || "");
+    let c = cache.get(key);
+    if (c) return c;
+    const rows = (SP.HEADS[charId] || SP.HEADS.knight).concat(frame ? SP.BODY_B : SP.BODY_A);
+    c = build(rows, { colors: SP.HERO_COLORS[charId] || SP.HERO_COLORS.knight, tint: variant === "hurt" ? "#ff5a4a" : undefined });
+    cache.set(key, c);
+    return c;
+  }
+  // Іконка для інтерфейсу як dataURL (12×12 + обводка), збільшена ×4.
+  const iconCache = new Map();
+  function iconURL(name, gold) {
+    const key = name + (gold ? "|g" : "");
+    if (iconCache.has(key)) return iconCache.get(key);
+    const rows = SP.ICONS[name] || SP.ICONS.skull;
+    const base = build(normalize(rows), { outline: gold ? "#f4cc4c" : OUTLINE });
+    const url = scaled(base, 4).toDataURL();
+    iconCache.set(key, url);
+    return url;
+  }
+  function heroURL(charId) {
+    const key = "heroicon|" + charId;
+    if (iconCache.has(key)) return iconCache.get(key);
+    const url = scaled(heroSprite(charId, 0), 4).toDataURL();
+    iconCache.set(key, url);
+    return url;
+  }
 
-  // ---------- земля ----------
-  let groundTile = null;
-  function makeGround(dpr) {
-    const S = 256;
-    const c = makeCanvas(S * dpr, S * dpr);
+  // ------------------------------------------------------- піксельний шрифт
+  const DIGITS = {
+    0: ["111", "101", "101", "101", "111"], 1: ["010", "110", "010", "010", "111"], 2: ["111", "001", "111", "100", "111"],
+    3: ["111", "001", "011", "001", "111"], 4: ["101", "101", "111", "001", "001"], 5: ["111", "100", "111", "001", "111"],
+    6: ["111", "100", "111", "101", "111"], 7: ["111", "001", "010", "010", "010"], 8: ["111", "101", "111", "101", "111"],
+    9: ["111", "101", "111", "001", "111"],
+  };
+  function drawNumber(g, str, x, y, color) {
+    const w = str.length * 4 - 1;
+    let cx = Math.round(x - w / 2);
+    y = Math.round(y);
+    for (const ch of str) {
+      const d = DIGITS[ch];
+      if (d) for (let r = 0; r < 5; r++) for (let c = 0; c < 3; c++) if (d[r][c] === "1") {
+        g.fillStyle = OUTLINE; g.fillRect(cx + c - 1, y + r - 1, 3, 3);
+      }
+      cx += 4;
+    }
+    cx = Math.round(x - w / 2);
+    g.fillStyle = color;
+    for (const ch of str) {
+      const d = DIGITS[ch];
+      if (d) for (let r = 0; r < 5; r++) for (let c = 0; c < 3; c++) if (d[r][c] === "1") g.fillRect(cx + c, y + r, 1, 1);
+      cx += 4;
+    }
+  }
+
+  // ------------------------------------------------------------ земля
+  function makeGround() {
+    const S = 128;
+    const c = document.createElement("canvas");
+    c.width = S; c.height = S;
     const g = c.getContext("2d");
-    g.scale(dpr, dpr);
-    g.fillStyle = "#1f2b20"; g.fillRect(0, 0, S, S);
-    let a = 1337;
-    const r = () => { a = (a * 16807) % 2147483647; return a / 2147483647; };
-    for (let i = 0; i < 26; i++) { // плями
-      g.fillStyle = r() < 0.5 ? "rgba(40,58,38,.55)" : "rgba(24,34,26,.6)";
-      const x = r() * S, y = r() * S, rr = 10 + r() * 30;
-      for (const ox of [-S, 0, S]) for (const oy of [-S, 0, S]) { g.beginPath(); g.ellipse(x + ox, y + oy, rr, rr * 0.7, 0, 0, TAU); g.fill(); }
+    g.fillStyle = "#223b26"; g.fillRect(0, 0, S, S);
+    let a = 4242;
+    const rnd = () => { a = (a * 16807) % 2147483647; return a / 2147483647; };
+    // плями відтінків
+    for (let i = 0; i < 30; i++) {
+      const cx = rnd() * S, cy = rnd() * S, rr = 5 + rnd() * 9;
+      g.fillStyle = rnd() < 0.5 ? "#26432a" : "#1e3523";
+      for (let y = -rr; y <= rr; y++) for (let x = -rr; x <= rr; x++) {
+        if (x * x + y * y * 1.6 > rr * rr) continue;
+        if ((x + y) % 2 && x * x + y * y * 1.6 > rr * rr * 0.6) continue; // дизеринг по краю
+        g.fillRect(((cx + x) % S + S) % S | 0, ((cy + y) % S + S) % S | 0, 1, 1);
+      }
     }
-    for (let i = 0; i < 70; i++) { // травинки
-      const x = r() * S, y = r() * S;
-      g.strokeStyle = r() < 0.5 ? "rgba(90,130,70,.45)" : "rgba(60,95,55,.5)";
-      g.lineWidth = 1.2;
-      g.beginPath(); g.moveTo(x, y); g.lineTo(x - 2, y - 5); g.moveTo(x, y); g.lineTo(x + 2, y - 6); g.stroke();
+    // шум
+    for (let i = 0; i < 520; i++) {
+      g.fillStyle = rnd() < 0.5 ? "#2a4a2e" : "#1b3020";
+      g.fillRect(rnd() * S | 0, rnd() * S | 0, 1, 1);
     }
-    for (let i = 0; i < 7; i++) { // камінці
-      const x = r() * S, y = r() * S;
-      g.fillStyle = "rgba(120,120,110,.35)";
-      g.beginPath(); g.ellipse(x, y, 3 + r() * 3, 2 + r() * 2, 0, 0, TAU); g.fill();
+    // травинки
+    for (let i = 0; i < 70; i++) {
+      const x = rnd() * S | 0, y = rnd() * S | 0;
+      g.fillStyle = "#3e7d3a"; g.fillRect(x, y, 1, 2); g.fillRect(x + 2, y + 1, 1, 1);
+      g.fillStyle = "#5e8c3d"; g.fillRect(x + 1, y - 1, 1, 3);
     }
-    for (let i = 0; i < 6; i++) { // квіточки
-      const x = r() * S, y = r() * S;
-      g.fillStyle = r() < 0.5 ? "rgba(230,200,90,.5)" : "rgba(200,150,220,.45)";
-      g.beginPath(); g.arc(x, y, 1.6, 0, TAU); g.fill();
+    // квіточки
+    const fl = ["#f4cc4c", "#e07ab8", "#f2ecd9", "#9be7ff"];
+    for (let i = 0; i < 7; i++) {
+      const x = rnd() * S | 0, y = rnd() * S | 0;
+      g.fillStyle = fl[i % fl.length]; g.fillRect(x, y, 1, 1);
+      g.fillStyle = "#3e7d3a"; g.fillRect(x, y + 1, 1, 1);
     }
-    c._size = S;
     return c;
   }
 
-  // ---------- персонаж ----------
-  function drawPlayer(ctx, s, t) {
-    const p = s.player;
-    const ch = D.CHARACTERS[s.charId];
-    const bob = p.moving ? Math.sin(t * 14) * 1.6 : Math.sin(t * 3) * 0.6;
-    ctx.save();
-    ctx.translate(p.x, p.y);
-    ctx.fillStyle = "rgba(0,0,0,.3)";
-    ctx.beginPath(); ctx.ellipse(0, 12, 12, 4.5, 0, 0, TAU); ctx.fill();
-    ctx.translate(0, bob);
-    ctx.scale(p.fx >= 0 ? 1 : -1, 1);
-    const blink = p.inv > 0 && Math.floor(t * 20) % 2 === 0;
-    if (blink) ctx.globalAlpha = 0.45;
-    // плащ
-    ctx.fillStyle = ch.cape;
-    ctx.beginPath(); ctx.moveTo(-6, -6); ctx.quadraticCurveTo(-16 - (p.moving ? 3 : 0), 4, -11, 12); ctx.lineTo(4, 12); ctx.closePath(); ctx.fill();
-    // тіло
-    ctx.fillStyle = shade(ch.color, -0.25); roundRect(ctx, -8, -2, 16, 14, 4); ctx.fill();
-    // голова
-    ctx.fillStyle = ch.color; ctx.beginPath(); ctx.arc(0, -8, 9, 0, TAU); ctx.fill();
-    ctx.fillStyle = "#1a1c22"; roundRect(ctx, 1, -10, 7, 4, 2); ctx.fill();   // очі/забрало
-    ctx.fillStyle = "#fff"; ctx.fillRect(5, -9.5, 1.6, 1.6);
-    if (p.hurt > 0) { ctx.globalCompositeOperation = "source-atop"; ctx.fillStyle = "rgba(255,60,60,.6)"; ctx.fillRect(-20, -20, 40, 40); }
-    ctx.restore();
-    // смужка здоров'я
-    const w = 30, frac = Math.max(0, p.hp / s.stats.maxHp);
-    ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.fillRect(p.x - w / 2, p.y + 18, w, 4);
-    ctx.fillStyle = frac > 0.35 ? "#e04a4a" : "#ff2d2d"; ctx.fillRect(p.x - w / 2, p.y + 18, w * frac, 4);
+  // декор за чанками (детерміновано від координат)
+  const PROPS = [["rock", 24], ["bush", 24], ["grave", 14], ["graveOld", 10], ["tree", 10], ["bones", 9], ["mushroom", 7], ["candleProp", 2]];
+  const PROP_TOTAL = PROPS.reduce((a, p) => a + p[1], 0);
+  const CHUNK = 96; // у пікселях арту
+  const chunkCache = new Map();
+  function chunkProps(cx, cy) {
+    const key = cx + "," + cy;
+    let list = chunkCache.get(key);
+    if (list) return list;
+    let h = (Math.imul(cx, 73856093) ^ Math.imul(cy, 19349663)) >>> 0;
+    const rnd = () => { h ^= h << 13; h >>>= 0; h ^= h >> 17; h ^= h << 5; h >>>= 0; return h / 4294967296; };
+    list = [];
+    const n = Math.floor(rnd() * 4);
+    for (let i = 0; i < n; i++) {
+      let r = rnd() * PROP_TOTAL, name = PROPS[0][0];
+      for (const p of PROPS) { r -= p[1]; if (r <= 0) { name = p[0]; break; } }
+      list.push({ name, x: cx * CHUNK + Math.floor(rnd() * CHUNK), y: cy * CHUNK + Math.floor(rnd() * CHUNK) });
+    }
+    if (chunkCache.size > 3000) chunkCache.clear();
+    chunkCache.set(key, list);
+    return list;
   }
 
-  // ---------- головний рендер ----------
-  function render(ctx, s, view, t, joy) {
-    const { W, H, dpr } = view;
+  // ------------------------------------------------------------ рендерер
+  function create(canvas) {
+    const ctx = canvas.getContext("2d");
+    const buf = document.createElement("canvas");
+    const g = buf.getContext("2d");
+    const ground = makeGround();
+    const R = { canvas, ctx, buf, g, scale: 1, bw: 0, bh: 0, dpr: 1, cssW: 0, cssH: 0, shakeT: 0, shakeA: 0 };
+
+    R.resize = function (cssW, cssH, dpr) {
+      R.cssW = cssW; R.cssH = cssH; R.dpr = dpr;
+      const devW = Math.round(cssW * dpr), devH = Math.round(cssH * dpr);
+      canvas.width = devW; canvas.height = devH;
+      canvas.style.width = cssW + "px"; canvas.style.height = cssH + "px";
+      R.scale = Math.max(1, Math.round(devW / TARGET_W));
+      R.bw = Math.ceil(devW / R.scale); R.bh = Math.ceil(devH / R.scale);
+      buf.width = R.bw; buf.height = R.bh;
+      return { viewW: R.bw * WPP, viewH: R.bh * WPP };
+    };
+    R.shake = function (a) { R.shakeA = Math.max(R.shakeA, a); R.shakeT = 0.25; };
+    R.cssToArt = (v) => v * R.dpr / R.scale;
+
+    R.render = function (s, t, ui) {
+      const opt = ui || {};
+      const p = s.player;
+      const bw = R.bw, bh = R.bh;
+      g.imageSmoothingEnabled = false;
+
+      let sx = 0, sy = 0;
+      if (R.shakeT > 0 && opt.shake !== false) {
+        R.shakeT -= 1 / 60;
+        sx = Math.round((Math.random() * 2 - 1) * R.shakeA);
+        sy = Math.round((Math.random() * 2 - 1) * R.shakeA);
+        if (R.shakeT <= 0) R.shakeA = 0;
+      }
+      // камера в пікселях арту
+      const camX = Math.round(p.x / WPP - bw / 2) + sx;
+      const camY = Math.round(p.y / WPP - bh / 2) + sy;
+      const ax = (x) => Math.round(x / WPP) - camX;
+      const ay = (y) => Math.round(y / WPP) - camY;
+      const vis = (x, y, m) => { const X = ax(x), Y = ay(y); return X > -m && X < bw + m && Y > -m && Y < bh + m; };
+
+      // земля
+      const GS = ground.width;
+      const ox = -(((camX % GS) + GS) % GS), oy = -(((camY % GS) + GS) % GS);
+      for (let x = ox; x < bw; x += GS) for (let y = oy; y < bh; y += GS) g.drawImage(ground, x, y);
+
+      // декор
+      const c0x = Math.floor((camX - 20) / CHUNK), c1x = Math.floor((camX + bw + 20) / CHUNK);
+      const c0y = Math.floor((camY - 30) / CHUNK), c1y = Math.floor((camY + bh + 10) / CHUNK);
+      for (let cx = c0x; cx <= c1x; cx++) for (let cy = c0y; cy <= c1y; cy++) {
+        for (const pr of chunkProps(cx, cy)) {
+          const img = sprite(pr.name, 0);
+          g.drawImage(img, pr.x - camX - (img.width >> 1), pr.y - camY - img.height);
+        }
+      }
+
+      // зони (свята вода)
+      for (const z of s.zones) {
+        if (!vis(z.x, z.y, z.r)) continue;
+        const k = Math.min(1, z.life / 0.3);
+        pixelDisc(g, ax(z.x), ay(z.y), Math.round(z.r / WPP), `rgba(88,160,232,${0.38 * k})`, `rgba(155,231,255,${0.85 * k})`, t);
+      }
+      // аура
+      for (const w of s.weapons) {
+        if (D.WEAPONS[w.id].behavior !== "aura") continue;
+        const ws = HordeCore.weaponStats(s, w);
+        const r = Math.round(52 * ws.area / WPP);
+        pixelDisc(g, ax(p.x), ay(p.y), r,
+          ws.flags.heal ? `rgba(160,102,224,${0.16 + (w.pulse || 0) * 0.18})` : `rgba(242,236,217,${0.1 + (w.pulse || 0) * 0.16})`,
+          ws.flags.heal ? "rgba(200,170,255,.6)" : "rgba(242,236,217,.4)", t, true);
+      }
+
+      // предмети
+      for (const pk of s.pickups) {
+        if (!vis(pk.x, pk.y, 12)) continue;
+        let img;
+        const bob = Math.round(Math.sin(t * 4 + pk.x * 0.1));
+        if (pk.kind === "gem") img = sprite(pk.v >= 25 ? "gemR" : pk.v >= 5 ? "gemG" : "gemB", 0);
+        else if (pk.kind === "coin") img = sprite("coin", Math.floor(t * 8 + pk.x) % 4);
+        else if (pk.kind === "food") img = sprite("food", 0);
+        else if (pk.kind === "vortex") img = sprite("vortex", 0);
+        else if (pk.kind === "chest") {
+          img = sprite("chest", 0);
+          const X = ax(pk.x), Y = ay(pk.y);
+          if (Math.floor(t * 4) % 2) { g.fillStyle = "rgba(244,204,76,.35)"; g.fillRect(X - 9, Y - 8, 18, 14); }
+        }
+        if (img) g.drawImage(img, ax(pk.x) - (img.width >> 1), ay(pk.y) - (img.height >> 1) + bob);
+      }
+
+      // тіні + вороги (сортуємо за y, щоб нижні перекривали верхніх)
+      const list = [];
+      for (const e of s.enemies) if (vis(e.x, e.y, 40)) list.push(e);
+      list.sort((a, b) => a.y - b.y);
+      for (const e of list) {
+        const X = ax(e.x), Y = ay(e.y);
+        const rr = Math.max(3, Math.round(e.r / WPP));
+        g.fillStyle = "rgba(10,8,16,.35)";
+        g.fillRect(X - rr + 1, Y + rr - 1, rr * 2 - 2, 2);
+      }
+      let playerDrawn = !!opt.noPlayer;
+      for (const e of list) {
+        if (!playerDrawn && e.y > p.y) { drawPlayer(g, s, ax, ay, t); playerDrawn = true; }
+        const def = D.ENEMIES[e.type];
+        const frame = def.shape === "bat" || def.shape === "wolf" || def.shape === "ghost" ? Math.floor(t * 6 + e.id) % 2 : 0;
+        const flash = e.flash > 0;
+        let img;
+        if (e.boss) img = bigSprite(def.shape, frame, flash);
+        else if (e.elite) img = sprite(def.shape, frame, flash ? "eliteFlash" : "elite");
+        else img = sprite(def.shape, frame, flash ? "flash" : "");
+        const bob = def.fly ? Math.round(Math.sin(e.phase) * 1.5) : (Math.floor(e.phase * 0.6) % 2 ? -1 : 0);
+        const X = ax(e.x) - (img.width >> 1), Y = ay(e.y) - (img.height >> 1) + bob;
+        const flip = e.dirX ? e.dirX < 0 : e.x > p.x;
+        if (flip) { g.save(); g.translate(X + img.width, Y); g.scale(-1, 1); g.drawImage(img, 0, 0); g.restore(); }
+        else g.drawImage(img, X, Y);
+        if (def.shape === "reaper") {
+          const sc = bigSprite("scythe", 0, flash);
+          g.drawImage(sc, ax(e.x) + (flip ? -sc.width - 8 : 8), Y - 6);
+        }
+      }
+      if (!playerDrawn) drawPlayer(g, s, ax, ay, t);
+
+      // книги-вартові
+      for (const w of s.weapons) {
+        if (D.WEAPONS[w.id].behavior !== "orbit" || w.active <= 0) continue;
+        const ws = HordeCore.weaponStats(s, w);
+        const R0 = 72 * ws.area;
+        const img = sprite(ws.flags.permanent ? "bookGold" : "book", 0);
+        for (let i = 0; i < ws.amount; i++) {
+          const a = w.angle + (i / ws.amount) * TAU;
+          const X = ax(p.x + Math.cos(a) * R0), Y = ay(p.y + Math.sin(a) * R0);
+          g.drawImage(img, X - (img.width >> 1), Y - (img.height >> 1));
+        }
+      }
+
+      // снаряди
+      for (const pr of s.projectiles) {
+        if (!vis(pr.x, pr.y, 10)) continue;
+        const img = sprite(pr.kind === "arrow" ? "arrow" : pr.kind === "knife" ? "knife" : "axe", 0);
+        const X = ax(pr.x), Y = ay(pr.y);
+        const ang = pr.kind === "axe" ? Math.round((pr.spin || 0) / (Math.PI / 4)) * (Math.PI / 4) : Math.atan2(pr.vy, pr.vx);
+        g.save(); g.translate(X, Y); g.rotate(ang);
+        const k = pr.kind === "axe" ? Math.max(1, Math.round(pr.r / 11)) : 1;
+        g.drawImage(img, -(img.width * k >> 1), -(img.height * k >> 1), img.width * k, img.height * k);
+        g.restore();
+      }
+
+      // ефекти
+      for (const f of s.fx) drawFx(g, f, ax, ay, t);
+
+      // цифри шкоди
+      if (opt.numbers !== false) for (const n of s.nums) {
+        const k = n.t / 0.6;
+        drawNumber(g, String(n.v), ax(n.x), ay(n.y) - 4 - Math.round(k * 8), k < 0.15 ? "#ffe25a" : "#f2ecd9");
+      }
+
+      // стрілка до боса
+      const b = s.bossAlive;
+      if (b && !b.dead && !vis(b.x, b.y, -6)) {
+        const a = Math.atan2(b.y - p.y, b.x - p.x);
+        const ex = Math.max(8, Math.min(bw - 8, bw / 2 + Math.cos(a) * (bw / 2 - 10)));
+        const ey = Math.max(30, Math.min(bh - 10, bh / 2 + Math.sin(a) * (bh / 2 - 14)));
+        g.save(); g.translate(Math.round(ex), Math.round(ey)); g.rotate(a);
+        g.fillStyle = OUTLINE; g.fillRect(-4, -4, 9, 9);
+        g.fillStyle = "#ff4636";
+        for (let i = 0; i < 4; i++) g.fillRect(-3 + i, -3 + i, 1, 7 - i * 2);
+        g.restore();
+      }
+      // смуга здоров'я боса
+      if (b && !b.dead) {
+        const W = Math.min(bw - 24, 160), X = Math.round((bw - W) / 2), Y = bh - 14;
+        g.fillStyle = OUTLINE; g.fillRect(X - 1, Y - 1, W + 2, 6);
+        g.fillStyle = "#4a1a24"; g.fillRect(X, Y, W, 4);
+        g.fillStyle = "#d23c3c"; g.fillRect(X, Y, Math.round(W * Math.max(0, b.hp / b.maxHp)), 4);
+        g.fillStyle = "#ff8a7a"; g.fillRect(X, Y, Math.round(W * Math.max(0, b.hp / b.maxHp)), 1);
+      }
+
+      // нічна віньєтка + червона при малому здоров'ї
+      vignette(g, bw, bh, p.hp / s.stats.maxHp, t);
+
+      // джойстик
+      const j = opt.joy;
+      if (j && (j.active || j.always)) {
+        const cx = Math.round(R.cssToArt(j.ox)), cy = Math.round(R.cssToArt(j.oy));
+        const rr = Math.round(R.cssToArt(j.R));
+        ring(g, cx, cy, rr, j.active ? "rgba(242,236,217,.45)" : "rgba(242,236,217,.22)");
+        ring(g, cx, cy, rr - 1, "rgba(22,19,29,.35)");
+        const kx = Math.round(cx + j.x * rr), ky = Math.round(cy + j.y * rr);
+        const kr = Math.max(4, Math.round(rr * 0.42));
+        disc(g, kx, ky, kr, j.active ? "rgba(242,236,217,.55)" : "rgba(242,236,217,.25)");
+      }
+
+      // буфер → екран
+      ctx.imageSmoothingEnabled = false;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawImage(buf, 0, 0, bw * R.scale, bh * R.scale);
+    };
+    return R;
+  }
+
+  // ------------------------------------------------------------ персонаж
+  function drawPlayer(g, s, ax, ay, t) {
     const p = s.player;
-    if (!groundTile || groundTile._dpr !== dpr) { groundTile = makeGround(dpr); groundTile._dpr = dpr; }
-    const camX = p.x - W / 2, camY = p.y - H / 2;
+    const X = ax(p.x), Y = ay(p.y);
+    g.fillStyle = "rgba(10,8,16,.4)"; g.fillRect(X - 4, Y + 7, 9, 2);
+    if (p.inv > 0 && Math.floor(t * 20) % 2 === 0) return;
+    const frame = p.moving ? Math.floor(t * 8) % 2 : 0;
+    const img = heroSprite(s.charId, frame, p.hurt > 0 ? "hurt" : "");
+    const bx = X - (img.width >> 1), by = Y - img.height + 8 - (p.moving && frame ? 1 : 0);
+    if (p.fx < 0) { g.save(); g.translate(bx + img.width, by); g.scale(-1, 1); g.drawImage(img, 0, 0); g.restore(); }
+    else g.drawImage(img, bx, by);
+    // здоров'я під ногами
+    const frac = Math.max(0, p.hp / s.stats.maxHp);
+    g.fillStyle = OUTLINE; g.fillRect(X - 7, Y + 10, 15, 3);
+    g.fillStyle = "#4a1a24"; g.fillRect(X - 6, Y + 11, 13, 1);
+    g.fillStyle = frac > 0.3 ? "#d23c3c" : "#ff4636"; g.fillRect(X - 6, Y + 11, Math.round(13 * frac), 1);
+  }
 
-    // земля
-    const S = groundTile._size;
-    const ox = -(((camX % S) + S) % S), oy = -(((camY % S) + S) % S);
-    for (let x = ox; x < W; x += S) for (let y = oy; y < H; y += S) ctx.drawImage(groundTile, x, y, S, S);
-
-    ctx.save();
-    ctx.translate(-camX, -camY);
-    const inView = (x, y, m) => x > camX - m && x < camX + W + m && y > camY - m && y < camY + H + m;
-
-    // зони (свята вода)
-    for (const z of s.zones) {
-      if (!inView(z.x, z.y, z.r)) continue;
-      const k = Math.min(1, z.life / 0.3);
-      const g = ctx.createRadialGradient(z.x, z.y, z.r * 0.2, z.x, z.y, z.r);
-      g.addColorStop(0, `rgba(120,200,255,${0.55 * k})`); g.addColorStop(1, `rgba(60,130,255,${0.15 * k})`);
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(z.x, z.y, z.r, 0, TAU); ctx.fill();
-      ctx.strokeStyle = `rgba(190,235,255,${0.7 * k})`; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(z.x, z.y, z.r * (0.85 + 0.1 * Math.sin(t * 8 + z.x)), 0, TAU); ctx.stroke();
+  // ------------------------------------------------------------ примітиви
+  function disc(g, cx, cy, r, color) {
+    g.fillStyle = color;
+    for (let y = -r; y <= r; y++) {
+      const w = Math.round(Math.sqrt(r * r - y * y));
+      g.fillRect(cx - w, cy + y, w * 2 + 1, 1);
     }
-
-    // аура
-    for (const w of s.weapons) {
-      if (D.WEAPONS[w.id].behavior !== "aura") continue;
-      const ws = HordeCore.weaponStats(s, w);
-      const R = 52 * ws.area;
-      ctx.fillStyle = ws.flags.heal ? `rgba(200,170,255,${0.13 + (w.pulse || 0) * 0.15})` : `rgba(255,240,200,${0.1 + (w.pulse || 0) * 0.15})`;
-      ctx.beginPath(); ctx.arc(p.x, p.y, R, 0, TAU); ctx.fill();
-      ctx.strokeStyle = ws.flags.heal ? "rgba(200,170,255,.35)" : "rgba(255,240,200,.3)"; ctx.lineWidth = 1.5; ctx.stroke();
+  }
+  function ring(g, cx, cy, r, color) {
+    g.fillStyle = color;
+    let x = r, y = 0, err = 1 - r;
+    while (x >= y) {
+      const pts = [[x, y], [y, x], [-y, x], [-x, y], [-x, -y], [-y, -x], [y, -x], [x, -y]];
+      for (const [px, py] of pts) g.fillRect(cx + px, cy + py, 1, 1);
+      y++;
+      if (err < 0) err += 2 * y + 1; else { x--; err += 2 * (y - x) + 1; }
     }
-
-    // предмети
-    for (const pk of s.pickups) {
-      if (!inView(pk.x, pk.y, 20)) continue;
-      drawPickup(ctx, pk, t);
+  }
+  // диск із дизерингом і краєм, що «дихає»
+  function pixelDisc(g, cx, cy, r, fill, edge, t, sparse) {
+    g.fillStyle = fill;
+    for (let y = -r; y <= r; y++) {
+      const w = Math.round(Math.sqrt(r * r - y * y));
+      if (sparse) { for (let x = -w; x <= w; x++) if (((x + y + cx + cy) & 1) === 0) g.fillRect(cx + x, cy + y, 1, 1); }
+      else g.fillRect(cx - w, cy + y, w * 2 + 1, 1);
     }
-
-    // вороги
-    const frame = Math.floor(t * 8) % 2;
-    for (const e of s.enemies) {
-      if (!inView(e.x, e.y, e.r * 3)) continue;
-      const scale = e.elite ? 1.6 : 1;
-      const img = sprite(e.type, scale, D.ENEMIES[e.type].shape === "bat" ? frame : 0, e.flash > 0, dpr);
-      const h = img._half;
-      const wob = D.ENEMIES[e.type].fly ? Math.sin(e.phase) * 2 : Math.sin(e.phase * 0.7) * 0.8;
-      const flip = e.x > p.x ? -1 : 1;
-      if (flip < 0) {
-        ctx.save(); ctx.translate(e.x, e.y + wob); ctx.scale(-1, 1); ctx.drawImage(img, -h, -h, h * 2, h * 2); ctx.restore();
-      } else ctx.drawImage(img, e.x - h, e.y - h + wob, h * 2, h * 2);
-      if (e.elite || e.boss) {
-        ctx.strokeStyle = e.boss ? "rgba(255,80,80,.8)" : "rgba(255,210,80,.85)"; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(e.x, e.y + wob, e.r + 4 + Math.sin(t * 6) * 1.5, 0, TAU); ctx.stroke();
-      }
+    ring(g, cx, cy, r, edge);
+    const sp = Math.floor(t * 10);
+    g.fillStyle = edge;
+    for (let i = 0; i < 6; i++) {
+      const a = i * 1.05 + sp * 0.2;
+      g.fillRect(Math.round(cx + Math.cos(a) * r * 0.6), Math.round(cy + Math.sin(a) * r * 0.6), 1, 1);
     }
-
-    // орбіти (книги)
-    for (const w of s.weapons) {
-      if (D.WEAPONS[w.id].behavior !== "orbit" || w.active <= 0) continue;
-      const ws = HordeCore.weaponStats(s, w);
-      const R = 72 * ws.area, br = 11 * ws.area;
-      for (let i = 0; i < ws.amount; i++) {
-        const a = w.angle + (i / ws.amount) * TAU;
-        const x = p.x + Math.cos(a) * R, y = p.y + Math.sin(a) * R;
-        ctx.save(); ctx.translate(x, y); ctx.rotate(a + Math.PI / 2);
-        ctx.fillStyle = ws.flags.permanent ? "#e9c45a" : "#8a3b2f"; roundRect(ctx, -br * 0.8, -br, br * 1.6, br * 2, 2); ctx.fill();
-        ctx.fillStyle = "#f3ead2"; ctx.fillRect(-br * 0.55, -br * 0.8, br * 1.1, br * 1.6);
-        ctx.fillStyle = ws.flags.permanent ? "#8a5a1a" : "#8a3b2f"; ctx.fillRect(-br * 0.1, -br * 0.8, br * 0.2, br * 1.6);
-        ctx.restore();
-      }
-    }
-
-    if (!view.noPlayer) drawPlayer(ctx, s, t);
-
-    // снаряди
-    for (const pr of s.projectiles) {
-      if (!inView(pr.x, pr.y, 30)) continue;
-      drawProjectile(ctx, pr);
-    }
-
-    // ефекти
-    for (const f of s.fx) drawFx(ctx, f, t);
-
-    // цифри шкоди
-    ctx.font = "700 11px Inter, sans-serif";
-    ctx.textAlign = "center";
-    for (const n of s.nums) {
-      const k = n.t / 0.6;
-      ctx.globalAlpha = 1 - k;
-      ctx.fillStyle = "#000"; ctx.fillText(n.v, n.x + 1, n.y - k * 18 + 1);
-      ctx.fillStyle = "#fff"; ctx.fillText(n.v, n.x, n.y - k * 18);
-    }
-    ctx.globalAlpha = 1;
-    ctx.restore();
-
-    // стрілка до боса за екраном
-    const b = s.bossAlive;
-    if (b && !b.dead && !inView(b.x, b.y, -10)) {
-      const a = Math.atan2(b.y - p.y, b.x - p.x);
-      const ex = W / 2 + Math.cos(a) * (W / 2 - 26), ey = H / 2 + Math.sin(a) * (H / 2 - 40);
-      ctx.save(); ctx.translate(Math.max(20, Math.min(W - 20, ex)), Math.max(70, Math.min(H - 30, ey))); ctx.rotate(a);
-      ctx.fillStyle = "#ff4d4d"; ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(-8, -9); ctx.lineTo(-8, 9); ctx.closePath(); ctx.fill();
-      ctx.restore();
-    }
-
-    // віньєтка при низькому здоров'ї
-    const hpk = p.hp / s.stats.maxHp;
+  }
+  function vignette(g, bw, bh, hpk, t) {
+    const grd = g.createRadialGradient(bw / 2, bh / 2, Math.min(bw, bh) * 0.35, bw / 2, bh / 2, Math.max(bw, bh) * 0.72);
+    grd.addColorStop(0, "rgba(10,8,22,0)");
+    grd.addColorStop(1, "rgba(10,8,22,.55)");
+    g.fillStyle = grd; g.fillRect(0, 0, bw, bh);
     if (hpk < 0.3) {
-      const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.7);
-      g.addColorStop(0, "rgba(160,0,0,0)"); g.addColorStop(1, `rgba(160,0,0,${(0.3 - hpk) * 1.6 * (0.8 + 0.2 * Math.sin(t * 6))})`);
-      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-    }
-
-    // джойстик
-    if (joy && joy.active) {
-      ctx.strokeStyle = "rgba(255,255,255,.25)"; ctx.lineWidth = 2;
-      ctx.fillStyle = "rgba(255,255,255,.06)";
-      ctx.beginPath(); ctx.arc(joy.ox, joy.oy, joy.R, 0, TAU); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = "rgba(255,255,255,.35)";
-      ctx.beginPath(); ctx.arc(joy.ox + joy.x * joy.R, joy.oy + joy.y * joy.R, 20, 0, TAU); ctx.fill();
+      const k = (0.3 - hpk) * 1.8 * (0.8 + 0.2 * Math.sin(t * 6));
+      const r = g.createRadialGradient(bw / 2, bh / 2, Math.min(bw, bh) * 0.3, bw / 2, bh / 2, Math.max(bw, bh) * 0.7);
+      r.addColorStop(0, "rgba(160,0,0,0)"); r.addColorStop(1, `rgba(170,10,20,${k})`);
+      g.fillStyle = r; g.fillRect(0, 0, bw, bh);
     }
   }
 
-  function drawPickup(ctx, pk, t) {
-    const y = pk.y + Math.sin(t * 4 + pk.x) * 1.5;
-    if (pk.kind === "gem") {
-      const col = pk.v >= 25 ? "#ff5a6a" : pk.v >= 5 ? "#5ae07a" : "#5ab4ff";
-      const s = pk.v >= 25 ? 7 : pk.v >= 5 ? 5.5 : 4.5;
-      ctx.fillStyle = col;
-      ctx.beginPath(); ctx.moveTo(pk.x, y - s * 1.3); ctx.lineTo(pk.x + s, y); ctx.lineTo(pk.x, y + s * 1.3); ctx.lineTo(pk.x - s, y); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = "rgba(255,255,255,.55)";
-      ctx.beginPath(); ctx.moveTo(pk.x, y - s * 1.3); ctx.lineTo(pk.x + s * 0.4, y - s * 0.2); ctx.lineTo(pk.x - s * 0.3, y); ctx.closePath(); ctx.fill();
-    } else if (pk.kind === "coin") {
-      ctx.fillStyle = "#b8862a"; ctx.beginPath(); ctx.arc(pk.x, y + 1, 6, 0, TAU); ctx.fill();
-      ctx.fillStyle = "#f2c44a"; ctx.beginPath(); ctx.arc(pk.x, y, 6, 0, TAU); ctx.fill();
-      ctx.fillStyle = "#fff0b0"; ctx.fillRect(pk.x - 1, y - 3.5, 2, 7);
-    } else if (pk.kind === "food") {
-      ctx.fillStyle = "#c46a3a"; ctx.beginPath(); ctx.ellipse(pk.x - 1, y, 8, 6, -0.4, 0, TAU); ctx.fill();
-      ctx.fillStyle = "#f3ead2"; ctx.fillRect(pk.x + 4, y - 7, 3, 7); ctx.beginPath(); ctx.arc(pk.x + 5.5, y - 8, 2.5, 0, TAU); ctx.fill();
-    } else if (pk.kind === "vortex") {
-      ctx.strokeStyle = "#9ad8ff"; ctx.lineWidth = 2;
-      for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(pk.x, y, 4 + i * 3, t * 4 + i, t * 4 + i + 4); ctx.stroke(); }
-    } else if (pk.kind === "chest") {
-      const glow = 0.5 + 0.5 * Math.sin(t * 5);
-      ctx.fillStyle = `rgba(255,210,80,${0.25 + glow * 0.25})`; ctx.beginPath(); ctx.arc(pk.x, y, 22, 0, TAU); ctx.fill();
-      ctx.fillStyle = "#6b3f1f"; roundRect(ctx, pk.x - 12, y - 8, 24, 17, 3); ctx.fill();
-      ctx.fillStyle = "#8a5428"; roundRect(ctx, pk.x - 12, y - 12, 24, 8, 3); ctx.fill();
-      ctx.fillStyle = "#e8c04a"; ctx.fillRect(pk.x - 12, y - 4, 24, 2.5); ctx.fillRect(pk.x - 2.5, y - 6, 5, 7);
-    }
-  }
-
-  function drawProjectile(ctx, pr) {
-    if (pr.kind === "arrow") {
-      const a = Math.atan2(pr.vy, pr.vx);
-      ctx.save(); ctx.translate(pr.x, pr.y); ctx.rotate(a);
-      ctx.fillStyle = "rgba(170,140,255,.35)"; ctx.beginPath(); ctx.ellipse(-6, 0, 12, 5, 0, 0, TAU); ctx.fill();
-      ctx.fillStyle = "#e6dcff"; ctx.beginPath(); ctx.moveTo(8, 0); ctx.lineTo(-4, -3.5); ctx.lineTo(-2, 0); ctx.lineTo(-4, 3.5); ctx.closePath(); ctx.fill();
-      ctx.restore();
-    } else if (pr.kind === "knife") {
-      const a = Math.atan2(pr.vy, pr.vx);
-      ctx.save(); ctx.translate(pr.x, pr.y); ctx.rotate(a);
-      ctx.fillStyle = "#dfe4ea"; ctx.beginPath(); ctx.moveTo(9, 0); ctx.lineTo(-3, -2.5); ctx.lineTo(-3, 2.5); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = "#6b4a2a"; ctx.fillRect(-8, -1.5, 5, 3);
-      ctx.restore();
-    } else if (pr.kind === "axe") {
-      const r = pr.r;
-      ctx.save(); ctx.translate(pr.x, pr.y); ctx.rotate(pr.spin || 0);
-      ctx.fillStyle = "#6b4a2a"; ctx.fillRect(-r * 0.12, -r, r * 0.24, r * 2);
-      ctx.fillStyle = "#c9ced6"; ctx.beginPath(); ctx.moveTo(0, -r); ctx.quadraticCurveTo(r * 1.1, -r * 0.8, r * 0.9, r * 0.1); ctx.lineTo(0, -r * 0.2); ctx.closePath(); ctx.fill();
-      ctx.restore();
-    }
-  }
-
-  function drawFx(ctx, f, t) {
+  function drawFx(g, f, ax, ay, t) {
     const k = f.t / f.life;
     if (f.kind === "slash") {
-      ctx.save(); ctx.translate(f.x, f.y);
-      ctx.globalAlpha = 1 - k;
-      ctx.fillStyle = f.evo ? "rgba(255,70,90,.55)" : "rgba(255,255,255,.55)";
-      ctx.beginPath();
-      ctx.ellipse(0, 0, f.w / 2, f.h / 2 * (1 - k * 0.5), 0, 0, TAU);
-      ctx.fill();
-      ctx.fillStyle = f.evo ? "#ffb3c0" : "#fff";
-      ctx.beginPath(); ctx.ellipse(f.side * f.w * 0.1, -f.h * 0.1, f.w / 2 * 0.85, f.h / 2 * 0.25, 0, 0, TAU); ctx.fill();
-      ctx.restore(); ctx.globalAlpha = 1;
+      const X = ax(f.x), Y = ay(f.y);
+      const hw = Math.round(f.w / WPP / 2), hh = Math.max(2, Math.round(f.h / WPP / 2 * (1 - k * 0.4)));
+      const col = f.evo ? "255,90,110" : "242,236,217";
+      // дуга-серп: зовнішній край яскравий, всередині прозоріше
+      for (let y = -hh; y <= hh; y++) {
+        const w = Math.round(hw * Math.sqrt(1 - (y * y) / (hh * hh + 0.01)));
+        const shift = Math.round(f.side * (hh - Math.abs(y)) * 0.6);
+        g.fillStyle = `rgba(${col},${(0.35 * (1 - k)).toFixed(2)})`;
+        g.fillRect(X - w + shift, Y + y, w * 2, 1);
+        g.fillStyle = `rgba(${col},${(0.95 * (1 - k)).toFixed(2)})`;
+        g.fillRect(f.side > 0 ? X + w + shift - 2 : X - w + shift, Y + y, 2, 1);
+      }
     } else if (f.kind === "puff") {
-      ctx.globalAlpha = 1 - k;
-      ctx.fillStyle = f.color;
-      for (let i = 0; i < 5; i++) {
-        const a = i * 1.26;
-        ctx.beginPath(); ctx.arc(f.x + Math.cos(a) * f.r * k * 1.4, f.y + Math.sin(a) * f.r * k * 1.4, f.r * 0.35 * (1 - k), 0, TAU); ctx.fill();
+      const X = ax(f.x), Y = ay(f.y);
+      g.fillStyle = f.color;
+      const n = 6, d = Math.round(2 + k * (f.r / WPP + 3));
+      for (let i = 0; i < n; i++) {
+        if (k > 0.7 && i % 2) continue;
+        const a = i * (TAU / n) + f.x;
+        const s = k < 0.5 ? 2 : 1;
+        g.fillRect(Math.round(X + Math.cos(a) * d), Math.round(Y + Math.sin(a) * d), s, s);
       }
-      ctx.globalAlpha = 1;
+      if (k < 0.3) { g.fillStyle = "#f2ecd9"; g.fillRect(X - 1, Y - 1, 2, 2); }
     } else if (f.kind === "bolt") {
-      ctx.globalAlpha = 1 - k;
-      ctx.strokeStyle = "#fff6a8"; ctx.lineWidth = 3;
-      const fx = f.fromX != null ? f.fromX : f.x + 10, fy = f.fromY != null ? f.fromY : f.y - 400;
-      ctx.beginPath(); ctx.moveTo(fx, fy);
-      const seg = 6;
-      for (let i = 1; i < seg; i++) {
-        const q = i / seg;
-        ctx.lineTo(fx + (f.x - fx) * q + (Math.sin(i * 12.9 + f.x) * 12), fy + (f.y - fy) * q);
+      const X = ax(f.x), Y = ay(f.y);
+      const fx = f.fromX != null ? ax(f.fromX) : X + 4, fy = f.fromY != null ? ay(f.fromY) : Y - 200;
+      if (Math.floor(t * 30) % 2 || k < 0.4) {
+        let px = fx, py = fy;
+        const seg = 7;
+        for (let i = 1; i <= seg; i++) {
+          const q = i / seg;
+          const nx = i === seg ? X : Math.round(fx + (X - fx) * q + Math.sin(i * 12.9 + f.x) * 5);
+          const ny = i === seg ? Y : Math.round(fy + (Y - fy) * q);
+          line(g, px, py, nx, ny, k < 0.5 ? "#ffffff" : "#ffe25a");
+          px = nx; py = ny;
+        }
       }
-      ctx.lineTo(f.x, f.y); ctx.stroke();
-      ctx.fillStyle = "rgba(255,246,168,.35)"; ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, TAU); ctx.fill();
-      ctx.globalAlpha = 1;
+      ring(g, X, Y, Math.round(f.r / WPP * (0.6 + k * 0.4)), `rgba(255,226,90,${(1 - k).toFixed(2)})`);
     } else if (f.kind === "ring") {
-      ctx.globalAlpha = 1 - k;
-      ctx.strokeStyle = f.color; ctx.lineWidth = 4;
-      ctx.beginPath(); ctx.arc(f.x, f.y, f.r * k, 0, TAU); ctx.stroke();
-      ctx.globalAlpha = 1;
+      ring(g, ax(f.x), ay(f.y), Math.max(1, Math.round(f.r / WPP * k)), f.color);
     } else if (f.kind === "heal") {
-      ctx.globalAlpha = 1 - k;
-      ctx.fillStyle = "#6bff8a"; ctx.font = "700 14px Inter, sans-serif"; ctx.textAlign = "center";
-      ctx.fillText("+", f.x - 8, f.y - 20 - k * 20); ctx.fillText("+", f.x + 9, f.y - 14 - k * 22);
-      ctx.globalAlpha = 1;
+      const X = ax(f.x), Y = ay(f.y) - 14 - Math.round(k * 10);
+      g.fillStyle = "#86c556";
+      g.fillRect(X - 5, Y, 3, 1); g.fillRect(X - 4, Y - 1, 1, 3);
+      g.fillRect(X + 3, Y + 3, 3, 1); g.fillRect(X + 4, Y + 2, 1, 3);
+    }
+  }
+  function line(g, x0, y0, x1, y1, color) {
+    g.fillStyle = color;
+    const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0);
+    const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+    let err = dx + dy;
+    for (let i = 0; i < 600; i++) {
+      g.fillRect(x0, y0, 1, 1);
+      if (x0 === x1 && y0 === y1) break;
+      const e2 = 2 * err;
+      if (e2 >= dy) { err += dy; x0 += sx; }
+      if (e2 <= dx) { err += dx; y0 += sy; }
     }
   }
 
-  window.HordeRender = { render, sprite, SHAPES };
+  window.HordeRender = { create, sprite, heroSprite, iconURL, heroURL, WPP };
 })();

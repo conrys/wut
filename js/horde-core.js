@@ -145,7 +145,7 @@
     const mul = boss ? 1 : hpMul(s) * (elite ? 12 : 1);
     const e = {
       id: s.nextId++, type, x, y,
-      r: def.r * (elite ? 1.6 : 1),
+      r: def.r * (elite ? 1.8 : 1),
       hp: def.hp * mul, maxHp: def.hp * mul,
       spd: def.spd * (elite ? 0.9 : 1),
       dmg: def.dmg * (elite ? 1.5 : 1) * (boss ? 1 : 1 + s.t / 900),
@@ -182,13 +182,18 @@
     const wave = D.WAVES[minute];
     // після фінальної хвилини орда товщає далі
     const over = Math.max(0, s.t - D.RUN_SECONDS);
-    const max = wave.max + Math.floor(over / 10) * 5;
+    // на більшому огляді — більше ворогів, але на старті ліміт росте поступово
+    const area = Math.min(2.4, Math.max(1, (s.viewW * s.viewH) / (390 * 720)));
+    const ramp = Math.min(1, s.t / 240);
+    const max = Math.round((wave.max + Math.floor(over / 10) * 5) * (1 + (area - 1) * ramp));
     let normal = 0;
     for (const e of s.enemies) if (!e.dead && !e.boss && !e.dirX && !e.dirY) normal++;
     s.spawnAcc += dt;
-    if (s.spawnAcc >= 0.2) {
+    // перші хвилини вороги підходять рідше: інтервал 0.7 с → 0.2 с до 5-ї хвилини
+    const interval = Math.max(0.2, 0.7 - (s.t / 300) * 0.5);
+    if (s.spawnAcc >= interval) {
       s.spawnAcc = 0;
-      const want = Math.min(6, max - normal);
+      const want = Math.min(s.t < 120 ? 2 : 6, max - normal);
       for (let i = 0; i < want; i++) {
         const pos = spawnRingPos(s);
         spawnEnemy(s, pickWeighted(s, wave.types), pos.x, pos.y);
