@@ -310,6 +310,7 @@
     "sudoku": "Судоку",
     "miner": "Сапер",
     "doodle": "Стрибунець",
+    "horde": "Орда",
     "blocks": "Блоки",
     "soliter": "Косинка",
     "roulette": "Рулетка",
@@ -345,7 +346,7 @@
   // просто отримує 🎮 за замовчуванням (див. gameIcon()).
   const GAME_ICONS = {
     "tetris": "🧱", "2048": "🔢", "wordle": "🔤", "sudoku": "🔢",
-    "miner": "💣", "doodle": "🐸", "soliter": "🃏", "roulette": "🎰", "poker": "🃏",
+    "miner": "💣", "doodle": "🐸", "horde": "⚔️", "soliter": "🃏", "roulette": "🎰", "poker": "🃏",
     "snake": "🐍", "spy": "🕵️", "chess": "♟️", "checkers": "🔴",
     "whoami": "❓", "guesschar": "🎭", "alias": "💬", "memology": "😂", "crocodile": "🐊", "quiplash": "😆",
     "mafia": "🔪", "teli": "📞", "quiz": "🧠", "draw": "🎨", "durak": "🃏",
@@ -361,7 +362,7 @@
   // колекція (games41_wordle_*) і своя механіка стріків, не games41_scores.
   // Дурак — накопичувальний лічильник перемог (як шахи/шашки), тому теж тут.
   const SCORABLE_GAMES = [
-    "tetris", "2048", "sudoku", "miner", "doodle", "blocks", "soliter", "roulette", "snake", "chess", "checkers", "whoami", "durak",
+    "tetris", "2048", "sudoku", "miner", "doodle", "horde", "blocks", "soliter", "roulette", "snake", "chess", "checkers", "whoami", "durak",
   ];
 
   function gameLabel(gameName) {

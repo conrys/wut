@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="58%" r="70%"><stop offset="0" stop-color="#2f4a2c"/><stop offset="1" stop-color="#0d140d"/></radialGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#e8b54a" stop-opacity=".45"/><stop offset="1" stop-color="#e8b54a" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <circle cx="256" cy="300" r="170" fill="url(#glow)"/>
+  <!-- орда довкола -->
+  <g fill="#1a1f18">
+    <circle cx="70" cy="420" r="34"/><circle cx="130" cy="470" r="30"/><circle cx="440" cy="420" r="36"/><circle cx="385" cy="474" r="30"/>
+    <circle cx="60" cy="300" r="28"/><circle cx="455" cy="300" r="30"/><circle cx="95" cy="190" r="24"/><circle cx="420" cy="185" r="26"/>
+  </g>
+  <g fill="#ff5a4a">
+    <circle cx="60" cy="414" r="5"/><circle cx="80" cy="414" r="5"/><circle cx="430" cy="414" r="5"/><circle cx="450" cy="414" r="5"/>
+    <circle cx="52" cy="296" r="4"/><circle cx="68" cy="296" r="4"/><circle cx="447" cy="296" r="4"/><circle cx="463" cy="296" r="4"/>
+    <circle cx="122" cy="465" r="4"/><circle cx="138" cy="465" r="4"/><circle cx="377" cy="468" r="4"/><circle cx="393" cy="468" r="4"/>
+  </g>
+  <!-- кажани -->
+  <g fill="#6b4a8a">
+    <path d="M150 110 l-40 -14 l14 22 l-16 4 l30 6z"/><path d="M150 110 l40 -14 l-14 22 l16 4 l-30 6z"/><circle cx="150" cy="114" r="10"/>
+    <path d="M370 80 l-34 -12 l12 18 l-14 4 l26 5z"/><path d="M370 80 l34 -12 l-12 18 l14 4 l-26 5z"/><circle cx="370" cy="84" r="8"/>
+  </g>
+  <!-- лицар -->
+  <ellipse cx="256" cy="392" rx="70" ry="16" fill="#000" opacity=".35"/>
+  <path d="M220 250 q-60 60 -40 140 h96 z" fill="#b8323a"/>
+  <rect x="206" y="270" width="100" height="116" rx="26" fill="#9aa1ac"/>
+  <circle cx="256" cy="226" r="62" fill="#c9cfd8"/>
+  <rect x="262" y="206" width="52" height="26" rx="12" fill="#1a1c22"/>
+  <rect x="293" y="211" width="10" height="10" fill="#fff"/>
+  <!-- меч -->
+  <g transform="rotate(-38 330 300)">
+    <rect x="322" y="150" width="18" height="150" rx="4" fill="#e9edf2"/>
+    <path d="M322 150 l9 -26 l9 26z" fill="#e9edf2"/>
+    <rect x="306" y="298" width="50" height="12" rx="5" fill="#e8b54a"/>
+    <rect x="325" y="308" width="12" height="34" rx="4" fill="#6b4a2a"/>
+  </g>
+</svg>
