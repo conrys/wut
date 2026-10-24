@@ -473,9 +473,15 @@
   $("btnReroll").addEventListener("click", () => { const opts = C.reroll(state); if (opts) showLevelUp(opts); });
   $("btnSkip").addEventListener("click", () => { C.skip(state); afterModal(); });
 
+  let chestEvolve = false;
   function showChest(items) {
     mode = "modal";
     joy.active = false; syncJoy();
+    chestEvolve = false;
+    $("chestTitle").textContent = "Скриня!";
+    $("chestSub").hidden = true;
+    $("btnChestOk").textContent = "Забрати";
+    $("btnChestOk").classList.add("main");
     const box = $("chestCards");
     box.innerHTML = "";
     for (const o of items) {
@@ -486,12 +492,47 @@
     }
     show("scrChest");
   }
-  $("btnChestOk").addEventListener("click", () => { C.skip(state); afterModal(); });
+  // Скриня з еволюцією: обираєш, яку зброю еволюціонувати, або відмовляєшся.
+  function showEvolve(options) {
+    mode = "modal";
+    joy.active = false; syncJoy();
+    chestEvolve = true;
+    $("chestTitle").textContent = "Скриня: еволюція";
+    $("chestSub").textContent = "За забіг еволюціонує лише одна зброя. Можна відмовитись — тоді звичайне посилення.";
+    $("chestSub").hidden = false;
+    $("btnChestOk").textContent = "Не еволюціонувати";
+    $("btnChestOk").classList.remove("main");
+    const box = $("chestCards");
+    box.innerHTML = "";
+    for (const o of options) {
+      const c = cardHtml(o);
+      const el = document.createElement("button");
+      el.type = "button";
+      el.className = c.cls; el.innerHTML = c.html;
+      el.addEventListener("click", () => { C.chooseEvolve(state, o.id); afterModal(); }, { once: true });
+      box.appendChild(el);
+    }
+    show("scrChest");
+  }
+  $("btnChestOk").addEventListener("click", () => {
+    if (chestEvolve) {
+      const got = C.chooseEvolve(state, null);
+      if (got[0]) announce("Скриня: " + chestName(got[0]), false, true);
+    } else C.skip(state);
+    afterModal();
+  });
+  function chestName(o) {
+    if (o.kind === "weapon") return `${D.WEAPONS[o.id].name} → рів. ${o.level}`;
+    if (o.kind === "passive") return `${D.PASSIVES[o.id].name} → рів. ${o.level}`;
+    if (o.kind === "gold") return `+${o.v} золота`;
+    return "";
+  }
 
   function afterModal() {
     hideScreens();
     mode = "play";
     if (state.menu && state.menu.type === "levelup") { showLevelUp(state.menu.options); return; }
+    if (state.menu && state.menu.type === "evolve") { showEvolve(state.menu.options); return; }
     nextModal();
   }
   function nextModal() {
@@ -499,6 +540,7 @@
       const ev = modalQueue.shift();
       if (ev.type === "levelup" && state.menu && state.menu.type === "levelup") showLevelUp(state.menu.options);
       else if (ev.type === "chest") showChest(ev.items);
+      else if (ev.type === "evolve" && state.menu && state.menu.type === "evolve") showEvolve(state.menu.options);
     }
   }
 
@@ -522,7 +564,7 @@
         const now = performance.now();
         if (set().vibrate && navigator.vibrate && now - lastHurtBuzz > 400) { lastHurtBuzz = now; try { navigator.vibrate(25); } catch (_) {} }
       }
-      else if (ev.type === "levelup" || ev.type === "chest") modalQueue.push(ev);
+      else if (ev.type === "levelup" || ev.type === "chest" || ev.type === "evolve") modalQueue.push(ev);
       else if (ev.type === "gameover" || ev.type === "victory") { endRun(ev); return; }
     }
     if (mode === "play") nextModal();

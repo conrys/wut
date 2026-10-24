@@ -417,9 +417,9 @@
     else if (pk.kind === "food") { p.hp = Math.min(s.stats.maxHp, p.hp + pk.v); s.fx.push({ kind: "heal", x: p.x, y: p.y, t: 0, life: 0.6 }); }
     else if (pk.kind === "vortex") { for (const o of s.pickups) if (o.kind === "gem") o.pull = true; }
     else if (pk.kind === "chest") {
-      const items = openChest(s);
-      s.menu = { type: "chest", items };
-      s.events.push({ type: "chest", items });
+      const r = openChest(s);
+      if (r.evolve) { s.menu = { type: "evolve", options: r.evolve, extra: r.extra }; s.events.push({ type: "evolve", options: r.evolve }); }
+      else { s.menu = { type: "chest", items: r.items }; s.events.push({ type: "chest", items: r.items }); }
     }
   }
 
@@ -429,10 +429,14 @@
     while (p.xp >= p.need) {
       p.xp -= p.need;
       p.level++;
-      p.need = xpNeed(p.level);
+      p.need = buildMaxed(s) ? CAP_NEED : xpNeed(p.level);
       s.pendingLevels++;
     }
   }
+  // Коли білд повністю прокачано (≈60-й рівень), кожен наступний рівень коштує
+  // стільки ж досвіду, скільки рівні 1–30 разом, і дає випадково золото або лікування.
+  let CAP_NEED = 0;
+  function buildMaxed(s) { return upgradePool(s).length === 0; }
   function xpNeed(level) {
     if (level < 20) return 5 + (level - 1) * 8;
     if (level < 40) return 157 + (level - 20) * 12;
@@ -928,6 +932,20 @@
 
   function openLevelUp(s) {
     s.pendingLevels--;
+    if (buildMaxed(s)) {
+      const p = s.player;
+      if (p.need < CAP_NEED) p.need = CAP_NEED;
+      if (s.rand() < 0.5 || p.hp >= s.stats.maxHp) {
+        const v = 30 + Math.floor(s.rand() * 31);
+        s.coins += v;
+        s.events.push({ type: "announce", text: `Рівень ${p.level}: +${v} золота`, small: true });
+      } else {
+        heal(s, 40);
+        s.fx.push({ kind: "heal", x: p.x, y: p.y, t: 0, life: 0.6 });
+        s.events.push({ type: "announce", text: `Рівень ${p.level}: +40 здоров'я`, small: true });
+      }
+      return;
+    }
     s.menu = { type: "levelup", options: rollOptions(s) };
     s.events.push({ type: "levelup", options: s.menu.options });
   }
@@ -974,19 +992,38 @@
   }
 
   // Скриня: еволюція, якщо можна, інакше 1 або 3 підвищення.
+  // Зброя, яку можна еволюціонувати зараз (за забіг — лише одна еволюція).
+  function evoCandidates(s) {
+    if (s.weapons.some((w) => w.evolved)) return [];
+    return s.weapons.filter((w) => !w.evolved && w.level >= D.WEAPON_MAX_LEVEL && D.WEAPONS[w.id].evo &&
+      s.passives.some((p) => p.id === D.WEAPONS[w.id].evo.with)).map((w) => ({ kind: "evolve", id: w.id }));
+  }
+  function chestItem(s) {
+    const pool = upgradePool(s).filter((o) => o.level > 1);
+    const o = pool.length ? pool[Math.floor(s.rand() * pool.length)] : { kind: "gold", v: 50 };
+    apply(s, o);
+    return o;
+  }
+  // Скриня. Якщо можна еволюціонувати — гравець обирає, яку зброю (або відмовляється),
+  // тож повертаємо варіанти замість автоматичного застосування.
   function openChest(s) {
-    const items = [];
     const count = s.rand() < 0.12 * s.stats.luck ? 3 : 1;
-    for (let i = 0; i < count; i++) {
-      // еволюціонувати за забіг може лише одна зброя
-      const evo = !s.weapons.some((w) => w.evolved) && s.weapons.find((w) => !w.evolved && w.level >= D.WEAPON_MAX_LEVEL && D.WEAPONS[w.id].evo &&
-        s.passives.some((p) => p.id === D.WEAPONS[w.id].evo.with));
-      if (evo) { const o = { kind: "evolve", id: evo.id }; apply(s, o); items.push(o); continue; }
-      const pool = upgradePool(s).filter((o) => o.level > 1);
-      if (pool.length) { const o = pool[Math.floor(s.rand() * pool.length)]; apply(s, o); items.push(o); continue; }
-      const o = { kind: "gold", v: 50 }; apply(s, o); items.push(o);
-    }
-    return items;
+    const evos = evoCandidates(s);
+    if (evos.length) return { evolve: evos, extra: count - 1 };
+    const items = [];
+    for (let i = 0; i < count; i++) items.push(chestItem(s));
+    return { items };
+  }
+  // Вибір у скрині з еволюцією: id зброї або null — «не еволюціонувати» (тоді звичайне посилення).
+  function chooseEvolve(s, id) {
+    if (!s.menu || s.menu.type !== "evolve") return [];
+    const got = [];
+    if (id) { const o = { kind: "evolve", id }; apply(s, o); got.push(o); }
+    else got.push(chestItem(s));
+    for (let i = 0; i < (s.menu.extra || 0); i++) got.push(chestItem(s));
+    s.menu = null;
+    if (s.pendingLevels > 0) openLevelUp(s);
+    return got;
   }
 
   function setView(s, w, h) { s.viewW = w; s.viewH = h; }
@@ -1032,5 +1069,8 @@
     return s;
   }
 
-  window.HordeCore = { create, step, choose, reroll, skip, openChest, weaponStats, recomputeStats, setView, result, xpNeed, serialize, restore };
+  // поріг досвіду після повного білду = сума рівнів 1–30
+  for (let l = 1; l <= 30; l++) CAP_NEED += xpNeed(l);
+
+  window.HordeCore = { create, step, choose, reroll, skip, openChest, chooseEvolve, evoCandidates, weaponStats, recomputeStats, setView, result, xpNeed, serialize, restore };
 })();
