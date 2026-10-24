@@ -517,17 +517,6 @@
     orbit(s, w, ws) {
       w.active = ws.flags.permanent ? 1e9 : ws.duration;
     },
-    aura(s, w, ws) {
-      const p = s.player;
-      const R = 52 * ws.area;
-      let hits = 0;
-      forNear(s, p.x, p.y, R + 40, (e) => {
-        const dx = e.x - p.x, dy = e.y - p.y, d = Math.hypot(dx, dy) || 1;
-        if (d < R + e.r) { damageEnemy(s, e, ws.dmg, dx / d, dy / d, 110); hits++; }
-      });
-      if (ws.flags.heal && hits) heal(s, Math.min(3, hits * 0.25));
-      w.pulse = 1;
-    },
     bolt(s, w, ws) {
       const vis = s.enemies.filter((e) => !e.dead && onScreen(s, e));
       if (!vis.length) return false;
@@ -560,6 +549,28 @@
     },
   };
 
+  // Шкода по площі (аура, калюжі): ворог, що щойно зайшов у радіус, отримує
+  // удар одразу; далі — за спільним таймером джерела (tickNow).
+  // Щоб відкинутий і повернутий ворог не ловив удар щоразу, повторний «вхід»
+  // б'є не частіше ніж раз на півінтервалу.
+  function areaTick(s, src, cx, cy, R, rK, tickNow, every, hit) {
+    const prev = src.inside || new Map();
+    const last = src.hits || (src.hits = new Map());
+    const next = new Map();
+    forNear(s, cx, cy, R + 40, (e) => {
+      if (Math.hypot(e.x - cx, e.y - cy) >= R + e.r * rK) return;
+      const lh = last.has(e.id) ? last.get(e.id) : -1e9;
+      const entered = !prev.has(e.id);
+      if ((entered && s.t - lh >= every * 0.5) || (!entered && tickNow && s.t - lh >= 0.1)) {
+        hit(e);
+        last.set(e.id, s.t);
+      }
+      next.set(e.id, 1);
+    });
+    src.inside = next;
+    if (last.size > 400) for (const [id, t] of last) if (s.t - t > every * 2) last.delete(id);
+  }
+
   function updateWeapons(s, dt) {
     const p = s.player;
     for (const w of s.weapons) {
@@ -587,6 +598,20 @@
         }
       }
       if (w.pulse) w.pulse = Math.max(0, w.pulse - dt * 3);
+      if (def.behavior === "aura") {
+        w.cd -= dt;
+        const tickNow = w.cd <= 0;
+        if (tickNow) { w.cd = ws.cd; w.pulse = 1; }
+        const R = 52 * ws.area;
+        let hits = 0;
+        areaTick(s, w, p.x, p.y, R, 1, tickNow, ws.cd, (e) => {
+          const dx = e.x - p.x, dy = e.y - p.y, d = Math.hypot(dx, dy) || 1;
+          damageEnemy(s, e, ws.dmg, dx / d, dy / d, 110);
+          hits++;
+        });
+        if (ws.flags.heal && hits) heal(s, Math.min(3, hits * 0.25));
+        continue;
+      }
       w.cd -= dt;
       if (w.cd <= 0) {
         const res = FIRE[def.behavior](s, w, ws);
@@ -629,12 +654,9 @@
         z.x += dx / d * 45 * dt; z.y += dy / d * 45 * dt;
       }
       z.tick -= dt;
-      if (z.tick <= 0) {
-        z.tick = z.every;
-        forNear(s, z.x, z.y, z.r + 30, (e) => {
-          if (Math.hypot(e.x - z.x, e.y - z.y) < z.r + e.r * 0.5) damageEnemy(s, e, z.dmg, 0, 0, 0);
-        });
-      }
+      const tickNow = z.tick <= 0;
+      if (tickNow) z.tick = z.every;
+      areaTick(s, z, z.x, z.y, z.r, 0.5, tickNow, z.every, (e) => damageEnemy(s, e, z.dmg, 0, 0, 0));
       if (z.life > 0) keep.push(z);
     }
     s.zones = keep;
@@ -711,6 +733,10 @@
   function step(s, input, dt) {
     if (s.over || s.menu) return;
     s.t += dt;
+    // попередні позиції — рендер інтерполює між кроками (плавно на 90/120 Гц)
+    const pl = s.player; pl.px = pl.x; pl.py = pl.y;
+    for (const e of s.enemies) { e.px = e.x; e.py = e.y; }
+    for (const pr of s.projectiles) { pr.px = pr.x; pr.py = pr.y; }
 
     // відкладені дії (серії ударів/пострілів)
     if (s.delayed.length) {

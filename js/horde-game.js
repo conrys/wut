@@ -369,9 +369,8 @@
     if (!evs.length) return;
     state.events = [];
     for (const ev of evs) {
-      if (ev.type === "announce") { announce(ev.text, ev.boss); if (ev.boss) R.shake(3); }
+      if (ev.type === "announce") { announce(ev.text, ev.boss); if (ev.boss) R.shake(2); }
       else if (ev.type === "hurt") {
-        R.shake(1);
         const now = performance.now();
         if (set().vibrate && navigator.vibrate && now - lastHurtBuzz > 400) { lastHurtBuzz = now; try { navigator.vibrate(25); } catch (_) {} }
       }
@@ -461,7 +460,7 @@
       if (n >= 5) acc = 0;
       updateHud();
     }
-    const ui = { numbers: set().numbers, shake: set().shake, joy: mode === "play" ? joy : null };
+    const ui = { numbers: set().numbers, shake: set().shake, joy: mode === "play" ? joy : null, alpha: mode === "play" ? Math.min(1, acc / STEP) : 1 };
     if (state && mode !== "menu") R.render(state, T, ui);
     else R.render(menuBackdrop(dt), T, { noPlayer: true });
     requestAnimationFrame(frame);

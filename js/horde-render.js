@@ -227,7 +227,7 @@
       canvas.style.width = cssW + "px"; canvas.style.height = cssH + "px";
       R.scale = Math.max(1, Math.round(devW / TARGET_W));
       R.bw = Math.ceil(devW / R.scale); R.bh = Math.ceil(devH / R.scale);
-      buf.width = R.bw; buf.height = R.bh;
+      buf.width = R.bw + 1; buf.height = R.bh + 1; // +1 px запасу під субпіксельний зсув камери
       return { viewW: R.bw * WPP, viewH: R.bh * WPP };
     };
     R.shake = function (a) { R.shakeA = Math.max(R.shakeA, a); R.shakeT = 0.25; };
@@ -246,9 +246,15 @@
         sy = Math.round((Math.random() * 2 - 1) * R.shakeA);
         if (R.shakeT <= 0) R.shakeA = 0;
       }
-      // камера в пікселях арту
-      const camX = Math.round(p.x / WPP - bw / 2) + sx;
-      const camY = Math.round(p.y / WPP - bh / 2) + sy;
+      // інтерполяція між кроками логіки + субпіксельна камера: світ малюється
+      // від цілого пікселя, а весь буфер зсувається на дробову частину при виводі
+      const A = opt.alpha == null ? 1 : opt.alpha;
+      const lx = (o) => (o.px == null ? o.x : o.px + (o.x - o.px) * A);
+      const ly = (o) => (o.py == null ? o.y : o.py + (o.y - o.py) * A);
+      const PX = lx(p), PY = ly(p);
+      const cxf = PX / WPP - bw / 2, cyf = PY / WPP - bh / 2;
+      const camX = Math.floor(cxf) + sx, camY = Math.floor(cyf) + sy;
+      const fracX = cxf - Math.floor(cxf), fracY = cyf - Math.floor(cyf);
       const ax = (x) => Math.round(x / WPP) - camX;
       const ay = (y) => Math.round(y / WPP) - camY;
       const vis = (x, y, m) => { const X = ax(x), Y = ay(y); return X > -m && X < bw + m && Y > -m && Y < bh + m; };
@@ -256,7 +262,7 @@
       // земля
       const GS = ground.width;
       const ox = -(((camX % GS) + GS) % GS), oy = -(((camY % GS) + GS) % GS);
-      for (let x = ox; x < bw; x += GS) for (let y = oy; y < bh; y += GS) g.drawImage(ground, x, y);
+      for (let x = ox; x <= bw; x += GS) for (let y = oy; y <= bh; y += GS) g.drawImage(ground, x, y);
 
       // декор
       const c0x = Math.floor((camX - 20) / CHUNK), c1x = Math.floor((camX + bw + 20) / CHUNK);
@@ -279,7 +285,7 @@
         if (D.WEAPONS[w.id].behavior !== "aura") continue;
         const ws = HordeCore.weaponStats(s, w);
         const r = Math.round(52 * ws.area / WPP);
-        pixelDisc(g, ax(p.x), ay(p.y), r,
+        pixelDisc(g, ax(PX), ay(PY), r,
           ws.flags.heal ? `rgba(160,102,224,${0.16 + (w.pulse || 0) * 0.18})` : `rgba(242,236,217,${0.1 + (w.pulse || 0) * 0.16})`,
           ws.flags.heal ? "rgba(200,170,255,.6)" : "rgba(242,236,217,.4)", t, true);
       }
@@ -306,14 +312,14 @@
       for (const e of s.enemies) if (vis(e.x, e.y, 40)) list.push(e);
       list.sort((a, b) => a.y - b.y);
       for (const e of list) {
-        const X = ax(e.x), Y = ay(e.y);
+        const X = ax(lx(e)), Y = ay(ly(e));
         const rr = Math.max(3, Math.round(e.r / WPP));
         g.fillStyle = "rgba(10,8,16,.35)";
         g.fillRect(X - rr + 1, Y + rr - 1, rr * 2 - 2, 2);
       }
       let playerDrawn = !!opt.noPlayer;
       for (const e of list) {
-        if (!playerDrawn && e.y > p.y) { drawPlayer(g, s, ax, ay, t); playerDrawn = true; }
+        if (!playerDrawn && e.y > p.y) { drawPlayer(g, s, ax(PX), ay(PY), t); playerDrawn = true; }
         const def = D.ENEMIES[e.type];
         const frame = def.shape === "bat" || def.shape === "wolf" || def.shape === "ghost" ? Math.floor(t * 6 + e.id) % 2 : 0;
         const flash = e.flash > 0;
@@ -322,16 +328,17 @@
         else if (e.elite) img = sprite(def.shape, frame, flash ? "eliteFlash" : "elite");
         else img = sprite(def.shape, frame, flash ? "flash" : "");
         const bob = def.fly ? Math.round(Math.sin(e.phase) * 1.5) : (Math.floor(e.phase * 0.6) % 2 ? -1 : 0);
-        const X = ax(e.x) - (img.width >> 1), Y = ay(e.y) - (img.height >> 1) + bob;
+        const EX = ax(lx(e)), EY = ay(ly(e));
+        const X = EX - (img.width >> 1), Y = EY - (img.height >> 1) + bob;
         const flip = e.dirX ? e.dirX < 0 : e.x > p.x;
         if (flip) { g.save(); g.translate(X + img.width, Y); g.scale(-1, 1); g.drawImage(img, 0, 0); g.restore(); }
         else g.drawImage(img, X, Y);
         if (def.shape === "reaper") {
           const sc = bigSprite("scythe", 0, flash);
-          g.drawImage(sc, ax(e.x) + (flip ? -sc.width - 8 : 8), Y - 6);
+          g.drawImage(sc, EX + (flip ? -sc.width - 8 : 8), Y - 6);
         }
       }
-      if (!playerDrawn) drawPlayer(g, s, ax, ay, t);
+      if (!playerDrawn) drawPlayer(g, s, ax(PX), ay(PY), t);
 
       // книги-вартові
       for (const w of s.weapons) {
@@ -341,7 +348,7 @@
         const img = sprite(ws.flags.permanent ? "bookGold" : "book", 0);
         for (let i = 0; i < ws.amount; i++) {
           const a = w.angle + (i / ws.amount) * TAU;
-          const X = ax(p.x + Math.cos(a) * R0), Y = ay(p.y + Math.sin(a) * R0);
+          const X = ax(PX + Math.cos(a) * R0), Y = ay(PY + Math.sin(a) * R0);
           g.drawImage(img, X - (img.width >> 1), Y - (img.height >> 1));
         }
       }
@@ -350,7 +357,7 @@
       for (const pr of s.projectiles) {
         if (!vis(pr.x, pr.y, 10)) continue;
         const img = sprite(pr.kind === "arrow" ? "arrow" : pr.kind === "knife" ? "knife" : "axe", 0);
-        const X = ax(pr.x), Y = ay(pr.y);
+        const X = ax(lx(pr)), Y = ay(ly(pr));
         const ang = pr.kind === "axe" ? Math.round((pr.spin || 0) / (Math.PI / 4)) * (Math.PI / 4) : Math.atan2(pr.vy, pr.vx);
         g.save(); g.translate(X, Y); g.rotate(ang);
         const k = pr.kind === "axe" ? Math.max(1, Math.round(pr.r / 11)) : 1;
@@ -406,20 +413,19 @@
       // буфер → екран
       ctx.imageSmoothingEnabled = false;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.drawImage(buf, 0, 0, bw * R.scale, bh * R.scale);
+      ctx.drawImage(buf, -Math.round(fracX * R.scale), -Math.round(fracY * R.scale), (bw + 1) * R.scale, (bh + 1) * R.scale);
     };
     return R;
   }
 
   // ------------------------------------------------------------ персонаж
-  function drawPlayer(g, s, ax, ay, t) {
+  function drawPlayer(g, s, X, Y, t) {
     const p = s.player;
-    const X = ax(p.x), Y = ay(p.y);
     g.fillStyle = "rgba(10,8,16,.4)"; g.fillRect(X - 4, Y + 7, 9, 2);
     if (p.inv > 0 && Math.floor(t * 20) % 2 === 0) return;
     const frame = p.moving ? Math.floor(t * 8) % 2 : 0;
     const img = heroSprite(s.charId, frame, p.hurt > 0 ? "hurt" : "");
-    const bx = X - (img.width >> 1), by = Y - img.height + 8 - (p.moving && frame ? 1 : 0);
+    const bx = X - (img.width >> 1), by = Y - img.height + 8;
     if (p.fx < 0) { g.save(); g.translate(bx + img.width, by); g.scale(-1, 1); g.drawImage(img, 0, 0); g.restore(); }
     else g.drawImage(img, bx, by);
     // здоров'я під ногами
