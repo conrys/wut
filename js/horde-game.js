@@ -16,6 +16,7 @@
     W = area.clientWidth; H = area.clientHeight;
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
     view = R.resize(W, H, dpr);
+    frozenDrawn = false;
     if (state) C.setView(state, view.viewW, view.viewH);
     if (menuState) C.setView(menuState, view.viewW, view.viewH);
   }
@@ -552,6 +553,7 @@
   }
 
   // ---------- цикл ----------
+  var frozenDrawn = false; // var: resize() звертається до неї раніше за оголошення
   function frame(now) {
     const dt = Math.min(0.1, (now - (last || now)) / 1000);
     last = now;
@@ -569,7 +571,8 @@
       updateHud();
     }
     const ui = { numbers: set().numbers, shake: set().shake, joy: mode === "play" ? joy : null, alpha: mode === "play" ? Math.min(1, acc / STEP) : 1 };
-    if (state && mode !== "menu") R.render(state, T, ui);
+    if (state && mode === "play") { R.render(state, T, ui); frozenDrawn = false; }
+    else if (state && mode !== "menu") { if (!frozenDrawn) { R.render(state, T, ui); frozenDrawn = true; } } // під вікном кадр стоїть
     else R.render(menuBackdrop(dt), T, { noPlayer: true });
     requestAnimationFrame(frame);
   }

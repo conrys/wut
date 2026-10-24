@@ -105,10 +105,10 @@
     amulet:    { name: "Амулет двійника",   icon: "🧿", stat: "amount",    per: 1,    max: 2, desc: "+1 снаряд усім" },
     heart:     { name: "Серце дракона",     icon: "❤️", stat: "maxHp",     per: 20,   max: 5, desc: "+20 здоров'я" },
     armor:     { name: "Обладунок",         icon: "🛡️", stat: "armor",     per: 1,    max: 5, desc: "+1 броні" },
-    crown:     { name: "Корона",            icon: "👑", stat: "growth",    per: 0.08, max: 5, desc: "+8% досвіду" },
+    crown:     { name: "Корона",            icon: "👑", stat: "growth",    per: 0.06, max: 5, desc: "+6% досвіду" },
     magnet:    { name: "Магніт",            icon: "🧲", stat: "magnet",    per: 0.30, max: 5, desc: "+30% радіусу збору" },
     boots:     { name: "Чоботи мандрівника", icon: "🥾", stat: "moveSpeed", per: 0.10, max: 5, desc: "+10% швидкості руху" },
-    chalice:   { name: "Чаша життя",        icon: "🍷", stat: "regen",     per: 0.3,  max: 5, desc: "+0.3 здоров'я/с" },
+    chalice:   { name: "Чаша життя",        icon: "🍷", stat: "regen",     per: 0.15, max: 5, desc: "+0.15 здоров'я/с" },
     clover:    { name: "Конюшина",          icon: "🍀", stat: "luck",      per: 0.10, max: 5, desc: "+10% удачі" },
   };
 

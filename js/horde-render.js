@@ -587,14 +587,41 @@
     }
   }
   // диск із дизерингом і краєм, що «дихає»
-  function pixelDisc(g, cx, cy, r, fill, edge, t, sparse) {
-    g.fillStyle = fill;
+  // Диск із дизерингом і краєм. Раніше малювався піксель за пікселем щокадру —
+  // на пізніх хвилинах (велика аура + десятки калюж) це десятки тисяч fillRect
+  // і лаги. Тепер форма кешується в canvas за радіусом/кольором, а прозорість
+  // задається через globalAlpha.
+  const discCache = new Map();
+  function rgba(c) { const m = c.match(/rgba?\(([^)]+)\)/); const v = m[1].split(",").map(Number); return { rgb: v.slice(0, 3).join(","), a: v.length > 3 ? v[3] : 1 }; }
+  function discShape(r, rgb, edgeRgb, sparse) {
+    const key = r + "|" + rgb + "|" + edgeRgb + "|" + (sparse ? 1 : 0);
+    let c = discCache.get(key);
+    if (c) return c;
+    const size = r * 2 + 3;
+    const fillC = document.createElement("canvas"); fillC.width = fillC.height = size;
+    const edgeC = document.createElement("canvas"); edgeC.width = edgeC.height = size;
+    const g = fillC.getContext("2d"), ge = edgeC.getContext("2d");
+    const o = r + 1;
+    g.fillStyle = `rgb(${rgb})`;
     for (let y = -r; y <= r; y++) {
       const w = Math.round(Math.sqrt(r * r - y * y));
-      if (sparse) { for (let x = -w; x <= w; x++) if (((x + y + cx + cy) & 1) === 0) g.fillRect(cx + x, cy + y, 1, 1); }
-      else g.fillRect(cx - w, cy + y, w * 2 + 1, 1);
+      if (sparse) { for (let x = -w; x <= w; x++) if (((x + y) & 1) === 0) g.fillRect(o + x, o + y, 1, 1); }
+      else g.fillRect(o - w, o + y, w * 2 + 1, 1);
     }
-    ring(g, cx, cy, r, edge);
+    ring(ge, o, o, r, `rgb(${edgeRgb})`);
+    c = { fill: fillC, edge: edgeC, o };
+    if (discCache.size > 300) discCache.clear();
+    discCache.set(key, c);
+    return c;
+  }
+  function pixelDisc(g, cx, cy, r, fill, edge, t, sparse) {
+    if (r < 1) return;
+    const f = rgba(fill), e = rgba(edge);
+    const d = discShape(r, f.rgb, e.rgb, sparse);
+    const a0 = g.globalAlpha;
+    g.globalAlpha = a0 * f.a; g.drawImage(d.fill, cx - d.o, cy - d.o);
+    g.globalAlpha = a0 * e.a; g.drawImage(d.edge, cx - d.o, cy - d.o);
+    g.globalAlpha = a0;
     const sp = Math.floor(t * 10);
     g.fillStyle = edge;
     for (let i = 0; i < 6; i++) {

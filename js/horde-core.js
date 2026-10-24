@@ -136,7 +136,8 @@
   }
 
   // ------------------------------------------------------------- enemies
-  function hpMul(s) { return 1 + (s.t / 60) * 0.16; }
+  // здоров'я ворогів росте швидше з часом (квадратично), щоб пізня гра не ставала прогулянкою
+  function hpMul(s) { const m = s.t / 60; return 1 + m * 0.16 + m * m * 0.014; }
 
   function spawnEnemy(s, type, x, y, opt) {
     const def = D.ENEMIES[type];
@@ -148,7 +149,7 @@
       r: def.r * (elite ? 1.8 : 1),
       hp: def.hp * mul, maxHp: def.hp * mul,
       spd: def.spd * (elite ? 0.9 : 1),
-      dmg: def.dmg * (elite ? 1.5 : 1) * (boss ? 1 : 1 + s.t / 900),
+      dmg: def.dmg * (elite ? 1.5 : 1) * (boss ? 1 : 1 + s.t / 600),
       xp: def.xp * (elite ? 10 : 1),
       fly: !!def.fly, heavy: !!def.heavy || elite, elite, boss, prop: !!def.prop,
       vx: 0, vy: 0, kbx: 0, kby: 0, flash: 0, dead: false,
@@ -185,7 +186,8 @@
     // на більшому огляді — більше ворогів, але на старті ліміт росте поступово
     const area = Math.min(2.4, Math.max(1, (s.viewW * s.viewH) / (390 * 720)));
     const ramp = Math.min(1, s.t / 240);
-    const max = Math.round((wave.max + Math.floor(over / 10) * 5) * (1 + (area - 1) * ramp) * (s.challenge ? 1.6 : 1));
+    const late = s.t > 360 ? 1 + Math.min(0.4, (s.t - 360) / 900) : 1; // після 6-ї хвилини орда густішає
+    const max = Math.round((wave.max + Math.floor(over / 10) * 5) * (1 + (area - 1) * ramp) * late * (s.challenge ? 1.6 : 1));
     let normal = 0;
     for (const e of s.enemies) if (!e.dead && !e.boss && !e.prop && !e.dirX && !e.dirY) normal++;
     s.spawnAcc += dt;
@@ -416,9 +418,9 @@
     }
   }
   function xpNeed(level) {
-    if (level < 20) return 5 + (level - 1) * 8;
-    if (level < 40) return 157 + (level - 20) * 12;
-    return 397 + (level - 40) * 16;
+    if (level < 20) return 5 + (level - 1) * 10;
+    if (level < 40) return 195 + (level - 20) * 16;
+    return 515 + (level - 40) * 24;
   }
 
   // ------------------------------------------------------------- weapons
@@ -461,7 +463,7 @@
             if (e.dead) continue;
             if (Math.abs(e.x - cx) < W / 2 + e.r && Math.abs(e.y - cy) < H / 2 + e.r) {
               damageEnemy(s, e, ws.dmg, side, 0, 160);
-              if (ws.flags.lifesteal && healed < 4) { heal(s, 1); healed++; }
+              if (ws.flags.lifesteal && healed < 2) { heal(s, 0.5); healed++; }
             }
           }
           s.fx.push({ kind: "slash", x: cx, y: cy, w: W, h: H, side, t: 0, life: 0.18, evo: !!ws.flags.lifesteal });
@@ -623,7 +625,7 @@
           damageEnemy(s, e, ws.dmg, dx / d, dy / d, 110);
           hits++;
         });
-        if (ws.flags.heal && hits) heal(s, Math.min(3, hits * 0.25));
+        if (ws.flags.heal && hits) heal(s, Math.min(1.2, hits * 0.1));
         continue;
       }
       w.cd -= dt;
