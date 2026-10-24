@@ -145,6 +145,7 @@
 
   function openMenu() {
     mode = "menu";
+    $("challenge").hidden = true;
     $("hud").classList.remove("on");
     $("menuGold").innerHTML = goldHtml(save.gold);
     const b = save.best;
@@ -273,9 +274,11 @@
     mode = "modal";
     joy.active = false; syncJoy();
     const s = state;
-    $("pauseStats").innerHTML = statBoxes([[fmtTime(s.t), "час"], [s.kills, "вбито"], ["Рів. " + s.player.level, "рівень"], [Math.ceil(s.player.hp) + "/" + s.stats.maxHp, "здоров'я"]]);
+    $("pauseStats").innerHTML = statBoxes([[fmtTime(s.t), "час"], [s.kills, "вбито"], [s.player.level, "рівень"], [Math.ceil(s.player.hp), "здоров'я"]]);
+    $("pauseStrip").innerHTML = stripHtml(s);
     $("pauseBuild").innerHTML = buildList(s);
     $("pauseHero").innerHTML = statsHtml(s);
+    setDetails("pause", false);
     show("scrPause");
   }
   function resume() { hideScreens(); mode = "play"; nextModal(); }
@@ -284,6 +287,22 @@
   $("btnGiveUp").addEventListener("click", () => { state.over = true; endRun({ type: "gameover", result: C.result(state) }); });
   document.addEventListener("visibilitychange", () => { if (document.hidden) { saveRun(); pause(); } });
 
+  // Стисло — значки спорядження; розгорнута статистика лише по кнопці «Детальніше».
+  function stripHtml(s) {
+    let html = "";
+    for (const w of s.weapons) html += `<span class="${w.evolved ? "evo" : ""}">${img(w.id, w.evolved)}<em>${w.evolved ? "" : w.level}</em></span>`;
+    if (s.passives.length) html += `<i class="gap"></i>`;
+    for (const p of s.passives) html += `<span>${img(p.id)}<em>${p.level}</em></span>`;
+    return html;
+  }
+  function setDetails(which, open) {
+    const box = $(which + "Details"), btn = $(which === "pause" ? "btnPauseMore" : "btnResMore");
+    box.hidden = !open;
+    btn.textContent = open ? "Сховати деталі" : "Детальніше";
+    btn.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+  $("btnPauseMore").addEventListener("click", () => setDetails("pause", $("pauseDetails").hidden));
+  $("btnResMore").addEventListener("click", () => setDetails("res", $("resDetails").hidden));
   function statBoxes(arr, goldIdx) {
     return arr.map((a, i) => `<div class="${i === goldIdx ? "gold" : ""}"><b>${a[0]}</b><span>${a[1]}</span></div>`).join("");
   }
@@ -372,7 +391,7 @@
       const def = D.WEAPONS[o.id];
       icon = img(o.id, true); name = def.evo.name; tag = `<small>еволюція</small>`; cls += " evolve";
     } else if (o.kind === "gold") { icon = img("gold"); name = "Золото"; }
-    else { icon = img("food"); name = "Окіст"; }
+    else { icon = img("food"); name = "Зілля здоров'я"; }
     return { cls, html: `<div class="ico">${icon}</div><div class="card-txt"><div class="t">${name} ${tag}</div><div class="d">${levelText(o)}</div>${extra}</div>` };
   }
 
@@ -428,10 +447,10 @@
   }
 
   let annTimer = 0;
-  function announce(text, boss) {
+  function announce(text, boss, small) {
     const el = $("announce");
     el.textContent = text;
-    el.className = "on" + (boss ? " boss" : "");
+    el.className = "on" + (boss ? " boss" : "") + (small ? " small" : "");
     clearTimeout(annTimer);
     annTimer = setTimeout(() => { el.className = boss ? "boss" : ""; }, 2200);
   }
@@ -442,7 +461,7 @@
     if (!evs.length) return;
     state.events = [];
     for (const ev of evs) {
-      if (ev.type === "announce") { announce(ev.text, ev.boss); if (ev.boss) R.shake(2); }
+      if (ev.type === "announce") { announce(ev.text, ev.boss, ev.small); if (ev.boss) R.shake(2); }
       else if (ev.type === "hurt") {
         const now = performance.now();
         if (set().vibrate && navigator.vibrate && now - lastHurtBuzz > 400) { lastHurtBuzz = now; try { navigator.vibrate(25); } catch (_) {} }
@@ -465,10 +484,14 @@
     if (window.AppScore) { try { window.AppScore.sendScore("horde", r.score); } catch (_) {} }
 
     $("resTitle").textContent = r.won ? "Перемога!" : "Тебе здолали";
-    $("resSub").textContent = r.won ? "Жнець упав. Орда розбіглась до наступної ночі." : (isBest ? "Новий особистий рекорд!" : `Рахунок: ${r.score}`);
-    $("resStats").innerHTML = statBoxes([[fmtTime(r.time), "протримався"], [r.kills, "вбито"], ["Рів. " + r.level, "рівень"], ["+" + r.gold, "золота"]], 3);
+    $("resSub").textContent = r.won ? "Демон упав. Орда розбіглась до наступної ночі." : (isBest ? "Новий особистий рекорд!" : `Рахунок: ${r.score}`);
+    $("resStats").innerHTML = statBoxes([[fmtTime(r.time), "час"], [r.kills, "вбито"], [r.level, "рівень"], ["+" + r.gold, "золото"]], 3);
+    $("resStrip").innerHTML = stripHtml(state);
     $("resBuild").innerHTML = buildList(state);
+    $("resHero").innerHTML = statsHtml(state);
+    setDetails("res", false);
     $("hud").classList.remove("on");
+    $("challenge").hidden = true;
     show("scrResult");
   }
   $("btnAgain").addEventListener("click", startRun);
@@ -504,6 +527,8 @@
     for (const x of s.weapons) sig += x.id + x.level + (x.evolved ? "E" : "");
     for (const x of s.passives) sig += x.id + x.level;
     if (lastHud.slots !== sig) { lastHud.slots = sig; renderSlots(); }
+    const ch = s.challenge ? `Виклик · ${Math.ceil(s.challenge.t)} с` : "";
+    if (lastHud.ch !== ch) { lastHud.ch = ch; $("challenge").textContent = ch; $("challenge").hidden = !ch; }
   }
   function renderSlots() {
     let html = "";
@@ -553,6 +578,8 @@
   if (window.ResizeObserver) new ResizeObserver(() => { resize(); syncJoy(); }).observe(area);
   resize();
   syncJoy();
+  // атлас спрайтів довантажився — оновлюємо портрети героїв у відкритому меню
+  HR.onReady(() => { if (openId === "scrMenu") openMenu(); else if (openId === "scrHeroes") openHeroes(); });
   // була незавершена гра — одразу повертаємо в неї (на паузі)
   if (loadRun()) resumeRun(); else openMenu();
   requestAnimationFrame(frame);

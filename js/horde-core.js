@@ -150,7 +150,7 @@
       spd: def.spd * (elite ? 0.9 : 1),
       dmg: def.dmg * (elite ? 1.5 : 1) * (boss ? 1 : 1 + s.t / 900),
       xp: def.xp * (elite ? 10 : 1),
-      fly: !!def.fly, heavy: !!def.heavy || elite, elite, boss,
+      fly: !!def.fly, heavy: !!def.heavy || elite, elite, boss, prop: !!def.prop,
       vx: 0, vy: 0, kbx: 0, kby: 0, flash: 0, dead: false,
       dirX: o.dirX || 0, dirY: o.dirY || 0, // для роїв — летять прямо
       cdOrbit: 0, life: o.life || 0, phase: s.rand() * TAU, ai: 0, dash: 0,
@@ -185,12 +185,13 @@
     // на більшому огляді — більше ворогів, але на старті ліміт росте поступово
     const area = Math.min(2.4, Math.max(1, (s.viewW * s.viewH) / (390 * 720)));
     const ramp = Math.min(1, s.t / 240);
-    const max = Math.round((wave.max + Math.floor(over / 10) * 5) * (1 + (area - 1) * ramp));
+    const max = Math.round((wave.max + Math.floor(over / 10) * 5) * (1 + (area - 1) * ramp) * (s.challenge ? 1.6 : 1));
     let normal = 0;
-    for (const e of s.enemies) if (!e.dead && !e.boss && !e.dirX && !e.dirY) normal++;
+    for (const e of s.enemies) if (!e.dead && !e.boss && !e.prop && !e.dirX && !e.dirY) normal++;
     s.spawnAcc += dt;
     // перші хвилини вороги підходять рідше: інтервал 0.7 с → 0.2 с до 5-ї хвилини
-    const interval = Math.max(0.2, 0.7 - (s.t / 300) * 0.5);
+    let interval = Math.max(0.2, 0.7 - (s.t / 300) * 0.5);
+    if (s.challenge) interval *= 0.5;
     if (s.spawnAcc >= interval) {
       s.spawnAcc = 0;
       const want = Math.min(s.t < 120 ? 2 : 6, max - normal);
@@ -245,6 +246,7 @@
       if (e.dead) continue;
       if (e.flash > 0) e.flash -= dt;
       e.phase += dt * 6;
+      if (e.prop) { if (Math.hypot(e.x - p.x, e.y - p.y) > 1600) e.dead = true; continue; }
       let mx, my;
       if (e.dirX || e.dirY) {
         mx = e.dirX; my = e.dirY;
@@ -289,9 +291,9 @@
   // Розштовхування натовпу — щоб не злипались в одну точку.
   function separate(s) {
     for (const e of s.enemies) {
-      if (e.dead || e.fly) continue;
+      if (e.dead || e.fly || e.prop) continue;
       forNear(s, e.x, e.y, e.r * 2, (o) => {
-        if (o === e || o.fly || o.id < e.id) return;
+        if (o === e || o.fly || o.prop || o.id < e.id) return;
         const dx = o.x - e.x, dy = o.y - e.y;
         const min = e.r + o.r;
         const d2 = dx * dx + dy * dy;
@@ -315,13 +317,14 @@
     e.flash = 0.1;
     if (!e.heavy && kb) { e.kbx += kx * kb; e.kby += ky * kb; }
     else if (kb) { e.kbx += kx * kb * 0.15; e.kby += ky * kb * 0.15; }
-    if (s.nums.length < 50) s.nums.push({ x: e.x + (s.rand() - 0.5) * 10, y: e.y - e.r, v: Math.round(dmg), t: 0 });
+    if (!e.prop && s.nums.length < 50) s.nums.push({ x: e.x + (s.rand() - 0.5) * 10, y: e.y - e.r, v: Math.round(dmg), t: 0 });
     if (e.hp <= 0) killEnemy(s, e);
     return dmg;
   }
 
   function killEnemy(s, e) {
     e.dead = true;
+    if (e.prop) { breakProp(s, e); return; }
     s.kills++;
     s.fx.push({ kind: "puff", x: e.x, y: e.y, r: e.r, t: 0, life: 0.35, color: D.ENEMIES[e.type].color });
     const luck = s.stats.luck;
@@ -339,6 +342,17 @@
     if (r < 0.03 * luck) dropPickup(s, "coin", e.x + 6, e.y + 6, 1 + Math.floor(s.rand() * 3));
     else if (r < 0.03 * luck + 0.002 * luck) dropPickup(s, "food", e.x, e.y, 30);
     else if (r < 0.03 * luck + 0.002 * luck + 0.0012 * luck) dropPickup(s, "vortex", e.x, e.y, 0);
+  }
+
+  // Жаровня: основне джерело лікування на мапі (як підсмажене м'ясо у VS)
+  function breakProp(s, e) {
+    s.fx.push({ kind: "puff", x: e.x, y: e.y, r: 10, t: 0, life: 0.4, color: "#e8853a" });
+    const r = s.rand() / Math.min(1.5, s.stats.luck);
+    if (r < 0.38) dropPickup(s, "food", e.x, e.y, 30);
+    else if (r < 0.68) dropPickup(s, "coin", e.x, e.y, 3 + Math.floor(s.rand() * 4));
+    else if (r < 0.80) dropPickup(s, "gem", e.x, e.y, 5);
+    else if (r < 0.90) dropPickup(s, "vortex", e.x, e.y, 0);
+    else for (let i = 0; i < 5; i++) dropPickup(s, "coin", e.x + (s.rand() - 0.5) * 30, e.y + (s.rand() - 0.5) * 30, 4);
   }
 
   // ------------------------------------------------------------- pickups
@@ -413,7 +427,7 @@
     const list = [];
     const R2 = maxR * maxR;
     for (const e of s.enemies) {
-      if (e.dead) continue;
+      if (e.dead || e.prop) continue;
       const d2 = (e.x - p.x) ** 2 + (e.y - p.y) ** 2;
       if (d2 < R2) list.push({ e, d2 });
     }
@@ -503,7 +517,7 @@
     },
     pool(s, w, ws) {
       const p = s.player;
-      const vis = s.enemies.filter((e) => !e.dead && onScreen(s, e));
+      const vis = s.enemies.filter((e) => !e.dead && !e.prop && onScreen(s, e));
       for (let i = 0; i < ws.amount; i++) {
         later(s, i * 0.15, () => {
           let x, y;
@@ -518,7 +532,7 @@
       w.active = ws.flags.permanent ? 1e9 : ws.duration;
     },
     bolt(s, w, ws) {
-      const vis = s.enemies.filter((e) => !e.dead && onScreen(s, e));
+      const vis = s.enemies.filter((e) => !e.dead && !e.prop && onScreen(s, e));
       if (!vis.length) return false;
       for (let i = 0; i < ws.amount; i++) {
         later(s, i * 0.08, () => {
@@ -538,7 +552,7 @@
             // наступна ціль ланцюга — найближча жива
             let best = null, bd = 160 * 160;
             for (const e of s.enemies) {
-              if (e.dead) continue;
+              if (e.dead || e.prop) continue;
               const d2 = (e.x - cx) ** 2 + (e.y - cy) ** 2;
               if (d2 > 100 && d2 < bd) { bd = d2; best = e; }
             }
@@ -729,6 +743,90 @@
     return { time, kills: s.kills, level: s.player.level, gold, score, won: s.won };
   }
 
+  // ------------------------------------------------------- точки інтересу
+  function updatePois(s, dt) {
+    const p = s.player, R = D.POI_RULES;
+    s.pois = s.pois || [];
+    // жаровні довкола гравця
+    s.propTimer = (s.propTimer || 0) - dt;
+    if (s.propTimer <= 0) {
+      s.propTimer = 3;
+      let near = 0;
+      for (const e of s.enemies) if (e.prop && !e.dead && Math.hypot(e.x - p.x, e.y - p.y) < 1100) near++;
+      if (near < R.braziers) {
+        const a = s.rand() * TAU, d = 380 + s.rand() * 380;
+        spawnEnemy(s, "brazier", p.x + Math.cos(a) * d, p.y + Math.sin(a) * d);
+      }
+    }
+    // нові точки
+    s.poiTimer = (s.poiTimer == null ? R.first : s.poiTimer) - dt;
+    if (s.poiTimer <= 0) {
+      s.poiTimer = R.every;
+      if (s.pois.length < R.max) {
+        const w = {};
+        for (const k in D.POIS) w[k] = D.POIS[k].weight * (k === "well" && p.hp < s.stats.maxHp * 0.6 ? 2 : 1) * (k === "obelisk" && s.challenge ? 0 : 1);
+        const kind = pickWeighted(s, w);
+        for (let tries = 0; tries < 8; tries++) {
+          const a = s.rand() * TAU, d = R.minDist + s.rand() * (R.maxDist - R.minDist);
+          const x = p.x + Math.cos(a) * d, y = p.y + Math.sin(a) * d;
+          if (s.pois.some((o) => Math.hypot(o.x - x, o.y - y) < 260)) continue;
+          const def = D.POIS[kind];
+          s.pois.push({ id: s.nextId++, kind, x, y, r: def.r, progress: 0, pool: def.pool || 0, dry: 0, done: false });
+          s.events.push({ type: "announce", text: `${def.name} поруч`, small: true });
+          break;
+        }
+      }
+    }
+    // взаємодія
+    for (const o of s.pois) {
+      const def = D.POIS[o.kind];
+      const inside = Math.hypot(p.x - o.x, p.y - o.y) < o.r + p.r * 0.5;
+      if (o.kind === "well") {
+        if (o.pool <= 0) { o.dry += dt; if (o.dry > 4) o.done = true; continue; }
+        if (inside && p.hp < s.stats.maxHp) {
+          const h = Math.min(def.rate * dt, o.pool, s.stats.maxHp - p.hp);
+          p.hp += h; o.pool -= h;
+          o.fxT = (o.fxT || 0) - dt;
+          if (o.fxT <= 0) { o.fxT = 0.5; s.fx.push({ kind: "heal", x: p.x, y: p.y, t: 0, life: 0.6 }); }
+        }
+      } else if (o.kind === "shrine") {
+        o.progress = inside ? o.progress + dt / def.channel : Math.max(0, o.progress - dt / (def.channel * 2));
+        if (o.progress >= 1) {
+          o.done = true;
+          dropPickup(s, "chest", o.x, o.y, 1);
+          s.fx.push({ kind: "ring", x: o.x, y: o.y, r: 90, t: 0, life: 0.6, color: "#f4cc4c" });
+          s.events.push({ type: "announce", text: "Вівтар дарує скриню!" });
+        }
+      } else if (o.kind === "obelisk") {
+        if (!s.challenge && inside) {
+          o.progress += dt;
+          if (o.progress >= 0.6) {
+            o.done = true;
+            s.challenge = { t: def.duration, x: o.x, y: o.y };
+            const pos = spawnRingPos(s, 20);
+            const wave = D.WAVES[Math.min(D.WAVES.length - 1, Math.floor(s.t / 60))];
+            spawnEnemy(s, pickWeighted(s, wave.types), pos.x, pos.y, { elite: true });
+            s.fx.push({ kind: "ring", x: o.x, y: o.y, r: 120, t: 0, life: 0.7, color: "#ff4636" });
+            s.events.push({ type: "announce", text: `Виклик! Протримайся ${def.duration} с`, boss: true });
+          }
+        } else if (!inside) o.progress = 0;
+      }
+    }
+    s.pois = s.pois.filter((o) => !o.done && Math.hypot(o.x - p.x, o.y - p.y) < R.despawn);
+    // виклик
+    if (s.challenge) {
+      s.challenge.t -= dt;
+      if (s.challenge.t <= 0) {
+        const c = s.challenge;
+        s.challenge = null;
+        dropPickup(s, "chest", p.x + 30, p.y, 1);
+        for (let i = 0; i < 6; i++) dropPickup(s, "coin", p.x + (s.rand() - 0.5) * 70, p.y + (s.rand() - 0.5) * 70, 5);
+        dropPickup(s, "food", p.x - 30, p.y, 30);
+        s.events.push({ type: "announce", text: "Виклик виконано!" });
+      }
+    }
+  }
+
   // --------------------------------------------------------------- step
   function step(s, input, dt) {
     if (s.over || s.menu) return;
@@ -759,6 +857,7 @@
     rebuildGrid(s);
     separate(s);
     updatePickups(s, dt);
+    updatePois(s, dt);
 
     // прибираємо мертвих
     if (s.enemies.some((e) => e.dead)) s.enemies = s.enemies.filter((e) => !e.dead);
@@ -880,6 +979,7 @@
       pickups: s.pickups, spawnAcc: s.spawnAcc, eventIdx: s.eventIdx, nextId: s.nextId,
       pendingLevels: s.pendingLevels + (s.menu && s.menu.type === "levelup" ? 1 : 0),
       rerollsLeft: s.rerollsLeft, revivesLeft: s.revivesLeft, won: s.won,
+      pois: s.pois || [], poiTimer: s.poiTimer, propTimer: s.propTimer, challenge: s.challenge || null,
     });
   }
   function restore(json, opts) {
@@ -890,9 +990,10 @@
     d.weapons = (d.weapons || []).filter((w) => D.WEAPONS[w.id]);
     d.passives = (d.passives || []).filter((p) => D.PASSIVES[p.id]);
     d.enemies = (d.enemies || []).filter((e) => D.ENEMIES[e.type]);
+    d.pois = (d.pois || []).filter((o) => D.POIS[o.kind]);
     const s = create({ charId: d.charId, meta: d.meta, viewW: opts.viewW, viewH: opts.viewH, seed: opts.seed });
     for (const k of ["t", "kills", "coins", "weapons", "passives", "enemies", "projectiles", "zones", "pickups", "spawnAcc",
-      "eventIdx", "nextId", "pendingLevels", "rerollsLeft", "revivesLeft", "won"]) if (d[k] !== undefined) s[k] = d[k];
+      "eventIdx", "nextId", "pendingLevels", "rerollsLeft", "revivesLeft", "won", "pois", "poiTimer", "propTimer", "challenge"]) if (d[k] !== undefined) s[k] = d[k];
     Object.assign(s.player, d.player);
     recomputeStats(s);
     s.player.hp = Math.min(Math.max(1, s.player.hp), s.stats.maxHp);

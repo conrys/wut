@@ -62,6 +62,7 @@
     text-shadow: 3px 3px 0 var(--night); pointer-events: none; opacity: 0; transition: opacity .25s steps(3); z-index: 6; padding: 0 20px; }
   #announce.boss { color: #ff6a5a; font-size: 36px; }
   #announce.on { opacity: 1; }
+  #announce.small { font-size: 20px; color: var(--ink); }
 
   /* ---------- екрани ---------- */
   .screen { position: absolute; inset: 0; z-index: 10; display: none; flex-direction: column; align-items: center; overflow-y: auto;
@@ -146,6 +147,18 @@
   .build .it em { margin-left: auto; font-style: normal; color: var(--gold); font-weight: 700; font-size: 13px; white-space: nowrap; }
   .build .it small { display: block; color: var(--muted); font-size: 12px; line-height: 1.25; }
   .build .it small.ready { color: var(--gold); }
+  .stats.compact { grid-template-columns: repeat(4, minmax(0, 1fr)); width: min(100%, 390px); }
+  .stats.compact div { padding: 8px 4px; }
+  .stats.compact b { font-size: 17px; }
+  .stats.compact span { font-size: 10px; letter-spacing: .04em; }
+  .strip { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; width: min(100%, 390px); margin-bottom: 6px; }
+  .strip span { position: relative; width: 34px; height: 34px; display: grid; place-items: center; background: var(--panel); border: 2px solid var(--night); }
+  .strip span img.px { width: 28px; height: 28px; }
+  .strip span.evo { border-color: var(--gold); }
+  .strip span em { position: absolute; right: -3px; bottom: -5px; font: 700 11px/1 var(--px); font-style: normal; color: var(--gold); text-shadow: 1px 1px 0 var(--night); }
+  .strip .gap { width: 8px; }
+  .details { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; }
+  #challenge { position: absolute; left: 0; right: 0; top: 78px; text-align: center; font: 700 16px/1 var(--px); color: #ff8a5a; text-shadow: 2px 2px 0 var(--night); pointer-events: none; z-index: 5; }
   .herostats { width: min(100%, 370px); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px 10px; margin-bottom: 8px; font-size: 13px; }
   .herostats div { display: flex; justify-content: space-between; gap: 6px; color: var(--muted); padding: 2px 0; border-bottom: 1px solid var(--panel); }
   .herostats div.on { color: var(--ink); }
@@ -175,6 +188,7 @@
       <div class="slots" id="slots"></div>
     </div>
     <div id="announce"></div>
+    <div id="challenge" hidden></div>
 
     <!-- меню -->
     <div class="screen dim on" id="scrMenu">
@@ -238,12 +252,16 @@
     <!-- пауза -->
     <div class="screen dim" id="scrPause">
       <h2>Пауза</h2>
-      <div class="stats" id="pauseStats"></div>
-      <div class="lbl">Характеристики</div>
-      <div class="herostats" id="pauseHero"></div>
-      <div class="lbl">Спорядження</div>
-      <div class="build" id="pauseBuild"></div>
+      <div class="stats compact" id="pauseStats"></div>
+      <div class="strip" id="pauseStrip"></div>
       <button class="btn main frame" id="btnResume" type="button">Продовжити</button>
+      <button class="btn frame" id="btnPauseMore" type="button" aria-expanded="false" aria-controls="pauseDetails">Детальніше</button>
+      <div class="details" id="pauseDetails" hidden>
+        <div class="lbl">Характеристики</div>
+        <div class="herostats" id="pauseHero"></div>
+        <div class="lbl">Спорядження</div>
+        <div class="build" id="pauseBuild"></div>
+      </div>
       <button class="btn frame" id="btnPauseSettings" type="button">Налаштування</button>
       <button class="btn ghost" id="btnGiveUp" type="button">Здатися</button>
     </div>
@@ -252,11 +270,17 @@
     <div class="screen dim" id="scrResult">
       <h2 id="resTitle">Тебе здолали</h2>
       <div class="sub" id="resSub"></div>
-      <div class="stats" id="resStats"></div>
-      <div class="lbl">Спорядження</div>
-      <div class="build" id="resBuild"></div>
+      <div class="stats compact" id="resStats"></div>
+      <div class="strip" id="resStrip"></div>
       <button class="btn main frame" id="btnAgain" type="button">Ще раз</button>
       <button class="btn frame" id="btnResShop" type="button">Крамниця — витратити золото</button>
+      <button class="btn frame" id="btnResMore" type="button" aria-expanded="false" aria-controls="resDetails">Детальніше</button>
+      <div class="details" id="resDetails" hidden>
+        <div class="lbl">Характеристики</div>
+        <div class="herostats" id="resHero"></div>
+        <div class="lbl">Спорядження</div>
+        <div class="build" id="resBuild"></div>
+      </div>
       <button class="btn ghost" id="btnMenu" type="button">До меню</button>
     </div>
   </div>
@@ -265,6 +289,7 @@
 <script src="js/horde-data.js"></script>
 <script src="js/horde-core.js"></script>
 <script src="js/horde-sprites.js"></script>
+<script src="js/horde-atlas.js"></script>
 <script src="js/horde-render.js"></script>
 <script src="js/horde-game.js"></script>
 

@@ -103,6 +103,78 @@
     cache.set(key, c);
     return c;
   }
+  // ---------- атлас 0x72 (CC0): герої, вороги, предмети ----------
+  // Поки PNG вантажиться — малюються власні сітки, після завантаження кеш скидається.
+  const AT = window.HordeAtlas;
+  const atlasImg = new Image();
+  let atlasReady = false;
+  const readyCbs = [];
+  if (AT) {
+    atlasImg.onload = () => { atlasReady = true; cache.clear(); iconCache.clear(); readyCbs.splice(0).forEach((f) => { try { f(); } catch (e) {} }); };
+    atlasImg.src = AT.src;
+  }
+  const HERO_ATLAS = { knight: "knight_m", huntress: "elf_f", mage: "wizzard_f", priest: "knight_f", barbarian: "dwarf_m", witch: "lizard_f", scholar: "wizzard_m" };
+  const ENEMY_ATLAS = { bat: "imp", zombie: "tiny_zombie", skeleton: "skelet", wolf: "goblin", ghost: "chort", cultist: "orc_shaman",
+    golem: "big_zombie", ogre: "ogre", lich: "necromancer", reaper: "big_demon", brazier: "crate" };
+  function frameName(base, anim, i) {
+    for (const n of [`${base}_${anim}_anim_f${i}`, `${base}_run_anim_f${i}`, `${base}_anim_f${i}`, `${base}_idle_anim_f${i}`, base]) if (AT.f[n]) return n;
+    return null;
+  }
+  // variant: "" | "flash" | "hurt" | "gold"(обводка еліти); k — цілий масштаб
+  function atlasSprite(name, variant, k) {
+    const key = "at|" + name + "|" + (variant || "") + "|" + (k || 1);
+    let c = cache.get(key);
+    if (c) return c;
+    const [x, y, w, h] = AT.f[name];
+    const pad = variant === "gold" ? 1 : 0;
+    c = document.createElement("canvas");
+    c.width = w + pad * 2; c.height = h + pad * 2;
+    const g = c.getContext("2d");
+    g.drawImage(atlasImg, x, y, w, h, pad, pad, w, h);
+    if (variant === "flash" || variant === "hurt") {
+      g.globalCompositeOperation = "source-atop";
+      g.fillStyle = variant === "flash" ? "#ffffff" : "rgba(255,70,60,.65)";
+      g.fillRect(0, 0, c.width, c.height);
+      g.globalCompositeOperation = "source-over";
+    } else if (variant === "gold") {
+      const img = g.getImageData(0, 0, c.width, c.height), d = img.data, W = c.width, H = c.height;
+      const solid = (i) => d[i * 4 + 3] > 40;
+      const mark = [];
+      for (let yy = 0; yy < H; yy++) for (let xx = 0; xx < W; xx++) {
+        const i = yy * W + xx;
+        if (solid(i)) continue;
+        if ((xx > 0 && solid(i - 1)) || (xx < W - 1 && solid(i + 1)) || (yy > 0 && solid(i - W)) || (yy < H - 1 && solid(i + W))) mark.push(i);
+      }
+      for (const i of mark) { d[i * 4] = 244; d[i * 4 + 1] = 204; d[i * 4 + 2] = 76; d[i * 4 + 3] = 255; }
+      g.putImageData(img, 0, 0);
+    }
+    if (k && k > 1) c = scaled(c, k);
+    cache.set(key, c);
+    return c;
+  }
+  function enemyAtlas(e, def, t) {
+    const base = ENEMY_ATLAS[def.shape];
+    if (!atlasReady || !base) return null;
+    const name = frameName(base, "run", e.prop ? 0 : Math.floor(t * 8 + e.id) % 4);
+    if (!name) return null;
+    const h = AT.f[name][3];
+    const k = e.boss ? (h <= 24 ? 2 : 1) : e.elite ? (h <= 24 ? 2 : 1) : 1;
+    return atlasSprite(name, e.flash > 0 ? "flash" : e.elite ? "gold" : "", k);
+  }
+  function fountain(t) {
+    const f = Math.floor(t * 6) % 3;
+    const key = "fountain|" + f;
+    let c = cache.get(key);
+    if (c) return c;
+    c = document.createElement("canvas"); c.width = 16; c.height = 48;
+    const g = c.getContext("2d");
+    const put = (n, y) => { const r = AT.f[n]; if (r) g.drawImage(atlasImg, r[0], r[1], r[2], r[3], 0, y, r[2], r[3]); };
+    put("wall_fountain_top_1", 0); put("wall_fountain_mid_blue_anim_f" + f, 16); put("wall_fountain_basin_blue_anim_f" + f, 32);
+    cache.set(key, c);
+    return c;
+  }
+  function onReady(cb) { if (atlasReady || !AT) cb(); else readyCbs.push(cb); }
+
   // Іконка для інтерфейсу як dataURL (12×12 + обводка), збільшена ×4.
   const iconCache = new Map();
   function iconURL(name, gold) {
@@ -117,7 +189,8 @@
   function heroURL(charId) {
     const key = "heroicon|" + charId;
     if (iconCache.has(key)) return iconCache.get(key);
-    const url = scaled(heroSprite(charId, 0), 4).toDataURL();
+    const an = atlasReady && HERO_ATLAS[charId] && frameName(HERO_ATLAS[charId], "idle", 0);
+    const url = scaled(an ? atlasSprite(an) : heroSprite(charId, 0), 4).toDataURL();
     iconCache.set(key, url);
     return url;
   }
@@ -290,17 +363,40 @@
           ws.flags.heal ? "rgba(200,170,255,.6)" : "rgba(242,236,217,.4)", t, true);
       }
 
+      // точки інтересу
+      for (const o of (s.pois || [])) {
+        if (!vis(o.x, o.y, 60)) continue;
+        const X = ax(o.x), Y = ay(o.y), rr = Math.round(o.r / WPP);
+        if (o.kind === "well") {
+          const k = Math.max(0, o.pool / D.POIS.well.pool);
+          pixelDisc(g, X, Y, rr, `rgba(88,160,232,${0.12 + 0.12 * k})`, k > 0 ? "rgba(155,231,255,.75)" : "rgba(140,140,150,.4)", t, true);
+          const im = atlasReady && o.pool > 0 ? fountain(t) : bigSprite(o.pool > 0 ? "well" : "wellDry", 0);
+          g.drawImage(im, X - (im.width >> 1), Y - (im.height >> 1));
+          if (o.pool > 0) bar(g, X, Y + (im.height >> 1) + 3, 16, k, "#58a0e8");
+        } else if (o.kind === "shrine") {
+          pixelDisc(g, X, Y, rr, "rgba(244,204,76,.12)", "rgba(244,204,76,.7)", t, true);
+          arc(g, X, Y, rr + 2, o.progress, "#f4cc4c");
+          const im = bigSprite("shrine", 0);
+          g.drawImage(im, X - (im.width >> 1), Y - (im.height >> 1));
+        } else if (o.kind === "obelisk") {
+          const pulse = 0.35 + 0.25 * Math.sin(t * 4);
+          pixelDisc(g, X, Y, rr, `rgba(210,60,60,${pulse * 0.4})`, `rgba(255,70,54,${0.5 + pulse})`, t, true);
+          const im = atlasReady && AT.f.column ? atlasSprite("column") : bigSprite("obelisk", 0);
+          g.drawImage(im, X - (im.width >> 1), Y - im.height + 4);
+        }
+      }
+
       // предмети
       for (const pk of s.pickups) {
         if (!vis(pk.x, pk.y, 12)) continue;
         let img;
         const bob = Math.round(Math.sin(t * 4 + pk.x * 0.1));
         if (pk.kind === "gem") img = sprite(pk.v >= 25 ? "gemR" : pk.v >= 5 ? "gemG" : "gemB", 0);
-        else if (pk.kind === "coin") img = sprite("coin", Math.floor(t * 8 + pk.x) % 4);
-        else if (pk.kind === "food") img = sprite("food", 0);
+        else if (pk.kind === "coin") { const cf = ((Math.floor(t * 8 + pk.x * 0.05) % 4) + 4) % 4; img = atlasReady ? atlasSprite("coin_anim_f" + cf) : sprite("coin", cf); }
+        else if (pk.kind === "food") img = atlasReady ? atlasSprite("flask_big_red") : sprite("food", 0);
         else if (pk.kind === "vortex") img = sprite("vortex", 0);
         else if (pk.kind === "chest") {
-          img = sprite("chest", 0);
+          img = atlasReady ? atlasSprite("chest_full_open_anim_f0") : sprite("chest", 0);
           const X = ax(pk.x), Y = ay(pk.y);
           if (Math.floor(t * 4) % 2) { g.fillStyle = "rgba(244,204,76,.35)"; g.fillRect(X - 9, Y - 8, 18, 14); }
         }
@@ -321,19 +417,24 @@
       for (const e of list) {
         if (!playerDrawn && e.y > p.y) { drawPlayer(g, s, ax(PX), ay(PY), t); playerDrawn = true; }
         const def = D.ENEMIES[e.type];
-        const frame = def.shape === "bat" || def.shape === "wolf" || def.shape === "ghost" ? Math.floor(t * 6 + e.id) % 2 : 0;
+        const frame = def.shape === "bat" || def.shape === "wolf" || def.shape === "ghost" || def.shape === "brazier" ? Math.floor(t * 6 + e.id) % 2 : 0;
         const flash = e.flash > 0;
-        let img;
-        if (e.boss) img = bigSprite(def.shape, frame, flash);
-        else if (e.elite) img = sprite(def.shape, frame, flash ? "eliteFlash" : "elite");
-        else img = sprite(def.shape, frame, flash ? "flash" : "");
-        const bob = def.fly ? Math.round(Math.sin(e.phase) * 1.5) : (Math.floor(e.phase * 0.6) % 2 ? -1 : 0);
+        let img = enemyAtlas(e, def, t);
+        const fromAtlas = !!img;
+        if (!img) {
+          if (e.boss) img = bigSprite(def.shape, frame, flash);
+          else if (e.elite) img = sprite(def.shape, frame, flash ? "eliteFlash" : "elite");
+          else img = sprite(def.shape, frame, flash ? "flash" : "");
+        }
+        const bob = e.prop ? 0 : def.fly ? Math.round(Math.sin(e.phase) * 1.5) : fromAtlas ? 0 : (Math.floor(e.phase * 0.6) % 2 ? -1 : 0);
         const EX = ax(lx(e)), EY = ay(ly(e));
-        const X = EX - (img.width >> 1), Y = EY - (img.height >> 1) + bob;
-        const flip = e.dirX ? e.dirX < 0 : e.x > p.x;
+        const rr0 = Math.max(3, Math.round(e.r / WPP));
+        // спрайти атласу ставимо «ногами» на землю, свої — по центру
+        const X = EX - (img.width >> 1), Y = (fromAtlas ? EY + rr0 - img.height + 1 : EY - (img.height >> 1)) + bob;
+        const flip = !e.prop && (e.dirX ? e.dirX < 0 : e.x > p.x);
         if (flip) { g.save(); g.translate(X + img.width, Y); g.scale(-1, 1); g.drawImage(img, 0, 0); g.restore(); }
         else g.drawImage(img, X, Y);
-        if (def.shape === "reaper") {
+        if (def.shape === "reaper" && !fromAtlas) {
           const sc = bigSprite("scythe", 0, flash);
           g.drawImage(sc, EX + (flip ? -sc.width - 8 : 8), Y - 6);
         }
@@ -356,9 +457,11 @@
       // снаряди
       for (const pr of s.projectiles) {
         if (!vis(pr.x, pr.y, 10)) continue;
-        const img = sprite(pr.kind === "arrow" ? "arrow" : pr.kind === "knife" ? "knife" : "axe", 0);
+        const useAt = atlasReady && pr.kind !== "arrow";
+        const img = useAt ? atlasSprite(pr.kind === "knife" ? "weapon_knife" : "weapon_throwing_axe") : sprite(pr.kind === "arrow" ? "arrow" : pr.kind === "knife" ? "knife" : "axe", 0);
         const X = ax(lx(pr)), Y = ay(ly(pr));
-        const ang = pr.kind === "axe" ? Math.round((pr.spin || 0) / (Math.PI / 4)) * (Math.PI / 4) : Math.atan2(pr.vy, pr.vx);
+        let ang = pr.kind === "axe" ? Math.round((pr.spin || 0) / (Math.PI / 4)) * (Math.PI / 4) : Math.atan2(pr.vy, pr.vx);
+        if (useAt && pr.kind === "knife") ang += Math.PI / 2; // у атласі ніж дивиться вгору
         g.save(); g.translate(X, Y); g.rotate(ang);
         const k = pr.kind === "axe" ? Math.max(1, Math.round(pr.r / 11)) : 1;
         g.drawImage(img, -(img.width * k >> 1), -(img.height * k >> 1), img.width * k, img.height * k);
@@ -372,6 +475,20 @@
       if (opt.numbers !== false) for (const n of s.nums) {
         const k = n.t / 0.6;
         drawNumber(g, String(n.v), ax(n.x), ay(n.y) - 4 - Math.round(k * 8), k < 0.15 ? "#ffe25a" : "#f2ecd9");
+      }
+
+      // стрілки до точок інтересу за екраном
+      const POI_COL = { well: "#58a0e8", shrine: "#f4cc4c", obelisk: "#ff4636" };
+      for (const o of (s.pois || [])) {
+        if (vis(o.x, o.y, -4)) continue;
+        const a = Math.atan2(o.y - p.y, o.x - p.x);
+        const ex = Math.max(8, Math.min(bw - 8, bw / 2 + Math.cos(a) * (bw / 2 - 8)));
+        const ey = Math.max(34, Math.min(bh - 10, bh / 2 + Math.sin(a) * (bh / 2 - 12)));
+        g.save(); g.translate(Math.round(ex), Math.round(ey)); g.rotate(a);
+        g.fillStyle = OUTLINE; g.fillRect(-3, -3, 7, 7);
+        g.fillStyle = POI_COL[o.kind] || "#fff";
+        for (let i = 0; i < 3; i++) g.fillRect(-2 + i, -2 + i, 1, 5 - i * 2);
+        g.restore();
       }
 
       // стрілка до боса
@@ -423,8 +540,8 @@
     const p = s.player;
     g.fillStyle = "rgba(10,8,16,.4)"; g.fillRect(X - 4, Y + 7, 9, 2);
     if (p.inv > 0 && Math.floor(t * 20) % 2 === 0) return;
-    const frame = p.moving ? Math.floor(t * 8) % 2 : 0;
-    const img = heroSprite(s.charId, frame, p.hurt > 0 ? "hurt" : "");
+    const an = atlasReady && HERO_ATLAS[s.charId] && frameName(HERO_ATLAS[s.charId], p.moving ? "run" : "idle", Math.floor(t * (p.moving ? 10 : 6)) % 4);
+    const img = an ? atlasSprite(an, p.hurt > 0 ? "hurt" : "") : heroSprite(s.charId, p.moving ? Math.floor(t * 8) % 2 : 0, p.hurt > 0 ? "hurt" : "");
     const bx = X - (img.width >> 1), by = Y - img.height + 8;
     if (p.fx < 0) { g.save(); g.translate(bx + img.width, by); g.scale(-1, 1); g.drawImage(img, 0, 0); g.restore(); }
     else g.drawImage(img, bx, by);
@@ -436,6 +553,22 @@
   }
 
   // ------------------------------------------------------------ примітиви
+  function bar(g, cx, y, w, k, color) {
+    const x = Math.round(cx - w / 2);
+    g.fillStyle = OUTLINE; g.fillRect(x - 1, y - 1, w + 2, 4);
+    g.fillStyle = "#1f1b2a"; g.fillRect(x, y, w, 2);
+    g.fillStyle = color; g.fillRect(x, y, Math.round(w * k), 2);
+  }
+  // дуга-прогрес по колу (від 12 години за годинниковою)
+  function arc(g, cx, cy, r, k, color) {
+    if (k <= 0) return;
+    g.fillStyle = color;
+    const n = Math.max(8, Math.round(r * 6.3));
+    for (let i = 0; i < n * Math.min(1, k); i++) {
+      const a = -Math.PI / 2 + (i / n) * TAU;
+      g.fillRect(Math.round(cx + Math.cos(a) * r), Math.round(cy + Math.sin(a) * r), 1, 1);
+    }
+  }
   function disc(g, cx, cy, r, color) {
     g.fillStyle = color;
     for (let y = -r; y <= r; y++) {
@@ -546,5 +679,5 @@
     }
   }
 
-  window.HordeRender = { create, sprite, heroSprite, iconURL, heroURL, WPP };
+  window.HordeRender = { create, sprite, heroSprite, iconURL, heroURL, onReady, WPP };
 })();

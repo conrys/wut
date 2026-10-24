@@ -253,6 +253,32 @@
     candleProp: { frames: [["..o..", ".oyo.", "..y..", ".www.", ".wWw.", ".www.", "GGGGG"]] },
   });
 
+  // ---------- точки інтересу й реквізит ----------
+  Object.assign(S, {
+    brazier: {
+      frames: [
+        ["...o....", "..oyo.o.", ".oyEyoy.", "..yEEy..", "GGGGGGGG", ".GggggG.", "..GggG..", "..GggG..", ".GGGGGG."],
+        ["....o...", ".o.oyo..", ".yoyEyo.", "..yEEy..", "GGGGGGGG", ".GggggG.", "..GggG..", "..GggG..", ".GGGGGG."],
+      ],
+    },
+    well: {
+      frames: [["...GGGG", ".GGgggg", "GggBBBB", "GgBbbbb", "GgBbcbb", "GgBbbbb", "GggBBBB", ".GGgggg", "..GGGGG", ".GgGgGg", "..GGGGG"]],
+      mirror: true,
+    },
+    wellDry: {
+      frames: [["...GGGG", ".GGgggg", "GggKKKK", "GgKkkkk", "GgKkkkk", "GgKkkkk", "GggKKKK", ".GGgggg", "..GGGGG", ".GgGgGg", "..GGGGG"]],
+      mirror: true,
+    },
+    shrine: {
+      frames: [["..o....", "..w...y", "..w..yE", "GGGGGGG", "GgggggW", "GgPpppp", "GgPpYpp", "GgPpppp", "GggGggg", "GGGGGGG"]],
+      mirror: true,
+    },
+    obelisk: {
+      frames: [["...G", "..Gg", "..Gg", "..Gr", "..Gg", "..Gr", "..Gg", ".GGg", "..Gr", ".Ggg", ".Ggg", ".Ggr", ".Ggg", "GGgg", "Gggg", "GGGG"]],
+      mirror: true,
+    },
+  });
+
   // ---------- іконки 12×12 для інтерфейсу ----------
   const ICONS = {
     sword: ["..........wW", ".........wWw", "........wWw.", ".......wWw..", "......wWw...", "..y..wWw....",
@@ -293,6 +319,8 @@
       "..rrr..ggg..", "...rrrggg...", "....rggg....", "............", "............", "............"],
     boots: ["............", "...nnn......", "...nNn......", "...nNn......", "...nNn......", "...nNnn.....",
       "...nNNnnn...", "..nNNNNNnn..", "..kkkkkkkk..", "............", "............", "............"],
+    chalice: ["............", "..yyyyyyyy..", "..yRRRRRRy..", "..yRrrrrRy..", "...yRRRRy...", "....yyyy....",
+      ".....yy.....", ".....yy.....", "....yyyy....", "...YYYYYY...", "............", "............"],
     clover: ["............", "...ll.ll....", "..lllLlll...", "..lLlLlLl...", "...lLLLl....", "..lllLlll...",
       "..lLlLlLl...", "...ll.ll....", ".....L......", "......L.....", "............", "............"],
     regen: ["............", "......lL....", ".....llL....", "....lllL....", "...llllL....", "..lllLLL....",

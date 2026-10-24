@@ -108,6 +108,7 @@
     crown:     { name: "Корона",            icon: "👑", stat: "growth",    per: 0.08, max: 5, desc: "+8% досвіду" },
     magnet:    { name: "Магніт",            icon: "🧲", stat: "magnet",    per: 0.30, max: 5, desc: "+30% радіусу збору" },
     boots:     { name: "Чоботи мандрівника", icon: "🥾", stat: "moveSpeed", per: 0.10, max: 5, desc: "+10% швидкості руху" },
+    chalice:   { name: "Чаша життя",        icon: "🍷", stat: "regen",     per: 0.3,  max: 5, desc: "+0.3 здоров'я/с" },
     clover:    { name: "Конюшина",          icon: "🍀", stat: "luck",      per: 0.10, max: 5, desc: "+10% удачі" },
   };
 
@@ -127,17 +128,19 @@
   // shape — як малювати (horde-render.js). fly — без штовхання з натовпом.
   // heavy — майже не відкидається.
   const ENEMIES = {
-    bat:      { name: "Кажан",   shape: "bat",      r: 9,  hp: 5,   spd: 68,  dmg: 5,  xp: 1, color: "#6b4a8a", fly: true },
-    zombie:   { name: "Зомбі",   shape: "zombie",   r: 12, hp: 12,  spd: 34,  dmg: 8,  xp: 1, color: "#5f8a45" },
-    skeleton: { name: "Скелет",  shape: "skeleton", r: 12, hp: 20,  spd: 46,  dmg: 10, xp: 2, color: "#ddd6c2" },
-    wolf:     { name: "Вовк",    shape: "wolf",     r: 12, hp: 18,  spd: 80, dmg: 10, xp: 2, color: "#7d6e60" },
-    ghost:    { name: "Привид",  shape: "ghost",    r: 12, hp: 25,  spd: 56,  dmg: 12, xp: 2, color: "#a9d4ea", fly: true },
-    cultist:  { name: "Культист", shape: "cultist", r: 12, hp: 45,  spd: 54,  dmg: 14, xp: 3, color: "#8f2c3e" },
-    golem:    { name: "Ґолем",   shape: "golem",    r: 18, hp: 120, spd: 30,  dmg: 18, xp: 6, color: "#80848c", heavy: true },
+    bat:      { name: "Біс",   shape: "bat",      r: 8,  hp: 5,   spd: 68,  dmg: 5,  xp: 1, color: "#6b4a8a", fly: true },
+    zombie:   { name: "Зомбі",   shape: "zombie",   r: 9, hp: 12,  spd: 34,  dmg: 8,  xp: 1, color: "#5f8a45" },
+    skeleton: { name: "Скелет",  shape: "skeleton", r: 9, hp: 20,  spd: 46,  dmg: 10, xp: 2, color: "#ddd6c2" },
+    wolf:     { name: "Гоблін",    shape: "wolf",     r: 9, hp: 18,  spd: 80, dmg: 10, xp: 2, color: "#7d6e60" },
+    ghost:    { name: "Чорт",  shape: "ghost",    r: 10, hp: 25,  spd: 56,  dmg: 12, xp: 2, color: "#a9d4ea", fly: true },
+    cultist:  { name: "Орк-шаман", shape: "cultist", r: 10, hp: 45,  spd: 54,  dmg: 14, xp: 3, color: "#8f2c3e" },
+    golem:    { name: "Гнилий велетень",   shape: "golem",    r: 22, hp: 120, spd: 30,  dmg: 18, xp: 6, color: "#80848c", heavy: true },
+    // реквізит: не рухається й не б'є, ламається будь-якою зброєю, з нього падає лут
+    brazier:  { name: "Ящик", shape: "brazier",  r: 9,  hp: 1,   spd: 0,   dmg: 0,  xp: 0, color: "#e8853a", prop: true, heavy: true },
     // боси
-    ogre:     { name: "Огр",     shape: "ogre",     r: 40, hp: 1600,  spd: 46, dmg: 25, xp: 60,  color: "#7a8f3a", heavy: true, boss: "dash" },
-    lich:     { name: "Ліч",     shape: "lich",     r: 38, hp: 4500,  spd: 48, dmg: 30, xp: 120, color: "#3d6f8f", heavy: true, boss: "summon" },
-    reaper:   { name: "Жнець",   shape: "reaper",   r: 40, hp: 16000, spd: 72, dmg: 45, xp: 0,   color: "#1b1b24", heavy: true, boss: "final" },
+    ogre:     { name: "Огр",     shape: "ogre",     r: 28, hp: 1600,  spd: 46, dmg: 25, xp: 60,  color: "#7a8f3a", heavy: true, boss: "dash" },
+    lich:     { name: "Некромант",     shape: "lich",     r: 26, hp: 4500,  spd: 48, dmg: 30, xp: 120, color: "#3d6f8f", heavy: true, boss: "summon" },
+    reaper:   { name: "Демон",   shape: "reaper",   r: 28, hp: 16000, spd: 72, dmg: 45, xp: 0,   color: "#1b1b24", heavy: true, boss: "final" },
   };
 
   // ---------- Хвилі ----------
@@ -182,7 +185,7 @@
     { t: 870, kind: "ring",  type: "cultist", n: 44 },
     { t: 900, kind: "boss",  type: "reaper" },
   ];
-  const RUN_SECONDS = 900; // на 15:00 приходить Жнець; вбив його — перемога
+  const RUN_SECONDS = 900; // на 15:00 приходить Демон; вбив його — перемога
 
   // ---------- Постійні апгрейди (крамниця за золото) ----------
   // cost — ціна першого рівня, кожен наступний дорожчий на cost.
@@ -202,5 +205,17 @@
     revivals:  { name: "Друге життя", icon: "🕊️", stat: "revivals",  per: 1,    max: 1, cost: 1400, desc: "Один раз воскреснути" },
   };
 
-  window.HordeData = { WEAPONS, PASSIVES, CHARACTERS, ENEMIES, WAVES, EVENTS, RUN_SECONDS, SHOP, MAX_WEAPONS: 6, MAX_PASSIVES: 6, WEAPON_MAX_LEVEL: 8 };
+  // ---------- Точки інтересу ----------
+  // З'являються на мапі на відстані від гравця, за екраном показує стрілка.
+  //   well — криниця: стій у колі, лікує з запасу pool по rate за секунду
+  //   shrine — вівтар: простій channel секунд у колі → скриня
+  //   obelisk — обеліск виклику: торкнись → duration секунд подвійної орди, вижив → скриня й золото
+  const POIS = {
+    well:    { name: "Фонтан",          r: 44, weight: 2, pool: 70, rate: 14 },
+    shrine:  { name: "Вівтар",          r: 40, weight: 3, channel: 4 },
+    obelisk: { name: "Обеліск виклику", r: 32, weight: 2, duration: 25 },
+  };
+  const POI_RULES = { max: 3, every: 20, first: 35, minDist: 380, maxDist: 680, despawn: 1500, braziers: 5 };
+
+  window.HordeData = { WEAPONS, PASSIVES, CHARACTERS, ENEMIES, WAVES, EVENTS, RUN_SECONDS, SHOP, POIS, POI_RULES, MAX_WEAPONS: 6, MAX_PASSIVES: 6, WEAPON_MAX_LEVEL: 8 };
 })();
