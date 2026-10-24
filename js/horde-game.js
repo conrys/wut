@@ -32,6 +32,7 @@
       char: s.char && D.CHARACTERS[s.char] ? s.char : "knight",
       best: s.best || null, runs: s.runs | 0, wins: s.wins | 0,
       settings: Object.assign({}, DEFAULT_SETTINGS, s.settings || {}),
+      night: s.night | 0, nightMax: s.nightMax | 0, // відкрита найвища ніч (0 = лише перша)
     };
   }
   let save = loadSave();
@@ -164,8 +165,23 @@
     if (savedInfo) $("btnContinue").textContent = `Продовжити забіг · ${fmtTime(savedInfo.t)}`;
     $("btnPlay").textContent = savedInfo ? "Новий забіг" : "Грати";
     $("btnPlay").classList.toggle("main", !savedInfo);
+    renderNights();
     $("menuHero").innerHTML = `<img class="px hero-big" alt="" src="${HR.heroURL(save.char)}"><b>${D.CHARACTERS[save.char].name}</b>`;
     show("scrMenu");
+  }
+
+  // ---------- вибір ночі ----------
+  function renderNights() {
+    const box = $("nightSel");
+    if (save.nightMax <= 0) { box.hidden = true; return; }
+    box.hidden = false;
+    save.night = Math.min(save.night, save.nightMax);
+    box.innerHTML = D.NIGHTS.map((n, i) => {
+      const open = i <= save.nightMax;
+      return `<button type="button" class="${i === save.night ? "on" : ""}" ${open ? "" : "disabled"} data-n="${i}">${open ? "Ніч " + (i + 1) : "🔒"}</button>`;
+    }).join("");
+    box.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => { save.night = +b.dataset.n; writeSave(); openMenu(); }));
+    $("nightName").textContent = D.NIGHTS[save.night].name + (save.night ? ` · золото ×${D.NIGHTS[save.night].gold}` : "");
   }
 
   // ---------- налаштування ----------
@@ -260,7 +276,7 @@
     const old = loadRun() && C.restore(loadRun(), { viewW: view.viewW, viewH: view.viewH, seed: 1 });
     if (old && !(state && state.over === false && mode !== "menu")) { const r = C.result(old); r.char = old.charId; applyResult(r); writeSave(); }
     clearRun();
-    state = C.create({ charId: save.char, meta: save.shop, viewW: view.viewW, viewH: view.viewH, seed: (Date.now() ^ (Math.random() * 1e9)) >>> 0 });
+    state = C.create({ charId: save.char, night: Math.min(save.night, save.nightMax), meta: save.shop, viewW: view.viewW, viewH: view.viewH, seed: (Date.now() ^ (Math.random() * 1e9)) >>> 0 });
     modalQueue = [];
     mode = "play";
     acc = 0;
@@ -486,11 +502,16 @@
     r.char = state.charId;
     clearRun();
     const isBest = applyResult(r);
+    let unlocked = "";
+    if (r.won && (r.night | 0) >= save.nightMax && save.nightMax < D.NIGHTS.length - 1) {
+      save.nightMax = (r.night | 0) + 1;
+      unlocked = `Відкрито: ${D.NIGHTS[save.nightMax].name}!`;
+    }
     writeSave();
     if (window.AppScore) { try { window.AppScore.sendScore("horde", r.score); } catch (_) {} }
 
     $("resTitle").textContent = r.won ? "Перемога!" : "Тебе здолали";
-    $("resSub").textContent = r.won ? "Демон упав. Орда розбіглась до наступної ночі." : (isBest ? "Новий особистий рекорд!" : `Рахунок: ${r.score}`);
+    $("resSub").textContent = r.won ? (unlocked || "Фінальний бос упав. Орда розбіглась до наступної ночі.") : (isBest ? "Новий особистий рекорд!" : `Рахунок: ${r.score}`);
     $("resStats").innerHTML = statBoxes([[fmtTime(r.time), "час"], [r.kills, "вбито"], [r.level, "рівень"], ["+" + r.gold, "золото"]], 3);
     $("resStrip").innerHTML = stripHtml(state);
     $("resBuild").innerHTML = buildList(state);

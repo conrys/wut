@@ -37,6 +37,7 @@
     const ch = D.CHARACTERS[opts.charId] || D.CHARACTERS.knight;
     const s = {
       charId: opts.charId in D.CHARACTERS ? opts.charId : "knight",
+      night: Math.max(0, Math.min(D.NIGHTS.length - 1, opts.night | 0)),
       meta: opts.meta || {},
       rand: rng(opts.seed || (Date.now() & 0xffffffff)),
       viewW: opts.viewW || 400, viewH: opts.viewH || 700,
@@ -139,19 +140,19 @@
 
   // ------------------------------------------------------------- enemies
   // здоров'я ворогів росте швидше з часом (квадратично), щоб пізня гра не ставала прогулянкою
-  function hpMul(s) { const m = s.t / 60; return 1 + m * 0.16 + m * m * 0.014; }
+  function hpMul(s) { const m = s.t / 60, late = Math.max(0, m - 8); return 1 + m * 0.16 + late * late * 0.06; }
 
   function spawnEnemy(s, type, x, y, opt) {
     const def = D.ENEMIES[type];
     const o = opt || {};
     const elite = !!o.elite, boss = !!def.boss;
-    const mul = boss ? 1 : hpMul(s) * (elite ? 12 : 1);
+    const mul = (boss ? 1 : hpMul(s) * (elite ? 12 : 1)) * (def.prop ? 1 : D.NIGHTS[s.night].hp);
     const e = {
       id: s.nextId++, type, x, y,
       r: def.r * (elite ? 1.8 : 1),
       hp: def.hp * mul, maxHp: def.hp * mul,
       spd: def.spd * (elite ? 0.9 : 1),
-      dmg: def.dmg * (elite ? 1.5 : 1) * (boss ? 1 : 1 + s.t / 600),
+      dmg: def.dmg * (elite ? 1.5 : 1) * (boss ? 1 : 1 + s.t / 900 + Math.max(0, s.t - 480) / 420) * D.NIGHTS[s.night].dmg,
       xp: def.xp * (elite ? 10 : 1),
       fly: !!def.fly, heavy: !!def.heavy || elite, elite, boss, prop: !!def.prop,
       vx: 0, vy: 0, kbx: 0, kby: 0, flash: 0, dead: false,
@@ -180,15 +181,25 @@
     return Object.keys(weights)[0];
   }
 
+  function waveFor(s, minute) {
+    const w = D.WAVES[Math.min(D.WAVES.length - 1, minute)];
+    const n = D.NIGHTS[s.night];
+    if (!n.add || minute < 2) return w;
+    const k = Math.min(1, (minute - 1) / 4); // нові вороги входять поступово
+    const types = Object.assign({}, w.types);
+    for (const id in n.add) types[id] = (types[id] || 0) + n.add[id] * k;
+    return { max: w.max, types };
+  }
+
   function updateSpawning(s, dt) {
     const minute = Math.min(D.WAVES.length - 1, Math.floor(s.t / 60));
-    const wave = D.WAVES[minute];
+    const wave = waveFor(s, minute);
     // після фінальної хвилини орда товщає далі
     const over = Math.max(0, s.t - D.RUN_SECONDS);
     // на більшому огляді — більше ворогів, але на старті ліміт росте поступово
     const area = Math.min(2.4, Math.max(1, (s.viewW * s.viewH) / (390 * 720)));
     const ramp = Math.min(1, s.t / 240);
-    const late = s.t > 360 ? 1 + Math.min(0.4, (s.t - 360) / 900) : 1; // після 6-ї хвилини орда густішає
+    const late = s.t > 480 ? 1 + Math.min(0.6, (s.t - 480) / 600) : 1; // після 8-ї хвилини орда густішає
     const max = Math.round((wave.max + Math.floor(over / 10) * 5) * (1 + (area - 1) * ramp) * late * (s.challenge ? 1.6 : 1));
     let normal = 0;
     for (const e of s.enemies) if (!e.dead && !e.boss && !e.prop && !e.dirX && !e.dirY) normal++;
@@ -215,8 +226,10 @@
     const p = s.player;
     if (ev.kind === "elite" || ev.kind === "boss") {
       const pos = spawnRingPos(s, 20);
-      const e = spawnEnemy(s, ev.type, pos.x, pos.y, { elite: ev.kind === "elite" });
-      s.events.push({ type: "announce", text: ev.kind === "boss" ? `Бос: ${D.ENEMIES[ev.type].name}!` : `Еліта: ${D.ENEMIES[ev.type].name}` , boss: ev.kind === "boss" });
+      const type = ev.kind === "boss" ? (D.NIGHTS[s.night].bosses[ev.type] || ev.type) : ev.type;
+      const e = spawnEnemy(s, type, pos.x, pos.y, { elite: ev.kind === "elite" });
+      if (ev.final) e.final = true;
+      s.events.push({ type: "announce", text: ev.kind === "boss" ? `Бос: ${D.ENEMIES[type].name}!` : `Еліта: ${D.ENEMIES[type].name}` , boss: ev.kind === "boss" });
       return e;
     }
     if (ev.kind === "ring") {
@@ -285,7 +298,7 @@
       e.ai = 0;
       for (let i = 0; i < 6; i++) {
         const a = (i / 6) * TAU;
-        spawnEnemy(s, "skeleton", e.x + Math.cos(a) * 50, e.y + Math.sin(a) * 50);
+        spawnEnemy(s, def.summon || "skeleton", e.x + Math.cos(a) * 50, e.y + Math.sin(a) * 50);
       }
       s.fx.push({ kind: "ring", x: e.x, y: e.y, r: 70, t: 0, life: 0.5, color: "#7fd0ff" });
     }
@@ -336,7 +349,7 @@
       s.bossAlive = null;
       dropPickup(s, "chest", e.x, e.y, 1);
       for (let i = 0; i < 8; i++) dropPickup(s, "coin", e.x + (s.rand() - 0.5) * 80, e.y + (s.rand() - 0.5) * 80, 10);
-      if (D.ENEMIES[e.type].boss === "final") { s.won = true; finish(s, "victory"); return; }
+      if (e.final || D.ENEMIES[e.type].boss === "final") { s.won = true; finish(s, "victory"); return; }
     } else if (e.elite) {
       dropPickup(s, "chest", e.x, e.y, 1);
       dropPickup(s, "coin", e.x + 20, e.y, 10);
@@ -420,9 +433,9 @@
     }
   }
   function xpNeed(level) {
-    if (level < 20) return 5 + (level - 1) * 10;
-    if (level < 40) return 195 + (level - 20) * 16;
-    return 515 + (level - 40) * 24;
+    if (level < 20) return 5 + (level - 1) * 8;
+    if (level < 40) return 157 + (level - 20) * 12;
+    return 397 + (level - 40) * 16;
   }
 
   // ------------------------------------------------------------- weapons
@@ -465,7 +478,7 @@
             if (e.dead) continue;
             if (Math.abs(e.x - cx) < W / 2 + e.r && Math.abs(e.y - cy) < H / 2 + e.r) {
               damageEnemy(s, e, ws.dmg, side, 0, 160);
-              if (ws.flags.lifesteal && healed < 2) { heal(s, 0.5); healed++; }
+              if (ws.flags.lifesteal && healed < 3) { heal(s, 0.75); healed++; }
             }
           }
           s.fx.push({ kind: "slash", x: cx, y: cy, w: W, h: H, side, t: 0, life: 0.18, evo: !!ws.flags.lifesteal });
@@ -627,7 +640,7 @@
           damageEnemy(s, e, ws.dmg, dx / d, dy / d, 110);
           hits++;
         });
-        if (ws.flags.heal && hits) heal(s, Math.min(1.2, hits * 0.1));
+        if (ws.flags.heal && hits) heal(s, Math.min(2, hits * 0.15));
         continue;
       }
       w.cd -= dt;
@@ -742,9 +755,10 @@
 
   function result(s) {
     const time = Math.floor(s.t);
-    const gold = Math.floor((s.coins + time * 0.4 + s.kills / 20 + (s.won ? 300 : 0)) * s.stats.greed);
-    const score = time * 10 + s.kills + (s.won ? 5000 : 0);
-    return { time, kills: s.kills, level: s.player.level, gold, score, won: s.won };
+    const n = D.NIGHTS[s.night];
+    const gold = Math.floor((s.coins + time * 0.4 + s.kills / 20 + (s.won ? 300 : 0)) * s.stats.greed * n.gold);
+    const score = Math.floor((time * 10 + s.kills + (s.won ? 5000 : 0)) * (1 + s.night * 0.5));
+    return { time, kills: s.kills, level: s.player.level, gold, score, won: s.won, night: s.night };
   }
 
   // ------------------------------------------------------- точки інтересу
@@ -808,7 +822,7 @@
             o.done = true;
             s.challenge = { t: def.duration, x: o.x, y: o.y };
             const pos = spawnRingPos(s, 20);
-            const wave = D.WAVES[Math.min(D.WAVES.length - 1, Math.floor(s.t / 60))];
+            const wave = waveFor(s, Math.floor(s.t / 60));
             spawnEnemy(s, pickWeighted(s, wave.types), pos.x, pos.y, { elite: true });
             s.fx.push({ kind: "ring", x: o.x, y: o.y, r: 120, t: 0, life: 0.7, color: "#ff4636" });
             s.events.push({ type: "announce", text: `Виклик! Протримайся ${def.duration} с`, boss: true });
@@ -984,7 +998,7 @@
   function serialize(s) {
     const strip = (o) => { const c = Object.assign({}, o); delete c.inside; delete c.hits; return c; };
     return JSON.stringify({
-      v: SNAP_VERSION, charId: s.charId, meta: s.meta, t: s.t, kills: s.kills, coins: s.coins,
+      v: SNAP_VERSION, charId: s.charId, night: s.night, meta: s.meta, t: s.t, kills: s.kills, coins: s.coins,
       player: s.player, weapons: s.weapons.map(strip), passives: s.passives,
       enemies: s.enemies.filter((e) => !e.dead), projectiles: s.projectiles, zones: s.zones.map(strip),
       pickups: s.pickups, spawnAcc: s.spawnAcc, eventIdx: s.eventIdx, nextId: s.nextId,
@@ -1002,7 +1016,7 @@
     d.passives = (d.passives || []).filter((p) => D.PASSIVES[p.id]);
     d.enemies = (d.enemies || []).filter((e) => D.ENEMIES[e.type]);
     d.pois = (d.pois || []).filter((o) => D.POIS[o.kind]);
-    const s = create({ charId: d.charId, meta: d.meta, viewW: opts.viewW, viewH: opts.viewH, seed: opts.seed });
+    const s = create({ charId: d.charId, night: d.night || 0, meta: d.meta, viewW: opts.viewW, viewH: opts.viewH, seed: opts.seed });
     for (const k of ["t", "kills", "coins", "weapons", "passives", "enemies", "projectiles", "zones", "pickups", "spawnAcc",
       "eventIdx", "nextId", "pendingLevels", "rerollsLeft", "revivesLeft", "won", "bonus", "pois", "poiTimer", "propTimer", "challenge"]) if (d[k] !== undefined) s[k] = d[k];
     Object.assign(s.player, d.player);

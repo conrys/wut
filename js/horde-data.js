@@ -105,10 +105,10 @@
     amulet:    { name: "Амулет двійника",   icon: "🧿", stat: "amount",    per: 1,    max: 2, desc: "+1 снаряд усім" },
     heart:     { name: "Серце дракона",     icon: "❤️", stat: "maxHp",     per: 20,   max: 5, desc: "+20 здоров'я" },
     armor:     { name: "Обладунок",         icon: "🛡️", stat: "armor",     per: 1,    max: 5, desc: "+1 броні" },
-    crown:     { name: "Корона",            icon: "👑", stat: "growth",    per: 0.06, max: 5, desc: "+6% досвіду" },
+    crown:     { name: "Корона",            icon: "👑", stat: "growth",    per: 0.08, max: 5, desc: "+8% досвіду" },
     magnet:    { name: "Магніт",            icon: "🧲", stat: "magnet",    per: 0.30, max: 5, desc: "+30% радіусу збору" },
     boots:     { name: "Чоботи мандрівника", icon: "🥾", stat: "moveSpeed", per: 0.10, max: 5, desc: "+10% швидкості руху" },
-    chalice:   { name: "Чаша життя",        icon: "🍷", stat: "regen",     per: 0.15, max: 5, desc: "+0.15 здоров'я/с" },
+    chalice:   { name: "Чаша життя",        icon: "🍷", stat: "regen",     per: 0.3,  max: 5, desc: "+0.3 здоров'я/с" },
     clover:    { name: "Конюшина",          icon: "🍀", stat: "luck",      per: 0.10, max: 5, desc: "+10% удачі" },
   };
 
@@ -137,9 +137,22 @@
     golem:    { name: "Гнилий велетень",   shape: "golem",    r: 22, hp: 120, spd: 30,  dmg: 18, xp: 6, color: "#80848c", heavy: true },
     // реквізит: не рухається й не б'є, ламається будь-якою зброєю, з нього падає лут
     brazier:  { name: "Ящик", shape: "brazier",  r: 9,  hp: 1,   spd: 0,   dmg: 0,  xp: 0, color: "#e8853a", prop: true, heavy: true },
+    // Ніч 2 — Орча навала
+    orcWarrior: { name: "Орк-воїн",     shape: "orcWarrior", atlas: "orc_warrior", fallback: "cultist", r: 10, hp: 60,  spd: 58, dmg: 16, xp: 3, color: "#5e8c3d" },
+    maskedOrc:  { name: "Орк у масці",  shape: "maskedOrc",  atlas: "masked_orc",  fallback: "cultist", r: 10, hp: 95,  spd: 50, dmg: 20, xp: 4, color: "#4f6b3a" },
+    wogol:      { name: "Воґол",        shape: "wogol",      atlas: "wogol",       fallback: "wolf",    r: 10, hp: 40,  spd: 88, dmg: 14, xp: 3, color: "#8a6a9a" },
+    // Ніч 3 — Крижане болото
+    iceZombie:  { name: "Крижаний зомбі", shape: "iceZombie", atlas: "ice_zombie", fallback: "zombie",  r: 9,  hp: 75,  spd: 40, dmg: 18, xp: 3, color: "#9be7ff" },
+    swampy:     { name: "Болотник",     shape: "swampy",     atlas: "swampy",      fallback: "zombie",  r: 9,  hp: 55,  spd: 62, dmg: 15, xp: 3, color: "#5e8c3d" },
+    muddy:      { name: "Багнюк",       shape: "muddy",      atlas: "muddy",       fallback: "golem",   r: 10, hp: 120, spd: 34, dmg: 22, xp: 4, color: "#6a4328", heavy: true },
+    slug:       { name: "Слимак",       shape: "slug",       atlas: "slug",        fallback: "zombie",  r: 9,  hp: 35,  spd: 46, dmg: 10, xp: 2, color: "#a3c76a" },
     // боси
     ogre:     { name: "Огр",     shape: "ogre",     r: 28, hp: 1600,  spd: 46, dmg: 25, xp: 60,  color: "#7a8f3a", heavy: true, boss: "dash" },
     lich:     { name: "Некромант",     shape: "lich",     r: 26, hp: 4500,  spd: 48, dmg: 30, xp: 120, color: "#3d6f8f", heavy: true, boss: "summon" },
+    orcKing:    { name: "Вождь орків",  shape: "orcKing",  atlas: "masked_orc", scale: 3, fallback: "ogre",   r: 28, hp: 9000,  spd: 52, dmg: 40, xp: 150, color: "#4f6b3a", heavy: true, boss: "dash" },
+    frost:      { name: "Крижаний велетень", shape: "frost", atlas: "ice_zombie", scale: 4, fallback: "golem", r: 30, hp: 20000, spd: 44, dmg: 50, xp: 250, color: "#9be7ff", heavy: true, boss: "summon", summon: "iceZombie" },
+    plague:     { name: "Чумний лікар", shape: "plague",   atlas: "doc",        scale: 3, fallback: "lich",   r: 28, hp: 28000, spd: 70, dmg: 60, xp: 0,   color: "#3b3048", heavy: true, boss: "summon", summon: "swampy" },
+    archdemon:  { name: "Архідемон",    shape: "archdemon", atlas: "big_demon", scale: 2, fallback: "reaper", r: 40, hp: 30000, spd: 80, dmg: 80, xp: 0,   color: "#d23c3c", heavy: true, boss: "dash" },
     reaper:   { name: "Демон",   shape: "reaper",   r: 28, hp: 16000, spd: 72, dmg: 45, xp: 0,   color: "#1b1b24", heavy: true, boss: "final" },
   };
 
@@ -183,7 +196,7 @@
     { t: 780, kind: "swarm", type: "ghost", n: 50 },
     { t: 840, kind: "elite", type: "golem" },
     { t: 870, kind: "ring",  type: "cultist", n: 44 },
-    { t: 900, kind: "boss",  type: "reaper" },
+    { t: 900, kind: "boss",  type: "reaper", final: true },
   ];
   const RUN_SECONDS = 900; // на 15:00 приходить Демон; вбив його — перемога
 
@@ -217,5 +230,14 @@
   };
   const POI_RULES = { max: 3, every: 20, first: 35, minDist: 380, maxDist: 680, despawn: 1500, braziers: 5 };
 
-  window.HordeData = { WEAPONS, PASSIVES, CHARACTERS, ENEMIES, WAVES, EVENTS, RUN_SECONDS, SHOP, POIS, POI_RULES, MAX_WEAPONS: 6, MAX_PASSIVES: 6, WEAPON_MAX_LEVEL: 8 };
+  // ---------- Ночі (рівні складності) ----------
+  // Перемога у ночі N відкриває N+1. hp/dmg — множники ворогів, gold — золота,
+  // add — додаткові вороги в хвилях з 2-ї хвилини, bosses — заміна босів у подіях.
+  const NIGHTS = [
+    { name: "Ніч 1 · Цвинтар",        hp: 1,   dmg: 1,    gold: 1,   add: null, bosses: {} },
+    { name: "Ніч 2 · Орча навала",    hp: 1.7, dmg: 1.35, gold: 1.7, add: { orcWarrior: 3, maskedOrc: 2, wogol: 3 }, bosses: { ogre: "orcKing", reaper: "plague" } },
+    { name: "Ніч 3 · Крижане болото", hp: 2.6, dmg: 1.7,  gold: 2.5, add: { iceZombie: 3, swampy: 3, muddy: 2, slug: 2, maskedOrc: 1 }, bosses: { ogre: "frost", lich: "plague", reaper: "archdemon" } },
+  ];
+
+  window.HordeData = { WEAPONS, PASSIVES, CHARACTERS, ENEMIES, WAVES, EVENTS, RUN_SECONDS, SHOP, POIS, POI_RULES, NIGHTS, MAX_WEAPONS: 6, MAX_PASSIVES: 6, WEAPON_MAX_LEVEL: 8 };
 })();

@@ -135,6 +135,8 @@
   .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; }
   .seg button { padding: 10px 4px; font: 600 14px/1.1 var(--px); background: var(--panel); border: 3px solid var(--night); box-shadow: inset 0 0 0 2px var(--panel-hi); color: var(--muted); }
   .seg button.on { background: var(--gold); color: var(--night); box-shadow: inset 0 0 0 2px #ffe58a, inset 0 -4px 0 2px var(--gold-lo); }
+  .nights { width: min(100%, 300px); }
+  .night-name { font-size: 13px; min-height: 1em; }
   .set-hint { font-size: 13px; color: var(--muted); margin-top: 6px; line-height: 1.3; }
 
   /* підсумок / пауза */
@@ -197,6 +199,8 @@
       <div class="title">ОРДА</div>
       <div class="sub">Протримайся 15 хвилин проти нечисті. Зброя б'є сама, твоє діло — рухатись і обирати посилення.</div>
       <div class="menu-hero" id="menuHero"></div>
+      <div class="seg nights" id="nightSel" hidden></div>
+      <div class="sub night-name" id="nightName"></div>
       <div class="goldline frame" id="menuGold"></div>
       <button class="btn main frame" id="btnContinue" type="button" hidden>Продовжити забіг</button>
       <button class="btn main frame" id="btnPlay" type="button">Грати</button>

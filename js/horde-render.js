@@ -153,12 +153,12 @@
     return c;
   }
   function enemyAtlas(e, def, t) {
-    const base = ENEMY_ATLAS[def.shape];
+    const base = def.atlas || ENEMY_ATLAS[def.shape];
     if (!atlasReady || !base) return null;
     const name = frameName(base, "run", e.prop ? 0 : Math.floor(t * 8 + e.id) % 4);
     if (!name) return null;
     const h = AT.f[name][3];
-    const k = e.boss ? (h <= 24 ? 2 : 1) : e.elite ? (h <= 24 ? 2 : 1) : 1;
+    const k = e.boss ? (def.scale || (h <= 24 ? 2 : 1)) : e.elite ? (h <= 24 ? 2 : 1) : 1;
     return atlasSprite(name, e.flash > 0 ? "flash" : e.elite ? "gold" : "", k);
   }
   function fountain(t) {
@@ -422,9 +422,10 @@
         let img = enemyAtlas(e, def, t);
         const fromAtlas = !!img;
         if (!img) {
-          if (e.boss) img = bigSprite(def.shape, frame, flash);
-          else if (e.elite) img = sprite(def.shape, frame, flash ? "eliteFlash" : "elite");
-          else img = sprite(def.shape, frame, flash ? "flash" : "");
+          const shp = SP.SPRITES[def.shape] ? def.shape : (D.ENEMIES[def.fallback] || {}).shape || "zombie";
+          if (e.boss) img = bigSprite(shp, frame, flash);
+          else if (e.elite) img = sprite(shp, frame, flash ? "eliteFlash" : "elite");
+          else img = sprite(shp, frame, flash ? "flash" : "");
         }
         const bob = e.prop ? 0 : def.fly ? Math.round(Math.sin(e.phase) * 1.5) : fromAtlas ? 0 : (Math.floor(e.phase * 0.6) % 2 ? -1 : 0);
         const EX = ax(lx(e)), EY = ay(ly(e));
