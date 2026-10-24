@@ -867,5 +867,40 @@
 
   function setView(s, w, h) { s.viewW = w; s.viewH = h; }
 
-  window.HordeCore = { create, step, choose, reroll, skip, openChest, weaponStats, recomputeStats, setView, result, xpNeed };
+  // ------------------------------------------------- збереження забігу
+  // Знімок стану як простий JSON (без функцій, Map і генератора випадковості),
+  // щоб забіг переживав оновлення сторінки й нову версію гри.
+  const SNAP_VERSION = 1;
+  function serialize(s) {
+    const strip = (o) => { const c = Object.assign({}, o); delete c.inside; delete c.hits; return c; };
+    return JSON.stringify({
+      v: SNAP_VERSION, charId: s.charId, meta: s.meta, t: s.t, kills: s.kills, coins: s.coins,
+      player: s.player, weapons: s.weapons.map(strip), passives: s.passives,
+      enemies: s.enemies.filter((e) => !e.dead), projectiles: s.projectiles, zones: s.zones.map(strip),
+      pickups: s.pickups, spawnAcc: s.spawnAcc, eventIdx: s.eventIdx, nextId: s.nextId,
+      pendingLevels: s.pendingLevels + (s.menu && s.menu.type === "levelup" ? 1 : 0),
+      rerollsLeft: s.rerollsLeft, revivesLeft: s.revivesLeft, won: s.won,
+    });
+  }
+  function restore(json, opts) {
+    let d;
+    try { d = typeof json === "string" ? JSON.parse(json) : json; } catch (e) { return null; }
+    if (!d || d.v !== SNAP_VERSION || !D.CHARACTERS[d.charId]) return null;
+    // контент гри міг змінитись у новій версії — відкидаємо те, чого вже нема
+    d.weapons = (d.weapons || []).filter((w) => D.WEAPONS[w.id]);
+    d.passives = (d.passives || []).filter((p) => D.PASSIVES[p.id]);
+    d.enemies = (d.enemies || []).filter((e) => D.ENEMIES[e.type]);
+    const s = create({ charId: d.charId, meta: d.meta, viewW: opts.viewW, viewH: opts.viewH, seed: opts.seed });
+    for (const k of ["t", "kills", "coins", "weapons", "passives", "enemies", "projectiles", "zones", "pickups", "spawnAcc",
+      "eventIdx", "nextId", "pendingLevels", "rerollsLeft", "revivesLeft", "won"]) if (d[k] !== undefined) s[k] = d[k];
+    Object.assign(s.player, d.player);
+    recomputeStats(s);
+    s.player.hp = Math.min(Math.max(1, s.player.hp), s.stats.maxHp);
+    s.player.inv = 2; // коротка невразливість після відновлення
+    s.bossAlive = s.enemies.find((e) => e.boss) || null;
+    for (const pr of s.projectiles) if (!Array.isArray(pr.hit)) pr.hit = [];
+    return s;
+  }
+
+  window.HordeCore = { create, step, choose, reroll, skip, openChest, weaponStats, recomputeStats, setView, result, xpNeed, serialize, restore };
 })();

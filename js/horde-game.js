@@ -39,10 +39,10 @@
   // просимо браузер не чистити сховище сайту самому (де підтримується)
   try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
 
-  // Перерваний забіг (оновили сторінку, закрили вкладку, телефон вбив браузер):
-  // поточний результат пишемо як «pending» кожні кілька секунд і при виході,
-  // а на наступному відкритті зараховуємо золото, рекорд і кількість забігів.
-  let pendingNote = "";
+  // Поточний забіг зберігається окремим ключем кожні 3 с, при згортанні й
+  // закритті сторінки. Оновлення сторінки чи нова версія гри повертають у той
+  // самий забіг (на екран паузи). Прогрес крамниці/героїв — у hordeSave.
+  const RUN_KEY = "hordeRun";
   function applyResult(r) {
     save.gold += r.gold;
     save.runs++;
@@ -51,26 +51,16 @@
     if (isBest) save.best = { score: r.score, time: r.time, kills: r.kills, level: r.level, char: r.char };
     return isBest;
   }
-  (function settlePending() {
-    let raw = null;
-    try { raw = JSON.parse(localStorage.getItem(SAVE_KEY) || "null"); } catch (e) { raw = null; }
-    const p = raw && raw.pending;
-    if (p && p.time > 0) {
-      applyResult(p);
-      pendingNote = `Перерваний забіг зараховано: +${p.gold} золота`;
-    }
-    delete save.pending;
-    writeSave();
-  })();
-  function savePending() {
+  function saveRun() {
     if (!state || state.over || mode === "menu") return;
-    const r = C.result(state);
-    r.char = state.charId;
-    save.pending = r;
-    writeSave();
+    try { localStorage.setItem(RUN_KEY, C.serialize(state)); } catch (e) {}
   }
-  setInterval(savePending, 5000);
-  window.addEventListener("pagehide", savePending);
+  function clearRun() { try { localStorage.removeItem(RUN_KEY); } catch (e) {} }
+  function loadRun() { try { return localStorage.getItem(RUN_KEY); } catch (e) { return null; } }
+  setInterval(saveRun, 3000);
+  window.addEventListener("pagehide", saveRun);
+  // стара версія збереження (лише результат) — зараховуємо, щоб не пропало
+  if (save.pending) { save.pending.char = save.pending.char || save.char; applyResult(save.pending); delete save.pending; writeSave(); }
   const set = () => save.settings;
 
   // ---------- стан ----------
@@ -161,11 +151,17 @@
     $("menuBest").innerHTML = b
       ? `Найкраще: ${fmtTime(b.time)} · ${b.kills} вбито · рахунок ${b.score}<br>Забігів: ${save.runs}${save.wins ? ` · перемог: ${save.wins}` : ""}`
       : "Ще жодного забігу";
-    if (pendingNote) { $("menuBest").innerHTML = `<span style="color:var(--gold)">${pendingNote}</span><br>` + $("menuBest").innerHTML; pendingNote = ""; }
     const canBuy = Object.keys(D.SHOP).some((id) => (save.shop[id] | 0) < D.SHOP[id].max && save.gold >= shopCost(D.SHOP[id], save.shop[id] | 0))
       || Object.keys(D.CHARACTERS).some((id) => !save.chars.includes(id) && save.gold >= D.CHARACTERS[id].cost);
     $("btnShop").classList.toggle("badge", canBuy);
     $("btnHeroes").classList.toggle("badge", Object.keys(D.CHARACTERS).some((id) => !save.chars.includes(id) && save.gold >= D.CHARACTERS[id].cost));
+    const saved = loadRun();
+    let savedInfo = null;
+    if (saved) { try { const d = JSON.parse(saved); savedInfo = d && d.t > 0 ? d : null; } catch (e) {} }
+    $("btnContinue").hidden = !savedInfo;
+    if (savedInfo) $("btnContinue").textContent = `Продовжити забіг · ${fmtTime(savedInfo.t)}`;
+    $("btnPlay").textContent = savedInfo ? "Новий забіг" : "Грати";
+    $("btnPlay").classList.toggle("main", !savedInfo);
     $("menuHero").innerHTML = `<img class="px hero-big" alt="" src="${HR.heroURL(save.char)}"><b>${D.CHARACTERS[save.char].name}</b>`;
     show("scrMenu");
   }
@@ -258,6 +254,10 @@
   // ---------- забіг ----------
   function startRun() {
     resize();
+    // почали новий, а старий не дограли — зараховуємо його результат
+    const old = loadRun() && C.restore(loadRun(), { viewW: view.viewW, viewH: view.viewH, seed: 1 });
+    if (old && !(state && state.over === false && mode !== "menu")) { const r = C.result(old); r.char = old.charId; applyResult(r); writeSave(); }
+    clearRun();
     state = C.create({ charId: save.char, meta: save.shop, viewW: view.viewW, viewH: view.viewH, seed: (Date.now() ^ (Math.random() * 1e9)) >>> 0 });
     modalQueue = [];
     mode = "play";
@@ -282,7 +282,7 @@
   $("pauseBtn").addEventListener("click", pause);
   $("btnResume").addEventListener("click", resume);
   $("btnGiveUp").addEventListener("click", () => { state.over = true; endRun({ type: "gameover", result: C.result(state) }); });
-  document.addEventListener("visibilitychange", () => { if (document.hidden) { savePending(); pause(); } });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) { saveRun(); pause(); } });
 
   function statBoxes(arr, goldIdx) {
     return arr.map((a, i) => `<div class="${i === goldIdx ? "gold" : ""}"><b>${a[0]}</b><span>${a[1]}</span></div>`).join("");
@@ -459,7 +459,7 @@
     joy.active = false;
     const r = ev.result;
     r.char = state.charId;
-    delete save.pending;
+    clearRun();
     const isBest = applyResult(r);
     writeSave();
     if (window.AppScore) { try { window.AppScore.sendScore("horde", r.score); } catch (_) {} }
@@ -474,6 +474,17 @@
   $("btnAgain").addEventListener("click", startRun);
   $("btnMenu").addEventListener("click", openMenu);
   $("btnPlay").addEventListener("click", startRun);
+  function resumeRun() {
+    resize();
+    const s = C.restore(loadRun(), { viewW: view.viewW, viewH: view.viewH, seed: (Date.now() ^ (Math.random() * 1e9)) >>> 0 });
+    if (!s) { clearRun(); openMenu(); return; }
+    state = s; modalQueue = []; acc = 0; syncJoy(); lastHud = {};
+    $("hud").classList.add("on");
+    mode = "play";
+    updateHud();
+    pause(); // відновлюємо на паузі: гравець сам натисне «Продовжити»
+  }
+  $("btnContinue").addEventListener("click", resumeRun);
   $("btnHeroes").addEventListener("click", openHeroes);
   $("btnShop").addEventListener("click", openShop);
   $("btnResShop").addEventListener("click", openShop);
@@ -542,7 +553,8 @@
   if (window.ResizeObserver) new ResizeObserver(() => { resize(); syncJoy(); }).observe(area);
   resize();
   syncJoy();
-  openMenu();
+  // була незавершена гра — одразу повертаємо в неї (на паузі)
+  if (loadRun()) resumeRun(); else openMenu();
   requestAnimationFrame(frame);
 
   document.addEventListener("contextmenu", (e) => e.preventDefault());
