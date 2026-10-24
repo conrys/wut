@@ -31,7 +31,10 @@
   }
 
   function currentGameKey() {
-    const file = (location.pathname.split("/").pop() || "").replace(/\.html?$/, "");
+    const parts = location.pathname.split("/");
+    let file = (parts.pop() || "").replace(/\.html?$/, "");
+    // ігри «Як у рекламі»: ads/<папка>/play.html → ключ за назвою папки (без -2d/-3d)
+    if (file === "play" && parts[parts.length - 2] === "ads") file = (parts.pop() || "").replace(/-(2d|3d)$/, "");
     return gameLabels()[file] ? file : "";
   }
 

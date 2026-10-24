@@ -110,6 +110,7 @@
   function show(id) {
     for (const el of document.querySelectorAll(".screen")) el.classList.toggle("on", el.id === id);
     openId = id;
+    if (id) $("announce").className = "";
   }
   function hideScreens() { show(null); }
   for (const b of document.querySelectorAll("[data-back]")) b.addEventListener("click", openMenu);
@@ -125,6 +126,10 @@
     $("menuBest").innerHTML = b
       ? `Найкраще: ${fmtTime(b.time)} · ${b.kills} вбито · рахунок ${b.score}<br>Забігів: ${save.runs}${save.wins ? ` · перемог: ${save.wins}` : ""}`
       : "Ще жодного забігу";
+    const canBuy = Object.keys(D.SHOP).some((id) => (save.shop[id] | 0) < D.SHOP[id].max && save.gold >= shopCost(D.SHOP[id], save.shop[id] | 0))
+      || Object.keys(D.CHARACTERS).some((id) => !save.chars.includes(id) && save.gold >= D.CHARACTERS[id].cost);
+    $("btnShop").classList.toggle("badge", canBuy);
+    $("btnHeroes").classList.toggle("badge", Object.keys(D.CHARACTERS).some((id) => !save.chars.includes(id) && save.gold >= D.CHARACTERS[id].cost));
     $("menuHero").innerHTML = `<img class="px hero-big" alt="" src="${HR.heroURL(save.char)}"><b>${D.CHARACTERS[save.char].name}</b>`;
     show("scrMenu");
   }
@@ -234,6 +239,7 @@
     const s = state;
     $("pauseStats").innerHTML = statBoxes([[fmtTime(s.t), "час"], [s.kills, "вбито"], ["Рів. " + s.player.level, "рівень"], [Math.ceil(s.player.hp) + "/" + s.stats.maxHp, "здоров'я"]]);
     $("pauseBuild").innerHTML = buildList(s);
+    $("pauseHero").innerHTML = statsHtml(s);
     show("scrPause");
   }
   function resume() { hideScreens(); mode = "play"; nextModal(); }
@@ -263,23 +269,54 @@
 
   // ---------- описи апгрейдів ----------
   const UNIT = { sword: "удар", wand: "стріла", knife: "кинджал", axe: "сокира", pool: "калюжа", orbit: "книга", bolt: "блискавка", aura: "" };
+  const fmt = (v) => (Math.abs(v - Math.round(v)) < 0.05 ? String(Math.round(v)) : v.toFixed(1));
+  // Що зміниться насправді, з урахуванням усіх посилень: «Шкода 22 → 28».
+  function weaponDelta(o) {
+    const cur = C.weaponStats(state, { id: o.id, level: o.level - 1, evolved: false });
+    const nxt = C.weaponStats(state, { id: o.id, level: o.level, evolved: false });
+    const def = D.WEAPONS[o.id];
+    const parts = [];
+    if (nxt.dmg !== cur.dmg) parts.push(`Шкода ${fmt(cur.dmg)} → <b>${fmt(nxt.dmg)}</b>`);
+    if (nxt.amount !== cur.amount) parts.push(`${UNIT_CAP[def.behavior] || "Снарядів"} ${cur.amount} → <b>${nxt.amount}</b>`);
+    if (nxt.cd !== cur.cd) parts.push(`${def.behavior === "aura" ? "Тік" : "Перезарядка"} ${cur.cd.toFixed(2)} → <b>${nxt.cd.toFixed(2)} с</b>`);
+    if (nxt.area !== cur.area) parts.push(`Область +${Math.round((nxt.area / cur.area - 1) * 100)}%`);
+    if (nxt.speed !== cur.speed) parts.push(`Швидкість +${Math.round((nxt.speed / cur.speed - 1) * 100)}%`);
+    if (nxt.duration !== cur.duration) parts.push(`Тривалість ${fmt(cur.duration)} → <b>${fmt(nxt.duration)} с</b>`);
+    if (nxt.pierce !== cur.pierce && nxt.pierce < 500) parts.push(`Пробиття ${cur.pierce} → <b>${nxt.pierce}</b>`);
+    return parts.join(" · ");
+  }
+  const UNIT_CAP = { sword: "Ударів", wand: "Стріл", knife: "Кинджалів", axe: "Сокир", pool: "Калюж", orbit: "Книг", bolt: "Блискавок", aura: "" };
   function levelText(o) {
-    if (o.kind === "passive") return D.PASSIVES[o.id].desc;
+    if (o.kind === "passive") {
+      const def = D.PASSIVES[o.id];
+      const v = state.stats[def.stat];
+      const show = (x) => STAT_FMT[def.stat] ? STAT_FMT[def.stat](x) : fmt(x);
+      return `${def.desc}<br><span class="now">${STAT_NAME[def.stat]}: ${show(v)} → <b>${show(v + def.per)}</b></span>`;
+    }
     if (o.kind === "gold") return `+${o.v} золота`;
     if (o.kind === "food") return `+${o.v} здоров'я`;
     const def = D.WEAPONS[o.id];
     if (o.kind === "evolve") return def.evo.desc;
-    if (o.level === 1) return def.desc;
-    const d = def.levels[o.level - 2] || {};
-    const parts = [];
-    if (d.amount) parts.push(`+${d.amount} ${UNIT[def.behavior] || "снаряд"}`);
-    if (d.dmg) parts.push(`+${d.dmg} шкоди`);
-    if (d.cd) parts.push(`${d.cd} с перезарядки`);
-    if (d.area) parts.push(`+${Math.round(d.area * 100)}% області`);
-    if (d.speed) parts.push(`+${Math.round(d.speed * 100)}% швидкості`);
-    if (d.duration) parts.push(`+${d.duration} с тривалості`);
-    if (d.pierce) parts.push(`+${d.pierce} пробиття`);
-    return parts.join(", ");
+    if (o.level === 1) {
+      const ws = C.weaponStats(state, { id: o.id, level: 1, evolved: false });
+      return `${def.desc}<br><span class="now">Шкода ${fmt(ws.dmg)} · кожні ${ws.cd.toFixed(1)} с</span>`;
+    }
+    return weaponDelta(o);
+  }
+  // Характеристики героя: назви й формат (множники — у відсотках від бази)
+  const pct = (x) => (x >= 1 ? "+" : "−") + Math.round(Math.abs(x - 1) * 100) + "%";
+  const STAT_NAME = { might: "Шкода", cooldown: "Перезарядка", area: "Область", speed: "Швидкість снарядів", duration: "Тривалість",
+    amount: "Додаткові снаряди", maxHp: "Здоров'я", armor: "Броня", regen: "Відновлення", moveSpeed: "Швидкість руху",
+    magnet: "Радіус збору", growth: "Досвід", greed: "Золото", luck: "Удача" };
+  const STAT_FMT = { might: pct, cooldown: pct, area: pct, speed: pct, duration: pct, moveSpeed: pct, magnet: pct, growth: pct, greed: pct, luck: pct,
+    amount: (x) => "+" + fmt(x), armor: (x) => fmt(x), maxHp: (x) => fmt(x), regen: (x) => fmt(x) + "/с" };
+  function statsHtml(s) {
+    const st = s.stats, base = { might: 1, cooldown: 1, area: 1, speed: 1, duration: 1, amount: 0, armor: 0, regen: 0, moveSpeed: 1, magnet: 1, growth: 1, greed: 1, luck: 1 };
+    const keys = ["might", "cooldown", "area", "amount", "speed", "duration", "maxHp", "armor", "regen", "moveSpeed", "magnet", "growth", "greed", "luck"];
+    return keys.map((k) => {
+      const changed = k === "maxHp" ? true : Math.abs(st[k] - base[k]) > 1e-6;
+      return `<div class="${changed ? "on" : ""}"><span>${STAT_NAME[k]}</span><b>${STAT_FMT[k](st[k])}</b></div>`;
+    }).join("");
   }
   function cardHtml(o) {
     let icon, name, tag = "", cls = "card", extra = "";
@@ -405,6 +442,7 @@
   $("btnPlay").addEventListener("click", startRun);
   $("btnHeroes").addEventListener("click", openHeroes);
   $("btnShop").addEventListener("click", openShop);
+  $("btnResShop").addEventListener("click", openShop);
 
   // ---------- HUD ----------
   let lastHud = {};

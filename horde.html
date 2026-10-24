@@ -146,6 +146,14 @@
   .build .it em { margin-left: auto; font-style: normal; color: var(--gold); font-weight: 700; font-size: 13px; white-space: nowrap; }
   .build .it small { display: block; color: var(--muted); font-size: 12px; line-height: 1.25; }
   .build .it small.ready { color: var(--gold); }
+  .herostats { width: min(100%, 370px); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px 10px; margin-bottom: 8px; font-size: 13px; }
+  .herostats div { display: flex; justify-content: space-between; gap: 6px; color: var(--muted); padding: 2px 0; border-bottom: 1px solid var(--panel); }
+  .herostats div.on { color: var(--ink); }
+  .herostats div.on b { color: var(--gold); }
+  .card .d b { color: var(--ink); }
+  .card .d .now { color: var(--muted); font-size: 13px; }
+  .btn.badge { position: relative; }
+  .btn.badge::after { content: ""; position: absolute; top: -5px; right: -5px; width: 12px; height: 12px; background: var(--red); border: 2px solid var(--night); }
   .lbl { width: min(100%, 370px); font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; }
   @media (prefers-reduced-motion: reduce) { .card { animation: none; } #announce { transition: none; } }
 </style>
@@ -230,6 +238,8 @@
     <div class="screen dim" id="scrPause">
       <h2>Пауза</h2>
       <div class="stats" id="pauseStats"></div>
+      <div class="lbl">Характеристики</div>
+      <div class="herostats" id="pauseHero"></div>
       <div class="lbl">Спорядження</div>
       <div class="build" id="pauseBuild"></div>
       <button class="btn main frame" id="btnResume" type="button">Продовжити</button>
@@ -245,6 +255,7 @@
       <div class="lbl">Спорядження</div>
       <div class="build" id="resBuild"></div>
       <button class="btn main frame" id="btnAgain" type="button">Ще раз</button>
+      <button class="btn frame" id="btnResShop" type="button">Крамниця — витратити золото</button>
       <button class="btn ghost" id="btnMenu" type="button">До меню</button>
     </div>
   </div>

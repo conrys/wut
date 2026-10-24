@@ -88,11 +88,14 @@ function los(ax,az,bx,bz,list=segs){const dx=bx-ax,dz=bz-az;for(const s of list)
 const angDiff=(a,b)=>{let d=(a-b)%(Math.PI*2);if(d>Math.PI)d-=Math.PI*2;if(d<-Math.PI)d+=Math.PI*2;return d};
 function sees(s,h){
   const ex=s.x+Math.sin(s.look)*0.15,ez=s.z+Math.cos(s.look)*0.15,dx=h.x-ex,dz=h.z-ez,d=Math.hypot(dx,dz);
-  if(d>s.range+0.2)return false;if(d<0.55)return true;
+  if(d>s.range+0.2)return false;if(d<0.9)return true;
+  // зовсім поруч шукач «чує» навіть за спиною (якщо між вами нема стіни)
+  if(d<1.35&&los(ex,ez,h.x,h.z))return true;
   if(Math.abs(angDiff(Math.atan2(dx,dz),s.look))>s.fov/2+0.05)return false;
   if(!los(ex,ez,h.x,h.z))return false;
-  // crouching behind a sofa, bed or table hides you from the beam
-  if(h.crouch>0.5&&!los(ex,ez,h.x,h.z,lowSegs))return false;
+  // присів за диваном/ліжком/столом — промінь не бачить, але лише здалеку:
+  // впритул присідання не рятує
+  if(h.crouch>0.5&&d>1.9&&!los(ex,ez,h.x,h.z,lowSegs))return false;
   return true;
 }
 
@@ -363,7 +366,7 @@ function seekerAI(s,dt){
     else if(s.repathT<=0){const t=s.target;s.path=astar(s.x,s.z,tgt?t.x:s.lastSeen[0],tgt?t.z:s.lastSeen[1]);s.pi=0;s.repathT=0.3}
     steerPath(s,dt,s.chase);s.look=s.yaw;return;
   }
-  if(s.state==='look'){s.lookT-=dt;s.vx*=0.85;s.vz*=0.85;s.look=s.lookBase+Math.sin((1.6-s.lookT)*3.2)*1.15;if(s.lookT<=0){s.state='patrol';s.path=null}return}
+  if(s.state==='look'){s.lookT-=dt;s.vx*=0.85;s.vz*=0.85;s.look=s.spin?s.lookBase+(1-Math.max(0,s.lookT)/1.8)*Math.PI*2:s.lookBase+Math.sin((1.6-s.lookT)*3.2)*1.15;if(s.lookT<=0){s.state='patrol';s.path=null;s.spin=false}return}
   if(!s.path||s.pi>=s.path.length){
     if(s.state==='search'||s.path){s.state='look';s.lookT=1.6;s.lookBase=s.yaw;s.path=null;return}
     const opts=waypoints.filter(w=>!s.visited.some(v=>v===w)&&Math.hypot(w[0]-s.x,w[1]-s.z)>2.5);
@@ -421,7 +424,7 @@ function update(dt){
     if(now!==before&&now>0&&now<=3){say(String(now),'num');SFX.beep()}
     if(introT<=0){phase='play';seeker.state=mode==='hide'?'patrol':'idle';seeker.cover=0;
       if(mode==='hide'&&lightsOff){say('Світло вимкнули!','big go');flickerT=0.8;SFX.click()}else say(mode==='hide'?'Шукаю!':'Шукай!','big go');SFX.go();
-      if(mode==='hide')seeker.path=null}
+      if(mode==='hide'){seeker.path=null;seeker.state='look';seeker.spin=true;seeker.lookT=1.8;seeker.lookBase=seeker.yaw}}
   }else if(phase==='play'){
     timer-=dt;
     if(timer<=10&&Math.ceil(timer)!==lastTick){lastTick=Math.ceil(timer);SFX.tick()}
