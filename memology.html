@@ -265,6 +265,7 @@ html.dark-games body { background-color: #17151c; }
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
 <script src="js/core/firebase-config.js"></script>
+<script src="js/core/media-pool.js"></script>
 <script src="js/core/prompt-history.js"></script>
 <script src="js/core/app-settings.js"></script>
 <link rel="stylesheet" href="js/styles/reactions.css">
@@ -307,6 +308,7 @@ html.dark-games body { background-color: #17151c; }
   const BLANK = "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
   const photoCache = {}, photoLoading = {};
   function cardUrl(cardId) {
+    if (G.isCloudCard(cardId)) return window.MediaPool.fileUrl("memology", cardId.slice(2));
     if (!G.isUserCard(cardId)) return "memes/" + encodeURIComponent(cardId);
     if (photoCache[cardId]) return photoCache[cardId];
     if (!photoLoading[cardId]) {

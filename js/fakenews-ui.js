@@ -131,5 +131,22 @@
     return meta && typeof meta.title === "string" && meta.title.trim() ? meta.title.trim() : `Фото від ${p.n}`;
   }
 
-  window.FakeNewsUI = { renderNews, makeLoader, photoTitle, channelIcon, noEmoji, CH_UI };
+  // ---------------- хмарні фото (upload.html) ----------------
+  // Фото пулу адресуються номером у window.FakeNewsPhotos, тому список хмарних
+  // фото фіксується в кімнаті (room.cloud = [{ f: файл, t: підпис }]) — у всіх
+  // телефонів і ТВ однакові номери, навіть якщо хтось щось завантажив посеред гри.
+  const STATIC_POOL = (window.FakeNewsPhotos || []).slice();
+  let cloudKey = "";
+  function syncCloud(room) {
+    const cloud = room && Array.isArray(room.cloud) ? room.cloud.filter((c) => c && typeof c.f === "string") : [];
+    const key = cloud.map((c) => c.f).join("|");
+    if (key === cloudKey || !window.MediaPool) return;
+    cloudKey = key;
+    window.FakeNewsPhotos = STATIC_POOL.concat(cloud.map((c) => ({
+      src: window.MediaPool.fileUrl("fakenews", c.f),
+      title: typeof c.t === "string" && c.t.trim() ? c.t.trim() : "Фото",
+    })));
+  }
+
+  window.FakeNewsUI = { renderNews, makeLoader, photoTitle, channelIcon, noEmoji, CH_UI, syncCloud };
 })();

@@ -154,6 +154,7 @@
     engine.start(username, { useLobby: false });
     await engine.getOrCreateRoom(roomId, SCHEMA, buildFreshRoom);
     await engine.joinRoom(roomId, { asPlayer: false });
+    seedCloudPool();
     if (tickTimer) clearInterval(tickTimer);
     tickTimer = setInterval(tick, TICK_MS);
   }
@@ -161,9 +162,25 @@
     if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
     engine.stop();
   }
+  // Записує в кімнату список хмарних фото, поки ним ще ніхто не скористався
+  // (до першого вибору фото в лобі). Далі список у кімнаті не міняється.
+  function seedCloudPool(retry) {
+    if (!window.MediaPool) return;
+    window.MediaPool.list("fakenews").then((items) => {
+      const room = engine.latestRoom;
+      if (!room && !retry) { setTimeout(() => seedCloudPool(true), 1500); return; }
+      if (!room || !engine.roomRef || room.phase === "round") return;
+      if (room.picks && Object.keys(room.picks).length) return;
+      const list = items.map((it) => ({ f: it.file, t: (it.text || "").slice(0, 80) }));
+      const cur = Array.isArray(room.cloud) ? room.cloud.map((c) => c && c.f).join("|") : "";
+      if (cur === list.map((c) => c.f).join("|")) return;
+      engine.roomRef.child("cloud").set(list.length ? list : null).catch(() => {});
+    });
+  }
   function handleEngineEvent(type, data) {
     if (type !== "room-update") return;
     const room = data.room;
+    if (window.FakeNewsUI) window.FakeNewsUI.syncCloud(room);
     maybeJoinAsPlayer(room);
     if (engine.isHost) progress(room);
     onStateChange(room, { username, host: engine.computeHost(room.players) === username });

@@ -73,7 +73,14 @@
     if (key === "shootSec") return clamp(v || DEFAULT_SHOOT_SEC, MIN_SHOOT_SEC, MAX_SHOOT_SEC);
     return clamp(v || DEFAULT_VOTE_SEC, MIN_VOTE_SEC, MAX_VOTE_SEC);
   }
-  function poolOf() { return Array.isArray(window.MEMOLOGY_CARD_IDS) ? window.MEMOLOGY_CARD_IDS : []; }
+  // вбудовані меми (memes/) + хмарні з upload.html ("c:<файл>", спільні з Мемологією)
+  let cloudIds = [];
+  if (window.MediaPool) window.MediaPool.list("memology").then((items) => { cloudIds = items.map((it) => "c:" + it.file); });
+  function poolOf() { return (Array.isArray(window.MEMOLOGY_CARD_IDS) ? window.MEMOLOGY_CARD_IDS : []).concat(cloudIds); }
+  function poolSrc(f) {
+    return typeof f === "string" && f.indexOf("c:") === 0 && window.MediaPool
+      ? window.MediaPool.fileUrl("memology", f.slice(2)) : "memes/" + f;
+  }
 
   // ------------------------- аватари (як у Смішлісті) -------------------------
   function takenChars(room) {
@@ -187,7 +194,7 @@
     const key = photoKey(p);
     if (photoCache.has(key)) return photoCache.get(key);
     let pr;
-    if (p.k === "pool") pr = Promise.resolve("memes/" + p.f);
+    if (p.k === "pool") pr = Promise.resolve(poolSrc(p.f));
     else {
       const roomId = engine.currentRoomId;
       pr = window.rtdb.ref(`${PHOTOS_PATH}/${roomId}/${p.n}/${p.id}`).get().then((s) => (s.exists() ? s.val() : null)).catch(() => null);

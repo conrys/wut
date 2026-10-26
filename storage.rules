@@ -1,0 +1,27 @@
+rules_version = '2';
+// Firebase Storage — ВСТАВЛЯТИ В КОНСОЛЬ ВРУЧНУ (Storage → Rules), не деплоїти командою:
+// проєкт спільний з іншим застосунком, його правила Storage (якщо є) треба лишити.
+// Якщо в консолі вже є service firebase.storage — додай лише блок match /games41_media/…
+// всередину наявного match /b/{bucket}/o.
+service firebase.storage {
+  match /b/{bucket}/o {
+    // ▼▼▼ Ігротека / 41 Games ▼▼▼
+    // Картинки для ігор з upload.html: читає будь-хто (ігри будують посилання з імені файлу),
+    // пишуть і видаляють лише адміни — ті, в кого є документ games41_admins/{uid} у Firestore.
+    function mediaAdmin() {
+      return request.auth != null
+        && firestore.exists(/databases/(default)/documents/games41_admins/$(request.auth.uid));
+    }
+    match /games41_media/{game}/{file} {
+      allow read: if true;
+      allow create: if mediaAdmin()
+        && game in ['memology', 'fakenews', 'quiplash']
+        && file.matches('^[a-z0-9]+[.](webp|jpg)$')
+        && request.resource.size < 2 * 1024 * 1024
+        && request.resource.contentType.matches('image/(webp|jpeg)');
+      allow update: if false;
+      allow delete: if mediaAdmin();
+    }
+    // ▲▲▲ Ігротека / 41 Games ▲▲▲
+  }
+}

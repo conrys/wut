@@ -309,14 +309,22 @@
   function stop() { Engine.stop(); }
 
   // ------------------------- дії хоста -------------------------
+  let starting = false;
   function startGame(state) {
     const conn = connectedEntries(state.players);
     if (conn.length < MIN_PLAYERS) return;
-    if (!MEMOLOGY_CARD_IDS.length) return;
-    Engine.roomRef.update({
-      phase: "active",
-      deck: { new: shuffle(MEMOLOGY_CARD_IDS), played: [] },
-    }).then(() => startNewRound({ roundNumber: 0, usedPrompts: [] }));
+    // вбудовані картки (memes/) + хмарні з upload.html ("c:<файл>")
+    if (starting) return;   // список хмарних карток вантажиться асинхронно — не стартуємо двічі від подвійного тапу
+    starting = true;
+    const cloud = window.MediaPool ? window.MediaPool.list("memology") : Promise.resolve([]);
+    return cloud.then((items) => {
+      const ids = MEMOLOGY_CARD_IDS.concat(items.map((it) => "c:" + it.file));
+      if (!ids.length) return;
+      return Engine.roomRef.update({
+        phase: "active",
+        deck: { new: shuffle(ids), played: [] },
+      }).then(() => startNewRound({ roundNumber: 0, usedPrompts: [] }));
+    }).finally(() => { starting = false; });
   }
 
   function nextRound(state) {
@@ -396,6 +404,7 @@
   const USER_PHOTO_MAX_CHARS = 140000;
   const MAX_OWN_PHOTOS = 5;
   function photosPath() { return "fakenews_photos/memology-" + Engine.currentRoomId; }
+  function isCloudCard(cardId) { return typeof cardId === "string" && cardId.indexOf("c:") === 0; }
   function isUserCard(cardId) { return typeof cardId === "string" && cardId.indexOf("u:") === 0; }
   function userCardRef(cardId) {
     const rest = cardId.slice(2), i = rest.lastIndexOf(":");
@@ -553,6 +562,7 @@
     addOwnPhoto,
     loadUserCard,
     isUserCard,
+    isCloudCard,
     MAX_OWN_PHOTOS,
     resetMyDeck,
     requestSwap,

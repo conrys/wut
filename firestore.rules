@@ -110,6 +110,31 @@ service cloud.firestore {
       allow update: if false;
       allow delete: if signedIn();
     }
+    // ▽ Картинки для ігор (upload.html) — самодостатній блок, можна вставити в будь-які
+    //   правила консолі як є (ні від чого вище не залежить). Вантажать лише адміни:
+    //   документ games41_admins/{uid} створюється вручну в консолі (поля не важливі).
+    function mediaAdmin() {
+      return request.auth != null && exists(/databases/$(database)/documents/games41_admins/$(request.auth.uid));
+    }
+    match /games41_admins/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;   // upload.html перевіряє, чи ти адмін
+      allow write: if false;
+    }
+    match /games41_media/{mediaId} {
+      allow read: if true;
+      allow create: if mediaAdmin()
+        && request.resource.data.keys().hasOnly(['game', 'file', 'text', 'by', 'uid', 'w', 'h', 'size', 'createdAt'])
+        && request.resource.data.game in ['memology', 'fakenews', 'quiplash']
+        && request.resource.data.file is string && request.resource.data.file.matches('^' + mediaId + '[.](webp|jpg)$')
+        && request.resource.data.text is string && request.resource.data.text.size() <= 120
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.createdAt is number;
+      allow update: if mediaAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text'])
+        && request.resource.data.text is string && request.resource.data.text.size() <= 120;
+      allow delete: if mediaAdmin();
+    }
+    // △ Картинки для ігор
     // ▲▲▲ Ігротека / 41 Games ▲▲▲
 
     // ───────── Домашній кошик ─────────

@@ -127,8 +127,13 @@
 
   async function pickImagePrompt() {
     try { await QUIPLASH_IMAGE_PROMPTS_READY; } catch (e) {}
-    if (!QUIPLASH_IMAGE_PROMPTS.length) return null;
-    const random = () => QUIPLASH_IMAGE_PROMPTS[Math.floor(Math.random() * QUIPLASH_IMAGE_PROMPTS.length)];
+    // вбудовані (ql_img/) + хмарні з upload.html
+    const cloud = window.MediaPool ? await window.MediaPool.list("quiplash") : [];
+    const prompts = QUIPLASH_IMAGE_PROMPTS.concat(cloud.map((it) => ({
+      image: it.url, text: it.text || "Придумайте смішний підпис до цієї картинки",
+    })));
+    if (!prompts.length) return null;
+    const random = () => prompts[Math.floor(Math.random() * prompts.length)];
     if (!window.firebaseReady || typeof db === "undefined" || !db) return random();
     try {
       const snap = await Promise.race([
@@ -139,7 +144,7 @@
       snap.forEach((d) => { history[d.id] = d.data().lastUsedAt; });
       const cooldownMs = IMAGE_COOLDOWN_DAYS * 864e5;
       const t = Date.now();
-      const meta = QUIPLASH_IMAGE_PROMPTS.map((p) => ({ ...p, id: promptId(p.image), lastUsed: history[promptId(p.image)] || 0 }));
+      const meta = prompts.map((p) => ({ ...p, id: promptId(p.image), lastUsed: history[promptId(p.image)] || 0 }));
       const fresh = shuffle(meta.filter((p) => t - p.lastUsed >= cooldownMs));
       const stale = meta.filter((p) => t - p.lastUsed < cooldownMs).sort((a, b) => a.lastUsed - b.lastUsed);
       const pick = fresh[0] || stale[0];

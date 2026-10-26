@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#14161a" />
+<title>Картинки для ігор</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="js/styles/game-header.css">
+<script src="js/core/game-header.js" defer></script>
+<style>
+  :root {
+    --bg: #14161a; --surface-1: #1c1f2b; --surface-2: #262a3a; --surface-3: #31364a;
+    --line: rgba(255,255,255,0.08); --text: #f2f1ec; --text-muted: #8d90a3;
+    --accent: #d9b45c; --ok: #6fbf8a; --danger: #d97070;
+    --font-display: 'Space Grotesk', sans-serif; --font-body: 'Inter', sans-serif;
+    --r-sm: 8px; --r-md: 14px; --r-pill: 999px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; min-height: 100dvh; background: var(--bg); color: var(--text); font-family: var(--font-body); }
+  .page { max-width: 640px; margin: 0 auto; padding: 16px 16px 120px; }
+  h1 { font-family: var(--font-display); font-size: 22px; margin: 4px 0 2px; }
+  h2 { font-family: var(--font-display); font-size: 16px; margin: 26px 0 10px; display: flex; align-items: baseline; gap: 6px; }
+  .muted { color: var(--text-muted); font-size: 13px; line-height: 1.45; }
+  .hidden { display: none !important; }
+  button, label.btn {
+    font: 600 14px var(--font-body); cursor: pointer; touch-action: manipulation; border: none;
+    border-radius: var(--r-sm); padding: 12px 14px; color: var(--text); background: var(--surface-2);
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  button:disabled { opacity: .45; cursor: default; }
+  .btn-primary { background: var(--accent); color: #14161a; }
+
+  .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 14px 0 8px; }
+  .tab { flex-direction: column; gap: 2px; padding: 10px 6px; background: var(--surface-1); border: 1px solid var(--line); }
+  .tab small { color: var(--text-muted); font-weight: 500; font-size: 11px; }
+  .tab.on { border-color: var(--accent); background: var(--surface-2); }
+  .tab.on small { color: var(--accent); }
+
+  .pick { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 12px; }
+  .pick label.btn { padding: 18px 14px; font-size: 15px; background: var(--surface-1); border: 1px dashed rgba(255,255,255,.22); }
+  .pick input { display: none; }
+
+  .queue { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+  .q { display: grid; grid-template-columns: 72px 1fr auto; gap: 10px; align-items: center;
+       background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--r-md); padding: 8px; }
+  .q img { width: 72px; height: 72px; object-fit: cover; border-radius: var(--r-sm); background: var(--surface-2); display: block; }
+  .q .info { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+  .q .meta { font-size: 12px; color: var(--text-muted); }
+  .q .meta b { color: var(--text); font-weight: 600; }
+  .q input[type=text] { width: 100%; font: 500 14px var(--font-body); color: var(--text); background: var(--surface-2);
+       border: 1px solid transparent; border-radius: var(--r-sm); padding: 9px 10px; outline: none; }
+  .q input[type=text]:focus { border-color: var(--accent); }
+  .q input.bad { border-color: var(--danger); }
+  .q .bar { height: 4px; border-radius: 2px; background: var(--surface-2); overflow: hidden; }
+  .q .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+  .q.done { border-color: rgba(111,191,138,.5); }
+  .q.done .bar i { background: var(--ok); }
+  .q.err { border-color: var(--danger); }
+  .q .x { width: 34px; height: 34px; padding: 0; border-radius: var(--r-pill); background: transparent; border: 1px solid var(--line); color: var(--text-muted); }
+
+  .send { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+          background: linear-gradient(to top, var(--bg) 70%, transparent); }
+  .send button { width: 100%; max-width: 608px; margin: 0 auto; display: flex; padding: 15px; font-size: 15px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
+  .cell { position: relative; aspect-ratio: 1; border-radius: var(--r-sm); overflow: hidden; background: var(--surface-1); }
+  .cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .cell .cap { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 6px 4px; font-size: 10px; line-height: 1.25;
+               background: linear-gradient(transparent, rgba(0,0,0,.8)); max-height: 60%; overflow: hidden; }
+  .cell .del { position: absolute; top: 4px; right: 4px; width: 28px; height: 28px; padding: 0; border-radius: var(--r-pill);
+               background: rgba(20,22,26,.75); font-size: 13px; }
+  .empty { padding: 26px 10px; text-align: center; color: var(--text-muted); font-size: 13px;
+           border: 1px dashed var(--line); border-radius: var(--r-md); }
+
+  .gate { margin-top: 40px; text-align: center; }
+  .gate p { color: var(--text-muted); font-size: 14px; line-height: 1.5; }
+  .uid { display: flex; gap: 6px; margin: 14px auto; max-width: 420px; }
+  .uid code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: var(--surface-1);
+              border: 1px solid var(--line); border-radius: var(--r-sm); padding: 11px 10px; font-size: 13px; text-align: left; }
+  ol.steps { text-align: left; color: var(--text-muted); font-size: 13px; line-height: 1.6; max-width: 420px; margin: 0 auto; padding-left: 20px; }
+  ol.steps b { color: var(--text); }
+
+  .toast { position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%); background: var(--surface-3); color: var(--text);
+           padding: 10px 16px; border-radius: var(--r-pill); font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 50; max-width: 90vw; text-align: center; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Картинки для ігор</h1>
+  <div class="muted" id="status">Завантаження…</div>
+
+  <!-- немає входу / не адмін -->
+  <div id="gate" class="gate hidden"></div>
+
+  <div id="app" class="hidden">
+    <div class="tabs" id="tabs"></div>
+    <div class="muted" id="hint"></div>
+
+    <div class="pick">
+      <label class="btn">＋ Обрати фото<input type="file" id="pickFiles" accept="image/*" multiple></label>
+      <label class="btn" aria-label="Зняти на камеру">📷<input type="file" id="pickCamera" accept="image/*" capture="environment"></label>
+    </div>
+    <div class="queue" id="queue"></div>
+
+    <h2>Уже в грі <span class="muted" id="cloudCount"></span></h2>
+    <div class="grid" id="grid"></div>
+    <div class="muted" id="builtin" style="margin-top:10px"></div>
+  </div>
+</div>
+
+<div class="send hidden" id="sendBar"><button class="btn-primary" id="sendBtn">Завантажити</button></div>
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-storage-compat.js"></script>
+<script src="js/core/firebase-config.js"></script>
+<script src="js/core/media-pool.js"></script>
+<script src="js/core/login.js"></script>
+<script src="js/core/back-button.js"></script>
+<script src="js/promts/memology-cards.js"></script>
+<script src="js/promts/fakenews-photos.js"></script>
+<script>
+(function () {
+  const MP = window.MediaPool;
+  const MAX_SIDE = 1280, TARGET_BYTES = 450 * 1024, MAX_BYTES = 1.9 * 1024 * 1024;
+  const BUILTIN = {
+    memology: () => (window.MEMOLOGY_CARD_IDS || []).length,
+    fakenews: () => (window.FakeNewsPhotos || []).length,
+    quiplash: () => 22,
+  };
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const kb = (n) => n >= 1048576 ? (n / 1048576).toFixed(1) + " МБ" : Math.max(1, Math.round(n / 1024)) + " КБ";
+
+  let game = "memology";
+  try { const g = localStorage.getItem("games41_upload_game"); if (MP.GAMES[g]) game = g; } catch (e) {}
+  let queue = [];            // { id, file, blob, type, ext, w, h, url, text, state: "ready"|"up"|"done"|"err", pct }
+  let cloud = { memology: [], fakenews: [], quiplash: [] };
+  let me = null, busy = false;
+
+  function toast(msg) {
+    const t = $("toast"); t.textContent = msg; t.classList.add("show");
+    clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("show"), 2200);
+  }
+
+  // ------------------------- доступ -------------------------
+  function showGate(html) { $("status").textContent = ""; $("gate").innerHTML = html; $("gate").classList.remove("hidden"); }
+
+  function boot() {
+    const s = window.AppAuth && AppAuth.getSession();
+    if (!s) {
+      showGate(`<p>Завантажувати картинки можуть лише адміни.<br>Спершу увійди у свій акаунт.</p>
+        <button class="btn-primary" id="loginBtn">Увійти</button>`);
+      $("loginBtn").onclick = () => AppAuth.openLogin("login");
+      return;
+    }
+    firebase.auth().onAuthStateChanged((user) => {
+      if (!user) return;   // login.js сам скине застарілу сесію й перезавантажить
+      me = { uid: user.uid, name: s.username, guest: !!s.guest };
+      db.collection("games41_admins").doc(user.uid).get()
+        .then((d) => (d.exists ? start() : notAdmin()))
+        .catch(() => notAdmin());
+    });
+  }
+
+  function notAdmin() {
+    showGate(`<p>У <b>${esc(me.name)}</b> поки немає права вантажити картинки.</p>
+      ${me.guest ? `<p>Ти зайшов як гість — у гостя id змінюється. Збережи профіль або увійди в акаунт.</p>` : ""}
+      <div class="uid"><code id="uidText">${esc(me.uid)}</code><button id="copyUid">Копіювати</button></div>
+      <ol class="steps">
+        <li>Скопіюй цей id.</li>
+        <li>Firebase Console → <b>Firestore</b> → колекція <b>games41_admins</b>.</li>
+        <li>«Add document»: Document ID = цей id, будь-яке поле (напр. <b>name</b> = ${esc(me.name)}).</li>
+        <li>Онови цю сторінку.</li>
+      </ol>`);
+    $("copyUid").onclick = () => navigator.clipboard.writeText(me.uid).then(() => toast("Скопійовано"), () => toast("Не вдалось скопіювати"));
+  }
+
+  function start() {
+    $("status").textContent = "Фото стискаються на телефоні (WebP, до " + MAX_SIDE + " px) і одразу з'являються в грі — без деплою.";
+    $("app").classList.remove("hidden");
+    renderTabs();
+    Object.keys(MP.GAMES).forEach(loadCloud);
+  }
+
+  // ------------------------- вкладки й список у грі -------------------------
+  function renderTabs() {
+    $("tabs").innerHTML = Object.entries(MP.GAMES).map(([k, g]) =>
+      `<button class="tab ${k === game ? "on" : ""}" data-g="${k}">${esc(g.label)}<small>${BUILTIN[k]() + cloud[k].length} фото</small></button>`).join("");
+    $("tabs").querySelectorAll(".tab").forEach((b) => b.onclick = () => setGame(b.dataset.g));
+    $("hint").textContent = MP.GAMES[game].hint;
+  }
+  function setGame(g) {
+    if (busy || g === game) return;
+    game = g;
+    try { localStorage.setItem("games41_upload_game", g); } catch (e) {}
+    renderTabs(); renderQueue(); renderGrid();
+  }
+  function loadCloud(g) {
+    return MP.list(g, { fresh: true }).then((items) => { cloud[g] = items; renderTabs(); if (g === game) renderGrid(); });
+  }
+  function renderGrid() {
+    const items = cloud[game].slice().reverse();
+    $("cloudCount").textContent = items.length ? `(${items.length})` : "";
+    $("grid").innerHTML = items.map((it) =>
+      `<div class="cell"><a href="${esc(it.url)}" target="_blank" rel="noopener"><img loading="lazy" alt="" src="${esc(it.url)}"></a>
+        ${it.text && game !== "memology" ? `<div class="cap">${esc(it.text)}</div>` : ""}
+        <button class="del" data-id="${esc(it.id)}" aria-label="Видалити">✕</button></div>`).join("");
+    if (!items.length) $("grid").innerHTML = `<div class="empty" style="grid-column:1/-1">Ще нічого не завантажено — гра бере лише вбудовані</div>`;
+    $("grid").querySelectorAll(".del").forEach((b) => b.onclick = () => remove(b.dataset.id));
+    $("builtin").textContent = `+ ${BUILTIN[game]()} вбудованих у самій грі (керуються через GitHub).`;
+  }
+  function remove(id) {
+    const it = cloud[game].find((x) => x.id === id);
+    if (!it || !confirm("Прибрати цю картинку з гри?")) return;
+    // спершу запис (гра перестає її брати), потім сам файл
+    db.collection(MP.COLLECTION).doc(id).delete()
+      .then(() => firebase.storage().ref(MP.path(it.game, it.file)).delete().catch((e) => {
+        if (e && e.code !== "storage/object-not-found") console.warn(e);
+      }))
+      .then(() => { cloud[game] = cloud[game].filter((x) => x.id !== id); renderTabs(); renderGrid(); toast("Прибрано"); })
+      .catch((e) => toast("Не вийшло: " + (e && e.code || e)));
+  }
+
+  // ------------------------- черга -------------------------
+  function guessText(name) {
+    const base = String(name || "").replace(/\.[^.]+$/, "");
+    if (/^(img|dsc|pxl|photo|image|screenshot|скриншот|signal|telegram|viber|whatsapp)[\W_]|^\d[\d_\- ]{5,}$/i.test(base)) return "";
+    return base.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
+  }
+  async function addFiles(files) {
+    const list = Array.from(files || []).filter((f) => /^image\//.test(f.type) || /\.(jpe?g|png|webp|gif|heic|avif|bmp)$/i.test(f.name));
+    if (!list.length) return;
+    queue = queue.filter((q) => q.state !== "done");
+    for (const f of list) {
+      const item = { id: Math.random().toString(36).slice(2), name: f.name, srcSize: f.size, state: "prep", pct: 0,
+                     text: MP.GAMES[game].text && MP.GAMES[game].text.required ? guessText(f.name) : "" };   // для Fake News підказка з назви файлу
+      queue.push(item); renderQueue();
+      try {
+        Object.assign(item, await compress(f));
+        item.url = URL.createObjectURL(item.blob);
+        item.state = "ready";
+      } catch (e) {
+        console.warn(e); item.state = "err"; item.error = "не вдалось відкрити фото";
+      }
+      renderQueue();
+    }
+  }
+  function renderQueue() {
+    const cfg = MP.GAMES[game].text;
+    $("queue").innerHTML = queue.map((q) => `
+      <div class="q ${q.state === "done" ? "done" : ""} ${q.state === "err" ? "err" : ""}" data-id="${q.id}">
+        <img alt="" src="${q.url || "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="}">
+        <div class="info">
+          ${cfg ? `<input type="text" maxlength="${cfg.max}" placeholder="${esc(cfg.placeholder || cfg.label)}" aria-label="${esc(cfg.label)}" value="${esc(q.text)}" ${q.state === "ready" || q.state === "err" ? "" : "disabled"}>` : ""}
+          <div class="meta">${q.state === "prep" ? "Стискаю…"
+            : q.state === "err" ? `<span style="color:var(--danger)">${esc(q.error)}</span>`
+            : `${kb(q.srcSize)} → <b>${kb(q.blob.size)}</b> · ${q.w}×${q.h}${q.ext === "jpg" ? " · JPEG" : ""}${q.state === "done" ? " · ✓ у грі" : ""}`}</div>
+          <div class="bar"><i style="width:${q.state === "done" ? 100 : q.pct}%"></i></div>
+        </div>
+        <button class="x" aria-label="Прибрати" ${q.state === "up" ? "disabled" : ""}>✕</button>
+      </div>`).join("");
+    $("queue").querySelectorAll(".q").forEach((el) => {
+      const q = queue.find((x) => x.id === el.dataset.id);
+      const inp = el.querySelector("input[type=text]");
+      if (inp) inp.oninput = () => { q.text = inp.value; inp.classList.remove("bad"); };
+      el.querySelector(".x").onclick = () => { if (q.url) URL.revokeObjectURL(q.url); queue = queue.filter((x) => x !== q); renderQueue(); };
+    });
+    const ready = queue.filter((q) => q.state === "ready" || (q.state === "err" && q.blob)).length;
+    $("sendBar").classList.toggle("hidden", !ready && !busy);
+    $("sendBtn").disabled = busy || !ready;
+    $("sendBtn").textContent = busy ? "Завантажую…" : `Завантажити ${ready} в «${MP.GAMES[game].label}»`;
+  }
+
+  // ------------------------- стиснення -------------------------
+  function toBlob(canvas, type, q) { return new Promise((res) => canvas.toBlob(res, type, q)); }
+  async function decode(file) {
+    if (window.createImageBitmap) {
+      try { return await createImageBitmap(file, { imageOrientation: "from-image" }); } catch (e) {}
+    }
+    const url = URL.createObjectURL(file);
+    try {
+      const img = new Image(); img.decoding = "async"; img.src = url;
+      await img.decode();
+      return img;
+    } finally { URL.revokeObjectURL(url); }
+  }
+  async function compress(file) {
+    const src = await decode(file);
+    const sw = src.width || src.naturalWidth, sh = src.height || src.naturalHeight;
+    if (!sw || !sh) throw new Error("empty image");
+    const k = Math.min(1, MAX_SIDE / Math.max(sw, sh));
+    const w = Math.round(sw * k), h = Math.round(sh * k);
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h);   // прозорі PNG — на білому, як у мемах
+    ctx.drawImage(src, 0, 0, w, h);
+    if (src.close) src.close();
+    let type = "image/webp", q = 0.82;
+    let blob = await toBlob(c, type, q);
+    if (!blob || blob.type !== "image/webp") { type = "image/jpeg"; q = 0.85; blob = await toBlob(c, type, q); }   // старий Safari не вміє WebP
+    while (blob && blob.size > TARGET_BYTES && q > 0.5) { q -= 0.08; blob = await toBlob(c, type, q); }
+    if (!blob || blob.size > MAX_BYTES) throw new Error("too big");
+    return { blob, type, ext: type === "image/webp" ? "webp" : "jpg", w, h };
+  }
+
+  // ------------------------- завантаження -------------------------
+  function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  async function uploadOne(q, g) {
+    const id = newId(), file = id + "." + q.ext;
+    const ref = firebase.storage().ref(MP.path(g, file));
+    q.state = "up"; q.pct = 3; q.error = ""; renderQueue();
+    const task = ref.put(q.blob, { contentType: q.type, cacheControl: "public, max-age=31536000, immutable" });
+    task.on("state_changed", (s) => {
+      q.pct = Math.max(3, Math.round(95 * s.bytesTransferred / (s.totalBytes || 1)));
+      const bar = document.querySelector(`.q[data-id="${q.id}"] .bar i`); if (bar) bar.style.width = q.pct + "%";
+    });
+    await task;
+    try {
+      await db.collection(MP.COLLECTION).doc(id).set({
+        game: g, file, text: (q.text || "").trim().slice(0, 120), by: me.name, uid: me.uid,
+        w: q.w, h: q.h, size: q.blob.size, createdAt: Date.now(),
+      });
+    } catch (e) {
+      ref.delete().catch(() => {});   // без запису гра файл не побачить — не лишаємо сміття
+      throw e;
+    }
+    q.state = "done"; q.pct = 100; renderQueue();
+  }
+  async function send() {
+    if (busy) return;
+    const cfg = MP.GAMES[game].text, g = game;
+    const todo = queue.filter((q) => q.blob && (q.state === "ready" || q.state === "err"));
+    if (cfg && cfg.required) {
+      const missing = todo.filter((q) => !(q.text || "").trim());
+      if (missing.length) {
+        renderQueue();
+        missing.forEach((q) => { const i = document.querySelector(`.q[data-id="${q.id}"] input`); if (i) i.classList.add("bad"); });
+        const first = document.querySelector(".q input.bad"); if (first) first.focus();
+        toast("Підпиши кожне фото — гравці бачать підпис");
+        return;
+      }
+    }
+    busy = true; renderQueue();
+    let ok = 0, fail = 0;
+    for (const q of todo) {
+      try { await uploadOne(q, g); ok++; } catch (e) {
+        console.warn(e); fail++; q.state = "err";
+        q.error = e && e.code === "storage/unauthorized" || e && e.code === "permission-denied" ? "немає дозволу (правила Firebase)" : "не завантажилось — спробуй ще";
+        renderQueue();
+      }
+    }
+    busy = false;
+    await loadCloud(g);
+    renderQueue();
+    toast(fail ? `Готово ${ok}, помилок ${fail}` : `Додано ${ok} — уже в грі`);
+  }
+
+  $("pickFiles").onchange = (e) => { addFiles(e.target.files); e.target.value = ""; };
+  $("pickCamera").onchange = (e) => { addFiles(e.target.files); e.target.value = ""; };
+  $("sendBtn").onclick = send;
+  window.addEventListener("beforeunload", (e) => { if (busy) { e.preventDefault(); e.returnValue = ""; } });
+
+  if (!window.firebaseReady || !firebase.storage) { showGate("<p>Немає з'єднання з Firebase. Перевір інтернет і онови сторінку.</p>"); return; }
+  boot();
+})();
+</script>
+</body>
+</html>
