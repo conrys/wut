@@ -85,15 +85,29 @@ const imgCount = (page, sel) => page.$$eval(sel, (els) => els.length);
   await a.waitForFunction(() => window.__uploads.length === 4, null, { timeout: 10000 });
   check("Сміхлист: без підпису ок", true);
 
-  // 6. видалення
+  // 5b. одне фото одразу в три ігри
   await a.click('.tab[data-g="memology"]');
-  await a.waitForFunction(() => document.querySelectorAll("#grid .cell").length === 2);
+  await a.setInputFiles("#pickFiles", [fx("phone.jpg")]);
+  await a.waitForFunction(() => document.querySelector(".q:not(.done) .meta") && !document.querySelector(".q:not(.done) .meta").textContent.includes("Стискаю"), null, { timeout: 15000 });
+  await a.click('.q:not(.done) .g[data-g="fakenews"]');
+  await a.click('.q:not(.done) .g[data-g="quiplash"]');
+  check("поля підпису для вибраних ігор", (await imgCount(a, ".q:not(.done) input[data-t]")) === 2);
+  check("кнопка рахує місця", (await a.textContent("#sendBtn")).includes("3 місця"), await a.textContent("#sendBtn"));
+  await a.fill('.q:not(.done) input[data-t="fakenews"]', "Те саме фото в трьох іграх");
+  await a.click("#sendBtn");
+  await a.waitForFunction(() => window.__uploads.length === 7, null, { timeout: 10000 });
+  await a.waitForFunction(() => document.querySelectorAll(".q .g.ok").length === 3, null, { timeout: 5000 });
+  const multi = (await a.evaluate(() => window.__uploads.slice(4).map((u) => u.p.split("/")[1]))).sort().join(",");
+  check("одне фото → 3 ігри окремими файлами", multi === "fakenews,memology,quiplash", multi);
+
+  // 6. видалення
+  await a.waitForFunction(() => document.querySelectorAll("#grid .cell").length === 3);
   await a.click("#grid .cell .del");
-  await a.waitForFunction(() => document.querySelectorAll("#grid .cell").length === 1 && window.__deleted.length === 1, null, { timeout: 8000 });
+  await a.waitForFunction(() => document.querySelectorAll("#grid .cell").length === 2 && window.__deleted.length === 1, null, { timeout: 8000 });
   check("видалення прибирає запис і файл", true);
   const docs = await a.evaluate(() => firebase.firestore().collection("games41_media").get().then((s) => s.docs.map((d) => d.data())));
-  check("записи в Firestore: memology 1, fakenews 1, quiplash 1",
-    ["memology", "fakenews", "quiplash"].every((g) => docs.filter((d) => d.game === g).length === 1), JSON.stringify(docs.map((d) => [d.game, d.file, d.text])));
+  check("записи в Firestore: memology 2, fakenews 2, quiplash 2",
+    ["memology", "fakenews", "quiplash"].every((g) => docs.filter((d) => d.game === g).length === 2), JSON.stringify(docs.map((d) => [d.game, d.file, d.text])));
   await a.screenshot({ path: path.join(FX, "upload.png"), fullPage: true });
 
   // 7. ігри бачать хмарні картинки
@@ -101,18 +115,18 @@ const imgCount = (page, sel) => page.$$eval(sel, (els) => els.length);
   await wire(g);
   await g.goto(BASE + "/memology.html");
   const mem = await g.evaluate(() => MediaPool.list("memology").then((l) => l.map((x) => x.url)));
-  check("Мемологія отримує хмарний список", mem.length === 1 && mem[0].includes("firebasestorage.googleapis.com"), mem[0]);
+  check("Мемологія отримує хмарний список", mem.length === 2 && mem[0].includes("firebasestorage.googleapis.com"), mem[0]);
   await g.goto(BASE + "/remake.html");
   await g.waitForTimeout(1500);
   const rem = await g.evaluate(() => typeof MEMOLOGY_CARD_IDS !== "undefined" && MediaPool.list("memology").then((l) => l.length));
-  check("Римейк підключає MediaPool", rem === 1);
+  check("Римейк підключає MediaPool", rem === 2);
 
   await g.goto(BASE + "/fakenews.html?room=MEDIA1");
   await g.waitForTimeout(4000);
   const room = await (await fetch(BASE + "/db/fakenews_rooms/MEDIA1.json")).json();
-  check("Fake News: список хмарних фото записано в кімнату", room && Array.isArray(room.cloud) && room.cloud.length === 1 && room.cloud[0].t.includes("Кіт"), JSON.stringify(room && room.cloud));
+  check("Fake News: список хмарних фото записано в кімнату", room && Array.isArray(room.cloud) && room.cloud.length === 2 && room.cloud[0].t.includes("Кіт"), JSON.stringify(room && room.cloud));
   const pool = await g.evaluate(() => ({ n: window.FakeNewsPhotos.length, last: window.FakeNewsPhotos[window.FakeNewsPhotos.length - 1] }));
-  check("Fake News: пул = вбудовані + хмарні", pool.last && pool.last.src.includes("firebasestorage") && pool.last.title.includes("Кіт"), `n=${pool.n}`);
+  check("Fake News: пул = вбудовані + хмарні", pool.last && pool.last.src.includes("firebasestorage") && pool.last.title.includes("трьох іграх"), `n=${pool.n}`);
 
   await g.goto(BASE + "/fakenews-tv.html?room=MEDIA1");
   await g.waitForTimeout(2500);
@@ -122,7 +136,7 @@ const imgCount = (page, sel) => page.$$eval(sel, (els) => els.length);
   await g.goto(BASE + "/quiplash.html");
   await g.waitForTimeout(1500);
   const ql = await g.evaluate(() => MediaPool.list("quiplash").then((l) => l.length));
-  check("Сміхлист отримує хмарний список", ql === 1);
+  check("Сміхлист отримує хмарний список", ql === 2);
 
   const errs = a.errors.concat(g.errors).filter((e) => !/favicon/.test(e));
   check("без JS-помилок", !errs.length, errs.slice(0, 5).join(" || "));

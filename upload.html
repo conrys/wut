@@ -59,6 +59,13 @@
   .q.done { border-color: rgba(111,191,138,.5); }
   .q.done .bar i { background: var(--ok); }
   .q.err { border-color: var(--danger); }
+  .q .tl { display: flex; flex-direction: column; gap: 3px; }
+  .q .tl span { font-size: 11px; color: var(--text-muted); }
+  .q .gs { display: flex; flex-wrap: wrap; gap: 4px; }
+  .q .g { font: 600 11px var(--font-body); padding: 5px 8px; border-radius: var(--r-pill); background: var(--surface-2);
+          color: var(--text-muted); border: 1px solid transparent; }
+  .q .g.on { color: #14161a; background: var(--accent); }
+  .q .g.ok { color: var(--ok); background: transparent; border-color: rgba(111,191,138,.5); }
   .q .x { width: 34px; height: 34px; padding: 0; border-radius: var(--r-pill); background: transparent; border: 1px solid var(--line); color: var(--text-muted); }
 
   .send { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
@@ -249,8 +256,9 @@
     if (!list.length) return;
     queue = queue.filter((q) => q.state !== "done");
     for (const f of list) {
+      // games — куди вантажити (можна кілька), за замовчуванням відкрита вкладка; texts — підпис для кожної гри окремо
       const item = { id: Math.random().toString(36).slice(2), name: f.name, srcSize: f.size, state: "prep", pct: 0,
-                     text: MP.GAMES[game].text && MP.GAMES[game].text.required ? guessText(f.name) : "" };   // для Fake News підказка з назви файлу
+                     games: [game], done: [], texts: { fakenews: guessText(f.name), quiplash: "" } };   // для Fake News підказка з назви файлу
       queue.push(item); renderQueue();
       try {
         Object.assign(item, await compress(f));
@@ -262,30 +270,53 @@
       renderQueue();
     }
   }
+  const editable = (q) => q.state === "ready" || q.state === "err";
+  const todoGames = (q) => q.games.filter((g) => !q.done.includes(g));
   function renderQueue() {
-    const cfg = MP.GAMES[game].text;
-    $("queue").innerHTML = queue.map((q) => `
+    $("queue").innerHTML = queue.map((q) => {
+      const chips = Object.entries(MP.GAMES).map(([g, cfg]) => {
+        const ok = q.done.includes(g), on = q.games.includes(g);
+        return `<button class="g ${ok ? "ok" : on ? "on" : ""}" data-g="${g}" ${ok || !editable(q) ? "disabled" : ""}>${ok ? "✓ " : ""}${esc(cfg.label)}</button>`;
+      }).join("");
+      const inputs = q.games.filter((g) => MP.GAMES[g].text && !q.done.includes(g)).map((g) => {
+        const cfg = MP.GAMES[g].text;
+        return `<label class="tl"><span>${esc(MP.GAMES[g].label)} · ${esc(cfg.required ? cfg.label.toLowerCase() : "завдання (необов'язково)")}</span>
+          <input type="text" data-t="${g}" maxlength="${cfg.max}" placeholder="${esc(cfg.placeholder || "Напр.: Кіт пішов на пенсію")}"
+          value="${esc(q.texts[g] || "")}" ${editable(q) ? "" : "disabled"}></label>`;
+      }).join("");
+      return `
       <div class="q ${q.state === "done" ? "done" : ""} ${q.state === "err" ? "err" : ""}" data-id="${q.id}">
         <img alt="" src="${q.url || "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="}">
         <div class="info">
-          ${cfg ? `<input type="text" maxlength="${cfg.max}" placeholder="${esc(cfg.placeholder || cfg.label)}" aria-label="${esc(cfg.label)}" value="${esc(q.text)}" ${q.state === "ready" || q.state === "err" ? "" : "disabled"}>` : ""}
+          <div class="gs">${chips}</div>
+          ${inputs}
           <div class="meta">${q.state === "prep" ? "Стискаю…"
             : q.state === "err" ? `<span style="color:var(--danger)">${esc(q.error)}</span>`
             : `${kb(q.srcSize)} → <b>${kb(q.blob.size)}</b> · ${q.w}×${q.h}${q.ext === "jpg" ? " · JPEG" : ""}${q.state === "done" ? " · ✓ у грі" : ""}`}</div>
           <div class="bar"><i style="width:${q.state === "done" ? 100 : q.pct}%"></i></div>
         </div>
         <button class="x" aria-label="Прибрати" ${q.state === "up" ? "disabled" : ""}>✕</button>
-      </div>`).join("");
+      </div>`;
+    }).join("");
     $("queue").querySelectorAll(".q").forEach((el) => {
       const q = queue.find((x) => x.id === el.dataset.id);
-      const inp = el.querySelector("input[type=text]");
-      if (inp) inp.oninput = () => { q.text = inp.value; inp.classList.remove("bad"); };
+      el.querySelectorAll("input[data-t]").forEach((inp) => { inp.oninput = () => { q.texts[inp.dataset.t] = inp.value; inp.classList.remove("bad"); }; });
+      el.querySelectorAll(".g[data-g]").forEach((b) => b.onclick = () => {
+        const g = b.dataset.g;
+        q.games = q.games.includes(g) ? q.games.filter((x) => x !== g) : q.games.concat(g);
+        renderQueue();
+      });
       el.querySelector(".x").onclick = () => { if (q.url) URL.revokeObjectURL(q.url); queue = queue.filter((x) => x !== q); renderQueue(); };
     });
-    const ready = queue.filter((q) => q.state === "ready" || (q.state === "err" && q.blob)).length;
-    $("sendBar").classList.toggle("hidden", !ready && !busy);
-    $("sendBtn").disabled = busy || !ready;
-    $("sendBtn").textContent = busy ? "Завантажую…" : `Завантажити ${ready} в «${MP.GAMES[game].label}»`;
+    const pending = queue.filter((q) => q.blob && editable(q) && todoGames(q).length);
+    const places = pending.reduce((n, q) => n + todoGames(q).length, 0);
+    $("sendBar").classList.toggle("hidden", !pending.length && !busy);
+    $("sendBtn").disabled = busy || !pending.length;
+    const oneGame = pending.length && places === pending.length && pending.every((q) => todoGames(q)[0] === todoGames(pending[0])[0]);
+    $("sendBtn").textContent = busy ? "Завантажую…" : !pending.length ? "Завантажити"
+      : oneGame
+        ? `Завантажити ${pending.length} в «${MP.GAMES[todoGames(pending[0])[0]].label}»`
+        : `Завантажити ${pending.length} фото · ${places} ${places < 5 ? "місця" : "місць"}`;
   }
 
   // ------------------------- стиснення -------------------------
@@ -322,54 +353,64 @@
 
   // ------------------------- завантаження -------------------------
   function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
-  async function uploadOne(q, g) {
+  async function uploadOne(q, g, step, steps) {
     const id = newId(), file = id + "." + q.ext;
     const ref = firebase.storage().ref(MP.path(g, file));
-    q.state = "up"; q.pct = 3; q.error = ""; renderQueue();
-    const task = ref.put(q.blob, { contentType: q.type, cacheControl: "public, max-age=31536000, immutable" });
-    task.on("state_changed", (s) => {
-      q.pct = Math.max(3, Math.round(95 * s.bytesTransferred / (s.totalBytes || 1)));
+    const setPct = (k) => {
+      q.pct = Math.max(3, Math.round(100 * (step + k) / steps));
       const bar = document.querySelector(`.q[data-id="${q.id}"] .bar i`); if (bar) bar.style.width = q.pct + "%";
-    });
+    };
+    setPct(0.03);
+    const task = ref.put(q.blob, { contentType: q.type, cacheControl: "public, max-age=31536000, immutable" });
+    task.on("state_changed", (s) => setPct(0.95 * s.bytesTransferred / (s.totalBytes || 1)));
     await task;
     try {
       await db.collection(MP.COLLECTION).doc(id).set({
-        game: g, file, text: (q.text || "").trim().slice(0, 120), by: me.name, uid: me.uid,
+        game: g, file, text: MP.GAMES[g].text ? (q.texts[g] || "").trim().slice(0, 120) : "", by: me.name, uid: me.uid,
         w: q.w, h: q.h, size: q.blob.size, createdAt: Date.now(),
       });
     } catch (e) {
       ref.delete().catch(() => {});   // без запису гра файл не побачить — не лишаємо сміття
       throw e;
     }
-    q.state = "done"; q.pct = 100; renderQueue();
+    setPct(1);
   }
   async function send() {
     if (busy) return;
-    const cfg = MP.GAMES[game].text, g = game;
-    const todo = queue.filter((q) => q.blob && (q.state === "ready" || q.state === "err"));
-    if (cfg && cfg.required) {
-      const missing = todo.filter((q) => !(q.text || "").trim());
-      if (missing.length) {
-        renderQueue();
-        missing.forEach((q) => { const i = document.querySelector(`.q[data-id="${q.id}"] input`); if (i) i.classList.add("bad"); });
-        const first = document.querySelector(".q input.bad"); if (first) first.focus();
-        toast("Підпиши кожне фото — гравці бачать підпис");
-        return;
-      }
+    const todo = queue.filter((q) => q.blob && editable(q) && todoGames(q).length);
+    // підпис обов'язковий там, де його бачать гравці (Fake News)
+    const missing = [];
+    todo.forEach((q) => todoGames(q).forEach((g) => {
+      const cfg = MP.GAMES[g].text;
+      if (cfg && cfg.required && !(q.texts[g] || "").trim()) missing.push([q, g]);
+    }));
+    if (missing.length) {
+      renderQueue();
+      missing.forEach(([q, g]) => { const i = document.querySelector(`.q[data-id="${q.id}"] input[data-t="${g}"]`); if (i) i.classList.add("bad"); });
+      const first = document.querySelector(".q input.bad"); if (first) first.focus();
+      toast("Підпиши фото для Fake News — гравці бачать підпис");
+      return;
     }
-    busy = true; renderQueue();
+    busy = true;
+    todo.forEach((q) => { q.state = "up"; q.pct = 3; q.error = ""; });
+    renderQueue();
     let ok = 0, fail = 0;
+    const touched = new Set();
     for (const q of todo) {
-      try { await uploadOne(q, g); ok++; } catch (e) {
+      const gs = todoGames(q);
+      try {
+        for (let i = 0; i < gs.length; i++) { await uploadOne(q, gs[i], i, gs.length); q.done.push(gs[i]); touched.add(gs[i]); }
+        q.state = "done"; q.pct = 100; ok++;
+      } catch (e) {
         console.warn(e); fail++; q.state = "err";
         q.error = e && e.code === "storage/unauthorized" ? "Storage не пускає — встав правила з storage.rules"
           : e && e.code === "permission-denied" ? "Firestore не пускає — встав правила з firestore.rules"
           : "не завантажилось — спробуй ще" + (e && e.code ? " (" + e.code + ")" : "");
-        renderQueue();
       }
+      renderQueue();
     }
     busy = false;
-    await loadCloud(g);
+    await Promise.all([...touched].map(loadCloud));
     renderQueue();
     toast(fail ? `Готово ${ok}, помилок ${fail}` : `Додано ${ok} — уже в грі`);
   }
