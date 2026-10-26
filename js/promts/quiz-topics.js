@@ -326,12 +326,17 @@ const QUIZ_TOPICS = [
   }
 ];
 
+// Набори питань за номером: «1» — цей файл, «2» — quiz-topics-2.js. Ведучий обирає в лобі.
+(window.QUIZ_SETS = window.QUIZ_SETS || {})["1"] = QUIZ_TOPICS;
+function quizBank(set) { return (window.QUIZ_SETS && window.QUIZ_SETS[set]) || QUIZ_TOPICS; }
+
 // Поле гри — 6 тем × 5 цін, вибраних із банку (js/quiz-game.js → buildFreshBoard).
 // Клітинка поля памʼятає індекс теми (ti) і питання (qi) в банку; старі кімнати без ti
 // читаються як раніше — за позицією.
 function quizQuestionAt(board, ci, qi) {
   const row = board && board[ci];
   const cell = row && row.questions && row.questions[qi];
-  if (row && row.ti != null && cell && cell.qi != null) return QUIZ_TOPICS[row.ti].questions[cell.qi];
+  // row.set — номер набору (нема в старих кімнатах → набір «1»)
+  if (row && row.ti != null && cell && cell.qi != null) return quizBank(row.set || "1")[row.ti].questions[cell.qi];
   return QUIZ_TOPICS[ci].questions[qi];
 }

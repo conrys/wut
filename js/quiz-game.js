@@ -40,7 +40,8 @@
     catchUpGivenTo: null, // { [username]: round } — щоб не сипати бонус тому самому гравцю щохід
     currentPlayerUsername: null,
     currentQuestion: null, // { categoryIndex, questionIndex }
-    board: null, // [{ name, questions:[{played}] }]
+    quizSet: "1", // номер набору питань (window.QUIZ_SETS), обирає ведучий у лобі
+    board: null, // [{ set, ti, name, questions:[{qi, played}] }]
     pendingAnswer: null, // { selectedIndex, at } — кладе активний гравець, забирає хост
     phaseDeadline: null,
     lastEvaluation: null,
@@ -53,16 +54,19 @@
   const PH = window.PromptHistory;
   if (PH) { PH.preload("quiz_topics"); PH.preload("quiz"); }
   function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-  function buildFreshBoard() {
-    const all = QUIZ_TOPICS.map((t, ti) => ti)
-      .filter((ti) => BOARD_VALUES.every((v) => QUIZ_TOPICS[ti].questions.some((q) => q.value === v)));
-    const ordered = PH ? PH.order("quiz_topics", all, (ti) => QUIZ_TOPICS[ti].name) : all.sort(() => Math.random() - 0.5);
+  function quizSetIds() { return Object.keys(window.QUIZ_SETS || { 1: QUIZ_TOPICS }).sort((a, b) => Number(a) - Number(b)); }
+  function buildFreshBoard(set) {
+    set = (window.QUIZ_SETS && window.QUIZ_SETS[set]) ? String(set) : "1";
+    const bank = quizBank(set);
+    const all = bank.map((t, ti) => ti)
+      .filter((ti) => BOARD_VALUES.every((v) => bank[ti].questions.some((q) => q.value === v)));
+    const ordered = PH ? PH.order("quiz_topics", all, (ti) => bank[ti].name) : all.sort(() => Math.random() - 0.5);
     const chosen = ordered.slice(0, BOARD_TOPICS);
-    if (PH) PH.mark("quiz_topics", chosen.map((ti) => QUIZ_TOPICS[ti].name));
+    if (PH) PH.mark("quiz_topics", chosen.map((ti) => bank[ti].name));
     return chosen.map((ti) => {
-      const t = QUIZ_TOPICS[ti];
+      const t = bank[ti];
       return {
-        ti, name: t.name,
+        set, ti, name: t.name,
         questions: BOARD_VALUES.map((v) => {
           const idx = t.questions.map((q, qi) => qi).filter((qi) => t.questions[qi].value === v);
           const qi = PH ? PH.order("quiz", idx, (i) => t.questions[i].text)[0] : pickRandom(idx);
@@ -210,7 +214,7 @@
       if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
     };
 
-    return Engine.getOrCreateRoom(roomId, ROOM_SCHEMA, () => ({ board: buildFreshBoard() })).then(({ room }) => {
+    return Engine.getOrCreateRoom(roomId, ROOM_SCHEMA, () => ({ quizSet: "1", board: buildFreshBoard("1") })).then(({ room }) => {
       const alreadyIn = !!(room.players && room.players[username]);
       const canJoinAsPlayer = alreadyIn || room.phase === "lobby" || room.phase === "countdown";
       // хто вже в кімнаті (перезайшов) — рахунок і монстрик лишаються як були
@@ -258,6 +262,14 @@
     if (connectedSorted(room.players).length < MIN_PLAYERS) return;
     ref.update({ phase: "categorySelect", currentPlayerUsername: pickNextPlayer(room, null), phaseDeadline: null });
   }
+  // Ведучий у лобі обирає набір питань — поле перебудовується з нього
+  function setQuizSet(set) {
+    const room = Engine.latestRoom;
+    set = String(set);
+    if (!room || room.phase !== "lobby" || !quizSetIds().includes(set)) return;
+    if (computeHost(room.players) !== username || (room.quizSet || "1") === set) return;
+    ref.update({ quizSet: set, board: buildFreshBoard(set) });
+  }
   function skipQuestion() {
     const room = Engine.latestRoom;
     if (!room || room.phase !== "questionActive") return;
@@ -271,7 +283,8 @@
   function resetGame() {
     const roomId = Engine.currentRoomId;
     if (!roomId) return Promise.resolve();
-    return Engine.forceResetRoom(roomId, ROOM_SCHEMA, () => ({ board: buildFreshBoard() })).then(() => {
+    const set = (Engine.latestRoom && Engine.latestRoom.quizSet) || "1";   // «Заново» лишає вибраний квіз
+    return Engine.forceResetRoom(roomId, ROOM_SCHEMA, () => ({ quizSet: set, board: buildFreshBoard(set) })).then(() => {
       return Engine.joinRoom(roomId, { extra: { score: 0, ...avatarFor(Engine.latestRoom) } });
     });
   }
@@ -339,7 +352,7 @@
         ref.update({
           phase: "categorySelect",
           round: (room.round || 1) + 1,
-          board: buildFreshBoard(),
+          board: buildFreshBoard(room.quizSet || "1"),
           currentPlayerUsername: pickNextPlayer(room, room.currentPlayerUsername),
           currentQuestion: null,
           phaseDeadline: null,
@@ -429,6 +442,8 @@
     cycleAvatar,
     submitAnswer,
     forceStart,
+    setQuizSet,
+    quizSetIds,
     skipQuestion,
     forceNextTurn,
     resetGame,

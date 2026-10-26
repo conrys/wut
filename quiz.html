@@ -95,6 +95,7 @@ body { background:
 /* фінал */
 .qz-final .pp-pod.p1 .col { background: var(--accent); color: var(--accent-ink); }
 .qz-final .pp-pod .col { font-weight: 400; font-size: 18px; }
+#setBtns button:disabled { cursor: default; }
 </style>
 </head>
 <body>
@@ -120,6 +121,9 @@ body { background:
     <div class="pp-card"><div class="pp-h"><span data-ic="users"></span> Гравці <span class="cnt" id="lobbyCount"></span></div>
       <div class="pp-players" id="playersList"></div>
       <div class="pp-note" style="margin-top:10px">Торкнись своєї аватарки, щоб змінити персонажа</div></div>
+    <div class="pp-card"><div class="pp-h"><span data-ic="star"></span> Квіз</div>
+      <div class="pp-seg" id="setBtns"></div>
+      <div class="pp-note" id="setNote" style="margin-top:8px"></div></div>
     <div class="pp-note" id="lobbyHint"></div>
     <details class="pp-card pp-rules"><summary>Як грати</summary><ol>
       <li>Гравці ходять по черзі: обираєш тему й вартість, відповідаєш на питання.</li>
@@ -162,6 +166,7 @@ body { background:
 <link rel="stylesheet" href="js/styles/reactions.css">
 <script src="js/core/login.js"></script>
 <script src="js/promts/quiz-topics.js"></script>
+<script src="js/promts/quiz-topics-2.js"></script>
 <script src="js/core/online-engine.js"></script>
 <script src="js/quiplash-avatars.js"></script>
 <script src="js/quiplash-sounds.js"></script>
@@ -237,7 +242,20 @@ body { background:
     $("countdownBox").classList.toggle("hidden", !cd);
     $("lobbyHint").textContent = cd ? "" : conn.length < Q.MIN_PLAYERS ? `Потрібно мінімум ${Q.MIN_PLAYERS} гравці онлайн`
       : ctx.host && !ctx.spectating ? "Усі на місці? Тисни «Почати гру»" : `Чекаємо, поки ${hostName || "ведучий"} почне гру`;
+    renderSets(state, ctx);
     updateCountdown();
+  }
+  // вибір набору питань: усі бачать, змінює лише ведучий (до старту)
+  function renderSets(state, ctx) {
+    const cur = state.quizSet || "1", host = !!ctx.host && !ctx.spectating && state.phase === "lobby";
+    const ids = Q.quizSetIds();
+    if (paint("setBtns", cur + "|" + host + "|" + ids.join(","), ids.map((id) =>
+      `<button class="${id === cur ? "selected" : ""}" data-set="${id}" ${host ? "" : "disabled"}>Квіз ${id}</button>`).join(""))) {
+      $("setBtns").querySelectorAll("[data-set]").forEach((b) => b.addEventListener("click", () => { Q.setQuizSet(b.dataset.set); sfx("pop"); }));
+    }
+    const n = (window.QUIZ_SETS[cur] || []).length;
+    $("setNote").textContent = host ? `Квіз ${cur}: ${n} тем, на поле йде 6. Обери номер — поле збереться заново.`
+      : `Квіз ${cur} · обирає ведучий`;
   }
   function updateCountdown() {
     const s = lastState;
