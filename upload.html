@@ -165,7 +165,7 @@
       me = { uid: user.uid, name: s.username, guest: !!s.guest };
       db.collection("games41_admins").doc(user.uid).get()
         .then((d) => (d.exists ? start() : notAdmin()))
-        .catch(() => notAdmin());
+        .catch((e) => (e && e.code === "permission-denied" ? noRules("Firestore") : notAdmin()));
     });
   }
 
@@ -180,6 +180,16 @@
         <li>Онови цю сторінку.</li>
       </ol>`);
     $("copyUid").onclick = () => navigator.clipboard.writeText(me.uid).then(() => toast("Скопійовано"), () => toast("Не вдалось скопіювати"));
+  }
+
+  // Правила Firestore/Storage у консолі ще без блоку «Картинки для ігор» — база відмовляє в читанні.
+  function noRules(where) {
+    showGate(`<p>База не пускає: у консолі Firebase ще немає правил для картинок (${esc(where)}).</p>
+      <ol class="steps">
+        <li>Firebase Console → <b>Firestore → Rules</b>: встав блок між <b>▽ Картинки для ігор</b> і <b>△</b> з файлу <b>firestore.rules</b> (перед останніми двома <b>}</b>) → Publish.</li>
+        <li><b>Storage → Rules</b>: блок <b>match /games41_media/…</b> з файлу <b>storage.rules</b> → Publish.</li>
+        <li>Онови цю сторінку.</li>
+      </ol>`);
   }
 
   function start() {
@@ -352,7 +362,9 @@
     for (const q of todo) {
       try { await uploadOne(q, g); ok++; } catch (e) {
         console.warn(e); fail++; q.state = "err";
-        q.error = e && e.code === "storage/unauthorized" || e && e.code === "permission-denied" ? "немає дозволу (правила Firebase)" : "не завантажилось — спробуй ще";
+        q.error = e && e.code === "storage/unauthorized" ? "Storage не пускає — встав правила з storage.rules"
+          : e && e.code === "permission-denied" ? "Firestore не пускає — встав правила з firestore.rules"
+          : "не завантажилось — спробуй ще" + (e && e.code ? " (" + e.code + ")" : "");
         renderQueue();
       }
     }
