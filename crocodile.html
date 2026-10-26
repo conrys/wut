@@ -67,6 +67,9 @@ body { background:
 <body>
 <div id="app"><div class="pp-wrap">
   <section class="pp-view" id="view-setup">
+    <div class="pp-card hidden" id="resumeCard" style="border-color:var(--accent)"><div class="pp-h">Незавершена гра</div>
+      <div class="cr-status" id="resumeInfo" style="margin:0 0 12px"></div>
+      <button class="pp-btn pp-primary pp-block pp-big" id="resumeBtn"><span data-ic="play"></span> Продовжити гру</button></div>
     <div class="pp-hero"><span data-emblem></span><h1>Кроко<span>дил</span></h1><p>Один телефон по колу: покажи слово жестами — без слів і звуків. Хто вгадав, той показує наступне.</p></div>
     <div class="pp-card"><div class="pp-h">Тема</div><div class="cr-themes" id="themeSeg"></div>
       <div class="pp-label">Складність</div><div class="pp-seg" id="diffSeg"></div>
@@ -80,6 +83,7 @@ body { background:
 
   <section class="pp-view hidden" id="view-ready">
     <div class="cr-score"><b id="readyScore">0</b><small id="readyScoreLbl">вгадано</small></div>
+    <button class="pp-btn pp-ghost" id="editScoreBtn" style="min-height:36px;padding:0 14px;font-size:13px;margin:-6px auto 0;display:flex">✎ Виправити рахунок</button>
     <div class="cr-status" id="readyStatusLine">Передай телефон першому гравцю</div>
     <button class="cr-pass" id="readyCircle"><span data-ic="eye"></span><b>Я готовий — показати слово</b></button>
     <div class="pp-note">Інші — не підглядайте!</div>
@@ -157,6 +161,22 @@ body { background:
   let usedWords = new Set(); // показані за гру слова — спільно для всіх тем і рівнів
   let guessed = [];
 
+  // ---- збереження гри: оновлення сторінки чи закрита вкладка не скидають рахунок ----
+  const SAVE_KEY = "croc_game_v1", SAVE_TTL = 24 * 60 * 60 * 1000;
+  let playing = false;
+  function saveGame() {
+    if (!playing) return;
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify({ theme, difficulty, timeLimit, sessionTotal, guessed, used: [...usedWords], ts: Date.now() })); } catch (e) {}
+  }
+  function clearGame() { playing = false; try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
+  function loadGame() {
+    try {
+      const g = JSON.parse(localStorage.getItem(SAVE_KEY) || "null");
+      if (!g || Date.now() - g.ts > SAVE_TTL || !Number.isFinite(g.sessionTotal)) return null;
+      return g;
+    } catch (e) { return null; }
+  }
+
   // ---- налаштування кнопками ----
   $("themeSeg").innerHTML = `<button class="rnd" data-v="random">Випадкова тема</button>` + CROCODILE_THEMES.map((t) => `<button data-v="${esc(t.name)}">${esc(t.name)}</button>`).join("");
   $("diffSeg").innerHTML = [["easy", "Легка"], ["medium", "Середня"], ["hard", "Складна"]].map(([v, l]) => `<button data-v="${v}">${l}</button>`).join("");
@@ -192,6 +212,7 @@ body { background:
     usedWords.add(pick.w);
     currentWord = pick.w;
     currentThemeName = pick.t;
+    saveGame();
   }
 
   // ---- таймер слова ----
@@ -238,20 +259,20 @@ body { background:
 
   $("correctBtn").addEventListener("click", () => {
     stopTimer();
-    sessionTotal += 1; guessed.push(currentWord);
+    sessionTotal += 1; guessed.push(currentWord); saveGame();
     sfx("ding"); buzz([20, 30, 20]);
     setReady("Вгадано! Передай телефон тому, хто вгадав", "good");
   });
   $("skipBtn").addEventListener("click", () => { stopTimer(); showWord(); }); // той самий тримач, нове слово одразу
 
   $("startBtn").addEventListener("click", () => {
-    sessionTotal = 0; usedWords = new Set(); guessed = [];
+    sessionTotal = 0; usedWords = new Set(); guessed = []; playing = true; saveGame();
     setReady("Передай телефон першому гравцю");
   });
   $("readyCircle").addEventListener("click", showWord);
 
   function finishGame() {
-    stopTimer();
+    stopTimer(); clearGame();
     $("finalScoreVal").textContent = String(sessionTotal);
     $("finalLbl").textContent = plural(sessionTotal, "слово вгадали разом", "слова вгадали разом", "слів вгадали разом");
     $("finalWordsCard").classList.toggle("hidden", !guessed.length);
@@ -263,9 +284,38 @@ body { background:
   }
   $("endGameFromReadyBtn").addEventListener("click", () => { if (confirm("Завершити гру?")) finishGame(); });
   $("endGameFromActiveBtn").addEventListener("click", () => { if (confirm("Завершити гру?")) finishGame(); });
-  $("newGameBtn").addEventListener("click", () => { sessionTotal = 0; usedWords = new Set(); guessed = []; paintSetup(); showView("setup"); });
+  $("newGameBtn").addEventListener("click", () => { sessionTotal = 0; usedWords = new Set(); guessed = []; paintSetup(); showResume(); showView("setup"); });
+
+  // виправити рахунок вручну (наприклад, перенести з іншого телефона чи старої вкладки)
+  $("editScoreBtn").addEventListener("click", () => {
+    const v = prompt("Скільки слів уже вгадано?", String(sessionTotal));
+    if (v === null) return;
+    const n = parseInt(String(v).trim(), 10);
+    if (!Number.isFinite(n) || n < 0 || n > 9999) { alert("Впиши число від 0"); return; }
+    sessionTotal = n; saveGame();
+    setReady($("readyStatusLine").textContent, $("readyStatusLine").className.replace("cr-status", "").trim());
+  });
+
+  // незавершена гра після оновлення сторінки
+  function showResume() {
+    const g = loadGame();
+    $("resumeCard").classList.toggle("hidden", !g);
+    if (!g) return;
+    const th = g.theme === "random" ? "випадкова тема" : g.theme;
+    $("resumeInfo").textContent = `${g.sessionTotal} ${plural(g.sessionTotal, "слово вгадано", "слова вгадано", "слів вгадано")} · ${th}. «Почати гру» нижче — нова гра з нуля.`;
+  }
+  $("resumeBtn").addEventListener("click", () => {
+    const g = loadGame(); if (!g) { showResume(); return; }
+    if (CROCODILE_THEMES.some((t) => t.name === g.theme) || g.theme === "random") theme = g.theme;
+    if (["easy", "medium", "hard"].includes(g.difficulty)) difficulty = g.difficulty;
+    if ([0, 60, 90, 120].includes(g.timeLimit)) timeLimit = g.timeLimit;
+    sessionTotal = g.sessionTotal; guessed = Array.isArray(g.guessed) ? g.guessed : []; usedWords = new Set(Array.isArray(g.used) ? g.used : []);
+    playing = true; saveGame(); sfx("whoosh");
+    setReady("Продовжуємо! Передай телефон наступному гравцю");
+  });
 
   paintSetup();
+  showResume();
   showView("setup");
 })();
 </script>
