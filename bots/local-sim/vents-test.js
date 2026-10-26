@@ -5,7 +5,7 @@ const ok = (n, c, x) => console.log((c ? "✓ " : "✗ ") + n + (x ? "  — " + 
 (async () => {
   const b = await launch(); const p = await phone(b, null, { viewport: { width: 390, height: 760 } });
   const maps = [];
-  for (const lvl of [1, 3, 5, 7, 9, 13]) {
+  for (const lvl of [1, 3, 5, 7, 9, 11, 13]) {
     await p.goto(BASE + "/ads/khovanky/play.html"); await p.evaluate((l) => { localStorage.setItem("hns_level", String(l)); localStorage.setItem("hns_dark", "1"); }, lvl);
     await p.reload(); await p.waitForTimeout(1500); await p.click("#ovBtn"); await p.waitForTimeout(500);
     const v = await p.evaluate(() => HNSGame.vents.map((v) => ({ x: +v.x.toFixed(1), z: +v.z.toFixed(1), pair: v.pair, to: v.to })));

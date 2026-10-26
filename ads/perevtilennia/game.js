@@ -11,7 +11,11 @@ renderer.shadowMap.enabled=true;renderer.shadowMap.type=T3.PCFSoftShadowMap;
 const scene=new T3.Scene();scene.background=new T3.Color('#9ED38A');
 const camera=new T3.PerspectiveCamera(46,1,0.5,120);
 const fx=$('fx'),fctx=fx.getContext('2d');let W,H;
-function resize(){W=innerWidth;H=innerHeight;renderer.setSize(W,H,false);camera.aspect=W/H;camera.updateProjectionMatrix();const d=Math.min(2,devicePixelRatio||1);fx.width=W*d;fx.height=H*d;fctx.setTransform(d,0,0,d,0,0)}
+// Однаковий огляд у будь-якій орієнтації: кут 60° завжди по довшій стороні екрана,
+// тож телефон «лежачи» показує стільки ж карти, скільки «стоячи» (просто повернуто).
+const VIEW_LONG=60*Math.PI/180;
+function resize(){W=innerWidth;H=innerHeight;renderer.setSize(W,H,false);camera.aspect=W/H;
+  camera.fov=(W>H?2*Math.atan(Math.tan(VIEW_LONG/2)*H/W):VIEW_LONG)*180/Math.PI;camera.updateProjectionMatrix();const d=Math.min(2,devicePixelRatio||1);fx.width=W*d;fx.height=H*d;fctx.setTransform(d,0,0,d,0,0)}
 addEventListener('resize',resize);resize();
 
 const hemi=new T3.HemisphereLight(0xEAF2FF,0xB59C82,0.52);scene.add(hemi);
@@ -547,7 +551,7 @@ function update(dt){
   if(cone.visible)updateCone(coneOwner);
   hemi.intensity=0.52;sun.intensity=0.62;flash.intensity=0;glow.intensity=0;
   // camera
-  const a=W/H,far=(a<0.8?1.3:1)*(player&&player.role==='hider'?1.18:1);
+  const a=W/H,far=1*(player&&player.role==='hider'?1.18:1);
   const fol=player,oy=9.2*far,oz=6.6*far;
   const want=new T3.Vector3(fol.x,oy,fol.z+oz),lookAt=new T3.Vector3(fol.x,0,fol.z-0.4);
   camPos.lerp(want,Math.min(1,dt*(camBlend<1?60:5)));camLook.lerp(lookAt,Math.min(1,dt*(camBlend<1?60:6)));camBlend=1;
@@ -800,7 +804,7 @@ let last=performance.now();
 function frame(now){const dt=Math.min(0.1,(now-last)/1000);last=now;
   if(phase==='lobby'){T+=dt;mpTick(dt)}
   if(phase==='menu'||(phase==='lobby'&&seeker&&!MP.g)){if(phase==='menu')T+=dt;seeker.look=seeker.yaw=Math.PI+Math.sin(T*0.8)*0.9;updateCone(seeker);cone.visible=true;for(const c of chars)animate(c,dt);
-    const a=W/H,far=a<0.8?1.3:1;camera.position.set(TX(11)+Math.sin(T*0.15)*1.5,9.5*far,TZ(8.6)+7.5*far);camera.lookAt(TX(11),0,TZ(8.6)-0.6)}
+    const a=W/H,far=1;camera.position.set(TX(11)+Math.sin(T*0.15)*1.5,9.5*far,TZ(8.6)+7.5*far);camera.lookAt(TX(11),0,TZ(8.6)-0.6)}
   else if(phase!=='lobby')update(dt);
   music(dt);
   renderer.render(scene,camera);drawFx(dt);requestAnimationFrame(frame)}
