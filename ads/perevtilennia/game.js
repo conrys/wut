@@ -618,7 +618,7 @@ function drawFx(dt){
     fctx.beginPath();fctx.moveTo(-6,h/2-1);fctx.lineTo(0,h/2+7);fctx.lineTo(6,h/2-1);fctx.fill();
     fctx.fillStyle='#1D1A26';fctx.textAlign='center';fctx.textBaseline='middle';fctx.fillText(p.text,0,2);fctx.restore();fctx.globalAlpha=1}
   pops=pops.filter(p=>p.t<1.3);
-  if(MP.on&&(phase==='play'||phase==='intro'||phase==='end'))for(const c of chars){if(!c.nick||c.vis<0.5)continue;_p.set(c.x,1.45,c.z).project(camera);if(_p.z>1)continue;
+  if(MP.on&&(phase==='play'||phase==='intro'||phase==='end'))for(const c of chars){if(!c.nick||c.vis<0.5)continue;if(phase!=='end'&&c.role==='hider'&&!c.caught&&!c.isPlayer)continue;/* нік над предметом видав би, хто де сховався */_p.set(c.x,1.45,c.z).project(camera);if(_p.z>1)continue;
     const x=(_p.x+1)/2*W,y=(1-_p.y)/2*H;fctx.font='800 13px '+FONT;const t=c.isPlayer?'Ти':c.nick,w=fctx.measureText(t).width+12;
     fctx.fillStyle='rgba(29,26,38,.55)';fctx.beginPath();fctx.roundRect(x-w/2,y-10,w,19,9);fctx.fill();fctx.fillStyle='#fff';fctx.textAlign='center';fctx.textBaseline='middle';fctx.fillText(t,x,y+1)}
   if(phase==='play'){

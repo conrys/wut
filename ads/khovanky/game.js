@@ -49,6 +49,7 @@ function buildWorld(mi,fxp,fzp){
     let tall=0;for(const b of world.tallBoxes){const cx=Math.max(b[0],Math.min(x,b[2])),cz=Math.max(b[1],Math.min(z,b[3]));if(Math.hypot(x-cx,z-cz)<0.75)tall++}
     if(blocked>=7)spots.push({x,z,room,score:blocked+tall*5})}
   waypoints=world.def.waypoints.map(([x,z])=>snap(TX(x),TZ(z)));
+  buildVents();
 }
 
 /* ---------- navigation ---------- */
@@ -75,6 +76,43 @@ function astar(x0,z0,x1,z1){
   for(let k=0;k<raw.length;k++){const nxt=raw[k+1];if(nxt&&lineFree(ax,az,nxt[0],nxt[1]))continue;out.push(raw[k]);[ax,az]=raw[k]}
   return out;
 }
+
+/* ---------- люки-телепорти (як вентиляція в Among Us) ----------
+   На кожній карті 4 люки, зʼєднані попарно (два кольори). Місця беруться з точок карти
+   детерміновано, тож у всіх телефонів у мережевій грі люки однакові. Користуються лише хованці. */
+const VENT_COLORS=['#3CC8C8','#C27BFF'],VENT_CD=12,VENT_R=0.72;
+let vents=[],ventGroup=null;
+const ventRimMats=VENT_COLORS.map(c=>new T3.MeshBasicMaterial({color:c,transparent:true,opacity:0.9,depthWrite:false}));
+const ventBase=new T3.MeshBasicMaterial({color:'#262A35'}),ventSlatMat=new T3.MeshBasicMaterial({color:'#4A5266'});
+const ventBaseGeo=new T3.CylinderGeometry(0.44,0.44,0.04,24),ventRimGeo=new T3.RingGeometry(0.44,0.56,32).rotateX(-Math.PI/2),ventSlatGeo=new T3.BoxGeometry(0.62,0.02,0.07);
+function buildVents(){
+  if(ventGroup)scene.remove(ventGroup);ventGroup=new T3.Group();scene.add(ventGroup);vents=[];
+  const sp=[TX(world.def.spawn[0]),TZ(world.def.spawn[1])],dist=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
+  const cand=waypoints.filter(w=>dist(w,sp)>3);if(cand.length<4)return;
+  // найвіддаленіші одна від одної точки (жадібно, без випадковості)
+  const pick=[cand.reduce((a,b)=>dist(b,sp)>dist(a,sp)?b:a)];
+  while(pick.length<4){let best=null,bd=-1;for(const c of cand){if(pick.includes(c))continue;const d=Math.min(...pick.concat([sp]).map(q=>dist(c,q)));if(d>bd){bd=d;best=c}}pick.push(best)}
+  // пари так, щоб кожен стрибок був якомога довшим
+  const opts=[[[0,1],[2,3]],[[0,2],[1,3]],[[0,3],[1,2]]];
+  const pairs=opts.reduce((a,o)=>Math.min(...o.map(([i,j])=>dist(pick[i],pick[j])))>Math.min(...a.map(([i,j])=>dist(pick[i],pick[j])))?o:a);
+  pairs.forEach(([i,j],k)=>{vents.push({x:pick[i][0],z:pick[i][1],pair:k,to:vents.length+1});vents.push({x:pick[j][0],z:pick[j][1],pair:k,to:vents.length-1})});
+  for(const v of vents){const g=new T3.Group();g.position.set(v.x,0.02,v.z);
+    const b=new T3.Mesh(ventBaseGeo,ventBase);g.add(b);
+    for(let s=-1;s<=1;s++){const sl=new T3.Mesh(ventSlatGeo,ventSlatMat);sl.position.set(0,0.03,s*0.16);g.add(sl)}
+    const rim=new T3.Mesh(ventRimGeo,ventRimMats[v.pair]);rim.position.y=0.035;g.add(rim);v.mesh=g;ventGroup.add(g)}
+}
+function ventNear(ch){for(const v of vents)if(Math.hypot(v.x-ch.x,v.z-ch.z)<VENT_R)return v;return null}
+function ventJump(ch){
+  const v=ventNear(ch);if(!v||ch.role!=='hider'||ch.caught||(ch.ventCD||0)>0)return false;
+  const d=vents[v.to],col=VENT_COLORS[v.pair],heard=ch.isPlayer||!player||Math.hypot(ch.x-player.x,ch.z-player.z)<7||Math.hypot(d.x-player.x,d.z-player.z)<7;
+  puffRing(ch.x,ch.z,12,col);ripple(ch.x,ch.z,col);
+  ch.x=d.x;ch.z=d.z;ch.vx=ch.vz=0;ch.path=null;ch.ventCD=VENT_CD;
+  puffRing(d.x,d.z,12,col);ripple(d.x,d.z,col);
+  if(heard)SFX.vent();
+  return true;
+}
+/* бот-хованець: найближчий люк, до якого ближче мені, ніж шукачу */
+function ventFor(h,s){let best=null,bd=4.5;for(const v of vents){const dh=Math.hypot(v.x-h.x,v.z-h.z),ds=Math.hypot(v.x-s.x,v.z-s.z);if(dh<bd&&dh<ds-0.8){bd=dh;best=v}}return best}
 
 /* ---------- vision ---------- */
 function rayHit(ox,oz,ang,range){
@@ -189,6 +227,7 @@ const SFX={
   lose:()=>[392,330,262].forEach((f,i)=>tone(f,0.26,{type:'triangle',vol:0.12,delay:i*0.14})),
   click:()=>{tone(120,0.05,{type:'square',vol:0.12});tone(80,0.12,{type:'sine',vol:0.1,delay:0.03})},
   achoo:()=>{tone(700,0.08,{type:'sine',vol:0.05,slide:1.4});tone(500,0.18,{type:'sawtooth',vol:0.04,slide:0.5,delay:0.12})},
+  vent:()=>{tone(260,0.2,{type:'sawtooth',vol:0.05,slide:2.4});tone(880,0.14,{type:'sine',vol:0.06,slide:0.5,delay:0.14})},
 };
 let musicT=0,musicStep=0;const PENTA=[0,2,4,7,9,12,14,16];
 function music(dt){if(muted||!AC||phase==='menu')return;musicT-=dt;if(musicT>0)return;
@@ -329,8 +368,9 @@ function hiderAI(h,dt){
   h.repathT-=dt;
   if((seen||d<2.2)&&h.repathT<=0){
     if(rescuer===h){rescuer=null;h.cool=12}
-    const t=fleeTarget(h,s);if(t){h.path=astar(h.x,h.z,t[0],t[1]);h.pi=0}h.state='flee';h.repathT=seen?0.9:1.4}
+    const vv=(h.ventCD||0)<=0&&!MP.on?ventFor(h,s):null,t=vv?[vv.x,vv.z]:fleeTarget(h,s);if(t){h.path=astar(h.x,h.z,t[0],t[1]);h.pi=0}h.ventGoal=!!vv;h.state='flee';h.repathT=seen?0.9:1.4}
   if(h.state==='flee'){
+    if(h.ventGoal&&ventNear(h)&&ventJump(h)){h.ventGoal=false;const sp=nookFor(h,s);if(sp){h.spot=sp;h.path=astar(h.x,h.z,sp.x,sp.z);h.pi=0;h.state='toSpot'}else{h.state='hidden';h.restT=3}return}
     const done=steerPath(h,dt,h.flee);if(Math.random()<dt*7)puff(h.x,h.z,0.08,0.5);
     // once out of sight, slip into a proper nook instead of freezing in the open
     if(done&&!seen&&d>3.2){const sp=nookFor(h,s);if(sp){h.spot=sp;h.path=astar(h.x,h.z,sp.x,sp.z);h.pi=0;h.state='toSpot'}else{h.state='hidden';h.restT=3}}
@@ -446,6 +486,8 @@ function update(dt){
     if(!MP.on||MP.host)for(const c of chars){if(c.role==='hider'&&!c.isPlayer&&!c.remote)hiderAI(c,dt)}
     if(mode==='hide'&&!MP.on)seekerAI(seeker,dt);
   }
+  for(const c of chars)if(c.ventCD>0)c.ventCD-=dt;
+  updVentUI();
   const steps=dt>0.03?2:1;for(let k=0;k<steps;k++)for(const c of chars)if(!c.remote&&!c.netBot)integrate(c,dt/steps);
   if(MP.on)mpFollow(dt);
   // catches and rescues
@@ -494,6 +536,21 @@ function update(dt){
   // HUD
   if(phase==='play'||phase==='intro'){const t=Math.ceil(phase==='intro'?timer:timer);$('timer').textContent=Math.floor(t/60)+':'+String(t%60).padStart(2,'0');$('timer').classList.toggle('hot',phase==='play'&&timer<=10)}
 }
+
+function canVent(){return !!(player&&player.role==='hider'&&!player.caught&&(phase==='play'||phase==='intro')&&!(MP.on&&MP.spectator)&&ventNear(player))}
+let ventUIKey='',ventHinted=false;
+function updVentUI(){
+  ventRimMats.forEach((m,i)=>{m.opacity=reduce?0.85:0.6+Math.sin(T*3+i*1.6)*0.3});
+  const can=canVent(),cd=can?Math.ceil(Math.max(0,player.ventCD||0)):0,key=can+':'+cd;
+  if(key===ventUIKey)return;ventUIKey=key;
+  const b=$('vent');b.hidden=!can;if(!can)return;
+  b.querySelector('span').textContent=cd?'Телепорт · '+cd:'Телепорт';b.classList.toggle('off',cd>0);
+  if(!ventHinted&&!cd){ventHinted=true;pop(player,'Люк!','#3CC8C8')}
+}
+function doVent(){au();if(canVent()&&ventJump(player)){ventUIKey='';try{navigator.vibrate&&navigator.vibrate(25)}catch(e){}}}
+$('vent').addEventListener('click',doVent);
+window.HNSGame={get vents(){return vents},get player(){return player},get chars(){return chars},get phase(){return phase}};   // для тестів (bots/local-sim)
+addEventListener('keydown',e=>{if((e.key==='e'||e.key==='E'||e.key==='у'||e.key==='У')&&!e.repeat)doVent()});
 
 /* ---------- character animation ---------- */
 function animate(c,dt){
@@ -694,6 +751,7 @@ function mpFollow(dt){
     if(c.remote){const p=presOf(c.id);if(p&&typeof p.x==='number')s=[p.x,p.z,p.y,p.k]}
     else if(c.netBot&&hp&&Array.isArray(hp.b))s=hp.b[+c.id.slice(1)];
     if(!s)continue;
+    if(Math.hypot(s[0]-c.x,s[1]-c.z)>2.5&&c.role==='hider'&&phase==='play'){/* стрибок у люк: без «пролітання» через карту */const col=VENT_COLORS[0];puffRing(c.x,c.z,12,col);puffRing(s[0],s[1],12,col);if(Math.hypot(s[0]-player.x,s[1]-player.z)<7||Math.hypot(c.x-player.x,c.z-player.z)<7)SFX.vent();c.x=s[0];c.z=s[1]}
     const ox=c.x,oz=c.z,k=Math.min(1,dt*14);c.x+=(s[0]-c.x)*k;c.z+=(s[1]-c.z)*k;
     c.vx=c.vx*0.7+((c.x-ox)/Math.max(dt,1e-3))*0.3;c.vz=c.vz*0.7+((c.z-oz)/Math.max(dt,1e-3))*0.3;
     c.yaw+=angDiff(s[2]||0,c.yaw)*Math.min(1,dt*12);if(c.role==='seeker')c.look=c.yaw;c.crouch+=((s[3]?1:0)-c.crouch)*Math.min(1,dt*10);
