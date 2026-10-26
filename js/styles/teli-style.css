@@ -1,5 +1,6 @@
 /* Гра: Зіпсований телефон  |  Файл: public/style.css */
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap');
+@import url('../../vendor/fonts/space-grotesk.css');
+@import url('../../vendor/fonts/inter.css');
 
 :root {
   --bg-void: #12141c;

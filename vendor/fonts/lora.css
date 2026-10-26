@@ -1,0 +1,49 @@
+/* Lora — локальна копія (@fontsource/lora), згенеровано scripts/vendor-deps.mjs */
+/* lora-cyrillic-500-normal */
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url(./files/lora-cyrillic-500-normal.woff2) format('woff2');
+}
+/* lora-latin-500-normal */
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url(./files/lora-latin-500-normal.woff2) format('woff2');
+}
+/* lora-cyrillic-600-normal */
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url(./files/lora-cyrillic-600-normal.woff2) format('woff2');
+}
+/* lora-latin-600-normal */
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url(./files/lora-latin-600-normal.woff2) format('woff2');
+}
+/* lora-cyrillic-700-normal */
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(./files/lora-cyrillic-700-normal.woff2) format('woff2');
+}
+/* lora-latin-700-normal */
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(./files/lora-latin-700-normal.woff2) format('woff2');
+}

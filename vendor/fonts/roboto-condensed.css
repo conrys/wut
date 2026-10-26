@@ -1,0 +1,49 @@
+/* Roboto Condensed — локальна копія (@fontsource/roboto-condensed), згенеровано scripts/vendor-deps.mjs */
+/* roboto-condensed-cyrillic-700-normal */
+@font-face {
+  font-family: 'Roboto Condensed';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(./files/roboto-condensed-cyrillic-700-normal.woff2) format('woff2');
+}
+/* roboto-condensed-latin-700-normal */
+@font-face {
+  font-family: 'Roboto Condensed';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(./files/roboto-condensed-latin-700-normal.woff2) format('woff2');
+}
+/* roboto-condensed-cyrillic-800-normal */
+@font-face {
+  font-family: 'Roboto Condensed';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 800;
+  src: url(./files/roboto-condensed-cyrillic-800-normal.woff2) format('woff2');
+}
+/* roboto-condensed-latin-800-normal */
+@font-face {
+  font-family: 'Roboto Condensed';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 800;
+  src: url(./files/roboto-condensed-latin-800-normal.woff2) format('woff2');
+}
+/* roboto-condensed-cyrillic-900-normal */
+@font-face {
+  font-family: 'Roboto Condensed';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 900;
+  src: url(./files/roboto-condensed-cyrillic-900-normal.woff2) format('woff2');
+}
+/* roboto-condensed-latin-900-normal */
+@font-face {
+  font-family: 'Roboto Condensed';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 900;
+  src: url(./files/roboto-condensed-latin-900-normal.woff2) format('woff2');
+}

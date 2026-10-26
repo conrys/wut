@@ -1,0 +1,17 @@
+/* PT Mono — локальна копія (@fontsource/pt-mono), згенеровано scripts/vendor-deps.mjs */
+/* pt-mono-cyrillic-400-normal */
+@font-face {
+  font-family: 'PT Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(./files/pt-mono-cyrillic-400-normal.woff2) format('woff2');
+}
+/* pt-mono-latin-400-normal */
+@font-face {
+  font-family: 'PT Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(./files/pt-mono-latin-400-normal.woff2) format('woff2');
+}

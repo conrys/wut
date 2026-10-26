@@ -1,0 +1,49 @@
+/* Montserrat — локальна копія (@fontsource/montserrat), згенеровано scripts/vendor-deps.mjs */
+/* montserrat-cyrillic-700-normal */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(./files/montserrat-cyrillic-700-normal.woff2) format('woff2');
+}
+/* montserrat-latin-700-normal */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(./files/montserrat-latin-700-normal.woff2) format('woff2');
+}
+/* montserrat-cyrillic-800-normal */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 800;
+  src: url(./files/montserrat-cyrillic-800-normal.woff2) format('woff2');
+}
+/* montserrat-latin-800-normal */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 800;
+  src: url(./files/montserrat-latin-800-normal.woff2) format('woff2');
+}
+/* montserrat-cyrillic-900-normal */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 900;
+  src: url(./files/montserrat-cyrillic-900-normal.woff2) format('woff2');
+}
+/* montserrat-latin-900-normal */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 900;
+  src: url(./files/montserrat-latin-900-normal.woff2) format('woff2');
+}

@@ -5,8 +5,7 @@
 <script>/* темна тема світлих ігор — до першого фарбування; далі керує js/core/app-settings.js */try{var t=JSON.parse(localStorage.getItem("app_settings")||"{}").gameTheme;if(t==="dark"||(t==="system"&&matchMedia("(prefers-color-scheme: dark)").matches))document.documentElement.classList.add("dark-games")}catch(e){}</script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
   <title>2048</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./vendor/fonts/space-grotesk.css"><link rel="stylesheet" href="./vendor/fonts/inter.css"><link rel="stylesheet" href="./vendor/fonts/nunito.css">
   <meta name="theme-color" content="#fff4ec" />
   <style>
     :root {
@@ -670,9 +669,9 @@
     }
   })();
 </script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="./vendor/firebase/10.13.0/firebase-app-compat.js"></script>
+<script src="./vendor/firebase/10.13.0/firebase-auth-compat.js"></script>
+<script src="./vendor/firebase/10.13.0/firebase-firestore-compat.js"></script>
 <script src="js/core/firebase-config.js"></script>
 <script src="js/core/app-settings.js"></script>
 <script src="js/core/login.js"></script>

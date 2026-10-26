@@ -1,0 +1,49 @@
+/* Oswald — локальна копія (@fontsource/oswald), згенеровано scripts/vendor-deps.mjs */
+/* oswald-cyrillic-500-normal */
+@font-face {
+  font-family: 'Oswald';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url(./files/oswald-cyrillic-500-normal.woff2) format('woff2');
+}
+/* oswald-latin-500-normal */
+@font-face {
+  font-family: 'Oswald';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url(./files/oswald-latin-500-normal.woff2) format('woff2');
+}
+/* oswald-cyrillic-600-normal */
+@font-face {
+  font-family: 'Oswald';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url(./files/oswald-cyrillic-600-normal.woff2) format('woff2');
+}
+/* oswald-latin-600-normal */
+@font-face {
+  font-family: 'Oswald';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url(./files/oswald-latin-600-normal.woff2) format('woff2');
+}
+/* oswald-cyrillic-700-normal */
+@font-face {
+  font-family: 'Oswald';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(./files/oswald-cyrillic-700-normal.woff2) format('woff2');
+}
+/* oswald-latin-700-normal */
+@font-face {
+  font-family: 'Oswald';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(./files/oswald-latin-700-normal.woff2) format('woff2');
+}

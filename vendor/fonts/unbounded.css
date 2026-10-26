@@ -1,0 +1,65 @@
+/* Unbounded — локальна копія (@fontsource/unbounded), згенеровано scripts/vendor-deps.mjs */
+/* unbounded-cyrillic-600-normal */
+@font-face {
+  font-family: 'Unbounded';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url(./files/unbounded-cyrillic-600-normal.woff2) format('woff2');
+}
+/* unbounded-latin-600-normal */
+@font-face {
+  font-family: 'Unbounded';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url(./files/unbounded-latin-600-normal.woff2) format('woff2');
+}
+/* unbounded-cyrillic-700-normal */
+@font-face {
+  font-family: 'Unbounded';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(./files/unbounded-cyrillic-700-normal.woff2) format('woff2');
+}
+/* unbounded-latin-700-normal */
+@font-face {
+  font-family: 'Unbounded';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(./files/unbounded-latin-700-normal.woff2) format('woff2');
+}
+/* unbounded-cyrillic-800-normal */
+@font-face {
+  font-family: 'Unbounded';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 800;
+  src: url(./files/unbounded-cyrillic-800-normal.woff2) format('woff2');
+}
+/* unbounded-latin-800-normal */
+@font-face {
+  font-family: 'Unbounded';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 800;
+  src: url(./files/unbounded-latin-800-normal.woff2) format('woff2');
+}
+/* unbounded-cyrillic-900-normal */
+@font-face {
+  font-family: 'Unbounded';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 900;
+  src: url(./files/unbounded-cyrillic-900-normal.woff2) format('woff2');
+}
+/* unbounded-latin-900-normal */
+@font-face {
+  font-family: 'Unbounded';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 900;
+  src: url(./files/unbounded-latin-900-normal.woff2) format('woff2');
+}

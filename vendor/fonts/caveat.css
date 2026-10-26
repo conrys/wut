@@ -1,0 +1,33 @@
+/* Caveat — локальна копія (@fontsource/caveat), згенеровано scripts/vendor-deps.mjs */
+/* caveat-cyrillic-600-normal */
+@font-face {
+  font-family: 'Caveat';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url(./files/caveat-cyrillic-600-normal.woff2) format('woff2');
+}
+/* caveat-latin-600-normal */
+@font-face {
+  font-family: 'Caveat';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url(./files/caveat-latin-600-normal.woff2) format('woff2');
+}
+/* caveat-cyrillic-700-normal */
+@font-face {
+  font-family: 'Caveat';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(./files/caveat-cyrillic-700-normal.woff2) format('woff2');
+}
+/* caveat-latin-700-normal */
+@font-face {
+  font-family: 'Caveat';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(./files/caveat-latin-700-normal.woff2) format('woff2');
+}

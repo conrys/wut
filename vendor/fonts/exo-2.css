@@ -1,0 +1,49 @@
+/* Exo 2 — локальна копія (@fontsource/exo-2), згенеровано scripts/vendor-deps.mjs */
+/* exo-2-cyrillic-700-normal */
+@font-face {
+  font-family: 'Exo 2';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(./files/exo-2-cyrillic-700-normal.woff2) format('woff2');
+}
+/* exo-2-latin-700-normal */
+@font-face {
+  font-family: 'Exo 2';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(./files/exo-2-latin-700-normal.woff2) format('woff2');
+}
+/* exo-2-cyrillic-800-normal */
+@font-face {
+  font-family: 'Exo 2';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 800;
+  src: url(./files/exo-2-cyrillic-800-normal.woff2) format('woff2');
+}
+/* exo-2-latin-800-normal */
+@font-face {
+  font-family: 'Exo 2';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 800;
+  src: url(./files/exo-2-latin-800-normal.woff2) format('woff2');
+}
+/* exo-2-cyrillic-900-normal */
+@font-face {
+  font-family: 'Exo 2';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 900;
+  src: url(./files/exo-2-cyrillic-900-normal.woff2) format('woff2');
+}
+/* exo-2-latin-900-normal */
+@font-face {
+  font-family: 'Exo 2';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 900;
+  src: url(./files/exo-2-latin-900-normal.woff2) format('woff2');
+}

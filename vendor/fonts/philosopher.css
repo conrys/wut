@@ -1,0 +1,17 @@
+/* Philosopher — локальна копія (@fontsource/philosopher), згенеровано scripts/vendor-deps.mjs */
+/* philosopher-cyrillic-700-normal */
+@font-face {
+  font-family: 'Philosopher';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(./files/philosopher-cyrillic-700-normal.woff2) format('woff2');
+}
+/* philosopher-latin-700-normal */
+@font-face {
+  font-family: 'Philosopher';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(./files/philosopher-latin-700-normal.woff2) format('woff2');
+}

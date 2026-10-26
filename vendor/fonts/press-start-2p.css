@@ -1,0 +1,17 @@
+/* Press Start 2P — локальна копія (@fontsource/press-start-2p), згенеровано scripts/vendor-deps.mjs */
+/* press-start-2p-cyrillic-400-normal */
+@font-face {
+  font-family: 'Press Start 2P';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(./files/press-start-2p-cyrillic-400-normal.woff2) format('woff2');
+}
+/* press-start-2p-latin-400-normal */
+@font-face {
+  font-family: 'Press Start 2P';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(./files/press-start-2p-latin-400-normal.woff2) format('woff2');
+}

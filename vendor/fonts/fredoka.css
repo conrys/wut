@@ -1,0 +1,17 @@
+/* Fredoka — локальна копія (@fontsource/fredoka), згенеровано scripts/vendor-deps.mjs */
+/* fredoka-latin-500-normal */
+@font-face {
+  font-family: 'Fredoka';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url(./files/fredoka-latin-500-normal.woff2) format('woff2');
+}
+/* fredoka-latin-700-normal */
+@font-face {
+  font-family: 'Fredoka';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(./files/fredoka-latin-700-normal.woff2) format('woff2');
+}

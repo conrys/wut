@@ -24,6 +24,15 @@ async function phone(browser, username, opts = {}) {
     }
     return route.fulfill({ status: 200, contentType: "text/javascript", body: "" });
   });
+  // Firebase SDK тепер локальний (/vendor/firebase/…) — так само підміняємо на мок
+  await ctx.route(/\/vendor\/firebase\/[^/]+\/firebase-[a-z-]+\.js/, async (route) => {
+    if (route.request().url().includes("firebase-app-compat")) {
+      const r = await fetch(BASE + "/__mock/firebase.js");
+      return route.fulfill({ status: 200, contentType: "text/javascript", body: await r.text() });
+    }
+    return route.fulfill({ status: 200, contentType: "text/javascript", body: "" });
+  });
+  await ctx.route(/\/vendor\/howler\/howler\.min\.js/, (route) => route.fulfill({ status: 200, contentType: "text/javascript", body: HOWLER_STUB }));
   await ctx.route("https://cdnjs.cloudflare.com/**", (route) => route.fulfill({ status: 200, contentType: "text/javascript", body: HOWLER_STUB }));
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, (route) => route.fulfill({ status: 200, contentType: "text/css", body: "" }));
   if (username) {

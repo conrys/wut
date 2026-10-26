@@ -1,0 +1,65 @@
+/* Nunito — локальна копія (@fontsource/nunito), згенеровано scripts/vendor-deps.mjs */
+/* nunito-cyrillic-600-normal */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url(./files/nunito-cyrillic-600-normal.woff2) format('woff2');
+}
+/* nunito-latin-600-normal */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url(./files/nunito-latin-600-normal.woff2) format('woff2');
+}
+/* nunito-cyrillic-700-normal */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(./files/nunito-cyrillic-700-normal.woff2) format('woff2');
+}
+/* nunito-latin-700-normal */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(./files/nunito-latin-700-normal.woff2) format('woff2');
+}
+/* nunito-cyrillic-800-normal */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 800;
+  src: url(./files/nunito-cyrillic-800-normal.woff2) format('woff2');
+}
+/* nunito-latin-800-normal */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 800;
+  src: url(./files/nunito-latin-800-normal.woff2) format('woff2');
+}
+/* nunito-cyrillic-900-normal */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 900;
+  src: url(./files/nunito-cyrillic-900-normal.woff2) format('woff2');
+}
+/* nunito-latin-900-normal */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 900;
+  src: url(./files/nunito-latin-900-normal.woff2) format('woff2');
+}

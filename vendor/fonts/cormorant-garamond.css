@@ -1,0 +1,33 @@
+/* Cormorant Garamond — локальна копія (@fontsource/cormorant-garamond), згенеровано scripts/vendor-deps.mjs */
+/* cormorant-garamond-cyrillic-600-normal */
+@font-face {
+  font-family: 'Cormorant Garamond';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url(./files/cormorant-garamond-cyrillic-600-normal.woff2) format('woff2');
+}
+/* cormorant-garamond-latin-600-normal */
+@font-face {
+  font-family: 'Cormorant Garamond';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url(./files/cormorant-garamond-latin-600-normal.woff2) format('woff2');
+}
+/* cormorant-garamond-cyrillic-700-normal */
+@font-face {
+  font-family: 'Cormorant Garamond';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(./files/cormorant-garamond-cyrillic-700-normal.woff2) format('woff2');
+}
+/* cormorant-garamond-latin-700-normal */
+@font-face {
+  font-family: 'Cormorant Garamond';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(./files/cormorant-garamond-latin-700-normal.woff2) format('woff2');
+}

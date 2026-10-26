@@ -1,0 +1,9 @@
+/* Archivo Black — локальна копія (@fontsource/archivo-black), згенеровано scripts/vendor-deps.mjs */
+/* archivo-black-latin-400-normal */
+@font-face {
+  font-family: 'Archivo Black';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(./files/archivo-black-latin-400-normal.woff2) format('woff2');
+}

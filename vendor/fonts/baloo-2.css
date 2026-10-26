@@ -1,0 +1,17 @@
+/* Baloo 2 — локальна копія (@fontsource/baloo-2), згенеровано scripts/vendor-deps.mjs */
+/* baloo-2-latin-600-normal */
+@font-face {
+  font-family: 'Baloo 2';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url(./files/baloo-2-latin-600-normal.woff2) format('woff2');
+}
+/* baloo-2-latin-800-normal */
+@font-face {
+  font-family: 'Baloo 2';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 800;
+  src: url(./files/baloo-2-latin-800-normal.woff2) format('woff2');
+}

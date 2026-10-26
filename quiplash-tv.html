@@ -4,9 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Сміхлист ТВ</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./vendor/fonts/rubik.css">
 <link rel="stylesheet" href="js/styles/quiplash-shared.css">
 <link rel="stylesheet" href="js/styles/reactions.css">
 <style>
@@ -117,10 +115,10 @@ body { background: var(--bg2); color: #fff; font-family: var(--ql-font); overflo
 <button class="ql-btn ghost tv-sound" id="sound-btn">🔇 Звук</button>
 <main class="stage" id="stage"></main>
 
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="./vendor/firebase/10.13.0/firebase-app-compat.js"></script>
+<script src="./vendor/firebase/10.13.0/firebase-auth-compat.js"></script>
+<script src="./vendor/firebase/10.13.0/firebase-firestore-compat.js"></script>
+<script src="./vendor/firebase/10.13.0/firebase-database-compat.js"></script>
 <script>window.FIREBASE_SILENT_GUEST = true; // екран ТВ: тихий анонімний вхід для запису в базу</script>
 <script src="js/core/firebase-config.js"></script>
 <script src="js/core/media-pool.js"></script>

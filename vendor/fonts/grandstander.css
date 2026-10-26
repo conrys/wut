@@ -1,0 +1,17 @@
+/* Grandstander — локальна копія (@fontsource/grandstander), згенеровано scripts/vendor-deps.mjs */
+/* grandstander-latin-700-normal */
+@font-face {
+  font-family: 'Grandstander';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(./files/grandstander-latin-700-normal.woff2) format('woff2');
+}
+/* grandstander-latin-900-normal */
+@font-face {
+  font-family: 'Grandstander';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 900;
+  src: url(./files/grandstander-latin-900-normal.woff2) format('woff2');
+}
