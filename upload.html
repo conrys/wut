@@ -79,6 +79,25 @@
                background: linear-gradient(transparent, rgba(0,0,0,.8)); max-height: 60%; overflow: hidden; }
   .cell .del { position: absolute; top: 4px; right: 4px; width: 28px; height: 28px; padding: 0; border-radius: var(--r-pill);
                background: rgba(20,22,26,.75); font-size: 13px; }
+  .seg { display: flex; gap: 4px; background: var(--surface-1); padding: 4px; border-radius: var(--r-md); margin-bottom: 10px; }
+  .seg button { flex: 1; padding: 8px 4px; font-size: 12px; background: transparent; color: var(--text-muted); }
+  .seg button.on { background: var(--surface-3); color: var(--text); }
+  .cell > button.open { all: unset; display: block; width: 100%; height: 100%; cursor: pointer; }
+  .cell .badge { position: absolute; top: 4px; left: 4px; font-size: 9px; font-weight: 700; padding: 2px 5px; border-radius: var(--r-pill);
+                 background: rgba(217,180,92,.9); color: #14161a; }
+  .more { width: 100%; margin-top: 10px; }
+
+  .lb { position: fixed; inset: 0; z-index: 100000; background: #08090c; display: flex; flex-direction: column; touch-action: pan-y; }
+  .lb .top { display: flex; align-items: center; gap: 8px; padding: calc(10px + env(safe-area-inset-top)) 12px 10px; }
+  .lb .top .n { flex: 1; font-size: 13px; color: var(--text-muted); }
+  .lb .top button { width: 40px; height: 40px; padding: 0; border-radius: var(--r-pill); }
+  .lb .top .rm { width: auto; padding: 0 14px; color: var(--danger); }
+  .lb .stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; position: relative; }
+  .lb .stage img { max-width: 100%; max-height: 100%; object-fit: contain; user-select: none; -webkit-user-drag: none; }
+  .lb .nav { position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 64px; padding: 0; background: rgba(38,42,58,.6); font-size: 22px; }
+  .lb .nav.l { left: 6px; } .lb .nav.r { right: 6px; }
+  .lb .capt { padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); font-size: 15px; line-height: 1.4; text-align: center; min-height: 52px; }
+  .lb .capt small { display: block; color: var(--text-muted); font-size: 11px; margin-top: 4px; }
   .empty { padding: 26px 10px; text-align: center; color: var(--text-muted); font-size: 13px;
            border: 1px dashed var(--line); border-radius: var(--r-md); }
 
@@ -113,8 +132,12 @@
     </div>
     <div class="queue" id="queue"></div>
 
-    <h2>Уже в грі <span class="muted" id="cloudCount"></span></h2>
+    <h2>Галерея <span class="muted" id="cloudCount"></span></h2>
+    <div class="seg" id="seg">
+      <button data-f="all" class="on">Усі</button><button data-f="cloud">Завантажені</button><button data-f="built">Вбудовані</button>
+    </div>
     <div class="grid" id="grid"></div>
+    <button class="more hidden" id="moreBtn">Показати ще</button>
     <div class="muted" id="builtin" style="margin-top:10px"></div>
   </div>
 </div>
@@ -136,11 +159,23 @@
 (function () {
   const MP = window.MediaPool;
   const MAX_SIDE = 1280, TARGET_BYTES = 450 * 1024, MAX_BYTES = 1.9 * 1024 * 1024;
-  const BUILTIN = {
-    memology: () => (window.MEMOLOGY_CARD_IDS || []).length,
-    fakenews: () => (window.FakeNewsPhotos || []).length,
-    quiplash: () => 22,
+  // вбудовані картинки кожної гри (лежать у репо): { url, text }
+  const readable = (src) => {
+    let f = String(src || "").split(/[?#]/, 1)[0].split("/").pop() || "";
+    try { f = decodeURIComponent(f); } catch (e) {}
+    return f.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
   };
+  const builtinLists = {
+    memology: (window.MEMOLOGY_CARD_IDS || []).map((f) => ({ url: "memes/" + encodeURIComponent(f), text: "" })),
+    fakenews: (window.FakeNewsPhotos || []).map((p) => ({ url: p.src, text: (p.title || "").trim() || readable(p.src) })),
+    quiplash: [],
+  };
+  fetch("ql_img/image-prompts.json").then((r) => r.json()).then((items) => {
+    builtinLists.quiplash = (Array.isArray(items) ? items : []).filter((x) => x && x.image)
+      .map((x) => ({ url: "ql_img/" + x.image, text: String(x.text || "").trim() }));
+    if (me) { renderTabs(); if (game === "quiplash") renderGrid(); }
+  }).catch(() => {});
+  const BUILTIN = { memology: () => builtinLists.memology.length, fakenews: () => builtinLists.fakenews.length, quiplash: () => builtinLists.quiplash.length };
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const kb = (n) => n >= 1048576 ? (n / 1048576).toFixed(1) + " МБ" : Math.max(1, Math.round(n / 1024)) + " КБ";
@@ -217,23 +252,88 @@
     if (busy || g === game) return;
     game = g;
     try { localStorage.setItem("games41_upload_game", g); } catch (e) {}
+    filter = "all"; shown = PAGE;
     renderTabs(); renderQueue(); renderGrid();
   }
   function loadCloud(g) {
     return MP.list(g, { fresh: true }).then((items) => { cloud[g] = items; renderTabs(); if (g === game) renderGrid(); });
   }
-  function renderGrid() {
-    const items = cloud[game].slice().reverse();
-    $("cloudCount").textContent = items.length ? `(${items.length})` : "";
-    $("grid").innerHTML = items.map((it) =>
-      `<div class="cell"><a href="${esc(it.url)}" target="_blank" rel="noopener"><img loading="lazy" alt="" src="${esc(it.url)}"></a>
-        ${it.text && game !== "memology" ? `<div class="cap">${esc(it.text)}</div>` : ""}
-        <button class="del" data-id="${esc(it.id)}" aria-label="Видалити">✕</button></div>`).join("");
-    if (!items.length) $("grid").innerHTML = `<div class="empty" style="grid-column:1/-1">Ще нічого не завантажено — гра бере лише вбудовані</div>`;
-    $("grid").querySelectorAll(".del").forEach((b) => b.onclick = () => remove(b.dataset.id));
-    $("builtin").textContent = `+ ${BUILTIN[game]()} вбудованих у самій грі (керуються через GitHub).`;
+  // ------------------------- галерея -------------------------
+  const PAGE = 60;
+  let filter = "all", shown = PAGE, gallery = [];
+  function galleryItems() {
+    const c = filter === "built" ? [] : cloud[game].slice().reverse().map((it) => ({ url: it.url, text: it.text, id: it.id, cloud: true, by: it.by, at: it.createdAt }));
+    const b = filter === "cloud" ? [] : builtinLists[game].map((it) => ({ url: it.url, text: it.text, cloud: false }));
+    return c.concat(b);
   }
-  function remove(id) {
+  function renderGrid() {
+    gallery = galleryItems();
+    $("cloudCount").textContent = `(${cloud[game].length} завант. · ${BUILTIN[game]()} вбуд.)`;
+    $("seg").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.f === filter));
+    const showText = game !== "memology";
+    $("grid").innerHTML = gallery.slice(0, shown).map((it, i) =>
+      `<div class="cell"><button class="open" data-i="${i}" aria-label="Відкрити"><img loading="lazy" decoding="async" alt="" src="${esc(it.url)}"></button>
+        ${it.cloud && filter === "all" ? `<span class="badge">нове</span>` : ""}
+        ${it.text && showText ? `<div class="cap">${esc(it.text)}</div>` : ""}
+        ${it.cloud ? `<button class="del" data-id="${esc(it.id)}" aria-label="Видалити">✕</button>` : ""}</div>`).join("");
+    if (!gallery.length) $("grid").innerHTML = `<div class="empty" style="grid-column:1/-1">${filter === "cloud" ? "Ще нічого не завантажено — гра бере лише вбудовані" : "Порожньо"}</div>`;
+    $("grid").querySelectorAll(".del").forEach((b) => b.onclick = () => remove(b.dataset.id));
+    $("grid").querySelectorAll(".open").forEach((b) => b.onclick = () => openLb(Number(b.dataset.i)));
+    $("moreBtn").classList.toggle("hidden", gallery.length <= shown);
+    $("moreBtn").textContent = `Показати ще (${gallery.length - shown})`;
+    $("builtin").textContent = filter !== "cloud" && BUILTIN[game]() ? "Вбудовані лежать у GitHub — тут їх лише видно, прибрати не можна." : "";
+  }
+  $("seg").querySelectorAll("button").forEach((b) => b.onclick = () => { filter = b.dataset.f; shown = PAGE; renderGrid(); });
+  $("moreBtn").onclick = () => { shown += PAGE; renderGrid(); };
+
+  // перегляд на весь екран: свайп/стрілки, «Назад» на телефоні закриває
+  let lbIdx = -1, lbEl = null;
+  function openLb(i) {
+    if (!lbEl) {
+      lbEl = document.createElement("div");
+      lbEl.className = "lb";
+      lbEl.innerHTML = `<div class="top"><button class="cl" aria-label="Закрити">✕</button><div class="n"></div><button class="rm">Прибрати</button></div>
+        <div class="stage"><img alt=""><button class="nav l" aria-label="Попередня">‹</button><button class="nav r" aria-label="Наступна">›</button></div>
+        <div class="capt"></div>`;
+      document.body.appendChild(lbEl);
+      lbEl.querySelector(".cl").onclick = () => history.back();
+      lbEl.querySelector(".nav.l").onclick = () => showLb(lbIdx - 1);
+      lbEl.querySelector(".nav.r").onclick = () => showLb(lbIdx + 1);
+      lbEl.querySelector(".rm").onclick = () => { const it = gallery[lbIdx]; if (it && it.cloud) remove(it.id, () => history.back()); };
+      let x0 = null, y0 = null;
+      lbEl.addEventListener("touchstart", (e) => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+      lbEl.addEventListener("touchend", (e) => {
+        if (x0 == null) return;
+        const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0; x0 = null;
+        if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) showLb(lbIdx + (dx < 0 ? 1 : -1));
+        else if (dy > 90 && Math.abs(dy) > Math.abs(dx)) history.back();   // свайп униз — закрити
+      });
+    }
+    lbEl.classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+    history.pushState({ lb: 1 }, "");
+    showLb(i);
+  }
+  function showLb(i) {
+    if (!gallery.length) return;
+    lbIdx = (i + gallery.length) % gallery.length;
+    const it = gallery[lbIdx];
+    lbEl.querySelector("img").src = it.url;
+    lbEl.querySelector(".n").textContent = `${lbIdx + 1} / ${gallery.length}`;
+    lbEl.querySelector(".rm").classList.toggle("hidden", !it.cloud);
+    const when = it.at ? new Date(it.at).toLocaleDateString("uk-UA", { day: "numeric", month: "short" }) : "";
+    lbEl.querySelector(".capt").innerHTML = (it.text && game !== "memology" ? esc(it.text) : "")
+      + `<small>${it.cloud ? `завантажено${it.by ? " · " + esc(it.by) : ""}${when ? " · " + when : ""}` : "вбудована"}</small>`;
+    [lbIdx - 1, lbIdx + 1].forEach((j) => { const n = gallery[(j + gallery.length) % gallery.length]; if (n) { const im = new Image(); im.src = n.url; } });   // сусідні — наперед
+  }
+  function closeLb() { if (lbEl) lbEl.classList.add("hidden"); document.body.style.overflow = ""; lbIdx = -1; }
+  window.addEventListener("popstate", () => { if (lbIdx >= 0) closeLb(); });
+  document.addEventListener("keydown", (e) => {
+    if (lbIdx < 0) return;
+    if (e.key === "ArrowRight") showLb(lbIdx + 1); else if (e.key === "ArrowLeft") showLb(lbIdx - 1); else if (e.key === "Escape") history.back();
+  });
+
+  function remove(id, after) {
     const it = cloud[game].find((x) => x.id === id);
     if (!it || !confirm("Прибрати цю картинку з гри?")) return;
     // спершу запис (гра перестає її брати), потім сам файл
@@ -241,7 +341,7 @@
       .then(() => firebase.storage().ref(MP.path(it.game, it.file)).delete().catch((e) => {
         if (e && e.code !== "storage/object-not-found") console.warn(e);
       }))
-      .then(() => { cloud[game] = cloud[game].filter((x) => x.id !== id); renderTabs(); renderGrid(); toast("Прибрано"); })
+      .then(() => { cloud[game] = cloud[game].filter((x) => x.id !== id); renderTabs(); renderGrid(); toast("Прибрано"); if (after) after(); })
       .catch((e) => toast("Не вийшло: " + (e && e.code || e)));
   }
 

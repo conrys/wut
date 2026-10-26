@@ -59,7 +59,7 @@ const imgCount = (page, sel) => page.$$eval(sel, (els) => els.length);
   const metas = await a.$$eval(".q .meta", (els) => els.map((e) => e.textContent.trim()));
   check("стиснення до ≤1280 px", metas.every((m) => /(\d+)×(\d+)/.test(m) && Math.max(...m.match(/(\d+)×(\d+)/).slice(1).map(Number)) <= 1280), metas.join(" | "));
   await a.click("#sendBtn");
-  await a.waitForFunction(() => window.__uploads.length === 2 && document.querySelectorAll("#grid .cell").length === 2, null, { timeout: 10000 });
+  await a.waitForFunction(() => window.__uploads.length === 2 && document.querySelectorAll("#grid .cell .del").length === 2, null, { timeout: 10000 });
   const ups = await a.evaluate(() => window.__uploads);
   check("2 файли в Storage як WebP", ups.every((u) => u.type === "image/webp" && /^games41_media\/memology\/[a-z0-9]+\.webp$/.test(u.p)), ups.map((u) => `${u.p} ${Math.round(u.size / 1024)}KB`).join(", "));
   check("кешування файлів назавжди", ups.every((u) => /immutable/.test(u.cc)));
@@ -101,14 +101,43 @@ const imgCount = (page, sel) => page.$$eval(sel, (els) => els.length);
   check("одне фото → 3 ігри окремими файлами", multi === "fakenews,memology,quiplash", multi);
 
   // 6. видалення
-  await a.waitForFunction(() => document.querySelectorAll("#grid .cell").length === 3);
+  await a.waitForFunction(() => document.querySelectorAll("#grid .cell .del").length === 3);
   await a.click("#grid .cell .del");
-  await a.waitForFunction(() => document.querySelectorAll("#grid .cell").length === 2 && window.__deleted.length === 1, null, { timeout: 8000 });
+  await a.waitForFunction(() => document.querySelectorAll("#grid .cell .del").length === 2 && window.__deleted.length === 1, null, { timeout: 8000 });
   check("видалення прибирає запис і файл", true);
   const docs = await a.evaluate(() => firebase.firestore().collection("games41_media").get().then((s) => s.docs.map((d) => d.data())));
   check("записи в Firestore: memology 2, fakenews 2, quiplash 2",
     ["memology", "fakenews", "quiplash"].every((g) => docs.filter((d) => d.game === g).length === 2), JSON.stringify(docs.map((d) => [d.game, d.file, d.text])));
-  await a.screenshot({ path: path.join(FX, "upload.png"), fullPage: true });
+  // 6b. галерея: вбудовані + завантажені, перегляд на весь екран
+  const builtinMem = await a.evaluate(() => MEMOLOGY_CARD_IDS.length);
+  const cells = await imgCount(a, "#grid .cell");
+  check("галерея: перша сторінка з 60 і «Показати ще»", cells === 60 && await a.isVisible("#moreBtn"), `cells=${cells}`);
+  await a.click('#seg button[data-f="built"]');
+  check("фільтр «Вбудовані» — без кнопок видалення", (await imgCount(a, "#grid .cell .del")) === 0);
+  await a.click('#seg button[data-f="cloud"]');
+  check("фільтр «Завантажені» — лише хмарні", (await imgCount(a, "#grid .cell")) === 2);
+  await a.click('#seg button[data-f="all"]');
+  await a.click("#grid .cell .open");
+  await a.waitForSelector(".lb:not(.hidden)");
+  const n1 = await a.textContent(".lb .n");
+  check("перегляд: лічильник усіх картинок", n1 === `1 / ${builtinMem + 2}`, n1);
+  check("перегляд: хмарну можна прибрати", await a.isVisible(".lb .rm"));
+  await a.click(".lb .nav.r"); await a.click(".lb .nav.r");
+  const n3 = await a.textContent(".lb .n");
+  check("перегляд: гортання до вбудованої", n3.startsWith("3 /") && !(await a.isVisible(".lb .rm")) && (await a.textContent(".lb .capt")).includes("вбудована"), n3);
+  await a.click(".lb .nav.l"); await a.click(".lb .nav.l"); await a.click(".lb .nav.l");
+  check("перегляд: по колу назад з першої", (await a.textContent(".lb .n")).startsWith(`${builtinMem + 2} /`));
+  await a.goBack();
+  await a.waitForSelector(".lb.hidden", { state: "attached" });
+  check("«Назад» закриває перегляд, а не сторінку", a.url().includes("upload.html"));
+  await a.click('.tab[data-g="quiplash"]');
+  await a.waitForTimeout(300);
+  check("Сміхлист: вбудовані з ql_img у галереї", (await a.$$eval("#grid .cell img", (els) => els.filter((i) => i.getAttribute("src").startsWith("ql_img/")).length)) > 0);
+  await a.click('.tab[data-g="fakenews"]');
+  await a.waitForTimeout(300);
+  check("Fake News: у вбудованих підписи з назв файлів", (await imgCount(a, "#grid .cell .cap")) > 10);
+  await a.click('.tab[data-g="memology"]');
+  await a.screenshot({ path: path.join(FX, "upload.png"), fullPage: false });
 
   // 7. ігри бачать хмарні картинки
   const g = await phone(browser, "Олена К");
