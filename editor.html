@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#14161a" />
+<title>Редактор питань</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="js/styles/game-header.css">
+<script src="js/core/game-header.js" defer></script>
+<style>
+  :root {
+    --bg: #14161a; --surface-1: #1c1f2b; --surface-2: #262a3a; --surface-3: #31364a;
+    --line: rgba(255,255,255,0.08); --text: #f2f1ec; --text-muted: #8d90a3;
+    --accent: #d9b45c; --ok: #6fbf8a; --danger: #d97070; --new: #6fa8ff; --warn: #e6a23c;
+    --font-display: 'Space Grotesk', sans-serif; --font-body: 'Inter', sans-serif;
+    --r-sm: 8px; --r-md: 14px; --r-pill: 999px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; min-height: 100dvh; background: var(--bg); color: var(--text); font-family: var(--font-body); }
+  .page { max-width: 640px; margin: 0 auto; padding: 16px 16px 110px; }
+  h1 { font-family: var(--font-display); font-size: 22px; margin: 4px 0 2px; }
+  .muted { color: var(--text-muted); font-size: 13px; line-height: 1.45; }
+  .hidden { display: none !important; }
+  button, label.btn {
+    font: 600 14px var(--font-body); cursor: pointer; touch-action: manipulation; border: none;
+    border-radius: var(--r-sm); padding: 12px 14px; color: var(--text); background: var(--surface-2);
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  button:disabled { opacity: .45; cursor: default; }
+  .btn-primary { background: var(--accent); color: #14161a; }
+  .btn-danger { background: transparent; color: var(--danger); border: 1px solid rgba(217,112,112,.45); }
+  select, input[type=text], input[type=search], textarea {
+    width: 100%; font: 500 15px var(--font-body); color: var(--text); background: var(--surface-1);
+    border: 1px solid var(--line); border-radius: var(--r-sm); padding: 11px 12px; outline: none; -webkit-appearance: none; appearance: none;
+  }
+  select { background-image: linear-gradient(45deg, transparent 50%, var(--text-muted) 50%), linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+    background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 32px; }
+  textarea { min-height: 84px; resize: vertical; line-height: 1.4; }
+  select:focus, input:focus, textarea:focus { border-color: var(--accent); }
+  .bad { border-color: var(--danger) !important; }
+
+  .bar { display: grid; gap: 8px; margin: 14px 0 10px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .seg { display: flex; gap: 4px; background: var(--surface-1); padding: 4px; border-radius: var(--r-md); }
+  .seg button { flex: 1; padding: 8px 2px; font-size: 12px; background: transparent; color: var(--text-muted); }
+  .seg button.on { background: var(--surface-3); color: var(--text); }
+  .stats { font-size: 12px; color: var(--text-muted); margin: 4px 2px 8px; }
+
+  .list { display: flex; flex-direction: column; gap: 6px; }
+  .it { display: block; width: 100%; text-align: left; background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--r-md); padding: 10px 12px; font-weight: 500; }
+  .it .t { font-size: 14px; line-height: 1.35; word-break: break-word; }
+  .it .m { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .chip { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: var(--r-pill); background: var(--surface-2); color: var(--text-muted); }
+  .chip.new { background: rgba(111,168,255,.18); color: var(--new); }
+  .chip.edit { background: rgba(217,180,92,.18); color: var(--accent); }
+  .chip.off { background: rgba(217,112,112,.16); color: var(--danger); }
+  .it.off .t { text-decoration: line-through; opacity: .55; }
+  .more { width: 100%; margin-top: 8px; }
+  .empty { padding: 26px 10px; text-align: center; color: var(--text-muted); font-size: 13px; border: 1px dashed var(--line); border-radius: var(--r-md); }
+
+  .add { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+         background: linear-gradient(to top, var(--bg) 70%, transparent); z-index: 5; }
+  .add button { width: 100%; max-width: 608px; margin: 0 auto; display: flex; padding: 15px; font-size: 15px; }
+
+  .sheet { position: fixed; inset: 0; z-index: 100000; background: var(--bg); overflow-y: auto; }
+  .sheet .in { max-width: 640px; margin: 0 auto; padding: calc(14px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom)); }
+  .sheet .hd { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .sheet .hd h2 { flex: 1; font: 700 18px var(--font-display); margin: 0; }
+  .sheet .hd button { width: 40px; height: 40px; padding: 0; border-radius: var(--r-pill); }
+  .f { margin-top: 14px; }
+  .f > label { display: block; font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; }
+  .opt { display: grid; grid-template-columns: 44px 1fr; gap: 6px; margin-bottom: 6px; }
+  .opt button { padding: 0; font-size: 18px; background: var(--surface-1); border: 1px solid var(--line); color: var(--text-muted); }
+  .opt button.on { background: var(--ok); color: #0d2416; border-color: var(--ok); }
+  .warn { margin-top: 10px; padding: 10px 12px; border-radius: var(--r-sm); background: rgba(230,162,60,.12); color: var(--warn); font-size: 13px; line-height: 1.4; }
+  .warn button { margin-top: 8px; padding: 8px 12px; font-size: 13px; }
+  .err { margin-top: 10px; color: var(--danger); font-size: 13px; }
+  .acts { display: grid; gap: 8px; margin-top: 18px; }
+  .orig { margin-top: 10px; font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+
+  .gate { margin-top: 40px; text-align: center; }
+  .gate p { color: var(--text-muted); font-size: 14px; line-height: 1.5; }
+  .uid { display: flex; gap: 6px; margin: 14px auto; max-width: 420px; }
+  .uid code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: var(--surface-1);
+              border: 1px solid var(--line); border-radius: var(--r-sm); padding: 11px 10px; font-size: 13px; text-align: left; }
+  .toast { position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%); background: var(--surface-3); color: var(--text);
+           padding: 10px 16px; border-radius: var(--r-pill); font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 100001; max-width: 90vw; text-align: center; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Редактор питань</h1>
+  <div class="muted" id="status">Завантаження…</div>
+  <div id="gate" class="gate hidden"></div>
+
+  <div id="app" class="hidden">
+    <div class="bar">
+      <select id="listSel" aria-label="Банк"></select>
+      <div class="row2"><input type="search" id="q" placeholder="Пошук" autocomplete="off"><select id="grp" aria-label="Фільтр"></select></div>
+      <div class="seg" id="st"><button data-s="all" class="on">Усі</button><button data-s="new">Додані</button><button data-s="edit">Змінені</button><button data-s="off">Приховані</button></div>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="list" id="list"></div>
+    <button class="more hidden" id="moreBtn">Показати ще</button>
+  </div>
+</div>
+<div class="add hidden" id="addBar"><button class="btn-primary" id="addBtn">＋ Додати</button></div>
+<div class="sheet hidden" id="sheet"><div class="in" id="sheetIn"></div></div>
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="js/core/firebase-config.js"></script>
+<script src="js/promts/party-seed.js"></script>
+<script src="js/promts/dilemmas-seed.js"></script>
+<script src="js/promts/charades-prompts.js"></script>
+<script src="js/promts/quiplash-prompts.js"></script>
+<script src="js/promts/memology-prompts.js"></script>
+<script src="js/promts/teli-ideas.js"></script>
+<script src="js/promts/draw-prompts.js"></script>
+<script src="js/promts/alias-words.js"></script>
+<script src="js/promts/crocodile-words.js"></script>
+<script src="js/promts/whoami-words.js"></script>
+<script src="js/promts/spy-words.js"></script>
+<script src="js/promts/quiz-topics.js"></script>
+<script src="js/promts/quiz-topics-2.js"></script>
+<script src="js/core/content-overlay.js"></script>
+<script src="js/core/login.js"></script>
+<script src="js/core/back-button.js"></script>
+<script>
+(function () {
+  const CO = window.ContentOverlay, N = CO.norm;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const PAGE = 60;
+  let me = null, docs = [], cur = null, filt = { q: "", grp: "", st: "all" }, shown = PAGE, rows = [];
+  try { const id = localStorage.getItem("games41_editor_list"); if (CO.byId[id]) cur = CO.byId[id]; } catch (e) {}
+  cur = cur || CO.LISTS[0];
+
+  function toast(m) { const t = $("toast"); t.textContent = m; t.classList.add("show"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("show"), 2200); }
+  function showGate(html) { $("status").textContent = ""; $("gate").innerHTML = html; $("gate").classList.remove("hidden"); }
+
+  // ---------------- доступ (як у upload.html: games41_admins/{uid}) ----------------
+  function boot() {
+    const s = window.AppAuth && AppAuth.getSession();
+    if (!s) {
+      showGate(`<p>Редагувати питання можуть лише адміни.<br>Спершу увійди у свій акаунт.</p><button class="btn-primary" id="loginBtn">Увійти</button>`);
+      $("loginBtn").onclick = () => AppAuth.openLogin("login");
+      return;
+    }
+    firebase.auth().onAuthStateChanged((user) => {
+      if (!user) return;
+      me = { uid: user.uid, name: s.username };
+      db.collection("games41_admins").doc(user.uid).get()
+        .then((d) => (d.exists ? start() : showGate(`<p>У <b>${esc(me.name)}</b> немає права редагувати питання.</p>
+          <div class="uid"><code>${esc(me.uid)}</code></div><p>Додай цей id у Firestore → games41_admins (як для картинок).</p>`)))
+        .catch((e) => showGate(e && e.code === "permission-denied"
+          ? "<p>База не пускає: у консолі Firebase ще немає правил для редактора.</p>" : "<p>Немає звʼязку з базою. Онови сторінку.</p>"));
+    });
+  }
+  function start() {
+    $("status").textContent = "Зміни зʼявляються в іграх одразу, без деплою. Вбудовані питання з файлів лишаються як були — їх можна змінити або прибрати.";
+    $("app").classList.remove("hidden"); $("addBar").classList.remove("hidden");
+    // список банків, згрупований за грою
+    const games = [];
+    CO.LISTS.forEach((l) => { if (!games.includes(l.game)) games.push(l.game); });
+    $("listSel").innerHTML = games.map((g) => `<optgroup label="${esc(g)}">${CO.LISTS.filter((l) => l.game === g)
+      .map((l) => `<option value="${l.id}">${esc(l.game)} · ${esc(l.title)}</option>`).join("")}</optgroup>`).join("");
+    $("listSel").value = cur.id;
+    load();
+  }
+  function load() {
+    return db.collection(CO.COLLECTION).get().then((snap) => {
+      docs = snap.docs.map((d) => Object.assign({ id: d.id }, d.data()));
+      CO.applyAll(docs);
+      setList(cur.id, true);
+    }).catch((e) => showGate(e && e.code === "permission-denied"
+      ? "<p>База не пускає: у консолі Firebase ще немає правил для редактора (games41_content).</p>" : "<p>Немає звʼязку з базою. Онови сторінку.</p>"));
+  }
+
+  // ---------------- рядки поточного банку ----------------
+  function buildRows() {
+    const a = cur.a, baseS = CO.base(cur.id);
+    const mine = docs.filter((d) => d.list === cur.id);
+    const edits = {}, hides = {};
+    mine.forEach((d) => { if (d.op === "edit") edits[d.key] = d; if (d.op === "hide") hides[d.key] = d; });
+    const out = [];
+    if (baseS) a.entries(baseS).forEach((e) => {
+      const ed = edits[e.key], hd = hides[e.key];
+      out.push({ key: e.key, orig: e.data, data: ed ? Object.assign({}, e.data, ed.data) : e.data, st: hd ? "off" : ed ? "edit" : "", editDoc: ed, hideDoc: hd });
+    });
+    mine.filter((d) => d.op === "add").sort((x, y) => (y.createdAt || 0) - (x.createdAt || 0))
+      .forEach((d) => out.unshift({ key: d.key, data: d.data, st: "new", doc: d }));
+    return out;
+  }
+  function groupOf(d) {
+    if (cur.quiz) return "set:" + d.set;
+    if (cur.fields.some((f) => f.k === "theme")) return "th:" + d.theme;
+    if (cur.fields.some((f) => f.t === "level3" || f.t === "levelEMH")) return "lv:" + d.level;
+    return "";
+  }
+  function groupOptions(all) {
+    const seen = [];
+    all.forEach((r) => { const g = groupOf(r.data); if (g && !seen.includes(g)) seen.push(g); });
+    const label = (g) => {
+      const [t, v] = [g.slice(0, g.indexOf(":")), g.slice(g.indexOf(":") + 1)];
+      if (t === "set") return "Квіз " + v;
+      if (t === "th") return v;
+      const lv = (CO.LEVEL3.find((x) => String(x.v) === v) || CO.LEVEL_EMH.find((x) => x.v === v) || { t: v });
+      const fld = cur.fields.find((f) => f.t === "level3");
+      return fld && fld.labels ? fld.labels[Number(v) - 1] : lv.t;
+    };
+    return seen.map((g) => ({ v: g, t: label(g) }));
+  }
+  function setList(id, keepFilters) {
+    cur = CO.byId[id] || CO.LISTS[0];
+    try { localStorage.setItem("games41_editor_list", cur.id); } catch (e) {}
+    if (!keepFilters) filt = { q: "", grp: "", st: "all" };
+    $("q").value = filt.q;
+    shown = PAGE; render();
+  }
+  function textOf(d) { return cur.quiz ? d.text + " " + (d.options || []).join(" ") + " " + d.topic : d.text + " " + (d.cat || "") + " " + (d.theme || ""); }
+  function render() {
+    const all = buildRows();
+    const opts = groupOptions(all);
+    $("grp").classList.toggle("hidden", !opts.length);
+    $("grp").innerHTML = `<option value="">${cur.quiz ? "Усі квізи" : cur.fields.some((f) => f.k === "theme") ? "Усі теми" : "Усі рівні"}</option>` + opts.map((o) => `<option value="${esc(o.v)}">${esc(o.t)}</option>`).join("");
+    if (!opts.some((o) => o.v === filt.grp)) filt.grp = "";
+    $("grp").value = filt.grp;
+    $("st").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.s === filt.st));
+    const q = N(filt.q);
+    rows = all.filter((r) => (filt.st === "all" || r.st === filt.st) && (!filt.grp || groupOf(r.data) === filt.grp) && (!q || N(textOf(r.data)).includes(q)));
+    const cnt = (s) => all.filter((r) => r.st === s).length;
+    $("stats").textContent = `${all.length} усього · додано ${cnt("new")} · змінено ${cnt("edit")} · приховано ${cnt("off")}` + (rows.length !== all.length ? ` · знайдено ${rows.length}` : "");
+    $("list").innerHTML = rows.slice(0, shown).map((r, i) => {
+      const d = r.data, m = [];
+      if (r.st === "new") m.push('<span class="chip new">додано</span>');
+      if (r.st === "edit") m.push('<span class="chip edit">змінено</span>');
+      if (r.st === "off") m.push('<span class="chip off">приховано</span>');
+      if (cur.quiz) m.push(`<span class="chip">Квіз ${esc(d.set)} · ${esc(d.topic)} · ${esc(d.value)}</span><span class="chip">✓ ${esc((d.options || [])[d.correct] || "")}</span>`);
+      else {
+        if (d.theme) m.push(`<span class="chip">${esc(d.theme)}</span>`);
+        if (d.level !== undefined && d.level !== "") { const g = groupOptions([{ data: d }])[0]; if (g && !d.theme) m.push(`<span class="chip">${esc(g.t)}</span>`); else if (d.theme) m.push(`<span class="chip">${esc((CO.LEVEL_EMH.find((x) => x.v === d.level) || {}).t || d.level)}</span>`); }
+        if (d.kind) m.push(`<span class="chip">${d.kind === "ok" ? "Прийнятно?" : "Згоден?"}</span>`);
+        if (d.cat) m.push(`<span class="chip">${esc(d.cat)}</span>`);
+      }
+      return `<button class="it ${r.st === "off" ? "off" : ""}" data-i="${i}"><div class="t">${esc(d.text)}</div>${m.length ? `<div class="m">${m.join("")}</div>` : ""}</button>`;
+    }).join("") || `<div class="empty">${filt.st === "all" && !q ? "Порожньо" : "Нічого не знайдено"}</div>`;
+    $("list").querySelectorAll(".it").forEach((b) => b.onclick = () => openForm(rows[Number(b.dataset.i)]));
+    $("moreBtn").classList.toggle("hidden", rows.length <= shown);
+    $("moreBtn").textContent = `Показати ще (${rows.length - shown})`;
+  }
+
+  // ---------------- форма ----------------
+  const RU = /(^|[^А-Яа-яІіЇїЄєҐґʼ'])(Росі[яїюєйі]|Россі|Рашк|РФ|СРСР|Радянськ|Совєтськ|Совк|Москв|Московськ|Кремл|Путін)/;
+  const lowerRu = (s) => s.replace(new RegExp(RU.source, "g"), (m, pre, w) => pre + w.toLowerCase());
+  let form = null;   // { row|null, data }
+  function openForm(row) {
+    const blank = Object.assign({ text: "" }, JSON.parse(JSON.stringify(cur.empty || {})));
+    if (cur.quiz && !row) { const sets = Object.keys(window.QUIZ_SETS || {}); blank.set = filt.grp.startsWith("set:") ? filt.grp.slice(4) : sets[sets.length - 1] || "1"; }
+    if (!row && filt.grp.startsWith("th:")) blank.theme = filt.grp.slice(3);
+    if (!row && filt.grp.startsWith("lv:")) blank.level = isNaN(Number(filt.grp.slice(3))) ? filt.grp.slice(3) : Number(filt.grp.slice(3));
+    form = { row: row || null, data: JSON.parse(JSON.stringify(row ? row.data : blank)) };
+    if (cur.quiz && !Array.isArray(form.data.options)) form.data.options = ["", "", "", ""];
+    while (cur.quiz && form.data.options.length < 4) form.data.options.push("");
+    $("sheet").classList.remove("hidden"); document.body.style.overflow = "hidden";
+    history.pushState({ sheet: 1 }, "");
+    renderForm();
+    if (!row) setTimeout(() => { const f = $("f_text"); if (f && document.activeElement === document.body) f.focus(); }, 50);   // лише при відкритті, не при кожній перемальовці
+  }
+  function closeForm() { $("sheet").classList.add("hidden"); document.body.style.overflow = ""; form = null; }
+  window.addEventListener("popstate", () => { if (form) closeForm(); });
+
+  function themes() { const b = CO.base(cur.id); return b && cur.a.themes ? cur.a.themes(b) : []; }
+  function renderForm() {
+    const r = form.row, d = form.data, builtin = r && r.st !== "new";
+    const locked = (k) => builtin && (cur.quiz ? ["set", "topic", "value"].includes(k) : (cur.a.themes || cur.fields.some((f) => f.t === "levelEMH")) && ["theme", "level"].includes(k));
+    const title = !r ? "Нове: " + cur.title.toLowerCase() : r.st === "new" ? "Додане" : "Вбудоване";
+    let h = `<div class="hd"><button id="fClose" aria-label="Закрити">✕</button><h2>${esc(title)}</h2></div><div class="muted">${esc(cur.game)}${cur.hint ? " · " + esc(cur.hint) : ""}</div>`;
+    if (cur.quiz) {
+      const sets = Object.keys(window.QUIZ_SETS || {}).sort((a, b) => a - b);
+      const next = String(Math.max(0, ...sets.map(Number)) + 1);
+      const topics = ((window.QUIZ_SETS || {})[d.set] || []).map((t) => t.name);
+      h += `<div class="row2 f"><div><label>Квіз</label><select id="f_set" ${locked("set") ? "disabled" : ""}>${sets.map((s) => `<option value="${s}">Квіз ${s}</option>`).join("")}<option value="${next}">＋ Новий квіз ${next}</option></select></div>
+        <div><label>Ціна</label><select id="f_value" ${locked("value") ? "disabled" : ""}>${[100, 200, 300, 400, 500].map((v) => `<option value="${v}">${v}</option>`).join("")}</select></div></div>
+        <div class="f"><label>Тема</label><input type="text" id="f_topic" list="topicList" maxlength="40" placeholder="Існуюча або нова тема" ${locked("topic") ? "disabled" : ""}>
+          <datalist id="topicList">${topics.map((t) => `<option value="${esc(t)}">`).join("")}</datalist></div>
+        <div class="f"><label>Питання</label><textarea id="f_text" maxlength="300"></textarea></div>
+        <div class="f"><label>Варіанти — тапни ✓ біля правильного</label>${[0, 1, 2, 3].map((i) => `<div class="opt"><button data-c="${i}" class="${Number(d.correct) === i ? "on" : ""}">✓</button><input type="text" id="f_o${i}" maxlength="80" placeholder="Варіант ${i + 1}"></div>`).join("")}</div>
+        <div class="f"><label>Пояснення після відповіді (необовʼязково)</label><textarea id="f_answerText" maxlength="300" style="min-height:60px"></textarea></div>`;
+    } else {
+      cur.fields.forEach((f) => {
+        const dis = locked(f.k) ? "disabled" : "";
+        if (f.t === "textarea") h += `<div class="f"><label>${esc(f.label)}</label><textarea id="f_${f.k}" maxlength="300" ${dis}></textarea></div>`;
+        else if (f.t === "text") h += `<div class="f"><label>${esc(f.label)}</label><input type="text" id="f_${f.k}" maxlength="120" placeholder="${esc(f.ph || "")}" ${dis}></div>`;
+        else if (f.t === "tags") h += `<div class="f"><label>${esc(f.label)}</label><input type="text" id="f_${f.k}" maxlength="200" placeholder="${esc(f.ph || "")}" ${dis}></div>`;
+        else if (f.t === "theme") h += `<div class="f"><label>${esc(f.label)}</label><select id="f_${f.k}" ${dis}>${themes().map((t) => `<option value="${esc(t)}">${esc(t)}</option>`).join("")}</select></div>`;
+        else if (f.t === "select") h += `<div class="f"><label>${esc(f.label)}</label><select id="f_${f.k}" ${dis}>${f.opts.map((o) => `<option value="${o.v}">${esc(o.t)}</option>`).join("")}</select></div>`;
+        else if (f.t === "level3" || f.t === "levelEMH") {
+          const opts = f.t === "level3" ? CO.LEVEL3.map((o, i) => ({ v: o.v, t: f.labels ? f.labels[i] : o.t })) : CO.LEVEL_EMH;
+          h += `<div class="f"><label>${esc(f.label)}</label><div class="seg" id="f_${f.k}" data-num="${f.t === "level3" ? 1 : ""}">${opts.map((o) => `<button data-v="${o.v}" ${dis}>${esc(o.t)}</button>`).join("")}</div></div>`;
+        }
+      });
+    }
+    h += `<div id="fWarn"></div><div class="err" id="fErr"></div>`;
+    if (r && r.st === "edit") h += `<div class="orig">Було у файлі: «${esc(r.orig.text)}»${cur.quiz ? " → " + esc(r.orig.options[r.orig.correct]) : ""}</div>`;
+    h += `<div class="acts"><button class="btn-primary" id="fSave">${r && r.st === "off" ? "Зберегти й повернути в гру" : "Зберегти"}</button>`;
+    if (r && r.st === "new") h += `<button class="btn-danger" id="fDel">Видалити</button>`;
+    if (builtin && r.st === "edit") h += `<button id="fRevert">Скасувати зміни (як у файлі)</button>`;
+    if (builtin && r.st !== "off") h += `<button class="btn-danger" id="fHide">Прибрати з гри</button>`;
+    if (builtin && r.st === "off") h += `<button id="fUnhide">Повернути в гру як було</button>`;
+    h += `</div>`;
+    $("sheetIn").innerHTML = h;
+    // значення
+    const setV = (id, v) => { const el = $(id); if (el) el.value = v == null ? "" : v; };
+    if (cur.quiz) {
+      setV("f_set", d.set); setV("f_value", d.value); setV("f_topic", d.topic); setV("f_text", d.text); setV("f_answerText", d.answerText);
+      d.options.forEach((o, i) => setV("f_o" + i, o));
+      $("f_set").onchange = () => { collect(); renderForm(); };
+      $("sheetIn").querySelectorAll(".opt button").forEach((b) => b.onclick = () => { collect(); form.data.correct = Number(b.dataset.c); renderForm(); });
+    } else {
+      cur.fields.forEach((f) => {
+        if (f.t === "level3" || f.t === "levelEMH") {
+          const seg = $("f_" + f.k);
+          seg.querySelectorAll("button").forEach((b) => { b.classList.toggle("on", String(b.dataset.v) === String(d[f.k])); b.onclick = () => { collect(); form.data[f.k] = seg.dataset.num ? Number(b.dataset.v) : b.dataset.v; renderForm(); }; });
+        } else if (f.t === "tags") setV("f_" + f.k, (d[f.k] || []).join(", "));
+        else setV("f_" + f.k, d[f.k] != null ? d[f.k] : (f.t === "theme" ? themes()[0] : ""));
+      });
+    }
+    $("sheetIn").querySelectorAll("input, textarea").forEach((el) => el.addEventListener("input", () => { collect(); checkWarn(); }));
+    checkWarn();
+    $("fClose").onclick = () => history.back();
+    $("fSave").onclick = save;
+    if ($("fDel")) $("fDel").onclick = () => { if (confirm("Видалити це назавжди?")) removeDoc(r.doc, "Видалено"); };
+    if ($("fRevert")) $("fRevert").onclick = () => removeDoc(r.editDoc, "Повернуто як у файлі");
+    if ($("fUnhide")) $("fUnhide").onclick = () => removeDoc(r.hideDoc, "Повернуто в гру");
+    if ($("fHide")) $("fHide").onclick = () => { if (confirm("Прибрати з гри? Його можна буде повернути у фільтрі «Приховані».")) put("hide", r.key, null, "Прибрано з гри"); };
+  }
+  function collect() {
+    if (!form) return;
+    const d = form.data, val = (id) => { const el = $(id); return el ? el.value : undefined; };
+    if (cur.quiz) {
+      d.set = val("f_set"); d.value = Number(val("f_value")); d.topic = (val("f_topic") || "").trim(); d.text = val("f_text");
+      d.answerText = val("f_answerText"); d.options = [0, 1, 2, 3].map((i) => val("f_o" + i) || "");
+    } else cur.fields.forEach((f) => {
+      if (f.t === "level3" || f.t === "levelEMH") return;
+      const v = val("f_" + f.k); if (v === undefined) return;
+      d[f.k] = f.t === "tags" ? v.split(",").map((x) => x.trim()).filter(Boolean) : v;
+    });
+  }
+  function textsOf(d) { return cur.quiz ? [d.text, d.topic, d.answerText].concat(d.options) : [d.text, d.cat || ""].concat(d.alt || []); }
+  function checkWarn() {
+    const bad = textsOf(form.data).some((t) => RU.test(String(t || "")));
+    $("fWarn").innerHTML = bad ? `<div class="warn">Назви, повʼязані з росією чи срср, у грі пишемо з малої літери.<br><button id="fLower">Зробити з малої</button></div>` : "";
+    if (bad) $("fLower").onclick = () => {
+      const d = form.data;
+      ["text", "topic", "answerText", "cat"].forEach((k) => { if (typeof d[k] === "string") d[k] = lowerRu(d[k]); });
+      if (Array.isArray(d.options)) d.options = d.options.map(lowerRu);
+      if (Array.isArray(d.alt)) d.alt = d.alt.map(lowerRu);
+      renderForm();
+    };
+  }
+  function clean(d) {
+    const o = {};
+    if (cur.quiz) {
+      Object.assign(o, { set: String(d.set), topic: d.topic.trim().replace(/\s+/g, " "), value: Number(d.value), text: d.text.trim().replace(/\s+/g, " "),
+        options: d.options.map((x) => x.trim().replace(/\s+/g, " ")), correct: Number(d.correct) || 0, answerText: (d.answerText || "").trim() });
+    } else cur.fields.forEach((f) => {
+      let v = d[f.k];
+      if (typeof v === "string") v = v.trim().replace(/\s+/g, " ");
+      if (f.t === "tags") { v = (v || []).map((x) => String(x).trim()).filter(Boolean); if (!v.length) return; }
+      if (v === undefined || v === "") { if (f.k === "cat") o.cat = ""; return; }
+      o[f.k] = v;
+    });
+    return o;
+  }
+  function validate(d) {
+    if (!d.text) return "Порожній текст.";
+    if (cur.need && !d.text.includes(cur.need)) return `Додай «${cur.need}» на місце відповіді.`;
+    if (cur.fields && cur.fields.some((f) => f.k === "theme") && !d.theme) return "Обери тему.";
+    if (cur.quiz) {
+      if (!d.topic) return "Впиши тему.";
+      if (d.options.some((x) => !x)) return "Заповни всі чотири варіанти.";
+      if (new Set(d.options.map(N)).size < 4) return "Варіанти не мають повторюватись.";
+      if (!/^\d+$/.test(d.set)) return "Неправильний номер квізу.";
+    }
+    const key = cur.a.keyOfData(d);
+    const self = form.row ? form.row.key : null;
+    const clash = buildRows().some((r) => r.key !== self && r.st !== "off" && (r.key === key || N(r.data.text) === N(d.text) && (!cur.quiz || r.data.set === d.set) && (!d.theme || r.data.theme === d.theme)));
+    if (clash) return "Таке вже є в цьому банку.";
+    return "";
+  }
+
+  // ---------------- запис ----------------
+  function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
+  async function put(op, key, data, msg) {
+    const id = op === "add" ? (form.row && form.row.doc ? form.row.doc.id : "a_" + cur.id + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6))
+      : op + "_" + cur.id + "_" + hash(key);
+    const prev = docs.find((d) => d.id === id);
+    const doc = { list: cur.id, op, key, data: data || null, by: String(me.name || "").slice(0, 32), uid: me.uid,
+                  createdAt: prev && prev.createdAt ? prev.createdAt : Date.now(), updatedAt: Date.now() };
+    $("fSave").disabled = true;
+    try {
+      await db.collection(CO.COLLECTION).doc(id).set(doc);
+      docs = docs.filter((d) => d.id !== id).concat([Object.assign({ id }, doc)]);
+      if (op === "edit" && form.row && form.row.hideDoc) await removeDoc(form.row.hideDoc, null);   // «зберегти й повернути»
+      CO.applyAll(docs);
+      toast(msg); history.back(); render();
+    } catch (e) {
+      $("fErr").textContent = e && e.code === "permission-denied" ? "База не пускає — немає правил або ти не адмін." : "Не вийшло зберегти" + (e && e.code ? ` (${e.code})` : "");
+      $("fSave").disabled = false;
+    }
+  }
+  async function removeDoc(doc, msg) {
+    if (!doc) return;
+    try {
+      await db.collection(CO.COLLECTION).doc(doc.id).delete();
+      docs = docs.filter((d) => d.id !== doc.id);
+      CO.applyAll(docs);
+      if (msg) { toast(msg); history.back(); render(); }
+    } catch (e) { $("fErr").textContent = "Не вийшло" + (e && e.code ? ` (${e.code})` : ""); }
+  }
+  function save() {
+    collect();
+    const d = clean(form.data), r = form.row;
+    const err = validate(d);
+    if (err) { $("fErr").textContent = err; return; }
+    if (!r) return put("add", cur.a.keyOfData(d), d, "Додано — уже в грі");
+    if (r.st === "new") return put("add", cur.a.keyOfData(d), d, "Збережено");
+    const same = JSON.stringify(clean(Object.assign({}, r.orig))) === JSON.stringify(d);
+    if (same) return r.editDoc ? removeDoc(r.editDoc, "Як у файлі") : r.hideDoc ? removeDoc(r.hideDoc, "Повернуто в гру") : (history.back(), undefined);
+    return put("edit", r.key, d, "Збережено — уже в грі");
+  }
+
+  // ---------------- події ----------------
+  $("listSel").onchange = () => setList($("listSel").value);
+  let qT = null;
+  $("q").addEventListener("input", () => { clearTimeout(qT); qT = setTimeout(() => { filt.q = $("q").value; shown = PAGE; render(); }, 150); });
+  $("grp").onchange = () => { filt.grp = $("grp").value; shown = PAGE; render(); };
+  $("st").querySelectorAll("button").forEach((b) => b.onclick = () => { filt.st = b.dataset.s; shown = PAGE; render(); });
+  $("moreBtn").onclick = () => { shown += PAGE; render(); };
+  $("addBtn").onclick = () => openForm(null);
+
+  if (!window.firebaseReady) { showGate("<p>Немає зʼєднання з Firebase. Перевір інтернет і онови сторінку.</p>"); return; }
+  boot();
+})();
+</script>
+</body>
+</html>

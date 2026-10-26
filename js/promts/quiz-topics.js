@@ -328,7 +328,7 @@ const QUIZ_TOPICS = [
 
 // Набори питань за номером: «1» — цей файл, «2» — quiz-topics-2.js. Ведучий обирає в лобі.
 (window.QUIZ_SETS = window.QUIZ_SETS || {})["1"] = QUIZ_TOPICS;
-function quizBank(set) { return (window.QUIZ_SETS && window.QUIZ_SETS[set]) || QUIZ_TOPICS; }
+function quizBank(set) { return (window.QUIZ_SETS && window.QUIZ_SETS[set]) || (String(set || "1") === "1" ? QUIZ_TOPICS : []); }
 
 // Поле гри — 6 тем × 5 цін, вибраних із банку (js/quiz-game.js → buildFreshBoard).
 // Клітинка поля памʼятає індекс теми (ti) і питання (qi) в банку; старі кімнати без ti
@@ -337,6 +337,11 @@ function quizQuestionAt(board, ci, qi) {
   const row = board && board[ci];
   const cell = row && row.questions && row.questions[qi];
   // row.set — номер набору (нема в старих кімнатах → набір «1»)
-  if (row && row.ti != null && cell && cell.qi != null) return quizBank(row.set || "1")[row.ti].questions[cell.qi];
+  if (row && row.ti != null && cell && cell.qi != null) {
+    const t = quizBank(row.set || "1")[row.ti], q = t && t.questions[cell.qi];
+    if (q) return q;
+    // питання з editor.html ще не підтягнулося на цьому телефоні — заглушка замість падіння
+    return { text: "Питання ще завантажується… Онови сторінку.", options: ["—", "—", "—", "—"], value: (qi + 1) * 100, timeLimit: 30, correctIndices: [0], answerText: "" };
+  }
   return QUIZ_TOPICS[ci].questions[qi];
 }

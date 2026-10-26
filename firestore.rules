@@ -136,6 +136,21 @@ service cloud.firestore {
     }
     // △ Картинки для ігор
 
+    // ▽ Редактор питань (editor.html): зміни до вбудованих банків. Читають усі ігри, пишуть лише адміни.
+    match /games41_content/{id} {
+      allow read: if true;
+      allow create, update: if request.auth != null
+        && exists(/databases/$(database)/documents/games41_admins/$(request.auth.uid))
+        && request.resource.data.keys().hasOnly(['list', 'op', 'key', 'data', 'by', 'uid', 'createdAt', 'updatedAt'])
+        && request.resource.data.op in ['add', 'edit', 'hide']
+        && request.resource.data.list is string && request.resource.data.list.size() <= 32
+        && request.resource.data.key is string && request.resource.data.key.size() <= 500
+        && request.resource.data.uid == request.auth.uid;
+      allow delete: if request.auth != null
+        && exists(/databases/$(database)/documents/games41_admins/$(request.auth.uid));
+    }
+    // △ Редактор питань
+
     // ▽ «Вгадай персонажа» — свої персонажі. Додає будь-хто з входом (і гість), прибирає автор або адмін.
     match /games41_guesschar/{id} {
       allow read: if true;

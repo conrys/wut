@@ -59,7 +59,7 @@
     set = (window.QUIZ_SETS && window.QUIZ_SETS[set]) ? String(set) : "1";
     const bank = quizBank(set);
     const all = bank.map((t, ti) => ti)
-      .filter((ti) => BOARD_VALUES.every((v) => bank[ti].questions.some((q) => q.value === v)));
+      .filter((ti) => BOARD_VALUES.every((v) => bank[ti].questions.some((q) => q.value === v && !q.off)));   // off — приховане в editor.html
     const ordered = PH ? PH.order("quiz_topics", all, (ti) => bank[ti].name) : all.sort(() => Math.random() - 0.5);
     const chosen = ordered.slice(0, BOARD_TOPICS);
     if (PH) PH.mark("quiz_topics", chosen.map((ti) => bank[ti].name));
@@ -68,7 +68,7 @@
       return {
         set, ti, name: t.name,
         questions: BOARD_VALUES.map((v) => {
-          const idx = t.questions.map((q, qi) => qi).filter((qi) => t.questions[qi].value === v);
+          const idx = t.questions.map((q, qi) => qi).filter((qi) => t.questions[qi].value === v && !t.questions[qi].off);
           const qi = PH ? PH.order("quiz", idx, (i) => t.questions[i].text)[0] : pickRandom(idx);
           return { qi, played: false };
         }),
@@ -214,7 +214,9 @@
       if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
     };
 
-    return Engine.getOrCreateRoom(roomId, ROOM_SCHEMA, () => ({ quizSet: "1", board: buildFreshBoard("1") })).then(({ room }) => {
+    // питання з editor.html мають бути однакові в усіх телефонів (поле зберігає номери питань)
+    const overlayReady = window.ContentOverlay ? window.ContentOverlay.ready : Promise.resolve();
+    return overlayReady.then(() => Engine.getOrCreateRoom(roomId, ROOM_SCHEMA, () => ({ quizSet: "1", board: buildFreshBoard("1") }))).then(({ room }) => {
       const alreadyIn = !!(room.players && room.players[username]);
       const canJoinAsPlayer = alreadyIn || room.phase === "lobby" || room.phase === "countdown";
       // хто вже в кімнаті (перезайшов) — рахунок і монстрик лишаються як були
