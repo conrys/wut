@@ -270,6 +270,12 @@
       background-image: var(--icon);
     }
 
+    .tile[data-type*="dev"] .tile-media {
+      background-color: #1f3a35;
+      background-image: var(--icon);
+    }
+    .tag-dev { background: rgba(61, 214, 163, 0.18); color: #3dd6a3; }
+
     .tile[data-type*="host"] .tile-media {
       background-color: #421c28;
       background-image: var(--icon);
@@ -453,6 +459,7 @@
       <button class="filter-btn" data-filter="solo">Соло</button>
       <button class="filter-btn" data-filter="multi">Компанія</button>
       <button class="filter-btn" data-filter="host">Хост</button>
+      <button class="filter-btn hidden" data-filter="dev" id="devFilterBtn">dev</button>
     </div>
     <input class="game-search" id="gameSearch" type="search" placeholder="Пошук гри" autocomplete="off" aria-label="Пошук гри" />
   </div>
@@ -856,11 +863,19 @@
     </a>
 
 
-    <a class="tile" href="notes.html" data-type="host">
-      <div class="tile-media" style="--icon: url('');"></div>
-      <div class="tags"><span class="tag tag-it" title="Онлайн"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.5 3.9 5.5 3.9 9s-1.3 6.5-3.9 9c-2.6-2.5-3.9-5.5-3.9-9S9.4 5.5 12 3z"/></svg></span></div>
+    <a class="tile hidden" href="notes.html" data-type="dev">
+      <div class="tile-media" style="--icon: url('img/notes_logo.png?v=20261026');"></div>
+      <div class="tags"><span class="tag tag-dev">dev</span></div>
       <div class="tile-banner">
         <div class="name">Нотатки</div>
+      </div>
+    </a>
+
+    <a class="tile hidden" href="upload.html" data-type="dev">
+      <div class="tile-media" style="--icon: url('img/upload_logo.png?v=20261026');"></div>
+      <div class="tags"><span class="tag tag-dev">dev</span></div>
+      <div class="tile-banner">
+        <div class="name">Картинки для ігор</div>
       </div>
     </a>
 
@@ -932,6 +947,13 @@
   const searchInput = document.getElementById('gameSearch');
   const norm = (s) => String(s || '').toLowerCase().replace(/[ʼ’`']/g, '').replace(/ё/g, 'е');
   let currentFilter = 'all';
+  // Вкладка dev (нотатки, картинки для ігор) — лише для цих акаунтів. Це лише показ:
+  // самі сторінки захищені окремо (notes.html — свій список, upload.html — правила Firebase).
+  const DEV_ACCOUNTS = ['conrys', 'test', '1111'];
+  const devBtn = document.getElementById('devFilterBtn');
+  const sessionName = () => { try { const s = window.AppAuth && AppAuth.getSession(); return s ? String(s.username || '').toLowerCase() : ''; } catch (e) { return ''; } };
+  const devOn = DEV_ACCOUNTS.includes(sessionName());
+  if (devBtn) devBtn.classList.toggle('hidden', !devOn);
   const applyFilter = (filter) => {
     currentFilter = filter;
     const q = norm(searchInput.value.trim());
@@ -939,7 +961,8 @@
     tiles.forEach(tile => {
       const types = tile.dataset.type.split(' ');
       const isHost = types.includes('host');
-      const byFilter = filter === 'host' ? isHost : filter === 'all' ? !isHost : types.includes(filter) && !isHost;
+      const isDev = types.includes('dev');   // службові сторінки — лише у вкладці dev і лише для DEV_ACCOUNTS
+      const byFilter = isDev ? (filter === 'dev' && devOn) : filter === 'host' ? isHost : filter === 'all' ? !isHost : types.includes(filter) && !isHost;
       const name = norm((tile.querySelector('.name') || {}).textContent) + ' ' + norm(tile.getAttribute('href'));
       const visible = byFilter && (!q || name.includes(q));
       tile.classList.toggle('hidden', !visible);
