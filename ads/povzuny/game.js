@@ -294,12 +294,38 @@
   }
 
   // ---------------- керування ----------------
-  let pointerAng = null, boostHeld = false, touches = new Map(), keyTurn = 0;
-  cv.addEventListener('pointerdown', (e) => { touches.set(e.pointerId, e); if (e.pointerType === 'mouse') { if (e.button === 0) boostHeld = true; } else if (touches.size >= 2) boostHeld = true; aim(e); });
-  cv.addEventListener('pointermove', (e) => { if (touches.has(e.pointerId) && e.pointerType !== 'mouse' && touches.size >= 2 && [...touches.keys()][0] !== e.pointerId) return; aim(e); if (touches.has(e.pointerId)) touches.set(e.pointerId, e); });
-  const up = (e) => { touches.delete(e.pointerId); if (e.pointerType === 'mouse' || touches.size < 2) boostHeld = false; };
+  // Дотик: плаваючий джойстик — де торкнувся, там його центр; змія повзе туди, куди тягнеш.
+  // Другий палець (або «Швидше») — прискорення. Мишка: напрям від центру екрана, кнопка — прискорення.
+  let pointerAng = null, boostHeld = false, joy = null, extra = new Set();
+  const JOY_R = 58, JOY_DEAD = 8;
+  cv.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse') { if (e.button === 0) boostHeld = true; aimMouse(e); return; }
+    if (!joy) { joy = { id: e.pointerId, sx: e.clientX, sy: e.clientY, x: e.clientX, y: e.clientY }; try { cv.setPointerCapture(e.pointerId); } catch (er) {} }
+    else { extra.add(e.pointerId); boostHeld = true; }
+  });
+  cv.addEventListener('pointermove', (e) => {
+    if (e.pointerType === 'mouse') { aimMouse(e); return; }
+    if (!joy || e.pointerId !== joy.id) return;
+    joy.x = e.clientX; joy.y = e.clientY;
+    let dx = joy.x - joy.sx, dy = joy.y - joy.sy; const d = Math.hypot(dx, dy);
+    if (d > JOY_DEAD) pointerAng = Math.atan2(dy, dx);
+    // база «їде» за пальцем, якщо тягнути далеко — не треба повертатися до точки дотику
+    if (d > JOY_R * 1.4) { const k = (d - JOY_R * 1.4) / d; joy.sx += dx * k; joy.sy += dy * k; }
+  });
+  const up = (e) => {
+    if (e.pointerType === 'mouse') { boostHeld = false; return; }
+    if (joy && e.pointerId === joy.id) joy = null;   // напрям лишається — змія повзе далі прямо
+    extra.delete(e.pointerId); if (!extra.size && !$('boostBtn').classList.contains('on')) boostHeld = false;
+  };
   cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
-  function aim(e) { pointerAng = Math.atan2(e.clientY - H / 2, e.clientX - W / 2); }
+  function aimMouse(e) { pointerAng = Math.atan2(e.clientY - H / 2, e.clientX - W / 2); }
+  function drawJoy() {
+    if (!joy) return;
+    const dx = joy.x - joy.sx, dy = joy.y - joy.sy, d = Math.hypot(dx, dy), k = d > JOY_R ? JOY_R / d : 1;
+    ctx.globalAlpha = 0.18; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(joy.sx, joy.sy, JOY_R, 0, 6.283); ctx.fill();
+    ctx.globalAlpha = 0.35; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.globalAlpha = 0.75; ctx.beginPath(); ctx.arc(joy.sx + dx * k, joy.sy + dy * k, 24, 0, 6.283); ctx.fill(); ctx.globalAlpha = 1;
+  }
   const bb = $('boostBtn');
   bb.addEventListener('pointerdown', (e) => { e.preventDefault(); boostHeld = true; bb.classList.add('on'); });
   ['pointerup', 'pointercancel', 'pointerleave'].forEach((n) => bb.addEventListener(n, () => { boostHeld = false; bb.classList.remove('on'); }));
@@ -371,6 +397,7 @@
     const all = allSnakes().sort((a, b) => a.mass - b.mass);
     for (const s of all) drawSnake(s, x0, x1, y0, y1);
     ctx.restore();
+    if (state === 'play') drawJoy();
     // фід
     ctx.font = '700 13px "Baloo 2",system-ui,sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     feed = feed.filter((f) => now - f.t < 5); feed.forEach((f, i) => { ctx.globalAlpha = Math.min(1, 5 - (now - f.t)); ctx.fillStyle = 'rgba(0,0,0,.45)';
