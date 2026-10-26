@@ -18,7 +18,7 @@
   const WEAPONS = {
     sword: {
       name: "Меч", icon: "⚔️", behavior: "sword",
-      desc: "Рубає вбік найближчого ворога. Пробиває всіх.",
+      desc: "Рубає в найближчого ворога — під будь-яким кутом. Пробиває всіх.",
       base: { dmg: 10, cd: 1.35, amount: 1, area: 1, pierce: 999 },
       levels: [
         { amount: 1 }, { dmg: 5 }, { dmg: 5, area: 0.1 }, { dmg: 5 },

@@ -470,23 +470,29 @@
   const FIRE = {
     sword(s, w, ws) {
       const p = s.player;
-      // б'є в бік найближчого ворога (на телефоні зручніше, ніж лише «куди дивишся»)
+      // перший удар — точно в найближчого ворога під будь-яким кутом (вертикаль, діагональ);
+      // другий — у протилежний бік, третій і четвертий (Амулет двійника) — навхрест
       const near = nearestEnemies(s, 1, 220)[0];
-      const face = near ? (near.x >= p.x ? 1 : -1) : (p.fx >= 0 ? 1 : -1);
+      const base = near ? Math.atan2(near.y - p.y, near.x - p.x) : Math.atan2(p.fy || 0, p.fx || 1);
+      const TURN = [0, Math.PI, Math.PI / 2, -Math.PI / 2];
       for (let i = 0; i < ws.amount; i++) {
         later(s, i * 0.12, () => {
-          const side = i % 2 === 0 ? face : -face;
-          const W = 120 * ws.area, H = 34 * ws.area;
-          const cx = p.x + side * (W / 2 + 6), cy = p.y - Math.floor(i / 2) * 22;
+          const ang = base + TURN[i % 4] + Math.floor(i / 4) * (Math.PI / 4);
+          const ux = Math.cos(ang), uy = Math.sin(ang);
+          const W = 120 * ws.area, H = 34 * ws.area, reach = W / 2 + 6;
+          const cx = p.x + ux * reach, cy = p.y + uy * reach;
           let healed = 0;
           for (const e of s.enemies) {
             if (e.dead) continue;
-            if (Math.abs(e.x - cx) < W / 2 + e.r && Math.abs(e.y - cy) < H / 2 + e.r) {
-              damageEnemy(s, e, ws.dmg, side, 0, 160);
+            // у системі координат удару: u — уздовж леза, v — поперек
+            const dx = e.x - cx, dy = e.y - cy;
+            const u = dx * ux + dy * uy, v = -dx * uy + dy * ux;
+            if (Math.abs(u) < W / 2 + e.r && Math.abs(v) < H / 2 + e.r) {
+              damageEnemy(s, e, ws.dmg, ux, uy, 160);
               if (ws.flags.lifesteal && healed < 3) { heal(s, 0.75); healed++; }
             }
           }
-          s.fx.push({ kind: "slash", x: cx, y: cy, w: W, h: H, side, t: 0, life: 0.18, evo: !!ws.flags.lifesteal });
+          s.fx.push({ kind: "slash", x: cx, y: cy, w: W, h: H, ang, side: 1, t: 0, life: 0.18, evo: !!ws.flags.lifesteal });
         });
       }
     },

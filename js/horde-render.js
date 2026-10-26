@@ -646,7 +646,10 @@
   function drawFx(g, f, ax, ay, t) {
     const k = f.t / f.life;
     if (f.kind === "slash") {
-      const X = ax(f.x), Y = ay(f.y);
+      // лезо малюється вздовж +X і повертається на кут удару
+      const rot = typeof f.ang === "number";
+      if (rot) { g.save(); g.translate(ax(f.x), ay(f.y)); g.rotate(f.ang); }
+      const X = rot ? 0 : ax(f.x), Y = rot ? 0 : ay(f.y);
       const hw = Math.round(f.w / WPP / 2), hh = Math.max(2, Math.round(f.h / WPP / 2 * (1 - k * 0.4)));
       const col = f.evo ? "255,90,110" : "242,236,217";
       // дуга-серп: зовнішній край яскравий, всередині прозоріше
@@ -658,6 +661,7 @@
         g.fillStyle = `rgba(${col},${(0.95 * (1 - k)).toFixed(2)})`;
         g.fillRect(f.side > 0 ? X + w + shift - 2 : X - w + shift, Y + y, 2, 1);
       }
+      if (rot) g.restore();
     } else if (f.kind === "puff") {
       const X = ax(f.x), Y = ay(f.y);
       g.fillStyle = f.color;
