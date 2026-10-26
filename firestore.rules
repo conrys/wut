@@ -135,6 +135,24 @@ service cloud.firestore {
       allow delete: if mediaAdmin();
     }
     // △ Картинки для ігор
+
+    // ▽ «Вгадай персонажа» — свої персонажі. Додає будь-хто з входом (і гість), прибирає автор або адмін.
+    match /games41_guesschar/{id} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['name', 'from', 'photo', 'wiki', 'by', 'uid', 'createdAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.name is string && request.resource.data.name.size() >= 1 && request.resource.data.name.size() <= 40
+        && request.resource.data.from is string && request.resource.data.from.size() <= 40
+        && (request.resource.data.photo == null || (request.resource.data.photo is string && request.resource.data.photo.matches('^' + id + '[.](webp|jpg)$')))
+        && request.resource.data.wiki in ['', 'uk', 'en']
+        && request.resource.data.by is string && request.resource.data.by.size() <= 32
+        && request.resource.data.createdAt is number;
+      allow update: if false;
+      allow delete: if request.auth != null && (resource.data.uid == request.auth.uid
+        || exists(/databases/$(database)/documents/games41_admins/$(request.auth.uid)));
+    }
+    // △ «Вгадай персонажа»
     // ▲▲▲ Ігротека / 41 Games ▲▲▲
 
     // ───────── Домашній кошик ─────────

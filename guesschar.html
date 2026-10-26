@@ -70,6 +70,19 @@ body { background: linear-gradient(160deg, #5b4bff 0%, #4b3bd6 50%, #2c1f8f 100%
 .gc-hist span.ok { background: rgba(31,209,127,.35); }
 .gc-hist span.skip { opacity: .7; text-decoration: line-through; }
 .gc-done { text-align: center; font-weight: 800; }
+/* свої персонажі */
+.gc-mine { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.gc-mine span { display: inline-flex; align-items: center; gap: 6px; padding: 5px 6px 5px 10px; border-radius: 999px; background: rgba(255,255,255,.18); font-size: 13px; font-weight: 700; }
+.gc-mine span.np { opacity: .75; }
+.gc-mine button { width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: rgba(0,0,0,.25); color: #fff; font-size: 11px; line-height: 22px; }
+.gc-addph { display: grid; grid-template-columns: 110px 1fr; gap: 12px; align-items: center; }
+.gc-prev { width: 110px; height: 110px; border-radius: 14px; background: rgba(0,0,0,.25) center / cover no-repeat; display: flex; align-items: center; justify-content: center; font-size: 34px; opacity: .9; }
+.gc-addph .pp-btn { width: 100%; min-height: 44px; }
+.gc-addph input[type=file] { display: none; }
+#view-add .pp-field { text-transform: none; letter-spacing: normal; text-align: left; font: 700 16px var(--font-b); }
+#view-add .pp-field::placeholder { text-transform: none; letter-spacing: normal; font-weight: 500; }
+.gc-note { font-size: 13px; color: var(--muted); margin-top: 8px; line-height: 1.35; }
+.gc-note.bad { color: #ffd0d0; }
 html.dark-games { --bg: #17132e; --hdr-bg: rgba(23,19,46,.9); }
 html.dark-games body { background: linear-gradient(160deg, #1d1840 0%, #17132e 55%, #100c22 100%) fixed; }
 html.dark-games .pp-card { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.14); }
@@ -84,10 +97,30 @@ html.dark-games .gc-card { background: #f1efff; }
       <div class="pp-label">Що показувати</div><div class="pp-seg" id="modeSeg"><button data-v="photo">Фото</button><button data-v="name">Ім'я</button></div>
       <div class="gc-modehint" id="modeHint"></div>
       <button class="pp-btn pp-primary pp-block pp-big" id="startBtn" style="margin-top:18px"><span data-ic="play"></span> Почати</button></div>
+    <div class="pp-card"><div class="pp-h">✍️ Свої персонажі <span class="cnt" id="customCount"></span></div>
+      <div class="gc-note" id="customNote" style="margin-top:0">Друзі, актори, блогери — будь-хто. Фото не обовʼязкове.</div>
+      <button class="pp-btn pp-block" id="addBtn" style="margin-top:12px">＋ Додати персонажа</button>
+      <div class="gc-mine" id="customList"></div></div>
     <details class="pp-card pp-rules"><summary>Як грати</summary><ol>
       <li><b>Фото:</b> покажи телефон усім — хто перший назве персонажа, той і вгадав. Тап «Показати відповідь», щоб перевірити.</li>
       <li><b>Ім'я:</b> тримаєш телефон сам і пояснюєш персонажа, не називаючи імені й твору. Решта вгадує.</li>
       <li>Вгадали — «Вгадали!», не знаєте — «Пропустити». Персонажі не повторюються, поки не пройдете всю колоду.</li></ol></details>
+  </section>
+
+  <section class="pp-view hidden" id="view-add">
+    <div class="pp-card"><div class="pp-h">Новий персонаж</div>
+      <div class="pp-label">Імʼя</div>
+      <input class="pp-field" id="addName" maxlength="40" autocomplete="off" placeholder="Кіану Рівз, Петро з роботи…" style="width:100%">
+      <div class="pp-label">Хто це / звідки <span style="font-weight:500">необовʼязково</span></div>
+      <input class="pp-field" id="addFrom" maxlength="40" autocomplete="off" placeholder="актор, наш друг, «Шрек»…" style="width:100%">
+      <div class="pp-label">Фото <span style="font-weight:500">необовʼязково</span></div>
+      <div class="gc-addph"><div class="gc-prev" id="addPrev">🙂</div>
+        <div><label class="pp-btn">📷 Обрати фото<input type="file" id="addFile" accept="image/*"></label>
+          <button class="pp-btn pp-ghost hidden" id="addClear" style="margin-top:6px">Прибрати фото</button></div></div>
+      <div class="gc-note" id="addNote">Без свого фото гра пошукає його у Вікіпедії за імʼям.</div>
+      <button class="pp-btn pp-primary pp-block pp-big" id="addSave" style="margin-top:16px">Додати</button>
+      <button class="pp-btn pp-ghost pp-block" id="addBack" style="margin-top:8px;color:#fff;border-color:rgba(255,255,255,.4)">Назад</button>
+    </div>
   </section>
 
   <section class="pp-view hidden" id="view-active">
@@ -109,7 +142,9 @@ html.dark-games .gc-card { background: #f1efff; }
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-storage-compat.js"></script>
 <script src="js/core/firebase-config.js"></script>
+<script src="js/core/image-compress.js"></script>
 <script src="js/core/prompt-history.js"></script>
 <script>PromptHistory.preload("guesschar");</script>
 <script src="js/core/app-settings.js"></script>
@@ -117,6 +152,9 @@ html.dark-games .gc-card { background: #f1efff; }
 <script>
 (function () {
   const DATA = window.GuessCharData || {};
+  // «Свої» — персонажі, яких додають гравці (Firestore games41_guesschar, фото — Storage games41_guesschar/<uid>/)
+  const CUSTOM = "custom";
+  DATA[CUSTOM] = { title: "Свої", icon: "✍️", items: [] };
   const CATS = Object.keys(DATA);
   const { esc, icon } = window.PartyUI;
   const PH = window.PromptHistory;
@@ -137,8 +175,11 @@ html.dark-games .gc-card { background: #f1efff; }
   if (!settings.cats.length) settings.cats = CATS.slice();
   const save = () => { try { localStorage.setItem(STORE, JSON.stringify(settings)); } catch (e) {} };
 
-  $("catSeg").innerHTML = `<button class="all" data-v="*">Усі категорії</button>` +
-    CATS.map((c) => `<button data-v="${c}"><span class="e">${DATA[c].icon}</span>${esc(DATA[c].title)}<small>${DATA[c].items.length}</small></button>`).join("");
+  function renderCats() {
+    $("catSeg").innerHTML = `<button class="all" data-v="*">Усі категорії</button>` +
+      CATS.map((c) => `<button data-v="${c}"><span class="e">${DATA[c].icon}</span>${esc(DATA[c].title)}<small>${DATA[c].items.length}</small></button>`).join("");
+  }
+  renderCats();
   function paintSetup() {
     $("catSeg").querySelectorAll("button").forEach((b) => b.classList.toggle("selected", b.dataset.v === "*" ? settings.cats.length === CATS.length : settings.cats.includes(b.dataset.v)));
     $("modeSeg").querySelectorAll("button").forEach((b) => b.classList.toggle("selected", b.dataset.v === settings.mode));
@@ -162,28 +203,36 @@ html.dark-games .gc-card { background: #f1efff; }
   const urlOf = new Map();                 // назва статті → url | null
   const pending = new Map();               // назва статті → Promise (поки йде пакетний запит)
   const imgReady = new Map();              // url → Promise<boolean>
-  function resolveBatch(titles) {
-    const todo = titles.filter((t) => !urlOf.has(t) && !pending.has(t));
-    for (let i = 0; i < todo.length; i += 50) {
-      const chunk = todo.slice(i, i + 50);
-      const api = "https://en.wikipedia.org/w/api.php?action=query&format=json&formatversion=2&origin=*&redirects=1&prop=pageimages&piprop=thumbnail&pilicense=any&pithumbsize=" + THUMB +
-        "&titles=" + encodeURIComponent(chunk.join("|"));
-      const pr = fetch(api).then((r) => (r.ok ? r.json() : null)).then((j) => {
-        const q = (j && j.query) || {}, alias = {};
-        (q.normalized || []).forEach((x) => { alias[x.to] = x.from; });
-        (q.redirects || []).forEach((x) => { alias[x.to] = alias[x.from] || x.from; });
-        (q.pages || []).forEach((p) => { const orig = alias[p.title] || p.title; urlOf.set(orig, p.thumbnail ? p.thumbnail.source : null); });
-      }).catch(() => {}).then(() => { chunk.forEach((t) => { if (!urlOf.has(t)) urlOf.set(t, null); pending.delete(t); }); });
-      chunk.forEach((t) => pending.set(t, pr));
-    }
+  // ключ: назва статті англ. Вікіпедії, або "uk:<назва>" — для своїх персонажів (українська Вікіпедія)
+  function resolveBatch(keys) {
+    const todo = keys.filter((k) => k && !urlOf.has(k) && !pending.has(k));
+    ["en", "uk"].forEach((lang) => {
+      const list = todo.filter((k) => (lang === "uk") === k.startsWith("uk:"));
+      for (let i = 0; i < list.length; i += 50) {
+        const chunk = list.slice(i, i + 50);
+        const titles = chunk.map((k) => (lang === "uk" ? k.slice(3) : k));
+        const api = "https://" + lang + ".wikipedia.org/w/api.php?action=query&format=json&formatversion=2&origin=*&redirects=1&prop=pageimages&piprop=thumbnail&pilicense=any&pithumbsize=" + THUMB +
+          "&titles=" + encodeURIComponent(titles.join("|"));
+        const pr = fetch(api).then((r) => (r.ok ? r.json() : null)).then((j) => {
+          const q = (j && j.query) || {}, alias = {};
+          (q.normalized || []).forEach((x) => { alias[x.to] = x.from; });
+          (q.redirects || []).forEach((x) => { alias[x.to] = alias[x.from] || x.from; });
+          (q.pages || []).forEach((p) => { const orig = alias[p.title] || p.title; urlOf.set(lang === "uk" ? "uk:" + orig : orig, p.thumbnail ? p.thumbnail.source : null); });
+        }).catch(() => {}).then(() => { chunk.forEach((k) => { if (!urlOf.has(k)) urlOf.set(k, null); pending.delete(k); }); });
+        chunk.forEach((k) => pending.set(k, pr));
+      }
+    });
   }
+  const keyOf = (item) => (item.photo ? null : item.lang === "uk" ? "uk:" + item.w : item.w);
   function loadImg(url) {
     if (!imgReady.has(url)) imgReady.set(url, new Promise((res) => { const im = new Image(); im.decoding = "async"; im.onload = () => res(true); im.onerror = () => res(false); im.src = url; }));
     return imgReady.get(url);
   }
   async function photoOf(item) {
-    if (!urlOf.has(item.w)) { resolveBatch([item.w]); await pending.get(item.w); }
-    const url = urlOf.get(item.w);
+    if (item.photo) return (await loadImg(item.photo)) ? item.photo : null;
+    const k = keyOf(item);
+    if (!urlOf.has(k)) { resolveBatch([k]); await pending.get(k); }
+    const url = urlOf.get(k);
     return url && (await loadImg(url)) ? url : null;
   }
 
@@ -191,17 +240,17 @@ html.dark-games .gc-card { background: #f1efff; }
   let deck = [], pos = 0, cur = null, revealed = false, got = 0, skipped = 0, history = [], token = 0;
   function buildDeck() {
     const pool = [];
-    settings.cats.forEach((c) => DATA[c].items.forEach(([n, from, w, nameOnly]) => {
-      if (nameOnly && settings.mode === "photo") return;   // постер із назвою видав би відповідь
-      pool.push({ n, from, w, cat: c });
+    settings.cats.forEach((c) => DATA[c].items.forEach(([n, from, w, nameOnly, extra]) => {
+      if (nameOnly && settings.mode === "photo") return;   // постер із назвою або свій персонаж без фото
+      pool.push({ n, from, w, cat: c, photo: extra && extra.photo, lang: extra && extra.lang });
     }));
     deck = PH ? PH.order("guesschar", pool, (x) => x.n + "|" + x.from) : pool.sort(() => Math.random() - 0.5);
     pos = 0;
-    if (settings.mode === "photo") resolveBatch(deck.slice(0, 100).map((x) => x.w)); // перші ~100 — одразу, решта — по ходу
+    if (settings.mode === "photo") resolveBatch(deck.slice(0, 100).map(keyOf)); // перші ~100 — одразу, решта — по ходу
   }
   function preload() {
     if (settings.mode !== "photo") return;
-    resolveBatch(deck.slice(pos, pos + 50).map((x) => x.w));
+    resolveBatch(deck.slice(pos, pos + 50).map(keyOf));
     for (let i = pos; i < Math.min(deck.length, pos + 4); i++) photoOf(deck[i]);
   }
 
@@ -226,7 +275,7 @@ html.dark-games .gc-card { background: #f1efff; }
   function renderCard(src) {
     const c = cur;
     if (settings.mode === "name") {
-      $("card").innerHTML = catLabel(c.cat) + `<div class="gc-name big">${esc(c.n)}</div><div class="gc-from">${esc(c.from)}</div><div class="gc-tip">${c.cat === "people" ? "Поясни, не називаючи імені" : "Поясни, не називаючи імені й твору"}</div>`;
+      $("card").innerHTML = catLabel(c.cat) + `<div class="gc-name big">${esc(c.n)}</div><div class="gc-from">${esc(c.from)}</div><div class="gc-tip">${c.cat === "people" || c.cat === CUSTOM ? "Поясни, не називаючи імені" : "Поясни, не називаючи імені й твору"}</div>`;
     } else {
       $("card").innerHTML = catLabel(c.cat) + `<div class="gc-photo" style="background-image:url('${src.replace(/'/g, "%27")}')"></div>` +
         `<div id="answer"><button class="gc-reveal" id="revealBtn">Показати відповідь</button></div>`;
@@ -271,9 +320,158 @@ html.dark-games .gc-card { background: #f1efff; }
   });
 
   function showView(name) {
-    ["setup", "active"].forEach((v) => $("view-" + v).classList.toggle("hidden", v !== name));
+    ["setup", "add", "active"].forEach((v) => $("view-" + v).classList.toggle("hidden", v !== name));
     window.scrollTo(0, 0);
   }
+  // ---------------- свої персонажі ----------------
+  const COL = "games41_guesschar";
+  const BUCKET = (typeof firebaseConfig !== "undefined" && firebaseConfig.storageBucket) || "kzl-crm.firebasestorage.app";
+  const photoPath = (uid, file) => "games41_guesschar/" + uid + "/" + file;
+  const photoUrl = (uid, file) => "https://firebasestorage.googleapis.com/v0/b/" + BUCKET + "/o/" + encodeURIComponent(photoPath(uid, file)) + "?alt=media";
+  const normName = (x) => String(x || "").toLowerCase().replace(/[ʼ'’`]/g, "").replace(/\s+/g, " ").trim();
+  let customDocs = [], me = null, isAdmin = false;
+  const session = () => (window.AppAuth && AppAuth.getSession()) || null;
+
+  function applyCustom(docs) {
+    customDocs = docs.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    DATA[CUSTOM].items = customDocs.map((d) => {
+      const photo = d.photo ? photoUrl(d.uid, d.photo) : null;
+      const lang = d.wiki === "uk" || d.wiki === "en" ? d.wiki : null;
+      return [d.name, d.from || "свій персонаж", d.wikiTitle || d.name, photo || lang ? 0 : 1, { photo, lang, id: d.id }];
+    });
+    renderCats(); paintSetup(); renderCustom();
+  }
+  function loadCustom() {
+    if (!window.firebaseReady || typeof db === "undefined" || !db) { renderCustom(); return Promise.resolve(); }
+    return db.collection(COL).get()
+      .then((snap) => applyCustom(snap.docs.map((d) => Object.assign({ id: d.id }, d.data()))))
+      .catch((e) => { console.warn("guesschar custom:", e && e.code); renderCustom(); });
+  }
+  function renderCustom() {
+    const n = customDocs.length, s = session();
+    $("customCount").textContent = n ? `(${n})` : "";
+    $("addBtn").textContent = s ? "＋ Додати персонажа" : "Увійди, щоб додавати";
+    const mine = (d) => me && (d.uid === me.uid || isAdmin);
+    $("customList").innerHTML = customDocs.slice().reverse().map((d) =>
+      `<span class="${d.photo || d.wiki ? "" : "np"}" title="${d.photo || d.wiki ? "" : "без фото — лише в режимі «Імʼя»"}">${esc(d.name)}${mine(d) ? `<button data-del="${esc(d.id)}" aria-label="Видалити">✕</button>` : ""}</span>`).join("");
+    $("customList").querySelectorAll("[data-del]").forEach((b) => b.onclick = () => removeCustom(b.dataset.del));
+  }
+  function removeCustom(id) {
+    const d = customDocs.find((x) => x.id === id);
+    if (!d || !confirm(`Прибрати «${d.name}» зі своїх персонажів?`)) return;
+    db.collection(COL).doc(id).delete()
+      .then(() => { if (d.photo && firebase.storage) return firebase.storage().ref(photoPath(d.uid, d.photo)).delete().catch(() => {}); })
+      .then(() => applyCustom(customDocs.filter((x) => x.id !== id)))
+      .catch((e) => alert("Не вийшло видалити: " + (e && e.code || e)));
+  }
+
+  // форма додавання
+  let addFile = null, addPreviewUrl = null, wikiFound = null, wikiTimer = null, saving = false;
+  function resetAdd() {
+    $("addName").value = ""; $("addFrom").value = ""; clearPhoto(); wikiFound = null;
+    setNote("Без свого фото гра пошукає його у Вікіпедії за імʼям.");
+  }
+  function setNote(t, bad) { $("addNote").textContent = t; $("addNote").classList.toggle("bad", !!bad); }
+  function setPrev(url) { const p = $("addPrev"); p.style.backgroundImage = url ? `url("${url}")` : ""; p.textContent = url ? "" : "🙂"; }
+  function clearPhoto() {
+    if (addPreviewUrl) URL.revokeObjectURL(addPreviewUrl);
+    addFile = null; addPreviewUrl = null; $("addClear").classList.add("hidden"); $("addFile").value = "";
+    setPrev(wikiFound && wikiFound.url);
+  }
+  // поки людина вводить імʼя — шукаємо фото в українській, потім в англійській Вікіпедії
+  async function findWiki(name) {
+    for (const lang of ["uk", "en"]) {
+      const k = lang === "uk" ? "uk:" + name : name;
+      resolveBatch([k]); await pending.get(k);
+      const url = urlOf.get(k);
+      if (url && (await loadImg(url))) return { lang, url, title: name };
+    }
+    return null;
+  }
+  function onNameInput() {
+    clearTimeout(wikiTimer);
+    const name = $("addName").value.trim();
+    wikiFound = null;
+    if (!addFile) setPrev(null);
+    if (!name) { setNote("Без свого фото гра пошукає його у Вікіпедії за імʼям."); return; }
+    const dup = CATS.some((c) => DATA[c].items.some((it) => normName(it[0]) === normName(name)));
+    if (dup) { setNote("Такий персонаж уже є в грі.", true); return; }
+    if (addFile) return;
+    setNote("Шукаю фото у Вікіпедії…");
+    wikiTimer = setTimeout(async () => {
+      const found = await findWiki(name);
+      if ($("addName").value.trim() !== name || addFile) return;
+      wikiFound = found;
+      setPrev(found && found.url);
+      setNote(found ? "Знайшов фото у Вікіпедії ✓ Не те? Обери своє." : "У Вікіпедії фото немає. Можна обрати своє — або додати без фото (тоді лише для режиму «Імʼя»).");
+    }, 600);
+  }
+  $("addName").addEventListener("input", onNameInput);
+  $("addFile").addEventListener("change", async (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    setNote("Стискаю фото…");
+    try {
+      const r = await ImageCompress.compress(f, { maxSide: 800, target: 180 * 1024, max: 550 * 1024 });
+      if (addPreviewUrl) URL.revokeObjectURL(addPreviewUrl);
+      addFile = r; addPreviewUrl = URL.createObjectURL(r.blob);
+      setPrev(addPreviewUrl); $("addClear").classList.remove("hidden");
+      setNote("Буде твоє фото.");
+    } catch (err) { setNote("Не вдалося відкрити це фото.", true); }
+  });
+  $("addClear").addEventListener("click", () => { clearPhoto(); onNameInput(); });
+  $("addBtn").addEventListener("click", () => {
+    if (!session()) { AppAuth.openLogin("guest"); return; }
+    resetAdd(); showView("add"); setTimeout(() => $("addName").focus(), 50);
+  });
+  $("addBack").addEventListener("click", () => { showView("setup"); paintSetup(); });
+  $("addSave").addEventListener("click", async () => {
+    if (saving) return;
+    const name = $("addName").value.trim().replace(/\s+/g, " "), from = $("addFrom").value.trim().replace(/\s+/g, " ");
+    if (!name) { setNote("Впиши імʼя.", true); $("addName").focus(); return; }
+    if (CATS.some((c) => DATA[c].items.some((it) => normName(it[0]) === normName(name)))) { setNote("Такий персонаж уже є в грі.", true); return; }
+    if (!me) { setNote("Спершу увійди.", true); return; }
+    clearTimeout(wikiTimer);
+    if (!addFile && !wikiFound) { setNote("Шукаю фото у Вікіпедії…"); wikiFound = await findWiki(name); }
+    saving = true; $("addSave").disabled = true; $("addSave").textContent = "Зберігаю…";
+    const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    let file = null, ref = null;
+    try {
+      if (addFile) {
+        file = id + "." + addFile.ext;
+        ref = firebase.storage().ref(photoPath(me.uid, file));
+        await ref.put(addFile.blob, { contentType: addFile.type, cacheControl: "public, max-age=31536000, immutable" });
+      }
+      const doc = { name: name.slice(0, 40), from: from.slice(0, 40), photo: file, wiki: !file && wikiFound ? wikiFound.lang : "",
+                    by: String(me.name || "").slice(0, 32), uid: me.uid, createdAt: Date.now() };
+      await db.collection(COL).doc(id).set(doc);
+      applyCustom(customDocs.concat([Object.assign({ id }, doc)]));
+      if (!settings.cats.includes(CUSTOM)) { settings.cats = settings.cats.concat(CUSTOM); save(); paintSetup(); }
+      sfx("ding");
+      resetAdd();
+      setNote(`«${name}» додано ✓ Можна додати ще когось.`);
+      $("addName").focus();
+    } catch (e) {
+      if (ref) ref.delete().catch(() => {});
+      const code = e && e.code;
+      setNote(code === "storage/unauthorized" || code === "permission-denied"
+        ? "База не пускає — у консолі Firebase ще немає правил для своїх персонажів." : "Не вийшло зберегти — спробуй ще раз" + (code ? ` (${code})` : "") + ".", true);
+    } finally {
+      saving = false; $("addSave").disabled = false; $("addSave").textContent = "Додати";
+    }
+  });
+
+  // хто я: потрібен вхід у Firebase Auth (гість теж підходить); адмін може прибирати чужих
+  if (window.firebaseReady && typeof firebase !== "undefined" && firebase.auth) {
+    firebase.auth().onAuthStateChanged((user) => {
+      const s = session();
+      me = user && s ? { uid: user.uid, name: s.username } : null;
+      if (!me) { renderCustom(); return; }
+      db.collection("games41_admins").doc(user.uid).get().then((d) => { isAdmin = d.exists; }).catch(() => {}).then(renderCustom);
+    });
+  }
+  loadCustom();
+
   showView("setup");
   paintSetup();
 })();

@@ -22,6 +22,17 @@ service firebase.storage {
       allow update: if false;
       allow delete: if mediaAdmin();
     }
+    // «Вгадай персонажа»: фото своїх персонажів — кожен пише лише у свою папку, прибирає автор або адмін
+    match /games41_guesschar/{uid}/{file} {
+      allow read: if true;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && file.matches('^[a-z0-9]+[.](webp|jpg)$')
+        && request.resource.size < 600 * 1024
+        && request.resource.contentType.matches('image/(webp|jpeg)');
+      allow update: if false;
+      allow delete: if request.auth != null && (request.auth.uid == uid
+        || firestore.exists(/databases/(default)/documents/games41_admins/$(request.auth.uid)));
+    }
     // ▲▲▲ Ігротека / 41 Games ▲▲▲
   }
 }
