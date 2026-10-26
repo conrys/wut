@@ -154,7 +154,7 @@ body { background:
 
   let theme = "random", difficulty = "medium", timeLimit = 0;
   let sessionTotal = 0, currentWord = null, currentThemeName = null;
-  let usedWords = {}; // "тема:складність" -> [слова], щоб не повторювались за сесію
+  let usedWords = new Set(); // показані за гру слова — спільно для всіх тем і рівнів
   let guessed = [];
 
   // ---- налаштування кнопками ----
@@ -175,19 +175,23 @@ body { background:
     try { localStorage.setItem("croc_time", String(timeLimit)); } catch (er) {}
   });
 
+  // Слово без повторів за всю гру. «Випадкова тема» бере з усіх ще не показаних слів обраного рівня;
+  // скінчились — підмішуємо сусідній рівень, і лише коли показано все — йдемо по колу.
+  const LEVEL_ORDER = { easy: ["easy", "medium", "hard"], medium: ["medium", "easy", "hard"], hard: ["hard", "medium", "easy"] };
   function pickWord() {
-    const chosenTheme = theme === "random" ? CROCODILE_THEMES[Math.floor(Math.random() * CROCODILE_THEMES.length)].name : theme;
-    const th = CROCODILE_THEMES.find((t) => t.name === chosenTheme);
-    const pool = th[difficulty];
-    const key = chosenTheme + ":" + difficulty;
-    if (!usedWords[key]) usedWords[key] = [];
-    let available = pool.filter((w) => !usedWords[key].includes(w));
-    if (!available.length) { usedWords[key] = []; available = pool; }
-    const word = window.PromptHistory ? PromptHistory.order("crocodile", available)[0] : available[Math.floor(Math.random() * available.length)];
-    if (window.PromptHistory) PromptHistory.mark("crocodile", [word]);
-    usedWords[key].push(word);
-    currentWord = word;
-    currentThemeName = chosenTheme;
+    const themes = theme === "random" ? CROCODILE_THEMES : CROCODILE_THEMES.filter((t) => t.name === theme);
+    const poolOf = (lvl) => themes.flatMap((t) => (t[lvl] || []).map((w) => ({ w, t: t.name })));
+    let pool = [];
+    for (const lvl of LEVEL_ORDER[difficulty] || LEVEL_ORDER.medium) {
+      pool = poolOf(lvl).filter((x) => !usedWords.has(x.w));
+      if (pool.length) break;
+    }
+    if (!pool.length) { usedWords.clear(); pool = poolOf(difficulty); }
+    const pick = window.PromptHistory ? PromptHistory.order("crocodile", pool, (x) => x.w)[0] : pool[Math.floor(Math.random() * pool.length)];
+    if (window.PromptHistory) PromptHistory.mark("crocodile", [pick.w]);
+    usedWords.add(pick.w);
+    currentWord = pick.w;
+    currentThemeName = pick.t;
   }
 
   // ---- таймер слова ----
@@ -241,7 +245,7 @@ body { background:
   $("skipBtn").addEventListener("click", () => { stopTimer(); showWord(); }); // той самий тримач, нове слово одразу
 
   $("startBtn").addEventListener("click", () => {
-    sessionTotal = 0; usedWords = {}; guessed = [];
+    sessionTotal = 0; usedWords = new Set(); guessed = [];
     setReady("Передай телефон першому гравцю");
   });
   $("readyCircle").addEventListener("click", showWord);
@@ -259,7 +263,7 @@ body { background:
   }
   $("endGameFromReadyBtn").addEventListener("click", () => { if (confirm("Завершити гру?")) finishGame(); });
   $("endGameFromActiveBtn").addEventListener("click", () => { if (confirm("Завершити гру?")) finishGame(); });
-  $("newGameBtn").addEventListener("click", () => { sessionTotal = 0; usedWords = {}; guessed = []; paintSetup(); showView("setup"); });
+  $("newGameBtn").addEventListener("click", () => { sessionTotal = 0; usedWords = new Set(); guessed = []; paintSetup(); showView("setup"); });
 
   paintSetup();
   showView("setup");
