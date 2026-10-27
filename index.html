@@ -201,6 +201,7 @@
       transition: all 0.2s ease;
       text-align: center;
     }
+    html, body { overscroll-behavior-x: none; }   /* горизонтальний свайп — для вкладок, не «назад» у браузері */
     .filter-btn.filter-fav, button.filter-btn.filter-fav.active { flex: 0 0 40px; font-size: 15px; color: #ffcf3f; }
     /* зірочка «в улюблене» на плитці */
     .fav-star { position: absolute; top: 6px; right: 6px; z-index: 2; width: 34px; height: 34px; border: 0; border-radius: 50%;
@@ -1012,6 +1013,32 @@
   searchInput.addEventListener('input', () => applyFilter(currentFilter));
   // Розділи вмикаються в Налаштуваннях → Головна
   document.addEventListener('appsettingschange', (e) => { if (e.detail.key === 'homeSections') applyFilter(currentFilter); });
+
+  // Свайп по списку ігор уліво/вправо — сусідня вкладка (Всі → Соло → Компанія → Хост → ★ → dev)
+  (() => {
+    const grid = document.getElementById('games-grid');
+    const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let sx = 0, sy = 0, st = 0, track = false;
+    document.addEventListener('touchstart', (e) => {
+      const t = e.touches[0]; track = e.touches.length === 1 && !!t && !e.target.closest('input, select, textarea, .filter-bar, [data-noswipe]');
+      if (track) { sx = t.clientX; sy = t.clientY; st = performance.now(); }
+    }, { passive: true });
+    document.addEventListener('touchend', (e) => {
+      if (!track) return; track = false;
+      const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+      if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.8 || performance.now() - st > 700) return;
+      const tabs = [...filterButtons].filter((b) => !b.classList.contains('hidden'));
+      const i = tabs.findIndex((b) => b.classList.contains('active')), j = i + (dx < 0 ? 1 : -1);
+      if (i < 0 || j < 0 || j >= tabs.length) {   // край — легкий «відскок»
+        if (!reduce) grid.animate([{ transform: 'translateX(0)' }, { transform: `translateX(${dx < 0 ? -18 : 18}px)` }, { transform: 'translateX(0)' }], { duration: 220, easing: 'ease-out' });
+        return;
+      }
+      tabs[j].click();
+      tabs[j].scrollIntoView && tabs[j].scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      if (!reduce) grid.animate([{ transform: `translateX(${dx < 0 ? 40 : -40}px)`, opacity: 0.2 }, { transform: 'translateX(0)', opacity: 1 }], { duration: 220, easing: 'ease-out' });
+      try { navigator.vibrate && navigator.vibrate(8); } catch (_) {}
+    }, { passive: true });
+  })();
 
   filterButtons.forEach(btn => {
     btn.addEventListener('click', () => {
