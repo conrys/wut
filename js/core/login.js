@@ -380,7 +380,7 @@
     return GAME_LABELS[gameName] || (gameName.charAt(0).toUpperCase() + gameName.slice(1));
   }
   // іконка гри — її обкладинка (img/<гра>_logo.png), а не емодзі
-  const COVER_FILE = { blocks: "blocks_logo.svg", memology: "meme_logo.png", roulette: "roulette_logo.svg", dilemmas: "dilemmas_logo.svg" };
+  const COVER_FILE = { blocks: "blocks_logo.png", memology: "meme_logo.png", roulette: "roulette_logo.svg", dilemmas: "dilemmas_logo.svg" };
   function gameIcon(gameName) {
     const file = COVER_FILE[gameName] || (gameName + "_logo.png");
     return `<img src="img/${file}?v=20261017" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`;
