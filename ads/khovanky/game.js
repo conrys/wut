@@ -581,7 +581,7 @@ const ABIL={
   smoke:{role:'hider',name:'Димова завіса',ic:'🌫',uses:1,dur:8,txt:'Хмара диму: крізь неї ліхтар не бачить'},
   double:{role:'hider',name:'Двійник',ic:'👥',uses:1,dur:7,txt:'Твоя копія тікає в інший бік і збиває шукача'},
   lure:{role:'hider',name:'Шум-приманка',ic:'🔔',uses:2,cd:4,txt:'Шум за кілька метрів від тебе — шукач піде глянути'},
-  radar:{role:'seeker',name:'Радар',ic:'📡',uses:2,dur:3,txt:'Стрілка на найближчого хованця'},
+  radar:{role:'seeker',name:'Радар',ic:'📡',uses:2,dur:1,txt:'На мить показує, у який бік і як далеко найближчий хованець'},
   spot:{role:'seeker',name:'Прожектор',ic:'🔦',uses:1,dur:7,txt:'7 с ліхтар світить ширше й далі'},
   sprint:{role:'seeker',name:'Спринт',ic:'⚡',uses:2,dur:3,txt:'3 с бігаєш швидше'},
   trap:{role:'seeker',name:'Пастка',ic:'🪤',uses:2,cd:1,txt:'Хто наступить — застрягне на 3 с'},
@@ -629,7 +629,7 @@ function useAbility(c){
     case 'double':addDouble(c,abilityKey(c),false);c.dblT=A.dur;tone(660,0.15,{type:'triangle',vol:0.07,delay:0});tone(660,0.15,{type:'triangle',vol:0.07,delay:0.12});break;
     case 'lure':{let best=null;for(let k=0;k<16&&!best;k++){const a=c.yaw+(Math.random()-.5)*2.4,r=4.5+Math.random()*2.5,[x,z]=snap(c.x+Math.sin(a)*r,c.z+Math.cos(a)*r);if(Math.hypot(x-c.x,z-c.z)>3.2)best=[x,z]}
       if(!best)best=snap(c.x+3,c.z);c.lure=[best[0],best[1],abilityKey(c)];lureFx(best[0],best[1]);break}
-    case 'radar':c.radarT=A.dur;tone(980,0.08,{type:'square',vol:0.05});tone(1300,0.08,{type:'square',vol:0.05,delay:0.1});break;
+    case 'radar':c.radarT=A.dur;c.radarFix=null;tone(980,0.08,{type:'square',vol:0.05});tone(1300,0.08,{type:'square',vol:0.05,delay:0.1});break;
     case 'spot':c.spotT=A.dur;tone(400,0.2,{type:'triangle',vol:0.07,slide:1.6});break;
     case 'sprint':c.sprintT=A.dur;tone(500,0.15,{type:'sawtooth',vol:0.05,slide:1.8});break;
     case 'trap':addTrap(+c.x.toFixed(2),+c.z.toFixed(2),abilityKey(c));tone(150,0.12,{type:'square',vol:0.08});pop(c,'Пастку поставлено','#FFD23F');break;
@@ -660,7 +660,7 @@ function botAbility(c,why){if(!c.ab||(c.abUses||0)<=0||(c.abCd||0)>0)return;
   if(c.role==='hider'){if(why==='seen'&&Math.random()<0.75)useAbility(c)}
   else{const A=c.ab;if(why==='chase'&&(A==='sprint'||A==='spot'))useAbility(c);
     else if(why==='idle'&&(A==='radar'||A==='sonar'||A==='trap')&&Math.random()<0.004){if(useAbility(c)&&(A==='radar'||A==='sonar')){const h=chars.filter(x=>x.role==='hider'&&!x.caught).sort((a,b)=>Math.hypot(a.x-c.x,a.z-c.z)-Math.hypot(b.x-c.x,b.z-c.z))[0];
-      if(h){c.state='search';c.lastSeen=[h.x,h.z];c.path=astar(c.x,c.z,h.x,h.z);c.pi=0;pop(c,'?','#FFD23F')}}}}}
+      if(h){const a=Math.random()*6.283,e=A==='radar'?2+Math.random():0,[gx,gz]=snap(h.x+Math.cos(a)*e,h.z+Math.sin(a)*e);c.state='search';c.lastSeen=[gx,gz];c.path=astar(c.x,c.z,gx,gz);c.pi=0;pop(c,'?','#FFD23F')}}}}}
 /* кнопка вміння */
 let abUIKey='';
 function updAbilUI(){
@@ -761,13 +761,21 @@ function drawFx(dt){
       fctx.fillStyle='rgba(0,0,0,.2)';fctx.beginPath();fctx.arc(0,3,17,0,6.283);fctx.fill();fctx.fillStyle=col;fctx.beginPath();fctx.arc(0,0,17,0,6.283);fctx.fill();
       fctx.rotate(a);fctx.fillStyle='#1D1A26';fctx.beginPath();fctx.moveTo(10,0);fctx.lineTo(-5,-7);fctx.lineTo(-2,0);fctx.lineTo(-5,7);fctx.fill();fctx.restore()}
   }
-  // радар: стрілка від тебе до найближчого хованця
-  if(player&&player.radarT>0&&phase==='play'){const hs=chars.filter(h=>h.role==='hider'&&!h.caught).sort((a,b)=>Math.hypot(a.x-player.x,a.z-player.z)-Math.hypot(b.x-player.x,b.z-player.z));
-    if(hs.length){const h=hs[0];_p.set(player.x,0.4,player.z).project(camera);const px=(_p.x+1)/2*W,py=(1-_p.y)/2*H;_p.set(h.x,0.4,h.z).project(camera);const hx=(_p.x+1)/2*W,hy=(1-_p.y)/2*H;
-      const a=Math.atan2(hy-py,hx-px),r=62,x=px+Math.cos(a)*r,y=py+Math.sin(a)*r,pulse=reduce?1:1+Math.sin(T*8)*0.1;
-      fctx.save();fctx.translate(x,y);fctx.scale(pulse,pulse);fctx.rotate(a);fctx.fillStyle='rgba(0,0,0,.25)';fctx.beginPath();fctx.moveTo(20,3);fctx.lineTo(-10,-11);fctx.lineTo(-4,3);fctx.lineTo(-10,17);fctx.fill();
-      fctx.fillStyle='#FFD23F';fctx.beginPath();fctx.moveTo(18,0);fctx.lineTo(-12,-14);fctx.lineTo(-6,0);fctx.lineTo(-12,14);fctx.fill();fctx.restore();
-      fctx.font='800 13px '+FONT;fctx.fillStyle='#FFD23F';fctx.textAlign='center';fctx.fillText(Math.round(Math.hypot(h.x-player.x,h.z-player.z))+' м',px+Math.cos(a)*(r+26),py+Math.sin(a)*(r+26))}}
+  // радар: лише загальний напрям (сектор 90°, 8 напрямків) і приблизна відстань; 1 с, потім згасає
+  if(player&&player.role==='seeker'&&phase==='play'){
+    if(player.radarT>0){const hs=chars.filter(h=>h.role==='hider'&&!h.caught).sort((a,b)=>Math.hypot(a.x-player.x,a.z-player.z)-Math.hypot(b.x-player.x,b.z-player.z));
+      if(hs.length){const h=hs[0],d=Math.hypot(h.x-player.x,h.z-player.z);
+        if(!player.radarFix){_p.set(player.x,0.4,player.z).project(camera);const px=(_p.x+1)/2*W,py=(1-_p.y)/2*H;_p.set(h.x,0.4,h.z).project(camera);
+          const a=Math.atan2((1-_p.y)/2*H-py,(_p.x+1)/2*W-px);player.radarFix={a:Math.round(a/(Math.PI/4))*(Math.PI/4),d:d<4?'близько':'≈'+Math.round(d/2)*2+' м'}}}
+      player.radarFade=1}
+    else if(player.radarFade>0)player.radarFade=Math.max(0,player.radarFade-dt/0.6);
+    const R=player.radarFix,k=player.radarT>0?1:player.radarFade||0;
+    if(R&&k>0){_p.set(player.x,0.4,player.z).project(camera);const px=(_p.x+1)/2*W,py=(1-_p.y)/2*H,r0=46,r1=150;
+      fctx.save();fctx.globalAlpha=k;const g=fctx.createRadialGradient(px,py,r0,px,py,r1);g.addColorStop(0,'rgba(110,215,255,.6)');g.addColorStop(1,'rgba(110,215,255,0)');
+      fctx.fillStyle=g;fctx.beginPath();fctx.arc(px,py,r1,R.a-Math.PI/4,R.a+Math.PI/4);fctx.arc(px,py,r0,R.a+Math.PI/4,R.a-Math.PI/4,true);fctx.closePath();fctx.fill();
+      fctx.font='800 15px '+FONT;fctx.textAlign='center';fctx.textBaseline='middle';fctx.lineWidth=4;fctx.strokeStyle='rgba(29,26,38,.6)';
+      const tx=px+Math.cos(R.a)*(r0+34),ty=py+Math.sin(R.a)*(r0+34);fctx.strokeText(R.d,tx,ty);fctx.fillStyle='#8FE0FF';fctx.fillText(R.d,tx,ty);fctx.restore()}
+    if(!(k>0))player.radarFix=null}
   if(joy&&phase!=='end'){const dx=joy.x-joy.sx,dy=joy.y-joy.sy,m=Math.hypot(dx,dy),k=m>55?55/m:1;
     fctx.fillStyle='rgba(255,255,255,.18)';fctx.strokeStyle='rgba(255,255,255,.55)';fctx.lineWidth=2;fctx.beginPath();fctx.arc(joy.sx,joy.sy,55,0,6.283);fctx.fill();fctx.stroke();
     fctx.fillStyle='rgba(255,255,255,.9)';fctx.beginPath();fctx.arc(joy.sx+dx*k,joy.sy+dy*k,22,0,6.283);fctx.fill()}
