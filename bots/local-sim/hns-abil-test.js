@@ -24,7 +24,7 @@ async function solo(b, lvl) {
   check("кнопка вміння з'явилась", await p.evaluate(() => !document.getElementById("abil").hidden && document.getElementById("abil").innerText.includes(HNSGame.ABIL[HNSGame.player.ab].name)));
   await p.evaluate(() => { const s = HNSGame.seeker; s.state = "count"; s.path = null; HNSGame.player.caught = false; });   // шукач стоїть, поки перевіряємо вміння
   const H = async (k, fn) => p.evaluate(([k, src]) => { const g = HNSGame, pl = g.player; g.giveAbility(pl, k); pl.abCd = 0; const ok = g.useAbility(pl); return Object.assign({ ok, cd: +pl.abCd.toFixed(1), hat: pl.mdl.hatAb === k }, new Function("g", "pl", src)(g, pl)); }, [k, fn]);
-  let r = await H("dash", "return {dash: pl.dashT>0, again: g.useAbility(pl)}"); check("ривок (+ кулдаун 6 с, капелюх)", r.ok && r.dash && r.cd === 6 && !r.again && r.hat, JSON.stringify(r));
+  let r = await H("dash", "return {dash: pl.dashT>0, again: g.useAbility(pl)}"); check("ривок (+ кулдаун 7,5 с, капелюх)", r.ok && r.dash && r.cd === 7.5 && !r.again && r.hat, JSON.stringify(r));
   r = await H("invis", "const s=g.seeker; s.x=pl.x+2; s.z=pl.z; s.look=Math.atan2(pl.x-s.x,pl.z-s.z); return {invis: pl.invisT>0, seen: g.sees(s,pl)}");
   check("невидимість: шукач за 2 м не бачить", r.ok && r.invis && !r.seen, JSON.stringify(r));
   await p.evaluate(() => { HNSGame.player.invisT = 0; });
