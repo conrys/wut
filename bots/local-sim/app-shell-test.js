@@ -10,7 +10,7 @@ const MOCK = (remoteVersion) => `
   const P = (name, methods) => ({ name, methods: methods.map((m) => ({ name: m, rtype: "promise" })) });
   window.Capacitor = {
     PluginHeaders: [P("App", ["addListener", "exitApp"]), P("SplashScreen", ["hide", "show"]), P("StatusBar", ["setStyle"]), P("Haptics", ["vibrate"]),
-      P("CapacitorHttp", ["get", "request"]), Object.assign(P("CapacitorUpdater", ["notifyAppReady", "list", "download", "next", "set", "setMultiDelay"]), { methods: ["notifyAppReady", "list", "download", "next", "set", "setMultiDelay"].map((m) => ({ name: m, rtype: "promise" })).concat([{ name: "addListener", rtype: "callback" }, { name: "removeListener", rtype: "promise" }]) })],
+      P("CapacitorHttp", ["get", "request"]), Object.assign(P("CapacitorUpdater", ["notifyAppReady", "list", "download", "next", "set", "setMultiDelay", "cancelDelay"]), { methods: ["notifyAppReady", "list", "download", "next", "set", "setMultiDelay", "cancelDelay"].map((m) => ({ name: m, rtype: "promise" })).concat([{ name: "addListener", rtype: "callback" }, { name: "removeListener", rtype: "promise" }]) })],
     nativePromise(plugin, method, opts) {
       window.__calls.push(plugin + "." + method);
       if (plugin === "CapacitorHttp") return fetch("/app-manifest.json").then((r) => r.json()).then((m) => ({ data: Object.assign(m, ${remoteVersion ? `{ version: "${remoteVersion}" }` : "{}"}), status: 200 }));
@@ -53,9 +53,17 @@ const MOCK = (remoteVersion) => `
   const seen = await p.evaluate(() => window.__seen || []);
   ok("рядок завантаження з відсотками", seen.some((t) => /Оновлення · 55%/.test(t)), seen.join(" → "));
   ok("рядок зникає після завантаження", await p.evaluate(() => !document.getElementById("appShellBar") || document.getElementById("appShellBar").style.opacity === "0"));
-  ok("next + setMultiDelay(kill)", calls.includes("CapacitorUpdater.next") && calls.includes("CapacitorUpdater.setMultiDelay"));
+  ok("без next/«kill»-умови, лише запамʼятали готовий пакет", !calls.includes("CapacitorUpdater.setMultiDelay") && !calls.includes("CapacitorUpdater.next") &&
+    await p.evaluate(() => JSON.parse(localStorage.getItem("app_update_ready") || "{}").id === "b1"));
+  ok("стару «kill»-умову знято (cancelDelay)", calls.includes("CapacitorUpdater.cancelDelay"));
   ok("тост «Оновлення готове» з кнопкою", await p.evaluate(() => { const t = document.getElementById("appShellToast"); return !!t && /Оновлення готове/.test(t.textContent) && !!t.querySelector("button"); }));
   await p.screenshot({ path: __dirname + "/out/app-shell-toast.png" });
+  // 2б) свіжий запуск, а пакет уже завантажений минулого разу → вмикається одразу (set), без мережі
+  p = await phone(b, "tester"); await p.addInitScript(MOCK(null));
+  await p.addInitScript(() => { try { if (!sessionStorage.getItem("__t")) { sessionStorage.setItem("__t", 1); localStorage.setItem("app_update_ready", JSON.stringify({ id: "b9", version: "ffffffffffff" })); } } catch (e) {} });
+  await p.goto(BASE + "/index.html"); await p.waitForTimeout(2500);
+  calls = await p.evaluate(() => window.__calls);
+  ok("свіжий запуск: готове оновлення вмикається одразу", calls.includes("CapacitorUpdater.set") && !calls.includes("CapacitorHttp.get"), calls.filter((c) => /Updater/.test(c)).join(","));
   // 3) гра (не головна) — оновлення не перевіряє, але notifyAppReady є
   p = await phone(b, "tester"); await p.addInitScript(MOCK("ffffffffffff"));
   await p.goto(BASE + "/ads/povzuny/play.html"); await p.waitForTimeout(2500);

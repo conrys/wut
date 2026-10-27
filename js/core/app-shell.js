@@ -80,6 +80,25 @@
     if (busy && p < 100) progress(p, "⬇️ Оновлення · " + p + "%");
   }).catch(() => {});
 
+  const READY_KEY = "app_update_ready";
+  const localVersion = () => fetch(BASE + "app-version.json", { cache: "no-store" }).then((r) => r.json()).then((j) => j.version).catch(() => null);
+
+  // Свіжий запуск застосунку (не перехід між сторінками): якщо минулого разу оновлення
+  // завантажилось — вмикаємо його одразу, поки людина ще на заставці / головній.
+  let fresh = false;
+  try { fresh = !sessionStorage.getItem("app_launched"); sessionStorage.setItem("app_launched", "1"); } catch (e) {}
+  // прибираємо «kill»-умову, яку ставила стара версія: вона блокувала встановлення назавжди
+  Updater.cancelDelay().catch(() => {});
+  async function applyReadyOnLaunch() {
+    let r = null;
+    try { r = JSON.parse(localStorage.getItem(READY_KEY) || "null"); } catch (e) {}
+    if (!r || !r.id) return false;
+    try { localStorage.removeItem(READY_KEY); } catch (e) {}
+    const cur = await localVersion();
+    if (cur && cur === r.version) return false;            // уже на ній
+    try { await Updater.set({ id: r.id }); return true; } catch (e) { return false; }
+  }
+
   let busy = false, lastCheck = 0;
   // стан для налаштувань («Застосунок»): що й коли перевіряли, чим скінчилось
   const ST_KEY = "app_update_status";
@@ -91,7 +110,7 @@
     if (!manual && Date.now() - lastCheck < 60 * 1000) return;
     busy = true; lastCheck = Date.now();
     try {
-      const local = await fetch(BASE + "app-version.json", { cache: "no-store" }).then((r) => r.json()).catch(() => null);
+      const lv = await localVersion(), local = lv ? { version: lv } : null;
       const r = await Http.get({ url: SITE + "/app-manifest.json?t=" + Date.now(), responseType: "json", headers: { "Cache-Control": "no-cache" } });
       const m = typeof r.data === "string" ? JSON.parse(r.data) : r.data;
       if (!m || !m.version || !Array.isArray(m.files)) { setStatus({ state: "error", error: "неправильний список файлів на сайті" }); return; }
@@ -108,11 +127,12 @@
         }
         progress(100, "✓ Оновлення завантажено"); progressDone(900);
       }
-      await Updater.next({ id: bundle.id });
-      // не перезавантажувати посеред гри, коли просто згорнув застосунок: лише після закриття
-      await Updater.setMultiDelay({ delayConditions: [{ kind: "kill" }] }).catch(() => {});
+      // Вмикаємо самі: при наступному запуску застосунку (див. applyReadyOnLaunch) або кнопкою.
+      // Раніше тут були next() + умова «kill» плагіна — але кожна перевірка ставила ту умову знову,
+      // і оновлення не вмикалось ніколи (жовтень 2026).
+      try { localStorage.setItem(READY_KEY, JSON.stringify({ id: bundle.id, version: m.version })); } catch (e) {}
       setStatus({ state: "ready", remote: m.version });
-      toast("Оновлення готове — увімкнеться при наступному запуску", "Перезапустити", () => Updater.set({ id: bundle.id }));
+      toast("Оновлення готове — увімкнеться при наступному запуску", "Перезапустити", () => { try { localStorage.removeItem(READY_KEY); } catch (e) {} Updater.set({ id: bundle.id }); });
     } catch (e) {
       const msg = e && e.message ? String(e.message).slice(0, 140) : String(e);
       setStatus({ state: "error", error: msg });
@@ -122,7 +142,10 @@
   }
 
   if (isHub) {
-    addEventListener("load", () => setTimeout(() => checkUpdate(false), 1500), { once: true });
+    addEventListener("load", async () => {
+      if (fresh && (await applyReadyOnLaunch())) return;   // зараз перезавантажиться в нову версію
+      setTimeout(() => checkUpdate(false), 1500);
+    }, { once: true });
     App.addListener("appStateChange", (s) => { if (s.isActive) checkUpdate(false); });
   }
 
