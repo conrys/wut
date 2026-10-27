@@ -201,7 +201,12 @@
       transition: all 0.2s ease;
       text-align: center;
     }
-    html, body { overscroll-behavior-x: none; }   /* горизонтальний свайп — для вкладок, не «назад» у браузері */
+    html, body { overscroll-behavior-x: none; }
+    .filter-bar { position: relative; }
+    .filter-bar .filter-btn { position: relative; z-index: 1; }
+    .filter-ink { position: absolute; left: 0; top: 4px; bottom: 4px; width: 0; border-radius: 8px; pointer-events: none; z-index: 0;
+      background: linear-gradient(180deg, #343947, #2a2e39); box-shadow: 0 2px 8px rgba(0,0,0,0.25); }
+    .filter-bar.has-ink .filter-btn.active { background: transparent !important; box-shadow: none !important; }   /* горизонтальний свайп — для вкладок, не «назад» у браузері */
     .filter-btn.filter-fav, button.filter-btn.filter-fav.active { flex: 0 0 40px; font-size: 15px; color: #ffcf3f; }
     /* зірочка «в улюблене» на плитці */
     .fav-star { position: absolute; top: 6px; right: 6px; z-index: 2; width: 34px; height: 34px; border: 0; border-radius: 50%;
@@ -1014,30 +1019,56 @@
   // Розділи вмикаються в Налаштуваннях → Головна
   document.addEventListener('appsettingschange', (e) => { if (e.detail.key === 'homeSections') applyFilter(currentFilter); });
 
-  // Свайп по списку ігор уліво/вправо — сусідня вкладка (Всі → Соло → Компанія → Хост → ★ → dev)
+  // Свайп по списку ігор: список їде за пальцем, підсвітка вкладки переповзає до сусідньої;
+  // відпустив далі за третину екрана або змахнув — вкладка змінюється, інакше пружно повертається.
   (() => {
-    const grid = document.getElementById('games-grid');
+    const grid = document.getElementById('games-grid'), bar = document.querySelector('.filter-bar');
     const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-    let sx = 0, sy = 0, st = 0, track = false;
+    const ink = document.createElement('span'); ink.className = 'filter-ink'; bar.prepend(ink); bar.classList.add('has-ink');
+    const tabs = () => [...filterButtons].filter((b) => !b.classList.contains('hidden'));
+    const rel = (b) => { const r = b.getBoundingClientRect(), br = bar.getBoundingClientRect(); return [r.left - br.left, r.width]; };
+    const inkAt = (a, b, k, anim) => { const [x1, w1] = rel(a), [x2, w2] = b ? rel(b) : [x1, w1];
+      ink.style.transition = anim && !reduce ? 'transform .28s cubic-bezier(.2,.9,.3,1), width .28s cubic-bezier(.2,.9,.3,1)' : 'none';
+      ink.style.width = (w1 + (w2 - w1) * k) + 'px'; ink.style.transform = `translateX(${x1 + (x2 - x1) * k}px)`; };
+    const active = () => tabs().find((b) => b.classList.contains('active')) || tabs()[0];
+    const syncInk = (anim) => inkAt(active(), null, 0, anim);
+    filterButtons.forEach((b) => b.addEventListener('click', () => requestAnimationFrame(() => syncInk(true))));
+    addEventListener('resize', () => syncInk(false)); requestAnimationFrame(() => syncInk(false)); setTimeout(() => syncInk(false), 400);
+    let sx = 0, sy = 0, st = 0, mode = null, dx = 0, cur = null, nb = null;
+    const W = () => grid.clientWidth || innerWidth;
+    const setGrid = (x, o, anim) => { grid.style.transition = anim ? 'transform .26s cubic-bezier(.2,.9,.3,1), opacity .26s' : 'none'; grid.style.transform = x ? `translateX(${x}px)` : ''; grid.style.opacity = o == null || o >= 1 ? '' : o; };
     document.addEventListener('touchstart', (e) => {
-      const t = e.touches[0]; track = e.touches.length === 1 && !!t && !e.target.closest('input, select, textarea, .filter-bar, [data-noswipe]');
-      if (track) { sx = t.clientX; sy = t.clientY; st = performance.now(); }
+      const t = e.touches[0]; mode = e.touches.length === 1 && t && !e.target.closest('input, select, textarea, .filter-bar, [data-noswipe]') ? null : 'off';
+      if (mode !== 'off') { sx = t.clientX; sy = t.clientY; st = performance.now(); dx = 0; }
     }, { passive: true });
-    document.addEventListener('touchend', (e) => {
-      if (!track) return; track = false;
-      const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
-      if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.8 || performance.now() - st > 700) return;
-      const tabs = [...filterButtons].filter((b) => !b.classList.contains('hidden'));
-      const i = tabs.findIndex((b) => b.classList.contains('active')), j = i + (dx < 0 ? 1 : -1);
-      if (i < 0 || j < 0 || j >= tabs.length) {   // край — легкий «відскок»
-        if (!reduce) grid.animate([{ transform: 'translateX(0)' }, { transform: `translateX(${dx < 0 ? -18 : 18}px)` }, { transform: 'translateX(0)' }], { duration: 220, easing: 'ease-out' });
-        return;
-      }
-      tabs[j].click();
-      tabs[j].scrollIntoView && tabs[j].scrollIntoView({ block: 'nearest', inline: 'nearest' });
-      if (!reduce) grid.animate([{ transform: `translateX(${dx < 0 ? 40 : -40}px)`, opacity: 0.2 }, { transform: 'translateX(0)', opacity: 1 }], { duration: 220, easing: 'ease-out' });
+    document.addEventListener('touchmove', (e) => {
+      if (mode === 'off' || mode === 'v') return;
+      const t = e.touches[0], mx = t.clientX - sx, my = t.clientY - sy;
+      if (!mode) { if (Math.hypot(mx, my) < 10) return; mode = Math.abs(mx) > Math.abs(my) * 1.2 ? 'h' : 'v'; if (mode === 'v') return;
+        const list = tabs(), i = list.indexOf(active()); cur = list[i]; nb = null; }
+      e.preventDefault();
+      const list = tabs(), i = list.indexOf(cur), j = i + (mx < 0 ? 1 : -1); nb = list[j] || null;
+      dx = nb ? mx : mx * 0.25;   // на краю — тягнеться з опором
+      if (reduce) return;
+      const k = Math.min(1, Math.abs(dx) / W());
+      setGrid(dx, 1 - k * 0.45, false);
+      inkAt(cur, nb, nb ? k : 0, false);
+    }, { passive: false });
+    const end = () => {
+      if (mode !== 'h') { mode = null; return; } mode = null;
+      const v = dx / Math.max(1, performance.now() - st), go = nb && (Math.abs(dx) > W() * 0.28 || (Math.abs(v) > 0.45 && Math.abs(dx) > 40));
+      if (!go) { setGrid(0, 1, true); syncInk(true); return; }
+      const dir = dx < 0 ? -1 : 1, target = nb;
+      if (reduce) { target.click(); return; }
+      setGrid(dir * W() * 0.6, 0, true); inkAt(cur, target, 1, true);
       try { navigator.vibrate && navigator.vibrate(8); } catch (_) {}
-    }, { passive: true });
+      setTimeout(() => {
+        target.click(); target.scrollIntoView && target.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        setGrid(-dir * W() * 0.35, 0, false);
+        requestAnimationFrame(() => requestAnimationFrame(() => setGrid(0, 1, true)));
+      }, 170);
+    };
+    document.addEventListener('touchend', end, { passive: true }); document.addEventListener('touchcancel', end, { passive: true });
   })();
 
   filterButtons.forEach(btn => {
