@@ -41,9 +41,10 @@ const toPlay = (p) => p.evaluate(() => { const g = AGTGame.G; if (g.ph === "intr
   await p.evaluate(() => AGTGame.sim(0.1));
   check("біля терміналу — «Злам · тримай»", await p.evaluate(() => AGTGame.actCtx() && AGTGame.actCtx().k === "hack" && /Злам/.test(document.getElementById("actTxt").textContent)));
   await p.evaluate((ti) => { const h = AGTGame.hold; h.on = true; h.ti = ti; AGTGame.sim(1.5); }, ti);
-  const mid = await p.evaluate(() => ({ d: AGTGame.G.done.length, st: AGTGame.player.st }));
+  const mid = await p.evaluate((ti) => ({ d: AGTGame.G.done.length, st: AGTGame.player.st, bl: AGTGame.terms[ti].blink }), ti);
   await p.evaluate((ti) => { const h = AGTGame.hold; h.on = true; h.ti = ti; AGTGame.sim(2.0); }, ti);
   const h1 = await p.evaluate(() => ({ d: AGTGame.G.done.slice(), chip: document.getElementById("progChip").textContent }));
+  check("під час зламу термінал блимає червоним", mid.bl);
   check("під час зламу — та сама анімація, що в перехожих («працює»)", mid.st === 2 && mid.d === 0, JSON.stringify(mid));
   check("утримав 3,2 с — термінал зламано, 1/4", h1.d.length === 1 && h1.d[0] === ti && h1.chip.includes("1/4"), JSON.stringify(h1));
   // рух скасовує злам
@@ -71,7 +72,7 @@ const toPlay = (p) => p.evaluate(() => { const g = AGTGame.G; if (g.ph === "intr
   // ================= СОЛО: МИСЛИВЕЦЬ =================
   await p.click("#ovHunt"); await p.waitForTimeout(500);
   const j0 = await p.evaluate(() => ({ r: AGTGame.player.role, bs: AGTGame.G.bs.length, am: AGTGame.G.am.me, run: !document.getElementById("run").hidden }));
-  check("мисливцем: 3 боти-шпигуни, 5 набоїв", j0.r === "hunter" && j0.bs === 3 && j0.am === 5, JSON.stringify(j0));
+  check("мисливцем: 3 боти-шпигуни, 6 набоїв", j0.r === "hunter" && j0.bs === 3 && j0.am === 6, JSON.stringify(j0));
   const fz = await p.evaluate(() => { const x = AGTGame.player.x; AGTGame.sim(1); return Math.abs(AGTGame.player.x - x) < 0.01; });
   check("мисливець стоїть, поки шпигуни розходяться (інтро)", fz);
   await toPlay(p); await p.evaluate(() => AGTGame.sim(0.1));
@@ -79,15 +80,15 @@ const toPlay = (p) => p.evaluate(() => { const g = AGTGame.G; if (g.ph === "intr
   // постріл по перехожому
   const miss = await p.evaluate(() => { const g = AGTGame, pl = g.player, c = g.chars.find((c) => c.role === "bot" && c.st !== 1); c.plan = "idle"; c.t = 9; c.x = pl.x + 2; c.z = pl.z; c.path = null;
     if (!g.los(pl.x, pl.z, c.x, c.z)) { c.x = pl.x; c.z = pl.z + 1.5; } g.select(c.id); g.shoot(); g.sim(0.1); return { id: c.id, st: c.st, am: g.G.am.me, stun: g.myStun }; });
-  check("влучив у перехожого — він «спить», мінус набій, оглушення", miss.st === 5 && miss.am === 4 && miss.stun > 2, JSON.stringify(miss));
+  check("влучив у перехожого — він «спить», мінус набій, оглушення", miss.st === 5 && miss.am === 5 && miss.stun > 2, JSON.stringify(miss));
   const blocked = await p.evaluate(() => { const g = AGTGame, pl = g.player, c = g.chars.find((c) => c.role === "spy"); c.x = pl.x + 1.5; c.z = pl.z; g.select(c.id); g.shoot(); g.sim(0.1); return g.G.out.length; });
   check("оглушений не стріляє", blocked === 0);
   await p.evaluate(() => AGTGame.sim(3.2));
   const hit = await p.evaluate(() => { const g = AGTGame, pl = g.player, c = g.chars.find((c) => c.role === "spy" && !c.out); c.plan = "idle"; c.t = 9; c.path = null; c.x = pl.x + 1.5; c.z = pl.z;
     if (!g.los(pl.x, pl.z, c.x, c.z)) { c.x = pl.x; c.z = pl.z + 1.5; } g.select(c.id); g.shoot(); g.sim(0.2); return { out: g.G.out.slice(), am: g.G.am.me, chip: document.getElementById("spyChip").textContent }; });
-  check("влучив у шпигуна — спійманий, 🕵 2/3", hit.out.length === 1 && hit.am === 3 && hit.chip.includes("2/3"), JSON.stringify(hit));
+  check("влучив у шпигуна — спійманий, 🕵 2/3", hit.out.length === 1 && hit.am === 4 && hit.chip.includes("2/3"), JSON.stringify(hit));
   // боти-шпигуни самі зламують
-  await p.evaluate(() => { for (const c of AGTGame.chars) if (c.role === "spy" && !c.out) { c.plan = null; } AGTGame.sim(60); });
+  await p.evaluate(() => { for (const c of AGTGame.chars) if (c.role === "spy" && !c.out) { c.plan = null; } AGTGame.sim(110); });
   const bd = await p.evaluate(() => ({ done: AGTGame.G.done.length, ph: AGTGame.G.ph }));
   check("боти-шпигуни зламують термінали самі", bd.done >= 1, JSON.stringify(bd));
   // мультитач: джойстик одним пальцем + утримання іншим (тут — «Постріл» як кнопка на дотик)

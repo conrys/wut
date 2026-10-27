@@ -94,8 +94,13 @@ function boxDist(b,x,z){const cx=Math.max(b[0],Math.min(x,b[2])),cz=Math.max(b[1
 
 /* ---------- термінали: біля стін, по кімнатах, далеко один від одного ---------- */
 const TERM_GEO={body:new T3.BoxGeometry(0.62,1.2,0.42),scr:new T3.BoxGeometry(0.46,0.32,0.03),led:new T3.BoxGeometry(0.6,0.06,0.2)};
-const termIM={body:new T3.InstancedMesh(TERM_GEO.body,toon('#34405A'),16),scr:new T3.InstancedMesh(TERM_GEO.scr,new T3.MeshBasicMaterial({color:'#59E0FF'}),16),led:new T3.InstancedMesh(TERM_GEO.led,toon('#6B7891'),16)};
+const termIM={body:new T3.InstancedMesh(TERM_GEO.body,toon('#34405A'),16),scr:new T3.InstancedMesh(TERM_GEO.scr,new T3.MeshBasicMaterial({color:'#ffffff'}),16),led:new T3.InstancedMesh(TERM_GEO.led,toon('#6B7891'),16)};
 for(const k in termIM){const m=termIM[k];m.castShadow=k==='body';m.count=0;scene.add(m)}
+{const c=new T3.Color('#59E0FF');for(let i=0;i<16;i++)termIM.scr.setColorAt(i,c);termIM.scr.count=0}
+/* термінал блимає червоним, поки біля нього хтось «зламує»: шпигун завжди, перехожий — інколи (просто тицяє) */
+const SCR_ON=new T3.Color('#59E0FF'),SCR_AL=new T3.Color('#FF4D4D'),SCR_OFF=new T3.Color('#22303F');
+function termFx(){if(!terms.length)return;for(const t of terms){let bl=false;for(const c of chars){if(c.blink&&c.shown&&!c.out&&c.st===ST.work&&dist(c.x,c.z,t.sx,t.sz)<0.8){bl=true;break}}
+  t.blink=bl;termIM.scr.setColorAt(t.i,bl?(Math.floor(T*5)%2?SCR_AL:SCR_OFF):SCR_ON)}termIM.scr.instanceColor.needsUpdate=true}
 function placeTerms(seed){
   terms=[];const R=rng(seed^0x51A7),g=world.grid,Hh=g.length,Ww=g[0].length,want=mapDef.id==='station'?10:8;
   const wallAt=(c,r)=>!g[r]||g[r][c]===undefined||g[r][c]==='#';
@@ -255,31 +260,33 @@ function goTo(b,x,z,next,dur){if(pathBudget<=0){b.plan='idle';b.t=0.15+Math.rand
 const pick=(R,arr)=>arr[Math.floor(R()*arr.length)];
 function nearish(list,b,maxD){const ok=list.filter(o=>dist(o.x!==undefined?o.x:o[0],o.z!==undefined?o.z:o[1],b.x,b.z)<maxD);return ok.length?ok:list}
 function choose(b){
-  release(b);b.seat=null;b.spot=null;b.run=Math.random()<0.05;
+  release(b);b.seat=null;b.spot=null;b.blink=false;b.run=Math.random()<0.05;
   const r=Math.random(),spyBot=b.role==='spy';
   if(spyBot&&G&&G.ph==='play'){const open=works.filter(w=>w.term>=0&&!G.done.includes(w.term)&&workFree(w,b));
-    if(open.length&&r<0.5){const w=nearish(open,b,22)[Math.floor(Math.random()*Math.min(3,open.length))]||open[0];w.res=b.id;b.spot=w;b.run=false;goTo(b,w.x,w.z,'work',HACK_T+0.4);return}}
+    if(open.length&&(b.cool||0)<=0&&r<0.75){const w=nearish(open,b,22)[Math.floor(Math.random()*Math.min(3,open.length))]||open[0];w.res=b.id;b.spot=w;b.run=false;goTo(b,w.x,w.z,'work',HACK_T+0.4);return}}
   if(r<0.27){const s=nearish(seats,b,20).filter(s=>seatFree(s,b));if(s.length){const st=pick(Math.random,s);st.res=b.id;b.seat=st;b.run=false;goTo(b,st.ax,st.az,'sit',6+Math.random()*14);return}}
   if(r<0.6){const w=nearish(works,b,22).filter(w=>workFree(w,b));if(w.length){const ww=pick(Math.random,w);ww.res=b.id;b.spot=ww;goTo(b,ww.x,ww.z,'work',2+Math.random()*5);return}}
   if(r<0.72){b.plan=Math.random()<0.85?'phone':'wave';b.t=b.plan==='wave'?1.5+Math.random():3+Math.random()*6;b.st=b.plan==='phone'?ST.phone:ST.wave;return}
   const p=pick(Math.random,nearish(wander,b,26));goTo(b,p[0],p[1],Math.random()<0.4?'phone':'idle',1+Math.random()*4);
 }
 function botThink(b,dt){
-  if(b.out)return;
+  if(b.out)return;if(b.cool>0)b.cool-=dt;
   if(b.role==='hunter'){hunterAI(b,dt);return}
   switch(b.plan){
     case 'go':{const sp=b.run?RUN:b.spd;const done=steerPath(b,dt,sp);
       b.chk-=dt;if(b.chk<=0){if(dist(b.x,b.z,b.chkX,b.chkZ)<0.3){release(b);b.plan=null;break}b.chk=1.5;b.chkX=b.x;b.chkZ=b.z}
       if(done){b.path=null;b.vx=b.vz=0;const nx=b.next;b.run=false;
         if(nx==='sit'){if(b.seat&&seatFree(b.seat,b)){b.plan='sit';b.t=b.dur;b.st=ST.sit;b.x=b.seat.x;b.z=b.seat.z;b.yaw=b.seat.yaw;b.seatY=b.seat.y}else b.plan=null}
-        else if(nx==='work'){if(b.spot){b.plan='work';b.t=b.dur;b.st=ST.work;b.yaw=b.spot.yaw}else b.plan=null}
+        else if(nx==='work'){if(b.spot){b.plan='work';b.t=b.dur;b.st=ST.work;b.yaw=b.spot.yaw;b.blink=b.spot.term>=0&&(b.role==='spy'||Math.random()<0.15)}else b.plan=null}
         else if(nx==='flee'){b.plan='idle';b.t=1+Math.random()*2;b.st=0}
         else{b.plan=nx;b.t=b.dur;b.st=nx==='phone'?ST.phone:0}}
       break}
     case 'sit':b.vx=b.vz=0;if(b.seat){b.x=b.seat.x;b.z=b.seat.z;b.yaw=b.seat.yaw}b.t-=dt;
       if(b.t<=0){b.st=0;if(b.seat){b.x=b.seat.ax;b.z=b.seat.az}choose(b)}break;
     case 'work':b.vx=b.vz=0;if(b.spot){b.yaw+=angDiff(b.spot.yaw,b.yaw)*Math.min(1,dt*8)}b.t-=dt;
-      if(b.t<=0){b.st=0;if(b.role==='spy'&&b.spot&&b.spot.term>=0)applyHack(b.id,b.spot.term);
+      // шпигун-бот кидає злам, якщо мисливець поруч і бачить
+      if(b.role==='spy'&&b.spot&&b.spot.term>=0&&G&&G.ph==='play'&&chars.some(h=>h.role==='hunter'&&dist(h.x,h.z,b.x,b.z)<5&&los(h.x,h.z,b.x,b.z))){b.st=0;b.blink=false;b.cool=5+Math.random()*5;choose(b);break}
+      if(b.t<=0){b.st=0;b.blink=false;if(b.role==='spy'&&b.spot&&b.spot.term>=0){applyHack(b.id,b.spot.term);b.cool=35+Math.random()*20}
         if(b.role==='spy'&&Math.random()<0.3){release(b);const p=pick(Math.random,nearish(wander,b,14));goTo(b,p[0],p[1],'idle',1);b.run=true}else choose(b)}break;
     case 'down':b.vx=b.vz=0;b.t-=dt;if(b.t<=0){b.st=0;choose(b)}break;
     case 'idle':case 'phone':case 'wave':b.vx*=0.8;b.vz*=0.8;b.t-=dt;if(b.plan==='idle'&&!reduce&&Math.random()<dt*0.4)b.yaw+=(Math.random()-0.5)*1.4;if(b.t<=0){b.st=0;choose(b)}break;
@@ -288,7 +295,7 @@ function botThink(b,dt){
 }
 /* постріл поруч: перехожі розбігаються */
 function panic(x,z,except){for(const b of chars){if(b.kind!=='bot'||b.role==='hunter'||b.out||b.st===ST.down||b===except)continue;const d=dist(b.x,b.z,x,z);if(d>4.5)continue;
-  if(b.st===ST.sit&&b.seat){b.x=b.seat.ax;b.z=b.seat.az}release(b);b.seat=null;b.spot=null;b.st=0;const a=Math.atan2(b.x-x,b.z-z)+(Math.random()-0.5)*0.8,[tx,tz]=snap(b.x+Math.sin(a)*7,b.z+Math.cos(a)*7);pathBudget++;goTo(b,tx,tz,'flee',1);b.run=true}}
+  if(b.st===ST.sit&&b.seat){b.x=b.seat.ax;b.z=b.seat.az}release(b);b.seat=null;b.spot=null;b.st=0;b.blink=false;const a=Math.atan2(b.x-x,b.z-z)+(Math.random()-0.5)*0.8,[tx,tz]=snap(b.x+Math.sin(a)*7,b.z+Math.cos(a)*7);pathBudget++;goTo(b,tx,tz,'flee',1);b.run=true}}
 
 /* бот-мисливець: підозрює тих, хто біжить, смикано повертає, стоїть біля терміналів; бачить конусом */
 const susp=new Map();
@@ -296,20 +303,25 @@ function jitterTrack(c,dt){const sp=Math.hypot(c.vx,c.vz);if(sp>0.5){const h=Mat
 function hunterAI(h,dt){
   if(G.ph!=='play'||stunLeft(h.id)>0){h.vx*=0.7;h.vz*=0.7;return}
   h.scan=(h.scan||0)-dt;
+  if(h.alarmT>0)h.alarmT-=dt;
   if(h.scan<=0){h.scan=0.25;
+    for(const c of chars){if(c.role!=='spy'&&c.role!=='bot')continue;if(c.wasBlink&&!c.blink&&dist(c.x,c.z,h.x,h.z)<7&&los(h.x,h.z,c.x,c.z))susp.set(c.id,(susp.get(c.id)||0)+1.0);c.wasBlink=c.blink&&c.st===ST.work}
+    if(h.alarmT>0&&dist(h.x,h.z,h.alarmAt[0],h.alarmAt[1])<8)for(const c of chars){if(c.role==='hunter'||c.out)continue;const d=dist(c.x,c.z,h.alarmAt[0],h.alarmAt[1]);if(d<4&&los(h.x,h.z,c.x,c.z))susp.set(c.id,(susp.get(c.id)||0)+0.1*(4-d))}
     for(const [id,v] of susp){const nv=v*0.97-0.01;if(nv<=0)susp.delete(id);else susp.set(id,nv)}
     for(const c of chars){if(c===h||c.role==='hunter'||c.out||c.st===ST.down||!c.shown)continue;const d=dist(c.x,c.z,h.x,h.z);if(d>10)continue;
       const ang=Math.abs(angDiff(Math.atan2(c.x-h.x,c.z-h.z),h.yaw));if(ang>1.25&&d>2.5)continue;if(!los(h.x,h.z,c.x,c.z))continue;
       let s=0;const sp=Math.hypot(c.vx,c.vz);if(sp>2.2)s+=0.45;if(c.st===ST.work&&works.some(w=>w.term>=0&&!G.done.includes(w.term)&&dist(w.x,w.z,c.x,c.z)<0.8))s+=0.12;
-      s+=Math.min(1,c.jit/6)*0.22;if(s>0)susp.set(c.id,(susp.get(c.id)||0)+s)}}
+      s+=Math.min(1,c.jit/6)*0.22;if(c.blink&&c.st===ST.work)s+=0.35;if(s>0)susp.set(c.id,(susp.get(c.id)||0)+s)}}
   let best=null,bv=0;for(const [id,v] of susp){if(v>bv){const c=chr(id);if(c&&!c.out&&c.st!==ST.down){best=c;bv=v}}}
-  if(best&&bv>=1.1){
+  if(best&&bv>=1.5){
     const d=dist(best.x,best.z,h.x,h.z);
     if(d>5||!los(h.x,h.z,best.x,best.z)){h.aim=0;h.repath=(h.repath||0)-dt;if(h.repath<=0||!h.path){h.repath=0.8;pathBudget++;const p=astar(h.x,h.z,best.x,best.z);h.path=p;h.pi=0}steerPath(h,dt,d>8?H_RUN:H_WALK)}
     else{h.path=null;h.vx*=0.6;h.vz*=0.6;h.yaw+=angDiff(Math.atan2(best.x-h.x,best.z-h.z),h.yaw)*Math.min(1,dt*8);h.aim=(h.aim||0)+dt;h.aimId=best.id;
       if(h.aim>1.1){h.aim=0;susp.delete(best.id);applyShot(h.id,best.id)}}
     return}
   h.aim=0;h.aimId=null;
+  if(h.alarm){const a=h.alarm;h.alarm=null;pathBudget++;h.path=astar(h.x,h.z,a[0],a[1]);h.pi=0;h.wait=2;h.rush=1}
+  if(h.rush&&h.path&&h.pi<h.path.length){steerPath(h,dt,H_RUN);return}h.rush=0;
   if(!h.path||h.pi>=h.path.length){h.wait=(h.wait||0)-dt;h.vx*=0.7;h.vz*=0.7;if(!reduce&&Math.random()<dt*0.8)h.yaw+=(Math.random()-0.5)*1.6;
     if(h.wait<=0){h.wait=1+Math.random()*2.5;const open=terms.filter(t=>!G.done.includes(t.i));const tg=open.length&&Math.random()<0.6?pick(Math.random,open):null;
       const p=tg?[tg.sx+(Math.random()-0.5)*4,tg.sz+(Math.random()-0.5)*4]:pick(Math.random,wander);const [x,z]=snap(p[0],p[1]);pathBudget++;h.path=astar(h.x,h.z,x,z);h.pi=0}}
@@ -341,7 +353,7 @@ $('mute').addEventListener('click',()=>{muted=!muted;$('mute').textContent=muted
 $('mute').textContent=muted?'🔇':'🔊';
 
 /* ---------- стан раунду ---------- */
-let phase='menu',T=0,G=null,lastKey='',pops=[],darts=[],confetti=[],shakeT=0,introT=0,myStun=0,shotCd=0,runOn=false,phoneOn=false,aimer=null,selT=null,lastFx=0,spec=null;
+let alarms=[],phase='menu',T=0,G=null,lastKey='',pops=[],darts=[],confetti=[],shakeT=0,introT=0,myStun=0,shotCd=0,runOn=false,phoneOn=false,aimer=null,selT=null,lastFx=0,spec=null;
 const hold={on:false,id:null,p:0,ti:-1};
 const auth={last:{},shotAt:{},stun:{}};
 const isAuth=()=>!MP.on||MP.host;
@@ -359,13 +371,13 @@ function newG(r,map,seed,pl,hu,bs,nb,tl,sc){
 }
 function setupRound(cfg){
   if(mapIdx!==cfg.map||!world||world.seed!==cfg.seed){buildWorld(cfg.map,cfg.seed);world.seed=cfg.seed}
-  clearChars();susp.clear();auth.stun={};auth.shotAt={};lastFx=cfg.fxn||0;hold.on=false;myStun=0;shotCd=0;runOn=false;phoneOn=false;selT=null;spec=null;darts=[];pops=[];
+  clearChars();susp.clear();auth.stun={};auth.shotAt={};lastFx=cfg.fxn||0;hold.on=false;myStun=0;shotCd=0;runOn=false;phoneOn=false;selT=null;spec=null;darts=[];pops=[];alarms=[];
   const R=rng(cfg.seed),spots=wander.filter(p=>dist(p[0],p[1],spawnPt[0],spawnPt[1])>6).map(p=>({p,r:R()})).sort((a,b)=>a.r-b.r).map(o=>o.p);let si=0;
   const nextSpot=()=>{const p=spots[si++%spots.length];return[p[0]+(R()-0.5)*0.6,p[1]+(R()-0.5)*0.6]};
   // перехожі
   for(let i=0;i<cfg.nb;i++){const [x,z]=nextSpot(),c=newChar('b'+i,'bot','bot',x,z,appOf(R));c.plan=null}
   // боти-шпигуни (соло-мисливець)
-  for(const id of cfg.bs){const [x,z]=nextSpot();newChar(id,'bot','spy',x,z,appOf(R))}
+  for(const id of cfg.bs){const [x,z]=nextSpot();newChar(id,'bot','spy',x,z,appOf(R)).cool=15+Math.random()*25}
   // гравці-шпигуни виглядають як перехожі; мисливці — на вході
   cfg.pl.forEach((id,i)=>{const hunter=cfg.hu.includes(id),[x,z]=hunter?snap(spawnPt[0]+i*0.7-0.35,spawnPt[1]):nextSpot(),app=appOf(R);
     const c=newChar(id,'human',hunter?'hunter':'spy',x,z,app);if(MP.on){const p=presOf(id)||{};c.nick=String(p.n||'').slice(0,14);if(id!==MP.me)c.remote=true}
@@ -387,6 +399,8 @@ const addSc=(id,n)=>{G.sc[id]=(G.sc[id]||0)+n};
 function applyHack(id,ti){
   const c=chr(id);if(!c||c.role!=='spy'||G.out.includes(id)||G.done.includes(ti))return;const tm=terms[ti];if(!tm||dist(c.x,c.z,tm.sx,tm.sz)>1.6)return;
   G.done.push(ti);addSc(id,2);pushFx(['h',ti,id]);
+  // бот-мисливець біжить на тривогу; хто поруч із терміналом — під підозрою
+  for(const h of chars)if(h.kind==='bot'&&h.role==='hunter'){h.alarm=[tm.sx,tm.sz];if(dist(h.x,h.z,c.x,c.z)<9&&los(h.x,h.z,c.x,c.z))susp.set(id,(susp.get(id)||0)+1.6);h.alarmT=8;h.alarmAt=[tm.sx,tm.sz]}
   if(G.done.length>=G.goal)endRound('spy','hack');
 }
 function applyShot(hid,tid){
@@ -395,7 +409,7 @@ function applyShot(hid,tid){
   if(!c||c.out||c.role==='hunter'||c.st===ST.down||dist(c.x,c.z,h.x,h.z)>SHOT_R+1.5)return;
   auth.shotAt[hid]=now;G.am[hid]--;const spy=c.role==='spy';
   if(spy){G.out.push(tid);addSc(hid,3);c.out=true;if(c.kind==='bot'){release(c);c.plan='out'}}
-  else{auth.stun[hid]=now+STUN_T*1000;if(c.kind==='bot'){release(c);c.seat=null;c.spot=null;c.plan='down';c.t=6;c.st=ST.down;c.vx=c.vz=0}}
+  else{auth.stun[hid]=now+STUN_T*1000;c.blink=false;if(c.kind==='bot'){release(c);c.seat=null;c.spot=null;c.plan='down';c.t=6;c.st=ST.down;c.vx=c.vz=0}}
   panic(c.x,c.z,c);
   pushFx(['s',hid,tid,spy?1:0,+c.x.toFixed(2),+c.z.toFixed(2)]);
   if(!aliveSpies().length)endRound('hunt','all');
@@ -411,6 +425,7 @@ function playFx(){
       const mine=player&&player.id===id;say('💾 '+G.done.length+'/'+G.goal,mine||(player&&player.role==='spy')?'big green':'big');
       if(mine){tip('Термінал зламано! Відійди спокійно — не біжи');vib(40)}
       if(player&&player.role==='hunter'&&c&&!c.out&&dist(c.x,c.z,player.x,player.z)<8&&los(player.x,player.z,c.x,c.z))pop(c,'?','#FFC93C');
+      if(player&&player.role==='hunter'&&t){alarms.push({x:t.sx,z:t.sz,tx:t.x,tz:t.z,t:0});say('🚨 '+(roomName(t.x,t.z)||'Злам'),'big red');vib(60)}
       if(player&&player.role==='spy'&&t)ripple(t.sx,t.sz)}
     else if(e[1]==='s'){const [,,hid,tid,hit,x,z]=e,h=chr(hid),c=chr(tid);SFX.shot();if(h)darts.push({ax:h.x,az:h.z,bx:x,bz:z,t:0});
       if(c&&!isAuth()){if(hit){c.out=true}}
@@ -487,15 +502,15 @@ function playerUpdate(p,dt){
     if(Math.floor(hold.p*10)!==hold.tk){hold.tk=Math.floor(hold.p*10);SFX.tick(hold.p)}
     if(hold.p>=1){hold.p=0;hold.on=false;req('hk',c.t.i)}}
   else{hold.p=0}
-  p.st=p.seat?ST.sit:hold.on&&hold.p>0?ST.work:phoneOn&&Math.hypot(p.vx,p.vz)<0.3?ST.phone:0;
+  p.st=p.seat?ST.sit:hold.on&&hold.p>0?ST.work:phoneOn&&Math.hypot(p.vx,p.vz)<0.3?ST.phone:0;p.blink=p.st===ST.work;
 }
 
 /* ---------- фази ---------- */
 function onPhase(){
   if(G.ph==='intro'){phase='intro';$('ov').hidden=true;$('mp').hidden=true;
     if(!player){say('Ти глядач','big');tip('Приєднаєшся в наступному раунді')}
-    else if(player.role==='hunter'){say('Ти — мисливець','big red');tip('Шпигуни серед перехожих. Торкнись підозрілого й тисни 🎯. Промах по перехожому — оглушення й мінус набій')}
-    else{say('Ти — шпигун','big green');tip('Зламай '+G.goal+' терміналів 💾 разом з іншими. Ходи як перехожі: не бігай без потреби, сідай, бери телефон')}}
+    else if(player.role==='hunter'){say('Ти — мисливець','big red');tip('Шпигуни серед перехожих. Червоне блимання терміналу — там зламують (або перехожий просто тицяє). Торкнись підозрілого й тисни 🎯; промах — оглушення')}
+    else{say('Ти — шпигун','big green');tip('Зламай '+G.goal+' терміналів 💾. Під час зламу екран блимає червоним — починай, коли мисливця нема поруч. Ходи як перехожі')}}
   if(G.ph==='play'){phase='play';say('Почали!','big')}
   if(G.ph==='end'){phase='end';joy=null;hold.on=false;showEnd()}
   updButtons(true);updHud(true);
@@ -517,7 +532,7 @@ function showEnd(){
 function startSolo(role){
   au();const map=MAPIDS[Math.floor(Math.random()*MAPIDS.length)],seed=Math.floor(Math.random()*1e9);
   G=role==='hunter'?newG(Date.now(),map,seed,['me'],['me'],['s0','s1','s2'],34,180):newG(Date.now(),map,seed,['me'],['bh'],[],34,180);
-  if(role!=='hunter'){G.am.bh=3;G.goal=4}else{G.goal=5;G.am.me=5}
+  if(role!=='hunter'){G.am.bh=3;G.goal=4}else{G.goal=6;G.am.me=6}
   setupRound(G);lastKey='';introT=6;syncPhase();
 }
 
@@ -543,6 +558,7 @@ function update(dt){
   for(const c of chars){if(c.out){c.st=ST.out;c.outT+=dt;if(c.outT>4)c.shown=false}}
   if(MP.on){netT-=dt;if(netT<=0){netT=0.1;mpSend()}}
   playFx();
+  termFx();
   aimer=player&&player.role==='hunter'?player:(chars.find(c=>c.id==='bh'&&c.aim>0)||null);
   drawChars(dt);
   // камера
@@ -607,6 +623,9 @@ function drawFx(dt){
   if(G&&phase!=='menu')for(const c of chars){if(!c.shown)continue;let t=null,bg='rgba(10,14,20,.6)';
     if(c===me){t='Ти';bg='rgba(160,120,0,.75)'}else if(c.role==='hunter'){t=c.nick||'Мисливець';bg='rgba(184,52,58,.85)'}else if(me&&me.role==='spy'&&c.role==='spy'&&c.kind==='human'&&MP.on){t=c.nick;bg='rgba(31,156,140,.85)'}
     if(!t)continue;const s=scr(c.x,1.5,c.z);if(s.z>1)continue;label(s.x,s.y,t,bg)}
+  // тривога: де щойно зламали (лише мисливцю, 6 с)
+  for(const a of alarms){a.t+=dt;if(a.t>6||!live)continue;const s=scr(a.tx,1.6,a.tz);if(s.z<1)label(s.x,s.y,'🚨 злам','rgba(184,52,58,.9)');arrowTo(a.x,a.z,'#FF5C5C','🚨')}
+  alarms=alarms.filter(a=>a.t<=6);
   // приціл мисливця
   if(me&&me.role==='hunter'&&!me.out&&live){const t=aimTarget();if(t){const s=scr(t.x,0.6,t.z),ok=dist(t.x,t.z,me.x,me.z)<=SHOT_R&&los(me.x,me.z,t.x,t.z);
     fctx.strokeStyle=ok?'#FF5C5C':'rgba(255,255,255,.6)';fctx.lineWidth=3;const r=24+(reduce?0:Math.sin(T*6)*2);fctx.beginPath();fctx.arc(s.x,s.y,r,0,6.283);fctx.stroke();
@@ -718,7 +737,7 @@ function mpTick(dt){
 }
 /* боти: 6 символів на бота — x і z по 12 біт (1/32 м), кут 6 біт, стан 4 біти + біг */
 const B64='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_',B64I={};for(let i=0;i<64;i++)B64I[B64[i]]=i;
-function encBots(){let s='';for(const c of chars){if(c.kind!=='bot')continue;const x=Math.max(0,Math.min(4095,Math.round(c.x*32))),z=Math.max(0,Math.min(4095,Math.round(c.z*32))),y=((Math.round(c.yaw/6.283185*64)%64)+64)%64,st=(c.st&15)|(Math.hypot(c.vx,c.vz)>2.2?16:0);
+function encBots(){let s='';for(const c of chars){if(c.kind!=='bot')continue;const x=Math.max(0,Math.min(4095,Math.round(c.x*32))),z=Math.max(0,Math.min(4095,Math.round(c.z*32))),y=((Math.round(c.yaw/6.283185*64)%64)+64)%64,st=(c.st&15)|(Math.hypot(c.vx,c.vz)>2.2?16:0)|(c.blink?32:0);
   s+=B64[x>>6]+B64[x&63]+B64[z>>6]+B64[z&63]+B64[y]+B64[st]}return s}
 let lastBs='',lastBsT=0,bsInt=0.14;
 function mpFollow(dt){
@@ -727,9 +746,9 @@ function mpFollow(dt){
   if(typeof bs==='string'&&bs!==lastBs){const now=performance.now()/1000;if(lastBsT)bsInt=bsInt*0.8+Math.min(0.5,now-lastBsT)*0.2;lastBsT=now;lastBs=bs;
     let i=0;for(const c of chars){if(c.kind!=='bot')continue;const o=i*6;i++;if(o+6>bs.length)break;
       const x=((B64I[bs[o]]<<6)|B64I[bs[o+1]])/32,z=((B64I[bs[o+2]]<<6)|B64I[bs[o+3]])/32,y=B64I[bs[o+4]]/64*6.283185,st=B64I[bs[o+5]];
-      setTarget(c,x,z,y,st&15)}}
+      setTarget(c,x,z,y,st&15);c.blink=!!(st&32)}}
   for(const c of chars){if(!c.remote||c.kind!=='human')continue;const p=presOf(c.id);if(!p||typeof p.x!=='number')continue;
-    if(p!==c.lastP){c.lastP=p;const now=performance.now()/1000;if(c.lastPT)c.idur=c.idur*0.8+Math.min(0.5,now-c.lastPT)*0.2;c.lastPT=now;setTarget(c,p.x,p.z,p.y||0,p.s|0)}}
+    if(p!==c.lastP){c.lastP=p;const now=performance.now()/1000;if(c.lastPT)c.idur=c.idur*0.8+Math.min(0.5,now-c.lastPT)*0.2;c.lastPT=now;setTarget(c,p.x,p.z,p.y||0,p.s|0);c.blink=(p.s|0)===ST.work}}
   for(const c of chars){if(c===player||(c.kind==='human'&&!c.remote)||(c.kind==='bot'&&MP.host))continue;
     c.it+=dt;const d=c.kind==='bot'?bsInt:c.idur,k=Math.min(1,c.it/Math.max(0.05,d)),ox=c.x,oz=c.z;
     c.x=c.fx0+(c.tx-c.fx0)*k;c.z=c.fz0+(c.tz-c.fz0)*k;
@@ -769,5 +788,5 @@ requestAnimationFrame(frame);
 /* для автотестів (bots/local-sim/agents-test.js) */
 window.AGTGame={get phase(){return phase},get G(){return G},get player(){return player},get chars(){return chars},get terms(){return terms},get seats(){return seats},get works(){return works},get MP(){return MP},
   get nav(){return nav},get world(){return world},get hold(){return hold},get myStun(){return myStun},startSolo,sim:s=>{for(let t=0;t<s;t+=1/30)update(1/30)},actCtx,aimTarget,shoot,sitDown,standUp,astar,snap,los,tapAt,
-  select:id=>{selT=id},susp,set run(v){runOn=v},keys,encBots,renderer,MAPIDS,buildWorld,get spawn(){return spawnPt},chr};
+  select:id=>{selT=id},duel:()=>{G=newG(Date.now(),MAPIDS[Math.floor(Math.random()*MAPIDS.length)],Math.floor(Math.random()*1e9),[],['bh'],['s0','s1','s2'],34,180);G.goal=6;G.am.bh=5;setupRound(G);lastKey='';G.ph='play';G.rem=180000;syncPhase()},susp,set run(v){runOn=v},keys,encBots,renderer,MAPIDS,buildWorld,get spawn(){return spawnPt},chr};
 })();
