@@ -79,3 +79,9 @@ node_modules/
 quipleaf_reference/
 # Кандидати в Мемологію до відбору (scripts/fetch-memology-photos.js)
 memes-incoming/
+
+# Android-застосунок (app/): згенероване при збірці
+!app/android/**/*.xml
+app/www/
+app-version.json
+app-manifest.json

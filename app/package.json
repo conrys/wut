@@ -1,0 +1,20 @@
+{
+  "name": "games41-app",
+  "private": true,
+  "version": "1.0.0",
+  "description": "41games — Android-застосунок (Capacitor) з файлами сайту всередині + живі оновлення",
+  "scripts": {
+    "www": "node bundle.mjs www",
+    "sync": "node bundle.mjs www && npx cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.3",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/cli": "8.5.3",
+    "@capacitor/core": "8.5.3",
+    "@capacitor/haptics": "8.0.2",
+    "@capacitor/splash-screen": "8.0.2",
+    "@capacitor/status-bar": "8.0.4",
+    "@capgo/capacitor-updater": "8.54.0"
+  }
+}

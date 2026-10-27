@@ -1,0 +1,29 @@
+{
+  "appId": "com.games41.app",
+  "appName": "41games",
+  "webDir": "www",
+  "backgroundColor": "#14161a",
+  "android": {
+    "backgroundColor": "#14161a",
+    "allowMixedContent": false,
+    "captureInput": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": false,
+      "launchShowDuration": 0,
+      "backgroundColor": "#14161a",
+      "showSpinner": false,
+      "androidScaleType": "CENTER"
+    },
+    "CapacitorUpdater": {
+      "autoUpdate": false,
+      "statsUrl": "",
+      "appReadyTimeout": 15000,
+      "responseTimeout": 30,
+      "autoDeleteFailed": true,
+      "autoDeletePrevious": true
+    },
+    "CapacitorHttp": { "enabled": false }
+  }
+}

@@ -3,6 +3,7 @@
 <html lang="uk">
 <head>
 <meta charset="UTF-8" />
+<script src="js/core/native.js"></script>
 <script>/* темна тема світлих ігор — до першого фарбування; далі керує js/core/app-settings.js */try{var t=JSON.parse(localStorage.getItem("app_settings")||"{}").gameTheme;if(t==="dark"||(t==="system"&&matchMedia("(prefers-color-scheme: dark)").matches))document.documentElement.classList.add("dark-games")}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
 <meta name="theme-color" content="#4b3bd6" />
@@ -94,6 +95,7 @@ html.dark-games .gc-card { background: #f1efff; }
     <div class="pp-card"><div class="pp-h">Категорії</div><div class="gc-cats" id="catSeg"></div>
       <div class="pp-label">Що показувати</div><div class="pp-seg" id="modeSeg"><button data-v="photo">Фото</button><button data-v="name">Ім'я</button></div>
       <div class="gc-modehint" id="modeHint"></div>
+      <div class="gc-modehint hidden" id="offlineHint"></div>
       <button class="pp-btn pp-primary pp-block pp-big" id="startBtn" style="margin-top:18px"><span data-ic="play"></span> Почати</button></div>
     <div class="pp-card"><div class="pp-h">✍️ Свої персонажі <span class="cnt" id="customCount"></span></div>
       <div class="gc-note" id="customNote" style="margin-top:0">Друзі, актори, блогери — будь-хто. Фото не обовʼязкове.</div>
@@ -143,6 +145,7 @@ html.dark-games .gc-card { background: #f1efff; }
 <script src="./vendor/firebase/10.13.0/firebase-storage-compat.js"></script>
 <script src="js/core/firebase-config.js"></script>
 <script src="js/core/image-compress.js"></script>
+<script src="js/core/img-cache.js"></script>
 <script src="js/core/prompt-history.js"></script>
 <script>PromptHistory.preload("guesschar");</script>
 <script src="js/core/app-settings.js"></script>
@@ -198,11 +201,20 @@ html.dark-games .gc-card { background: #f1efff; }
   // на старті, лише стандартного розміру (лежить у кеші Вікіпедії, не генерується на льоту),
   // і заздалегідь підвантажуємо кілька наступних картинок.
   const THUMB = 500;                       // стандартний крок мініатюр Вікімедіа
+  // знайдені адреси памʼятаємо на телефоні (30 днів): без інтернету фото беруться зі збережених
+  const URLS_KEY = "gc_wiki_urls_v1", URLS_TTL = 30 * 864e5;
   const urlOf = new Map();                 // назва статті → url | null
+  try { const j = JSON.parse(localStorage.getItem(URLS_KEY) || "null"); if (j && (Date.now() - j.t < URLS_TTL || navigator.onLine === false)) Object.entries(j.m || {}).forEach(([k, v]) => urlOf.set(k, v)); } catch (e) {}
+  let urlsT = 0;
+  function saveUrls() {
+    clearTimeout(urlsT);
+    urlsT = setTimeout(() => { try { const m = {}; urlOf.forEach((v, k) => { m[k] = v; }); localStorage.setItem(URLS_KEY, JSON.stringify({ t: Date.now(), m })); } catch (e) {} }, 400);
+  }
   const pending = new Map();               // назва статті → Promise (поки йде пакетний запит)
   const imgReady = new Map();              // url → Promise<boolean>
   // ключ: назва статті англ. Вікіпедії, або "uk:<назва>" — для своїх персонажів (українська Вікіпедія)
   function resolveBatch(keys) {
+    const wait = keys.filter((k) => k && pending.has(k)).map((k) => pending.get(k));
     const todo = keys.filter((k) => k && !urlOf.has(k) && !pending.has(k));
     ["en", "uk"].forEach((lang) => {
       const list = todo.filter((k) => (lang === "uk") === k.startsWith("uk:"));
@@ -216,22 +228,63 @@ html.dark-games .gc-card { background: #f1efff; }
           (q.normalized || []).forEach((x) => { alias[x.to] = x.from; });
           (q.redirects || []).forEach((x) => { alias[x.to] = alias[x.from] || x.from; });
           (q.pages || []).forEach((p) => { const orig = alias[p.title] || p.title; urlOf.set(lang === "uk" ? "uk:" + orig : orig, p.thumbnail ? p.thumbnail.source : null); });
+          if (q.pages) saveUrls();               // памʼятаємо лише справжню відповідь Вікіпедії
         }).catch(() => {}).then(() => { chunk.forEach((k) => { if (!urlOf.has(k)) urlOf.set(k, null); pending.delete(k); }); });
         chunk.forEach((k) => pending.set(k, pr));
+        wait.push(pr);
       }
     });
+    return Promise.all(wait);
   }
   const keyOf = (item) => (item.photo ? null : item.lang === "uk" ? "uk:" + item.w : item.w);
+  // url → Promise<src|null>: спершу збережене на телефоні (ImgCache), інакше — з мережі
   function loadImg(url) {
-    if (!imgReady.has(url)) imgReady.set(url, new Promise((res) => { const im = new Image(); im.decoding = "async"; im.onload = () => res(true); im.onerror = () => res(false); im.src = url; }));
+    if (!imgReady.has(url)) {
+      const pr = (window.ImgCache ? ImgCache.src(url) : Promise.resolve(url)).then((src) => src && new Promise((res) => {
+        const im = new Image(); im.decoding = "async"; im.onload = () => res(src); im.onerror = () => res(null); im.src = src;
+      }));
+      imgReady.set(url, pr);
+      pr.then((v) => { if (!v) imgReady.delete(url); });
+    }
     return imgReady.get(url);
   }
   async function photoOf(item) {
-    if (item.photo) return (await loadImg(item.photo)) ? item.photo : null;
+    if (item.photo) return loadImg(item.photo);
     const k = keyOf(item);
-    if (!urlOf.has(k)) { resolveBatch([k]); await pending.get(k); }
+    if (!urlOf.has(k)) await resolveBatch([k]);
     const url = urlOf.get(k);
-    return url && (await loadImg(url)) ? url : null;
+    return url ? loadImg(url) : null;
+  }
+
+  // ---------------- фото для гри без інтернету (лише в застосунку 41games) ----------------
+  // Поки є мережа, у фоні зберігаємо на телефон фото всіх персонажів (і своїх теж).
+  let warmT = 0, offlineReady = null;
+  function allPhotoItems() {
+    const out = [];
+    Object.keys(DATA).forEach((c) => (DATA[c].items || []).forEach(([n, from, w, nameOnly, extra]) => {
+      if (!nameOnly) out.push({ w, photo: extra && extra.photo, lang: extra && extra.lang });
+    }));
+    return out;
+  }
+  function warmOffline() {
+    if (!window.ImgCache || !ImgCache.native) return;
+    clearTimeout(warmT);
+    warmT = setTimeout(async () => {
+      const items = allPhotoItems(), hint = $("offlineHint");
+      const show = (t) => { hint.textContent = t; hint.classList.remove("hidden"); };
+      if (navigator.onLine === false) {
+        const urls = items.map((it) => it.photo || urlOf.get(keyOf(it))).filter(Boolean);
+        let n = 0; for (const u of urls) if (await ImgCache.has(u)) n++;
+        offlineReady = n;
+        show(n ? `📴 Без інтернету: доступно ${n} фото з ${items.length}` : "📴 Фото ще не збережені — увімкни інтернет один раз або грай у режимі «Імʼя»");
+        return;
+      }
+      await resolveBatch(items.map(keyOf).filter(Boolean));
+      const urls = items.map((it) => it.photo || urlOf.get(keyOf(it))).filter(Boolean);
+      const r = await ImgCache.warm(urls, { onProgress: (d, t) => { if (d < t) show(`⬇️ Зберігаю фото для гри без інтернету: ${d}/${t}`); } });
+      offlineReady = r.done;
+      show(r.done >= r.total ? "✅ Фото збережені — грається й без інтернету" : `Збережено ${r.done} фото з ${r.total}, решту докачаю наступного разу`);
+    }, 1200);
   }
 
   // ---------------- колода ----------------
@@ -288,7 +341,10 @@ html.dark-games .gc-card { background: #f1efff; }
     sfx("ding");
   }
   function renderDone() {
-    $("card").innerHTML = `<div class="gc-done"><div class="gc-name">Колода скінчилась!</div><div class="gc-from" style="margin-top:8px">Вгадано ${got}, пропущено ${skipped}. Обери інші категорії або почни знову.</div></div>`;
+    const noPhotos = !got && !skipped && settings.mode === "photo" && navigator.onLine === false;
+    $("card").innerHTML = noPhotos
+      ? `<div class="gc-done"><div class="gc-name">Немає збережених фото</div><div class="gc-from" style="margin-top:8px">Без інтернету показуються лише фото, які телефон уже зберіг. Увімкни інтернет один раз або грай у режимі «Імʼя».</div></div>`
+      : `<div class="gc-done"><div class="gc-name">Колода скінчилась!</div><div class="gc-from" style="margin-top:8px">Вгадано ${got}, пропущено ${skipped}. Обери інші категорії або почни знову.</div></div>`;
     animateCard();
   }
   function renderScore(which) {
@@ -337,7 +393,7 @@ html.dark-games .gc-card { background: #f1efff; }
       const lang = d.wiki === "uk" || d.wiki === "en" ? d.wiki : null;
       return [d.name, d.from || "свій персонаж", d.wikiTitle || d.name, photo || lang ? 0 : 1, { photo, lang, id: d.id }];
     });
-    renderCats(); paintSetup(); renderCustom();
+    renderCats(); paintSetup(); renderCustom(); warmOffline();
   }
   function loadCustom() {
     if (!window.firebaseReady || typeof db === "undefined" || !db) { renderCustom(); return Promise.resolve(); }
@@ -468,7 +524,8 @@ html.dark-games .gc-card { background: #f1efff; }
       db.collection("games41_admins").doc(user.uid).get().then((d) => { isAdmin = d.exists; }).catch(() => {}).then(renderCustom);
     });
   }
-  loadCustom();
+  loadCustom().then(warmOffline);
+  addEventListener("online", warmOffline); addEventListener("offline", warmOffline);
 
   showView("setup");
   paintSetup();
