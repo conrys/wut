@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <g fill="none" stroke="#fff" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M300 820q-30-250 40-400q50-110 172-120q122 10 172 120q70 150 40 400"/>
+    <path d="M410 320l-40-110l80 70M614 320l40-110l-80 70"/>
+    <path d="M340 470q-90 120-110 270l-30 40M230 740l10 50M230 740l-40 30"/>
+    <path d="M684 470q90 120 110 270l30 40M794 740l-10 50M794 740l40 30"/>
+    <path d="M440 520l24 30l24-30l24 30l24-30l24 30l24-30"/>
+    <path d="M200 820h624"/>
+  </g>
+  <ellipse cx="452" cy="420" rx="40" ry="28" fill="#ff4a36"/><ellipse cx="572" cy="420" rx="40" ry="28" fill="#ff4a36"/>
+</svg>
