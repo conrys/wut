@@ -10,15 +10,20 @@ const MOCK = (remoteVersion) => `
   const P = (name, methods) => ({ name, methods: methods.map((m) => ({ name: m, rtype: "promise" })) });
   window.Capacitor = {
     PluginHeaders: [P("App", ["addListener", "exitApp"]), P("SplashScreen", ["hide", "show"]), P("StatusBar", ["setStyle"]), P("Haptics", ["vibrate"]),
-      P("CapacitorHttp", ["get", "request"]), P("CapacitorUpdater", ["notifyAppReady", "list", "download", "next", "set", "setMultiDelay"])],
+      P("CapacitorHttp", ["get", "request"]), Object.assign(P("CapacitorUpdater", ["notifyAppReady", "list", "download", "next", "set", "setMultiDelay"]), { methods: ["notifyAppReady", "list", "download", "next", "set", "setMultiDelay"].map((m) => ({ name: m, rtype: "promise" })).concat([{ name: "addListener", rtype: "callback" }, { name: "removeListener", rtype: "promise" }]) })],
     nativePromise(plugin, method, opts) {
       window.__calls.push(plugin + "." + method);
       if (plugin === "CapacitorHttp") return fetch("/app-manifest.json").then((r) => r.json()).then((m) => ({ data: Object.assign(m, ${remoteVersion ? `{ version: "${remoteVersion}" }` : "{}"}), status: 200 }));
       if (method === "list") return Promise.resolve({ bundles: [] });
-      if (method === "download") { window.__dl = opts; return Promise.resolve({ id: "b1", version: opts.version, status: "pending" }); }
+      if (method === "download") {
+        window.__dl = opts; window.__seen = [];
+        const emit = (p) => { const cb = window.__ls && window.__ls.download; if (cb) cb({ percent: p, bundle: {} }); const t = document.querySelector("#appShellBar [data-t]"); if (t) window.__seen.push(t.textContent); };
+        return new Promise((res) => { setTimeout(() => emit(10), 100); setTimeout(() => emit(55), 300); setTimeout(() => emit(90), 1800);
+          setTimeout(() => res({ id: "b1", version: opts.version, status: "pending" }), 2000); });
+      }
       return Promise.resolve({});
     },
-    nativeCallback() { return "cb1"; },
+    nativeCallback(plugin, method, opts, cb) { if (method === "addListener") { (window.__ls = window.__ls || {})[opts.eventName] = cb; } return "cb1"; },
   };`;
 (async () => {
   const b = await launch();
@@ -33,10 +38,16 @@ const MOCK = (remoteVersion) => `
   ok("версія збігається → без завантаження", calls.includes("CapacitorHttp.get") && !calls.includes("CapacitorUpdater.download"), calls.join(","));
   // 2) на сайті новіша версія → download з manifest, next, затримка до перезапуску, тост
   p = await phone(b, "tester"); await p.addInitScript(MOCK("ffffffffffff"));
-  await p.goto(BASE + "/index.html"); await p.waitForTimeout(3500);
+  await p.goto(BASE + "/index.html");
+  await p.waitForFunction(() => /55%/.test((document.querySelector("#appShellBar [data-t]") || {}).textContent || ""), null, { timeout: 8000 }).catch(() => {});
+  await p.screenshot({ path: __dirname + "/out/app-shell-progress.png" });
+  await p.waitForTimeout(3500);
   calls = await p.evaluate(() => window.__calls);
   const dl = await p.evaluate(() => window.__dl && { v: window.__dl.version, n: window.__dl.manifest.length, f: window.__dl.manifest[0] });
   ok("нова версія → download(manifest)", dl && dl.v === "ffffffffffff" && dl.n > 500, dl && `${dl.n} файлів, ${JSON.stringify(dl.f).slice(0, 90)}…`);
+  const seen = await p.evaluate(() => window.__seen || []);
+  ok("рядок завантаження з відсотками", seen.some((t) => /Оновлення · 55%/.test(t)), seen.join(" → "));
+  ok("рядок зникає після завантаження", await p.evaluate(() => !document.getElementById("appShellBar") || document.getElementById("appShellBar").style.opacity === "0"));
   ok("next + setMultiDelay(kill)", calls.includes("CapacitorUpdater.next") && calls.includes("CapacitorUpdater.setMultiDelay"));
   ok("тост «Оновлення готове» з кнопкою", await p.evaluate(() => { const t = document.getElementById("appShellToast"); return !!t && /Оновлення готове/.test(t.textContent) && !!t.querySelector("button"); }));
   await p.screenshot({ path: __dirname + "/out/app-shell-toast.png" });

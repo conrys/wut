@@ -52,6 +52,34 @@
     x.onclick = () => { t.style.opacity = "0"; setTimeout(() => t.remove(), 260); }; t.appendChild(x);
   }
 
+  // невеличкий рядок стану внизу: «Оновлення · 42%» з тонкою смужкою; не заважає тапам
+  let bar = null, barHideT = 0;
+  function progress(pct, text, tone) {
+    clearTimeout(barHideT);
+    if (!bar) {
+      bar = document.createElement("div"); bar.id = "appShellBar"; bar.setAttribute("role", "status"); bar.setAttribute("aria-live", "polite");
+      bar.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 10px);z-index:2147482999;" +
+        "pointer-events:none;min-width:150px;max-width:calc(100% - 32px);padding:6px 12px 7px;border-radius:12px;background:rgba(34,37,43,.92);" +
+        "color:#f4f5f1;font:600 12px/1.2 Inter,system-ui,sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.35);transition:opacity .3s;text-align:center";
+      bar.innerHTML = '<div data-t></div><div style="margin-top:5px;height:3px;border-radius:2px;background:rgba(255,255,255,.14);overflow:hidden">' +
+        '<div data-f style="height:100%;width:0;border-radius:2px;background:#38cfa0;transition:width .25s"></div></div>';
+      document.body.appendChild(bar);
+    }
+    bar.style.opacity = "1";
+    bar.querySelector("[data-t]").textContent = text;
+    const f = bar.querySelector("[data-f]");
+    f.style.width = Math.max(0, Math.min(100, pct)) + "%";
+    f.style.background = tone === "err" ? "#ff6b6b" : "#38cfa0";
+  }
+  function progressDone(delay) {
+    clearTimeout(barHideT);
+    barHideT = setTimeout(() => { if (bar) { const b = bar; b.style.opacity = "0"; bar = null; setTimeout(() => b.remove(), 320); } }, delay || 0);
+  }
+  Updater.addListener("download", (e) => {
+    const p = Math.round((e && e.percent) || 0);
+    if (busy && p < 100) progress(p, "⬇️ Оновлення · " + p + "%");
+  }).catch(() => {});
+
   let busy = false, lastCheck = 0;
   async function checkUpdate(manual) {
     if (busy || (!manual && Date.now() - lastCheck < 20 * 60 * 1000)) return;
@@ -65,8 +93,14 @@
       const list = await Updater.list().catch(() => ({ bundles: [] }));
       let bundle = (list.bundles || []).find((b) => b.version === m.version && b.status !== "error" && b.status !== "downloading");
       if (!bundle) {
-        if (manual) toast("Завантажую оновлення…");
-        bundle = await Updater.download({ url: SITE + "/app-manifest.json", version: m.version, manifest: m.files });
+        progress(0, "⬇️ Оновлення · 0%");
+        try {
+          bundle = await Updater.download({ url: SITE + "/app-manifest.json", version: m.version, manifest: m.files });
+        } catch (e) {
+          progress(100, "Оновлення не завантажилось — спробую пізніше", "err"); progressDone(4000);
+          throw e;
+        }
+        progress(100, "✓ Оновлення завантажено"); progressDone(900);
       }
       await Updater.next({ id: bundle.id });
       // не перезавантажувати посеред гри, коли просто згорнув застосунок: лише після закриття
