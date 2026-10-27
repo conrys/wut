@@ -1,6 +1,6 @@
 // Хованки: люки-телепорти. Запуск: node server.js, потім node vents-test.js
 const { launch, phone, BASE } = require("./harness");
-const SS = require("path").join(__dirname, "out", ""); require("fs").mkdirSync(SS, { recursive: true });
+const SS = require("path").join(__dirname, "out") + "/"; require("fs").mkdirSync(SS, { recursive: true });
 const ok = (n, c, x) => console.log((c ? "✓ " : "✗ ") + n + (x ? "  — " + x : ""));
 (async () => {
   const b = await launch(); const p = await phone(b, null, { viewport: { width: 390, height: 760 } });
