@@ -412,7 +412,7 @@
     if (jetpackTimer > 0) {
       jetpackTimer -= dt;
       player.vy = JETPACK_VY;
-      if (jetpackTimer <= 0) player.vy = -JUMP_V;
+      if (jetpackTimer <= 0) { player.vy = -JUMP_V; popBalloon(); }
     } else {
       player.vy += GRAVITY * dt;
     }
@@ -465,7 +465,7 @@
             player.y = p.y - player.r;
             spawnSparkles(player.x, player.y);
           } else if (p.hasSpring) {
-            player.vy = -JUMP_V * SPRING_BOUNCE_MULT;
+            player.vy = -JUMP_V * SPRING_BOUNCE_MULT; p.springT = 0.6;
             player.y = p.y - player.r;
             spawnSparkles(player.x, player.y);
           } else {
@@ -509,6 +509,8 @@
       scoreVal.textContent = String(score);
     }
     for (const b of booms) b.t += dt; booms = booms.filter((b) => b.t < 0.7);
+    if (balloonPop) { balloonPop.t += dt; if (balloonPop.t > 0.5) balloonPop = null; }
+    for (const p of platforms) if (p.springT > 0) p.springT = Math.max(0, p.springT - dt);
     if (shake > 0) shake = Math.max(0, shake - dt * 30);
 
     ensurePlatformsAbove();
@@ -527,6 +529,9 @@
     }
   }
 
+  // кулька лопнула: бризки й гумові клаптики
+  let balloonPop = null;
+  function popBalloon() { balloonPop = { x: player.x, y: player.y - PLAYER_R * 2.6, t: 0 }; try { navigator.vibrate && navigator.vibrate(20); } catch (e) {} }
   function killEnemy(en) {
     en.alive = false; bonus += KILL_BONUS;
     booms.push({ x: en.x, y: en.y, t: 0, kind: en.kind });
@@ -671,22 +676,45 @@
     }
     ctx.restore();
     if (p.hasJetpack) drawJetpackIcon(p.x + p.w / 2, sy);
-    if (p.hasSpring) drawSpringIcon(p.x + p.w / 2, sy);
+    if (p.hasSpring) drawSpringIcon(p.x + p.w / 2, sy, p);
   }
 
-  function drawSpringIcon(cx, platformSy) {
-    const img = ASSETS.spring;
-    if (!img.complete) return;
-    const w = 26, h = 16;
-    ctx.drawImage(img, cx - w / 2, platformSy - h + 2, w, h);
+  // пружина: спіраль, що стискається під жабкою, вистрілює й пружинить
+  function drawSpringIcon(cx, platformSy, p) {
+    const t = p && p.springT > 0 ? 0.6 - p.springT : -1;
+    let k = 1;   // 1 — спокій, <1 — стиснута, >1 — розтягнута
+    if (t >= 0) k = t < 0.06 ? 1 - t / 0.06 * 0.55 : 1 + 0.9 * Math.exp(-(t - 0.06) * 6) * Math.cos((t - 0.06) * 26);
+    if (reduceMotion) k = 1;
+    const h = Math.max(4, 15 * k), base = platformSy + 1, w = 20;
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.fillStyle = '#5b6470'; ctx.fillRect(cx - w / 2 - 2, base - 3, w + 4, 3);
+    const turns = 4; ctx.beginPath(); ctx.moveTo(cx - w / 2, base - 3);
+    for (let i = 1; i <= turns * 2; i++) ctx.lineTo(cx + (i % 2 ? w / 2 : -w / 2), base - 3 - h * i / (turns * 2));
+    ctx.strokeStyle = '#2b3038'; ctx.lineWidth = 5; ctx.stroke(); ctx.strokeStyle = '#c9d2dc'; ctx.lineWidth = 2.6; ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 1; ctx.stroke();
+    const top = base - 3 - h;
+    ctx.fillStyle = '#e8453c'; ctx.strokeStyle = '#7a1a14'; ctx.lineWidth = 2; roundRect(cx - w / 2 - 4, top - 5, w + 8, 6, 3); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.fillRect(cx - w / 2, top - 4, w * 0.5, 1.5);
+    ctx.restore();
   }
 
+  // на платформі лежить здута кулька — жабка підхопить і надує
   function drawJetpackIcon(cx, platformSy) {
-    const img = ASSETS.jetpack;
-    if (!img.complete) return;
-    const w = 22, h = 33;
-    ctx.drawImage(img, cx - w / 2, platformSy - h + 4, w, h);
+    const bob = reduceMotion ? 0 : Math.sin(T * 3) * 2;
+    drawBalloon(cx, platformSy - 16 + bob, 0.45, platformSy - 2);
   }
+  function drawBalloon(x, y, k, stringTo) {
+    const rw = 17 * k, rh = 21 * k;
+    ctx.save(); ctx.lineCap = 'round';
+    if (stringTo != null) { ctx.strokeStyle = '#3b3b3b'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x, y + rh); ctx.quadraticCurveTo(x + 6, (y + rh + stringTo) / 2, x, stringTo); ctx.stroke(); }
+    ctx.shadowColor = 'rgba(80,0,20,.35)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 2;
+    ctx.fillStyle = '#ff4f6d'; ctx.beginPath(); ctx.ellipse(x, y, rw, rh, 0, 0, 6.283); ctx.fill(); ctx.shadowColor = 'transparent';
+    ctx.strokeStyle = '#8f1430'; ctx.lineWidth = 2.5; ctx.stroke();
+    ctx.fillStyle = '#ff4f6d'; ctx.beginPath(); ctx.moveTo(x - 4 * k, y + rh + 3); ctx.lineTo(x, y + rh - 1); ctx.lineTo(x + 4 * k, y + rh + 3); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.beginPath(); ctx.ellipse(x - rw * 0.4, y - rh * 0.4, rw * 0.22, rh * 0.3, -0.4, 0, 6.283); ctx.fill();
+    ctx.restore();
+  }
+
 
   // монстри: темний контур і тінь, щоб читались на будь-якому небі
   function outlined(path, fill, line) { ctx.fillStyle = fill; path(); ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = line; ctx.stroke(); }
@@ -731,6 +759,15 @@
       ctx.save(); ctx.translate(sh.x, y); ctx.rotate(a);
       ctx.fillStyle = 'rgba(255,240,150,.35)'; ctx.beginPath(); ctx.ellipse(-8, 0, 12, 4, 0, 0, 6.283); ctx.fill();
       ctx.fillStyle = '#7ad04f'; ctx.strokeStyle = '#2f5e1f'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(0, 0, 6, 4, 0, 0, 6.283); ctx.fill(); ctx.stroke(); ctx.restore(); }
+  }
+  function drawBalloonPop() {
+    if (!balloonPop) return; const k = balloonPop.t / 0.5, x = balloonPop.x, y = balloonPop.y - camTop;
+    ctx.save(); ctx.globalAlpha = 1 - k;
+    for (let i = 0; i < 10; i++) { const a = i / 10 * 6.283 + 0.3; ctx.fillStyle = i % 2 ? '#ff4f6d' : '#ffd1da';
+      ctx.save(); ctx.translate(x + Math.cos(a) * k * 50, y + Math.sin(a) * k * 50 + k * k * 30); ctx.rotate(a + k * 4); ctx.fillRect(-4, -2, 8, 4); ctx.restore(); }
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 3 * (1 - k); ctx.beginPath(); ctx.arc(x, y, 8 + k * 26, 0, 6.283); ctx.stroke();
+    ctx.font = "700 16px 'Fredoka', sans-serif"; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.strokeStyle = 'rgba(30,20,40,.6)'; ctx.lineWidth = 4; ctx.strokeText('Бах!', x, y - 26 - k * 16); ctx.fillText('Бах!', x, y - 26 - k * 16);
+    ctx.restore();
   }
   function drawBooms() {
     ctx.textAlign = 'center';
@@ -808,6 +845,7 @@
   }
 
   function drawJetpackFlame() {
+    return;   // замість джетпака — кулька (drawFrog)
     if (jetpackTimer <= 0) return;
 
     const flicker = 0.7 + Math.random() * 0.3;
@@ -857,29 +895,6 @@
       scaleY = 0.96;
     }
 
-    // Джетпак
-    if (jetpackTimer > 0) {
-      const jpW = 22;
-      const jpH = 28;
-      const jpX = (player.facing === 1) ? -PLAYER_R - 12 : PLAYER_R - 10;
-      const jpY = -jpH / 2;
-
-      drawJetpackFlame();
-
-      const imgJp = ASSETS.jetpack;
-      if (imgJp && imgJp.complete) {
-        ctx.save();
-        if (player.facing === -1) {
-          ctx.translate(jpX + jpW / 2, jpY + jpH / 2);
-          ctx.scale(-1, 1);
-          ctx.drawImage(imgJp, -jpW / 2, -jpH / 2, jpW, jpH);
-        } else {
-          ctx.drawImage(imgJp, jpX, jpY, jpW, jpH);
-        }
-        ctx.restore();
-      }
-    }
-
     // Тіло
     ctx.save();
     ctx.scale(scaleX, scaleY);
@@ -908,13 +923,29 @@
       }
       ctx.restore();
     }
+    // кулька над головою: надувається на початку, тягне вгору
+    if (jetpackTimer > 0) { ctx.save(); ctx.shadowColor = 'transparent'; const inflate = Math.min(1, (JETPACK_DURATION - jetpackTimer) / 0.25), sway = reduceMotion ? 0 : Math.sin(T * 5) * 3;
+      ctx.scale(f, 1); drawBalloon(r * 0.12 * f + sway, -r * 2.6, 0.5 + inflate * 0.9, -r * 1.15); ctx.restore(); }
     // тіло
     ctx.fillStyle = skin; ctx.beginPath(); ctx.ellipse(0, r * 0.1, r * 1.05, r * 0.78, 0, 0, 6.283); ctx.fill();
     ctx.shadowColor = 'transparent'; line();
     ctx.fillStyle = belly; ctx.beginPath(); ctx.ellipse(r * 0.08, r * 0.38, r * 0.62, r * 0.4, 0, 0, 6.283); ctx.fill();
     ctx.fillStyle = dark; for (const [x, y, rr] of [[-0.55, -0.15, 0.1], [-0.3, -0.35, 0.07], [0.5, -0.2, 0.08]]) { ctx.beginPath(); ctx.arc(r * x, r * y, r * rr, 0, 6.283); ctx.fill(); }
-    // передні лапки
-    for (const s of [-1, 1]) { ctx.fillStyle = skin; ctx.beginPath(); ctx.ellipse(s * r * 0.42 + r * 0.1, r * 0.78, r * 0.17, r * 0.11, 0, 0, 6.283); ctx.fill(); line(); }
+    // передні лапки: у стрибку тягнуться вгору, у падінні — в боки, на кульці — тримають нитку
+    const balloon = jetpackTimer > 0, raise = balloon ? 1 : up ? Math.min(1, -vy / 600) : vy > 200 ? -0.6 : 0;
+    for (const s of [-1, 1]) {
+      const sx = s * r * 0.72 + r * 0.08, sy = r * 0.32;
+      const hx = balloon ? r * 0.12 + s * r * 0.12 : sx + s * r * (0.32 + Math.max(0, -raise) * 0.45 - Math.max(0, raise) * 0.05), hy = balloon ? -r * 1.15 : sy + r * (0.42 - raise * 0.95);
+      const mx = (sx + hx) / 2 + s * r * 0.18, my = (sy + hy) / 2 + r * 0.05;
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(mx, my, hx, hy);
+      ctx.strokeStyle = ln; ctx.lineWidth = r * 0.32; ctx.stroke(); ctx.strokeStyle = skin; ctx.lineWidth = r * 0.32 - 5; ctx.stroke();
+      // долоня з трьома пальчиками
+      const a = Math.atan2(hy - my, hx - mx);
+      for (const da of [-0.55, 0, 0.55]) { const fx = hx + Math.cos(a + da) * r * 0.16, fy = hy + Math.sin(a + da) * r * 0.16;
+        ctx.fillStyle = skin; ctx.beginPath(); ctx.arc(fx, fy, r * 0.085, 0, 6.283); ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = ln; ctx.stroke(); }
+      ctx.fillStyle = skin; ctx.beginPath(); ctx.arc(hx, hy, r * 0.12, 0, 6.283); ctx.fill();
+    }
     // очі-горбики зверху
     const look = vy < -150 ? -1.5 : vy > 150 ? 1.5 : 0;
     for (const s of [-1, 1]) {
@@ -945,6 +976,7 @@
     for (const en of enemies) if (en.alive) drawEnemy(en);
     drawShots();
     drawBooms();
+    drawBalloonPop();
     drawSparkles();
     drawPlayer();
     ctx.restore();
@@ -952,7 +984,10 @@
 
   // для автотестів
   window.DoodleGame = { get player() { return player; }, get enemies() { return enemies; }, get shots() { return shots; }, get score() { return score; }, get bonus() { return bonus; }, get phase() { return phase; },
-    get camTop() { return camTop; }, frog: true, spawn: (kind, dx, dy) => { const en = makeEnemy(player.x + (dx || 0), player.y + (dy || -150), kind); if (kind !== 'bat' && kind !== 'spike') { en.range = 0; en.baseX = en.x; } enemies.push(en); return en; } };
+    get camTop() { return camTop; }, frog: true,
+    balloon: () => { jetpackTimer = JETPACK_DURATION; },
+    springUnder: () => { const p = makePlatform(player.x - PLATFORM_W / 2, player.y + player.r + 40, 'normal'); p.hasSpring = true; platforms.push(p); player.vy = 200; return p; },
+    spawn: (kind, dx, dy) => { const en = makeEnemy(player.x + (dx || 0), player.y + (dy || -150), kind); if (kind !== 'bat' && kind !== 'spike') { en.range = 0; en.baseX = en.x; } enemies.push(en); return en; } };
   let lastT = null;
   function loop(t) {
     if (lastT === null) lastT = t;
