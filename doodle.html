@@ -255,7 +255,7 @@
   const ENEMY_R = 18;
   const ENEMY_SPAWN_CHANCE = 0.12;
   // постріли: жабка сама стріляє насінинами в найближчого монстра над собою
-  const SHOT_PERIOD = 0.65, SHOT_SPEED = 950, SHOT_RANGE = 300, KILL_BONUS = 50;
+  const SHOT_PERIOD = 0.55, SHOT_SPEED = 520, SHOT_RANGE = 320, KILL_BONUS = 50;
 
   let best = 0;
   try {
@@ -440,12 +440,10 @@
       en.phase += (en.speed || 1) * dt;
       en.x = en.baseX + Math.sin(en.phase) * en.range;
     }
-    // автопостріли
+    // автопостріли: прямо вгору, коли монстр приблизно над жабкою (стань під нього)
     shotT -= dt;
-    if (shotT <= 0 && jetpackTimer <= 0) {
-      let tgt = null, bd = SHOT_RANGE;
-      for (const en of enemies) { if (!en.alive || en.y > player.y - 10) continue; const d = Math.hypot(en.x - player.x, en.y - player.y); if (d < bd && en.y - camTop > 0) { bd = d; tgt = en; } }
-      if (tgt) { const dx = tgt.x - player.x, dy = tgt.y - player.y, d = Math.hypot(dx, dy) || 1; shots.push({ x: player.x, y: player.y - player.r * 0.6, vx: dx / d * SHOT_SPEED, vy: dy / d * SHOT_SPEED, l: 0.6 }); shotT = SHOT_PERIOD; }
+    if (shotT <= 0 && jetpackTimer <= 0 && enemies.some((en) => en.alive && en.y < player.y - 20 && player.y - en.y < SHOT_RANGE && Math.abs(en.x - player.x) < en.r + 26 && en.y - camTop > 0)) {
+      shots.push({ x: player.x + player.facing * 6, y: player.y - player.r * 0.6, vx: player.vx * 0.15, vy: -SHOT_SPEED, l: SHOT_RANGE / SHOT_SPEED + 0.1 }); shotT = SHOT_PERIOD;
     }
     for (const sh of shots) {
       sh.x += sh.vx * dt; sh.y += sh.vy * dt; sh.l -= dt;
@@ -886,44 +884,51 @@
     ctx.save();
     ctx.scale(scaleX, scaleY);
 
-    const imgBody = ASSETS.playerBody;
-    const size = PLAYER_R * 2.4;
-    if (imgBody && imgBody.complete) {
-      ctx.save();
-      if (player.facing === -1) {
-        ctx.scale(-1, 1);
+    drawFrog(vy);
+    ctx.restore();
+    ctx.restore();
+  }
+
+  /* жабка: пласке широке тіло, очі-горбики зверху, широкий рот; задні лапи — витягнуті, коли відштовхується, підібгані в польоті */
+  function drawFrog(vy) {
+    const r = PLAYER_R, f = player.facing, up = vy < -150, ln = '#1f4a14', skin = '#5fd13f', dark = '#3fa52c', belly = '#d9f5a8';
+    const leg = landT > 0 ? 0 : up ? Math.min(1, -vy / 700) : 0;   // 1 — лапи витягнуті вниз
+    const line = () => { ctx.lineWidth = 3; ctx.strokeStyle = ln; ctx.stroke(); };
+    ctx.save(); ctx.scale(f, 1);
+    ctx.shadowColor = 'rgba(12,30,10,.5)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 3;
+    // задні лапи
+    for (const s of [-1, 1]) {
+      ctx.save(); ctx.translate(s * r * 0.62, r * 0.45);
+      if (leg > 0.2) {   // витягнута: стегно + гомілка + перетинчаста ступня
+        ctx.fillStyle = dark; ctx.beginPath(); ctx.ellipse(s * r * 0.08, r * 0.35 * leg, r * 0.22, r * 0.45 * leg + r * 0.15, s * 0.25, 0, 6.283); ctx.fill(); line();
+        ctx.fillStyle = skin; ctx.beginPath(); ctx.moveTo(s * r * 0.05, r * 0.8 * leg + r * 0.1); ctx.lineTo(s * r * 0.45, r * 0.95 * leg + r * 0.2); ctx.lineTo(s * r * 0.15, r * 0.95 * leg + r * 0.32); ctx.lineTo(s * r * -0.2, r * 0.95 * leg + r * 0.22); ctx.closePath(); ctx.fill(); line();
+      } else {             // підібгана: товсте стегно збоку + ступня під ним
+        ctx.fillStyle = dark; ctx.beginPath(); ctx.ellipse(s * r * 0.12, -r * 0.05, r * 0.36, r * 0.28, s * -0.5, 0, 6.283); ctx.fill(); line();
+        ctx.fillStyle = skin; ctx.beginPath(); ctx.ellipse(s * r * 0.25, r * 0.28, r * 0.32, r * 0.12, 0, 0, 6.283); ctx.fill(); line();
       }
-      // темний «ореол» + тінь — герой читається і на світлому небі, і на темному
-      ctx.shadowColor = 'rgba(12,30,10,.55)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 3;
-      ctx.drawImage(imgBody, -size / 2, -size / 2, size, size);
-      ctx.shadowColor = 'transparent';
       ctx.restore();
     }
-    ctx.fillStyle = 'rgba(255,120,120,.45)';
-    ctx.beginPath(); ctx.ellipse(-13 + player.facing * 2, 6, 4, 2.5, 0, 0, 6.283); ctx.ellipse(13 + player.facing * 2, 6, 4, 2.5, 0, 0, 6.283); ctx.fill();
-
-    // Очі
-    // Очі
-    const eyeDx = 6 * player.facing;
-    let eyeDy = -4; 
-    if (vy < -2) eyeDy = -9;
-    if (vy > 2)  eyeDy = 2;
-
-    ctx.fillStyle = '#ffffff';
-    ctx.strokeStyle = '#2f5e1f';
-    ctx.lineWidth = 2.5;
-
-    // Ліве око
-    ctx.beginPath(); ctx.arc(-8 + eyeDx * 0.3, eyeDy, 6.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    // Праве око
-    ctx.beginPath(); ctx.arc(6 + eyeDx * 0.3, eyeDy, 6.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-
-    // Зіниці
-    ctx.fillStyle = '#23261f';
-    ctx.beginPath(); ctx.arc(-7 + eyeDx * 0.6, eyeDy + (vy < -2 ? -1.5 : vy > 2 ? 1.5 : 0), 2.8, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(7 + eyeDx * 0.6, eyeDy + (vy < -2 ? -1.5 : vy > 2 ? 1.5 : 0), 2.8, 0, Math.PI * 2); ctx.fill();
-
-    ctx.restore();
+    // тіло
+    ctx.fillStyle = skin; ctx.beginPath(); ctx.ellipse(0, r * 0.1, r * 1.05, r * 0.78, 0, 0, 6.283); ctx.fill();
+    ctx.shadowColor = 'transparent'; line();
+    ctx.fillStyle = belly; ctx.beginPath(); ctx.ellipse(r * 0.08, r * 0.38, r * 0.62, r * 0.4, 0, 0, 6.283); ctx.fill();
+    ctx.fillStyle = dark; for (const [x, y, rr] of [[-0.55, -0.15, 0.1], [-0.3, -0.35, 0.07], [0.5, -0.2, 0.08]]) { ctx.beginPath(); ctx.arc(r * x, r * y, r * rr, 0, 6.283); ctx.fill(); }
+    // передні лапки
+    for (const s of [-1, 1]) { ctx.fillStyle = skin; ctx.beginPath(); ctx.ellipse(s * r * 0.42 + r * 0.1, r * 0.78, r * 0.17, r * 0.11, 0, 0, 6.283); ctx.fill(); line(); }
+    // очі-горбики зверху
+    const look = vy < -150 ? -1.5 : vy > 150 ? 1.5 : 0;
+    for (const s of [-1, 1]) {
+      const ex = s * r * 0.45 + r * 0.12, ey = -r * 0.62;
+      ctx.fillStyle = skin; ctx.beginPath(); ctx.arc(ex, ey, r * 0.38, 0, 6.283); ctx.fill(); line();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ex, ey - r * 0.03, r * 0.27, 0, 6.283); ctx.fill();
+      ctx.fillStyle = '#1b1d17'; ctx.beginPath(); ctx.ellipse(ex + r * 0.07, ey + look, r * 0.14, r * 0.17, 0, 0, 6.283); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ex + r * 0.12, ey - r * 0.07 + look, r * 0.05, 0, 6.283); ctx.fill();
+    }
+    // рот і щічки
+    ctx.strokeStyle = ln; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+    ctx.beginPath(); if (landT > 0 || vy > 300) ctx.ellipse(r * 0.2, r * 0.1, r * 0.2, r * 0.12, 0, 0, 6.283); else { ctx.moveTo(-r * 0.35, r * 0.02); ctx.quadraticCurveTo(r * 0.2, r * 0.32, r * 0.75, r * 0.0); }
+    if (landT > 0 || vy > 300) { ctx.fillStyle = '#b8323c'; ctx.fill(); } ctx.stroke();
+    ctx.fillStyle = 'rgba(255,110,120,.5)'; ctx.beginPath(); ctx.ellipse(-r * 0.5, r * 0.15, r * 0.14, r * 0.08, 0, 0, 6.283); ctx.ellipse(r * 0.85, r * 0.12, r * 0.12, r * 0.07, 0, 0, 6.283); ctx.fill();
     ctx.restore();
   }
 
@@ -947,7 +952,7 @@
 
   // для автотестів
   window.DoodleGame = { get player() { return player; }, get enemies() { return enemies; }, get shots() { return shots; }, get score() { return score; }, get bonus() { return bonus; }, get phase() { return phase; },
-    get camTop() { return camTop; }, spawn: (kind, dx, dy) => { const en = makeEnemy(player.x + (dx || 0), player.y + (dy || -150), kind); if (kind !== 'bat' && kind !== 'spike') { en.range = 0; en.baseX = en.x; } enemies.push(en); return en; } };
+    get camTop() { return camTop; }, frog: true, spawn: (kind, dx, dy) => { const en = makeEnemy(player.x + (dx || 0), player.y + (dy || -150), kind); if (kind !== 'bat' && kind !== 'spike') { en.range = 0; en.baseX = en.x; } enemies.push(en); return en; } };
   let lastT = null;
   function loop(t) {
     if (lastT === null) lastT = t;
