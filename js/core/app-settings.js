@@ -451,6 +451,11 @@
             [["auto", "Авто"], ["full", "Повна"], ["lite", "Легка"]])}
         </div></div>
 
+        ${window.AppShell ? `<div class="grp"><div class="grp-t">Застосунок</div><div class="card">
+          <div class="item"><div class="item-h"><div class="item-l"><b>Версія <span id="appVer">…</span></b><small id="appUpd"></small></div>
+            <button type="button" class="opt-btn" id="appUpdBtn" style="flex:none;padding:8px 12px">Перевірити</button></div></div>
+        </div></div>` : ""}
+
         <button type="button" class="close-btn" id="appSettingsCloseBtn">Готово</button>
       </div>
     `;
@@ -468,7 +473,27 @@
       });
     }
 
-    const open = () => { refreshActive(); panel.classList.add("open"); };
+    // «Застосунок» (лише в APK): версія файлів, остання перевірка оновлень, кнопка «Перевірити»
+    function paintApp() {
+      if (!window.AppShell) return;
+      AppShell.version().then((v) => { const el = document.getElementById("appVer"); if (el) el.textContent = v; });
+      const st = AppShell.status(), el = document.getElementById("appUpd");
+      if (!el) return;
+      const ago = st && st.at ? Math.max(0, Math.round((Date.now() - st.at) / 60000)) : null;
+      const when = ago === null ? "" : ago < 1 ? "щойно" : ago < 60 ? ago + " хв тому" : Math.round(ago / 60) + " год тому";
+      el.textContent = !st ? "Оновлення ще не перевірялись"
+        : st.state === "latest" ? "Найновіша · перевірено " + when
+        : st.state === "ready" ? "Оновлення " + st.remote + " завантажене — перезапусти застосунок"
+        : st.state === "error" ? "Помилка (" + when + "): " + st.error : "";
+    }
+    if (window.AppShell) {
+      const b = panel.querySelector("#appUpdBtn");
+      b.addEventListener("click", async () => {
+        b.disabled = true; b.textContent = "Перевіряю…";
+        try { await AppShell.checkUpdate(); } finally { b.disabled = false; b.textContent = "Перевірити"; paintApp(); }
+      });
+    }
+    const open = () => { refreshActive(); paintApp(); panel.classList.add("open"); };
     const close = () => panel.classList.remove("open");
     // Дозволяє іншим модулям (меню профілю в login.js) відкрити цю ж панель.
     window.AppSettings.openPanel = open;

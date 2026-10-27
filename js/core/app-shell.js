@@ -81,15 +81,21 @@
   }).catch(() => {});
 
   let busy = false, lastCheck = 0;
+  // стан для налаштувань («Застосунок»): що й коли перевіряли, чим скінчилось
+  const ST_KEY = "app_update_status";
+  function setStatus(o) { try { localStorage.setItem(ST_KEY, JSON.stringify(Object.assign({ at: Date.now() }, o))); } catch (e) {} }
+  function getStatus() { try { return JSON.parse(localStorage.getItem(ST_KEY) || "null"); } catch (e) { return null; } }
+  // не частіше ніж раз на хвилину (повернувся в застосунок — перевіряємо знову)
   async function checkUpdate(manual) {
-    if (busy || (!manual && Date.now() - lastCheck < 20 * 60 * 1000)) return;
+    if (busy) return manual ? { state: "busy" } : undefined;
+    if (!manual && Date.now() - lastCheck < 60 * 1000) return;
     busy = true; lastCheck = Date.now();
     try {
       const local = await fetch(BASE + "app-version.json", { cache: "no-store" }).then((r) => r.json()).catch(() => null);
       const r = await Http.get({ url: SITE + "/app-manifest.json?t=" + Date.now(), responseType: "json", headers: { "Cache-Control": "no-cache" } });
       const m = typeof r.data === "string" ? JSON.parse(r.data) : r.data;
-      if (!m || !m.version || !Array.isArray(m.files)) return;
-      if (local && local.version === m.version) { if (manual) toast("У тебе найновіша версія ✓"); return; }
+      if (!m || !m.version || !Array.isArray(m.files)) { setStatus({ state: "error", error: "неправильний список файлів на сайті" }); return; }
+      if (local && local.version === m.version) { setStatus({ state: "latest", remote: m.version }); if (manual) toast("У тебе найновіша версія ✓"); return; }
       const list = await Updater.list().catch(() => ({ bundles: [] }));
       let bundle = (list.bundles || []).find((b) => b.version === m.version && b.status !== "error" && b.status !== "downloading");
       if (!bundle) {
@@ -105,9 +111,12 @@
       await Updater.next({ id: bundle.id });
       // не перезавантажувати посеред гри, коли просто згорнув застосунок: лише після закриття
       await Updater.setMultiDelay({ delayConditions: [{ kind: "kill" }] }).catch(() => {});
+      setStatus({ state: "ready", remote: m.version });
       toast("Оновлення готове — увімкнеться при наступному запуску", "Перезапустити", () => Updater.set({ id: bundle.id }));
     } catch (e) {
-      if (manual) toast("Не вдалося перевірити оновлення (немає інтернету?)");
+      const msg = e && e.message ? String(e.message).slice(0, 140) : String(e);
+      setStatus({ state: "error", error: msg });
+      if (manual) toast("Не вдалося оновитися: " + msg);
       console.warn("[41games] оновлення:", e && e.message ? e.message : e);
     } finally { busy = false; }
   }
@@ -119,6 +128,7 @@
 
   window.AppShell = {
     checkUpdate: () => checkUpdate(true),
+    status: getStatus,
     version: () => fetch(BASE + "app-version.json", { cache: "no-store" }).then((r) => r.json()).then((j) => j.version).catch(() => "?"),
   };
 })();

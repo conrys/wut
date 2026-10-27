@@ -36,6 +36,11 @@ const MOCK = (remoteVersion) => `
   ok("заставка ховається", calls.includes("SplashScreen.hide"));
   ok("Capacitor.Plugins.App є для back-button.js", await p.evaluate(() => !!Capacitor.Plugins.App && !!Capacitor.Plugins.Haptics));
   ok("версія збігається → без завантаження", calls.includes("CapacitorHttp.get") && !calls.includes("CapacitorUpdater.download"), calls.join(","));
+  await p.evaluate(() => AppSettings.openPanel()); await p.waitForTimeout(400);
+  await p.click("#appUpdBtn"); await p.waitForTimeout(800);
+  const appRow = await p.evaluate(() => document.getElementById("appVer").textContent + " | " + document.getElementById("appUpd").textContent);
+  ok("налаштування: версія й «Перевірити» → найновіша", /^[0-9a-f]{12} \| Найновіша/.test(appRow), appRow);
+  await p.screenshot({ path: __dirname + "/out/app-settings-update.png" });
   // 2) на сайті новіша версія → download з manifest, next, затримка до перезапуску, тост
   p = await phone(b, "tester"); await p.addInitScript(MOCK("ffffffffffff"));
   await p.goto(BASE + "/index.html");
