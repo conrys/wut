@@ -60,7 +60,9 @@ body{background:var(--night);color:var(--ink);font-family:var(--body);overflow:h
 #light{right:calc(max(18px,env(safe-area-inset-right,0px)) + 96px)}#light.on{background:var(--fuse);color:#2A2000}#light.off{background:rgba(236,230,245,.35)}
 #act{right:max(18px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 122px);width:178px;height:62px;border-radius:22px;background:var(--mate);color:#06210F;font-size:15px;overflow:hidden;
   background-image:linear-gradient(90deg,rgba(255,255,255,.55) var(--p,0%),transparent var(--p,0%))}
-#act.self{background-color:var(--blood);color:#fff}#act.hide{background-color:#B9A6FF}
+#act.self{background-color:var(--blood);color:#fff}#act.hide{background-color:#B9A6FF}#act.ins{background-color:var(--fuse);color:#2A2000}
+#dash{right:max(18px,env(safe-area-inset-right,0px));background:var(--blood);color:#fff}#dash.off{background:rgba(236,230,245,.35);color:rgba(20,18,28,.7)}
+#blind{position:fixed;inset:0;pointer-events:none;background:radial-gradient(circle,#fff 30%,#FFF6D8 100%);opacity:0;transition:opacity .2s}
 #act .ic{font-size:20px;line-height:1;margin-bottom:2px}
 .overlay{position:fixed;inset:0;display:grid;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));background:rgba(5,4,10,.55);
   overflow-y:auto;place-items:start center;padding-block:calc(env(safe-area-inset-top,0px) + 16px) calc(env(safe-area-inset-bottom,0px) + 16px)}
@@ -103,10 +105,11 @@ input:focus-visible,select:focus-visible{outline:3px solid var(--fuse);outline-o
 <canvas id="gl"></canvas>
 <canvas id="fx"></canvas>
 <div id="vig"></div>
+<div id="blind"></div>
 <div class="hud">
   <div class="row">
     <span class="chip lvl" id="lvl">Рівень 1</span>
-    <span class="chip fuse" id="fuseChip">🔌 0/3</span>
+    <span class="chip fuse" id="fuseChip">⚡ 0/3</span>
     <span class="chip bat" id="batChip" aria-label="Заряд ліхтарика"><i><b></b></i></span>
     <button class="icon" id="mute" type="button" aria-label="Вимкнути звук">🔊</button>
   </div>
@@ -115,6 +118,7 @@ input:focus-visible,select:focus-visible{outline:3px solid var(--fuse);outline-o
 <div class="say" id="say"></div>
 <button class="pad" id="light" type="button" aria-pressed="true" hidden><svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path d="M4 9h7l4-3v12l-4-3H4z" fill="currentColor"/><path d="M18 8l3-2M18 12h4M18 16l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Ліхтар</span></button>
 <button class="pad" id="crouch" type="button" aria-pressed="false" hidden><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="6" r="3" fill="currentColor"/><path d="M8 12c1.5-1.2 6.5-1.2 8 0l-1 4h2.5l1 4H5.5l1-4H9z" fill="currentColor"/></svg><span>Присісти</span></button>
+<button class="pad" id="dash" type="button" hidden><svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path d="M3 12h10M5 7h8M5 17h8" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M14 5l7 7-7 7z" fill="currentColor"/></svg><span>Ривок</span></button>
 <button class="pad" id="act" type="button" hidden><span class="ic" aria-hidden="true">🚪</span><span id="actTxt">Сховатись</span></button>
 <div class="tip" id="tip" hidden></div>
 
@@ -122,9 +126,9 @@ input:focus-visible,select:focus-visible{outline:3px solid var(--fuse);outline-o
   <div class="card">
     <h1 id="ovTitle">Монстр</h1>
     <div class="stars" id="stars" hidden></div>
-    <p id="ovText">Темний будинок, у ньому щось ходить. Знайди запобіжники, увімкни вихід і тікай.</p>
-    <div class="legend" id="ovLegend"><span>🔌 запобіжники</span><span>🔋 батарейки</span><span>🚪 вихід</span></div>
-    <p class="hint" id="ovHint">Веди пальцем по екрану. Монстр чує біг і бачить світло — присядь, щоб іти тихо, і вимикай ліхтар, коли він поруч. Ховайся в шафах, під ліжками й у наметах. Якщо впав — друг підніме, а раз за гру можна підвестися самому.</p>
+    <p id="ovText">Темний будинок, у ньому щось ходить. Знайди запобіжники, віднеси в щиток, увімкни вихід і тікай.</p>
+    <div class="legend" id="ovLegend"><span>🔌 запобіжники</span><span>⚡ щиток</span><span>🔋 батарейки</span><span>🚪 вихід</span></div>
+    <p class="hint" id="ovHint">Веди пальцем по екрану. Носити можна один запобіжник; у щиток вставляєш, утримуючи кнопку, — це гучно. Монстр чує біг і бачить світло: присядь, щоб іти тихо, і вимикай ліхтар. Посвітиш йому в очі зблизька — засліпиш на 3 с. Ховайся в шафах, під ліжками й у наметах. Якщо впав — друг підніме, а раз за гру можна підвестися самому.</p>
     <button class="btn" id="ovBtn" type="button">Грати</button>
     <button class="btn2" id="mpOpen" type="button" disabled>Грати з друзями</button>
     <p class="note" id="mpNote">Гра з друзями потребує інтернету. Без нього — сам.</p>
@@ -135,7 +139,7 @@ input:focus-visible,select:focus-visible{outline:3px solid var(--fuse);outline-o
   <div class="card">
     <div id="mpA" class="stack">
       <h1>З друзями</h1>
-      <p>Разом проти монстра, кожен зі свого телефона. До 6 гравців.</p>
+      <p>Разом проти монстра, кожен зі свого телефона. Монстром може бути бот або хтось із вас.</p>
       <div class="field"><label for="nick">Твоє ім'я</label><div class="rowf"><input id="nick" maxlength="14" autocomplete="nickname" placeholder="Наприклад, Влад"><button class="swatch" id="colorBtn" type="button" aria-label="Змінити колір"></button></div></div>
       <button class="btn" id="mpCreate" type="button">Створити кімнату</button>
       <div class="or"><span>або</span></div>
@@ -150,6 +154,7 @@ input:focus-visible,select:focus-visible{outline:3px solid var(--fuse);outline-o
       <ul class="plist" id="plist"></ul>
       <div id="hostCtl" class="stack" hidden>
         <div class="rowf2"><label for="mapSel">Карта</label><select id="mapSel"><option value="auto">По черзі</option><option value="0">Будинок</option><option value="1">Супермаркет</option><option value="2">Школа</option><option value="3">Дача</option><option value="4">Офіс</option><option value="5">Табір</option><option value="6">Лікарня</option><option value="7">Торговий центр</option></select></div>
+        <div class="rowf2"><label for="monSel">Монстр</label><select id="monSel"><option value="bot">Бот</option><option value="player">Гравець, по черзі</option></select></div>
         <div class="rowf2"><label for="lvlSel">Складність</label><select id="lvlSel"><option value="1">Легко</option><option value="3" selected>Звичайно</option><option value="6">Страшно</option></select></div>
         <button class="btn" id="mpStart" type="button">Почати</button>
       </div>

@@ -1,5 +1,5 @@
 // Монстр: соло-раунд (запобіжники → вихід), монстр (слух, світло, витягує з шафи), падіння й підйом,
-// мультитач (джойстик + кнопки другим пальцем), мережа двома «телефонами» (спільні речі, монстр, підйом друга).
+// щиток, засліплення, мультитач, мережа двома «телефонами» (бот-монстр і гравець-монстр).
 // node monster-test.js   (симулятор має бути запущений: node server.js)
 const { launch, phone, BASE } = require("./harness");
 const results = [];
@@ -42,11 +42,22 @@ const park = (p) => p.evaluate(() => { const m = MONGame.mon; m.state = "sleep";
   await p.waitForTimeout(500);
   const bb = await p.evaluate((id) => ({ b: MONGame.player.battery, got: MONGame.G.got.includes(id) }), bt);
   check("підібрав 🔋 — заряд +45", bb.got && bb.b > 70, JSON.stringify(bb));
-  // запобіжник
+  // запобіжник: несеш один, у щиток — утриманням
   const f0 = await p.evaluate(() => { const g = MONGame, it = g.items.find((i) => i.kind === "f"); g.player.x = it.x; g.player.z = it.z; return it.id; });
-  await p.waitForTimeout(500);
-  const fc = await p.evaluate(() => document.getElementById("fuseChip").textContent);
-  check("підібрав 🔌 — лічильник 1/3", fc.includes("1/3"), fc);
+  await p.evaluate(() => MONGame.sim(0.2));
+  const c0 = await p.evaluate((id) => ({ hold: MONGame.G.hold.me, chip: document.getElementById("fuseChip").textContent }), f0);
+  check("підібрав 🔌 — несу в руках", c0.hold === f0 && c0.chip.includes("🔌"), JSON.stringify(c0));
+  const f1 = await p.evaluate(() => { const g = MONGame, it = g.items.find((i) => i.kind === "f" && i.id !== g.G.hold.me); g.player.x = it.x; g.player.z = it.z; return it.id; });
+  await p.evaluate(() => MONGame.sim(0.2));
+  check("другий запобіжник не взяти, поки руки зайняті", await p.evaluate((id) => MONGame.G.hold.me !== id && !MONGame.items.find((i) => i.id === id).gone, f1));
+  await p.evaluate(() => { const g = MONGame, [x, z] = [g.box.x, g.box.z]; g.player.x = x; g.player.z = z; });
+  await p.evaluate(() => MONGame.sim(0.1));
+  check("біля щитка — «Вставити · тримай»", await p.evaluate(() => MONGame.actCtx() && MONGame.actCtx().k === "ins" && /Вставити/.test(document.getElementById("actTxt").textContent)));
+  await p.evaluate(() => { const h = MONGame.hold; h.on = true; h.ctx = "ins"; MONGame.sim(1.2); });
+  const midIns = await p.evaluate(() => MONGame.G.ins.length);
+  await p.evaluate(() => { const h = MONGame.hold; h.on = true; h.ctx = "ins"; MONGame.sim(1.6); h.on = false; });
+  const ins1 = await p.evaluate(() => ({ ins: MONGame.G.ins.length, hold: MONGame.G.hold.me || null, chip: document.getElementById("fuseChip").textContent }));
+  check("утримав 2,5 с — запобіжник у щитку, лічильник 1/3", midIns === 0 && ins1.ins === 1 && !ins1.hold && ins1.chip.includes("1/3"), JSON.stringify(ins1));
   // слух: біг поруч зі спиною монстра
   await p.evaluate(() => { const g = MONGame, m = g.mon, pl = g.player; const [x, z] = [pl.x, pl.z];
     // монстр за 3 м, дивиться в інший бік; гравець «біжить» без ліхтаря
@@ -68,6 +79,20 @@ const park = (p) => p.evaluate(() => { const m = MONGame.mon; m.state = "sleep";
   await p.evaluate(() => MONGame.sim(0.8));
   const gs = await p.evaluate(() => ({ st: MONGame.mon.state, glare: MONGame.mon.glare }));
   check("світиш ліхтарем монстру в обличчя — він помічає й женеться", glare !== null && gs.st === "chase", JSON.stringify(gs));
+  // засліпити: монстр за 4,5 м дивиться на мене (і біжить до мене), світю йому в очі ~0,9 с
+  await park(p);
+  const bl = await p.evaluate(() => { const g = MONGame, m = g.mon, pl = g.player;
+    for (let a = 0; a < 6.28; a += 0.3) { const x = pl.x + Math.sin(a) * 4.5, z = pl.z + Math.cos(a) * 4.5; if (!g.sees({ x, z, look: a + Math.PI, sight: 9, state: "patrol" }, Object.assign({}, pl, { lightOn: false, crouch: 0, down: false, escaped: false, hidden: -1, out: false }))) continue;
+      m.x = x; m.z = z; m.look = m.yaw = a + Math.PI; pl.yaw = a; pl.lightOn = true; pl.battery = 90; m.state = "patrol"; m.path = null; g.sim(1.3); return { st: m.state, bl: g.G.bl }; } return null; });
+  check("світив в очі зблизька ~1 с — монстр засліплений", bl && bl.st === "blind" && bl.bl === 1, JSON.stringify(bl));
+  const after = await p.evaluate(() => { MONGame.player.lightOn = false; MONGame.sim(2.75); const st = MONGame.mon.state; MONGame.mon.state = "sleep"; MONGame.mon.path = null; return st; });   // далі сам підбіг би й збив
+  check("через 3 с монстр знову бачить", after !== "blind", after);
+  await park(p);
+  const imm = await p.evaluate(() => { const g = MONGame, m = g.mon, pl = g.player; pl.lightOn = true; m.look = m.yaw = Math.atan2(pl.x - m.x, pl.z - m.z); pl.yaw = Math.atan2(m.x - pl.x, m.z - pl.z); g.sim(1.5); return g.G.bl; });
+  check("одразу вдруге не засліпити (імунітет 12 с)", imm === 1, String(imm));
+  await p.evaluate(() => { MONGame.player.lightOn = false; });
+  // беру ще запобіжник — упаде, коли мене зіб'ють
+  const f2 = await p.evaluate(() => { const g = MONGame, it = g.items.find((i) => i.kind === "f" && !g.G.ins.includes(i.id)); g.player.x = it.x; g.player.z = it.z; g.sim(0.2); return g.G.hold.me; });
   // сховатись у шафі на очах у монстра → витягує → падіння
   const hideAt = await p.evaluate(() => { const g = MONGame, h = g.hides[0], pl = g.player; pl.x = h.ex; pl.z = h.ez; pl.vx = pl.vz = 0; return g.actCtx() && g.actCtx().k; });
   check("біля шафи/ліжка — кнопка «Сховатись»", hideAt === "hide", hideAt);
@@ -83,6 +108,8 @@ const park = (p) => p.evaluate(() => { const m = MONGame.mon; m.state = "sleep";
   await p.evaluate(() => { const c = MONGame.actCtx(); if (c && c.k === "hide") document.getElementById("act").dispatchEvent(new PointerEvent("pointerdown", { pointerId: 9, bubbles: true })); });
   const pulled = await until(() => p.evaluate(() => MONGame.player.down), 8000);
   check("сховався на очах у монстра — витягнув і збив", !!pulled);
+  const dropped = await p.evaluate((id) => { const g = MONGame, it = g.items.find((i) => i.id === id); g.sim(0.1); return { drop: g.G.drop[id], hold: g.G.hold.me || null, vis: !it.gone, near: Math.hypot(it.x - g.player.x, it.z - g.player.z) }; }, f2);
+  check("збили з запобіжником — він упав на підлогу поруч", !!f2 && !!dropped.drop && !dropped.hold && dropped.vis && dropped.near < 0.5, JSON.stringify(dropped));
   check("збитий: кнопка «Підвестись · тримай»", await p.evaluate(() => /Підвестись/.test(document.getElementById("actTxt").textContent)));
   // підвестись самому: утримання 5 с, коли монстр далеко
   await p.evaluate(() => { const m = MONGame.mon, pl = MONGame.player; m.state = "sleep"; m.path = null; m.vx = m.vz = 0; m.x = pl.x + 9; m.z = pl.z; });
@@ -92,11 +119,18 @@ const park = (p) => p.evaluate(() => { const m = MONGame.mon; m.state = "sleep";
   const up = await until(() => p.evaluate(() => { MONGame.sim(0.5); return !MONGame.player.down; }), 15000);
   await tp("touchEnd", []);
   check("утримав «Підвестись» ~5 с — на ногах, самопідйом використано", mid > 0.3 && !!up && (await p.evaluate(() => MONGame.player.selfUsed)), `прогрес на 3 с: ${mid.toFixed(2)}`);
-  // зібрати решту → вихід → втеча
-  await p.evaluate(() => { const g = MONGame, m = g.mon; m.state = "sleep"; });
-  for (const id of await p.evaluate(() => MONGame.items.filter((i) => i.kind === "f" && !MONGame.G.got.includes(i.id)).map((i) => i.id))) {
-    await p.evaluate((id) => { const g = MONGame, it = g.items.find((i) => i.id === id); g.player.x = it.x; g.player.z = it.z; }, id); await p.waitForTimeout(350);
+  // решту запобіжників (і той, що впав) — у щиток; перший раз перевіряю, що монстр чує щиток
+  await park(p);
+  let heardBox = null;
+  for (const id of await p.evaluate(() => MONGame.items.filter((i) => i.kind === "f" && !MONGame.G.ins.includes(i.id)).map((i) => i.id))) {
+    await p.evaluate((id) => { const g = MONGame, it = g.items.find((i) => i.id === id); g.player.x = it.x; g.player.z = it.z; g.sim(0.2); g.player.x = g.box.x; g.player.z = g.box.z; g.sim(0.1); }, id);
+    if (heardBox === null) heardBox = await p.evaluate(() => { const g = MONGame, m = g.mon, x = g.box.x, z = g.box.z;
+      let w = null; for (let a = 0; a < 6.28 && !w; a += 0.4) { const q = g.snap(x + Math.sin(a) * 5, z + Math.cos(a) * 5), d = Math.hypot(q[0] - x, q[1] - z); if (d > 4 && d < 6.5) w = q; }
+      m.x = w[0]; m.z = w[1]; m.state = "patrol"; m.path = null; m.hearCd = 0;
+      const h = g.hold; h.on = true; h.ctx = "ins"; g.sim(0.2); const st = m.state; m.state = "sleep"; m.path = null; return st + " " + Math.hypot(w[0] - x, w[1] - z).toFixed(1); });
+    await p.evaluate(() => { const h = MONGame.hold; h.on = true; h.ctx = "ins"; MONGame.sim(2.8); h.on = false; });
   }
+  check("вставляєш у щиток — монстр чує здалеку", /^hear/.test(heardBox), heardBox);
   const op = await p.evaluate(() => ({ op: MONGame.G.op, chip: document.getElementById("fuseChip").textContent }));
   check("усі запобіжники → вихід відчинено", op.op === 1 && /Вихід/.test(op.chip), JSON.stringify(op));
   await p.screenshot({ path: __dirname + "/out/monster-exit-open.png" });
@@ -161,14 +195,16 @@ const park = (p) => p.evaluate(() => { const m = MONGame.mon; m.state = "sleep";
   check("монстр однаковий на обох телефонах", !!mm);
   // B підбирає запобіжник → у хоста зараховано
   const fid = await B.evaluate(() => { const it = MONGame.items.find((i) => i.kind === "f"); MONGame.player.x = it.x; MONGame.player.z = it.z; return it.id; });
-  const gotA = await until(() => A.evaluate((id) => MONGame.G.got.includes(id) && document.getElementById("fuseChip").textContent, fid), 6000);
-  check("гравець 2 підібрав 🔌 — у хоста зараховано", !!gotA && gotA.includes("1/"), gotA);
+  const gotA = await until(() => A.evaluate((id) => { const c = MONGame.chars.find((c) => !c.isPlayer); return MONGame.G.hold[c.id] === id && c.mdl.carry.visible; }, fid), 6000);
+  check("гравець 2 підібрав 🔌 — хост бачить його в руках", !!gotA);
   // монстр збиває B (хост вирішує) → у B впав
   await B.evaluate(() => { const pl = MONGame.player, h = MONGame.hides[0]; pl.x = h.ex; pl.z = h.ez; });
   await A.waitForTimeout(500);
   await A.evaluate(() => { const g = MONGame, c = g.chars.find((c) => !c.isPlayer); g.knock(c); g.mon.state = "sleep"; g.mon.path = null; });
   const bDown = await until(() => B.evaluate(() => MONGame.player.down), 6000);
   check("хост: монстр збив гравця 2 — у нього «Тебе збили»", !!bDown);
+  const dropB = await until(() => B.evaluate((id) => { const it = MONGame.items.find((i) => i.id === id); return !it.gone && !MONGame.G.hold[MONGame.player.id]; }, fid), 6000);
+  check("його запобіжник упав — у нього на екрані знову лежить", !!dropB);
   // A підходить і тримає «Підняти»
   await A.evaluate(() => { const g = MONGame, c = g.chars.find((c) => !c.isPlayer); g.player.x = c.x + 0.5; g.player.z = c.z; });
   await A.waitForTimeout(400);
@@ -180,7 +216,56 @@ const park = (p) => p.evaluate(() => { const m = MONGame.mon; m.state = "sleep";
   await TA("touchEnd", []);
   check("утримав «Підняти» — друг на ногах (у його телефоні)", !!bUp && !(await B.evaluate(() => MONGame.player.selfUsed)));
   await A.screenshot({ path: __dirname + "/out/monster-mp-host.png" }); await B.screenshot({ path: __dirname + "/out/monster-mp-guest.png" });
-  const errs = soloErr.concat(mtErr, [A, B].flatMap((x) => x.errors)).filter((e) => !/vibrate/.test(e));
+  const botErr = [A, B].flatMap((x) => x.errors);
+  await A.context().close(); await B.context().close();
+
+  // ================= ГРАВЕЦЬ-МОНСТР =================
+  const C = await phone(b, null), D = await phone(b, null);
+  for (const [pg, n] of [[C, "Оля"], [D, "Тарас"]]) { await pg.goto(URL_); await pg.waitForTimeout(1500); await pg.click("#mpOpen"); await pg.fill("#nick", n); }
+  await C.click("#mpCreate"); await C.waitForTimeout(1500);
+  const code2 = (await C.textContent("#roomCode")).trim();
+  await D.fill("#codeIn", code2); await D.click("#mpJoinBtn"); await D.waitForTimeout(2500);
+  await C.selectOption("#monSel", "player"); await C.click("#mpStart");
+  await until(async () => (await C.evaluate(() => MONGame.phase)) === "play" && (await D.evaluate(() => MONGame.phase)) === "play", 40000);
+  const cmon = await C.evaluate(() => MONGame.G.mm === MONGame.MP.me);
+  const [M, S] = cmon ? [C, D] : [D, C];
+  const mv = await M.evaluate(() => ({ dash: !document.getElementById("dash").hidden, light: !document.getElementById("light").hidden, chars: MONGame.chars.length, pl: !!MONGame.player }));
+  const sv = await S.evaluate(() => ({ chars: MONGame.chars.length, me: !!MONGame.player, light: !document.getElementById("light").hidden }));
+  check("гравець-монстр: у нього «Ривок», без ліхтаря; у вцілілого — звичайна гра", mv.dash && !mv.light && !mv.pl && mv.chars === 1 && sv.me && sv.light, JSON.stringify([mv, sv]));
+  await M.tap("#dash"); await M.waitForTimeout(150);
+  check("«Ривок» спрацював", await M.evaluate(() => MONGame.dashT > 0));
+  // монстр іде — вцілілий бачить, де він
+  const mp0 = await M.evaluate(() => { const m = MONGame.mon, h = MONGame.hides[0]; m.x = h.ex + 1.2; m.z = h.ez; return [m.x, m.z]; });
+  check("вцілілий бачить, куди йде гравець-монстр", !!(await until(async () => { const q = await M.evaluate(() => [MONGame.mon.x, MONGame.mon.z]); return Math.hypot(q[0] - mp0[0], q[1] - mp0[1]) < 2 && S.evaluate((q) => Math.hypot(MONGame.mon.x - q[0], MONGame.mon.z - q[1]) < 0.3, q); }, 8000)));
+  // засліпити гравця-монстра: стоять лицем одне до одного за ~2,5 м
+  const pair = await S.evaluate(() => { const g = MONGame, pl = g.player; for (let a = 0; a < 6.28; a += 0.3) { const x = pl.x + Math.sin(a) * 2.5, z = pl.z + Math.cos(a) * 2.5;
+      if (g.sees({ x, z, look: a + Math.PI, sight: 9, state: "patrol" }, Object.assign({}, pl, { lightOn: false, crouch: 0, down: false, escaped: false, hidden: -1, out: false }))) { pl.yaw = a; pl.lightOn = true; pl.battery = 90; return [x, z, a + Math.PI]; } } return null; });
+  await M.evaluate((q) => { const m = MONGame.mon; m.x = q[0]; m.z = q[1]; m.yaw = m.look = q[2]; m.vx = m.vz = 0; }, pair);
+  const blinded = await until(() => M.evaluate(() => MONGame.blindT > 0 && Number(getComputedStyle(document.getElementById("blind")).opacity) > 0.3), 25000);
+  check("вцілілий засліпив гравця-монстра — у нього білий екран", !!blinded);
+  await S.evaluate(() => { MONGame.player.lightOn = false; });
+  // ховаюсь у шафу — монстр відчиняє — збиває
+  await S.evaluate(() => { const g = MONGame, h = g.hides[0]; g.player.x = h.ex; g.player.z = h.ez; });
+  await S.waitForTimeout(300);
+  await S.evaluate(() => { const c = MONGame.actCtx(); if (c && c.k === "hide") document.getElementById("act").dispatchEvent(new PointerEvent("pointerdown", { pointerId: 9, bubbles: true })); });
+  await until(() => M.evaluate(() => MONGame.chars[0].hidden === 0), 8000);
+  await until(() => M.evaluate(() => MONGame.blindT <= 0), 20000);
+  await M.evaluate(() => { const g = MONGame, h = g.hides[0]; g.mon.x = h.ex; g.mon.z = h.ez; });
+  await M.waitForTimeout(400);
+  const chkCtx = await M.evaluate(() => MONGame.actCtx() && MONGame.actCtx().k);
+  check("гравець-монстр біля шафи — «Відчинити»", chkCtx === "chk", chkCtx);
+  await M.tap("#act");
+  check("відчинив шафу, де сховався вцілілий, — той збитий", !!(await until(() => S.evaluate(() => MONGame.player.down && MONGame.player.hidden === -1), 10000)));
+  // підвівся сам — монстр торкається — знову збитий
+  await M.evaluate(() => { const g = MONGame, m = g.mon; m.x += 6; });
+  await until(() => S.evaluate(() => Math.hypot(MONGame.mon.x - MONGame.player.x, MONGame.mon.z - MONGame.player.z) > 5), 8000);
+  await until(() => S.evaluate(() => { const h = MONGame.hold; h.on = true; h.ctx = "self"; MONGame.sim(0.6); return !MONGame.player.down; }), 25000);
+  await S.waitForTimeout(3000);   // кулдаун удару в хоста
+  const sp = await S.evaluate(() => [MONGame.player.x, MONGame.player.z]);
+  await M.evaluate((q) => { const m = MONGame.mon; m.x = q[0] + 0.3; m.z = q[1]; }, sp);
+  check("гравець-монстр торкнувся — вцілілий збитий", !!(await until(() => S.evaluate(() => MONGame.player.down), 10000)));
+  await M.screenshot({ path: __dirname + "/out/monster-pmon.png" });
+  const errs = soloErr.concat(mtErr, botErr, [C, D].flatMap((x) => x.errors)).filter((e) => !/vibrate/.test(e));
   check("без JS-помилок", !errs.length, errs.slice(0, 3).join(" | "));
   await b.close();
   console.log(`\n${results.filter(Boolean).length}/${results.length} passed`);
