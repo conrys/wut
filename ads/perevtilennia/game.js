@@ -1,6 +1,9 @@
 /* Хованки — characters, navigation, vision, AI, game flow. */
 (function(){
 const T3=THREE,HW=HNSWorld,$=id=>document.getElementById(id);
+/* Мультитач: кнопки спрацьовують на дотик (pointerdown), а не на click — click браузер шле лише
+   для «першого» пальця, тож поки інший палець на джойстику, кнопки мовчали. Клавіатура/миша — через click. */
+function onTap(el,fn){let t=0;el.addEventListener('pointerdown',e=>{if(e.button>0)return;e.preventDefault();t=performance.now();fn(e)});el.addEventListener('click',e=>{if(performance.now()-t<700)return;fn(e)})}
 const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const mobile=Math.min(innerWidth,innerHeight)<700;
 
@@ -219,11 +222,11 @@ function setAct(){const b=$('crouch'),hunter=player&&player.role==='seeker';b.cl
     const n=player.decoysLeft||0,l2='Обманка · '+n;if(db.lastChild.textContent!==l2)db.lastChild.textContent=l2;db.classList.toggle('off',n<=0||player.dis<0)}
   // спостереження
   const sb=$('spec'),st=specTarget();sb.hidden=!st;if(st){const nm=specName(st);if($('specName').textContent!==nm)$('specName').textContent=nm}}
-$('crouch').addEventListener('click',()=>{au();act()});
-$('changeBtn').addEventListener('click',()=>{au();changeProp()});
-$('decoyBtn').addEventListener('click',()=>{au();placeDecoy()});
-$('specPrev').addEventListener('click',()=>{specIdx--;camBlend=0;setAct()});
-$('specNext').addEventListener('click',()=>{specIdx++;camBlend=0;setAct()});
+onTap($('crouch'),()=>{au();act()});
+onTap($('changeBtn'),()=>{au();changeProp()});
+onTap($('decoyBtn'),()=>{au();placeDecoy()});
+onTap($('specPrev'),()=>{specIdx--;camBlend=0;setAct()});
+onTap($('specNext'),()=>{specIdx++;camBlend=0;setAct()});
 addEventListener('keydown',e=>{if((e.key===' '||e.key==='e'||e.key==='E')&&!e.repeat&&(phase==='play'||phase==='intro')){e.preventDefault();act()}
   if((e.key==='q'||e.key==='Q')&&!e.repeat)changeProp();if((e.key==='f'||e.key==='F')&&!e.repeat)placeDecoy()});
 
@@ -278,9 +281,10 @@ function say(text,cls){const el=$('say');el.textContent=text;el.className='say '
 /* ---------- input ---------- */
 let joy=null;const keys={};
 const gl=$('gl');
-gl.addEventListener('pointerdown',e=>{au();joy={sx:e.clientX,sy:e.clientY,x:e.clientX,y:e.clientY};try{gl.setPointerCapture(e.pointerId)}catch(_){}});
-gl.addEventListener('pointermove',e=>{if(joy){joy.x=e.clientX;joy.y=e.clientY}});
-const endJoy=()=>joy=null;gl.addEventListener('pointerup',endJoy);gl.addEventListener('pointercancel',endJoy);
+// джойстик веде лише той палець, що першим торкнувся поля; другий палець його не перехоплює
+gl.addEventListener('pointerdown',e=>{au();if(joy)return;joy={id:e.pointerId,sx:e.clientX,sy:e.clientY,x:e.clientX,y:e.clientY};try{gl.setPointerCapture(e.pointerId)}catch(_){}});
+gl.addEventListener('pointermove',e=>{if(joy&&e.pointerId===joy.id){joy.x=e.clientX;joy.y=e.clientY}});
+const endJoy=e=>{if(joy&&e.pointerId===joy.id)joy=null};gl.addEventListener('pointerup',endJoy);gl.addEventListener('pointercancel',endJoy);
 addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true});addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false});
 $('ovBtn').addEventListener('click',()=>{au();if(MP.on){if(MP.host&&MP.g&&MP.g.ph==='end')hostStartRound();return}startLevel()});
 $('mpOpen').addEventListener('click',()=>{au();$('ov').hidden=true;$('mp').hidden=false;$('mpA').hidden=false;$('mpB').hidden=true;$('nick').value=MP.nick;$('colorBtn').style.background=PCOL[MP.color];

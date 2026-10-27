@@ -8,6 +8,17 @@
   const SAVE_KEY = "hordeSave";
   const STEP = 1 / 60;
   const $ = (id) => document.getElementById(id);
+  // Мультитач: click браузер шле лише для «першого» пальця — поки інший палець на джойстику,
+  // кнопки паузи й картки вибору не реагували. Тут спрацьовуємо на відпускання будь-якого пальця
+  // над тією ж кнопкою; клавіатура й миша — як і раніше, через click.
+  function onPress(el, fn, once) {
+    let down = null, t = 0, done = false;
+    const run = (e) => { if (once && done) return; done = true; t = performance.now(); fn(e); };
+    el.addEventListener("pointerdown", (e) => { if (e.button > 0) return; down = e.pointerId; });
+    el.addEventListener("pointerup", (e) => { if (down === e.pointerId) { down = null; e.preventDefault(); run(e); } });
+    el.addEventListener("pointercancel", () => { down = null; });
+    el.addEventListener("click", (e) => { if (performance.now() - t < 700) return; run(e); });
+  }
 
   const canvas = $("game"), area = $("gameArea");
   const R = HR.create(canvas);
@@ -331,9 +342,9 @@
     show("scrPause");
   }
   function resume() { hideScreens(); mode = "play"; nextModal(); }
-  $("pauseBtn").addEventListener("click", pause);
-  $("btnResume").addEventListener("click", resume);
-  $("btnGiveUp").addEventListener("click", () => { state.over = true; endRun({ type: "gameover", result: C.result(state) }); });
+  onPress($("pauseBtn"), pause);
+  onPress($("btnResume"), resume);
+  onPress($("btnGiveUp"), () => { state.over = true; endRun({ type: "gameover", result: C.result(state) }); });
   document.addEventListener("visibilitychange", () => { if (document.hidden) { saveRun(); pause(); } });
 
   // Стисло — значки спорядження; розгорнута статистика лише по кнопці «Детальніше».
@@ -461,7 +472,7 @@
       const el = document.createElement("button");
       el.type = "button";
       el.className = c.cls; el.innerHTML = c.html;
-      el.addEventListener("click", () => { C.choose(state, o); afterModal(); }, { once: true });
+      onPress(el, () => { C.choose(state, o); afterModal(); }, true);
       box.appendChild(el);
     }
     $("levelSub").textContent = `Рівень ${state.player.level - state.pendingLevels} · обери одне`;
@@ -470,8 +481,8 @@
     rb.hidden = state.rerollsLeft <= 0;
     show("scrLevel");
   }
-  $("btnReroll").addEventListener("click", () => { const opts = C.reroll(state); if (opts) showLevelUp(opts); });
-  $("btnSkip").addEventListener("click", () => { C.skip(state); afterModal(); });
+  onPress($("btnReroll"), () => { const opts = C.reroll(state); if (opts) showLevelUp(opts); });
+  onPress($("btnSkip"), () => { C.skip(state); afterModal(); });
 
   let chestEvolve = false;
   function showChest(items) {
@@ -520,12 +531,12 @@
       el.type = "button";
       el.className = "evo-card";
       el.innerHTML = evoCardHtml(o);
-      el.addEventListener("click", () => { C.chooseEvolve(state, o.id); afterModal(); }, { once: true });
+      onPress(el, () => { C.chooseEvolve(state, o.id); afterModal(); }, true);
       box.appendChild(el);
     }
     show("scrChest");
   }
-  $("btnChestOk").addEventListener("click", () => {
+  onPress($("btnChestOk"), () => {
     if (chestEvolve) {
       const got = C.chooseEvolve(state, null);
       if (got[0]) announce("Скриня: " + chestName(got[0]), false, true);
