@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<script src="../../js/core/native.js"></script>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Агенти</title>
+<link rel="stylesheet" href="../../vendor/fonts/baloo-2.css"><link rel="stylesheet" href="../../vendor/fonts/rubik.css">
+<style>
+/* Агенти: шпигуни серед натовпу перехожих, мисливець шукає їх. Рушій і меблі — з Хованок. */
+:root{
+  --ink:#EEF3F8; --night:#0E1218; --card:#161C25; --line:#2A3442;
+  --spy:#3DD6C3; --spy-deep:#1F9C8C; --hunt:#FF5C5C; --hunt-deep:#B8343A; --gold:#FFC93C;
+  --display:'Baloo 2','Arial Rounded MT Bold','Trebuchet MS',sans-serif;
+  --body:'Rubik',system-ui,-apple-system,sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%;margin:0}
+[hidden]{display:none!important}
+body{background:var(--night);color:var(--ink);font-family:var(--body);overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+#gl,#fx{position:fixed;inset:0;width:100%;height:100%;display:block}
+#fx{pointer-events:none}
+#stun{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,rgba(255,92,92,.12) 40%,rgba(120,10,20,.6) 100%);opacity:0;transition:opacity .25s}
+.hud{position:fixed;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 12px);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:8px;pointer-events:none}
+.row{display:flex;align-items:center;gap:8px;min-width:0}
+.chip{font-family:var(--display);font-weight:800;font-size:17px;line-height:1;background:rgba(10,14,20,.72);color:var(--ink);padding:8px 12px 6px;border-radius:12px;white-space:nowrap}
+.chip.role{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.chip.role.spy{color:var(--spy)}.chip.role.hunt{color:var(--hunt)}
+.chip.prog{color:var(--spy)}.chip.ammo{color:var(--hunt)}.chip.time.low{color:var(--hunt)}
+.icon{pointer-events:auto;border:0;border-radius:12px;width:40px;height:33px;background:rgba(10,14,20,.55);color:#fff;font-size:16px;cursor:pointer}
+.icon:focus-visible,.btn:focus-visible,.btn2:focus-visible,.pad:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.say{position:fixed;left:0;right:0;top:32%;text-align:center;font-family:var(--display);font-weight:800;color:#fff;pointer-events:none;opacity:0;
+  text-shadow:0 4px 0 rgba(0,0,0,.4),0 0 24px rgba(0,0,0,.6);padding-left:16px;padding-right:16px}
+.say.big{font-size:44px;line-height:1.05}.say.num{font-size:110px;line-height:1}.say.red{color:var(--hunt)}.say.green{color:var(--spy)}
+.say.show{animation:say 1.4s cubic-bezier(.2,1.4,.4,1) forwards}
+@keyframes say{0%{opacity:0;transform:scale(.4)}14%{opacity:1;transform:scale(1.08)}24%{transform:scale(1)}80%{opacity:1}100%{opacity:0;transform:scale(1.05) translateY(-14px)}}
+@media (prefers-reduced-motion:reduce){.say.show{animation:sayR 1.4s linear forwards}@keyframes sayR{0%,80%{opacity:1}100%{opacity:0}}}
+.tip{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 214px);margin:0 auto;width:max-content;max-width:calc(100% - 32px);text-align:center;background:rgba(10,14,20,.82);color:#fff;font-size:15px;line-height:1.35;padding:10px 16px;border-radius:14px;pointer-events:none}
+.tip.fade{animation:tipFade 6s ease forwards}
+@keyframes tipFade{0%{opacity:0;transform:translateY(10px)}8%,80%{opacity:1;transform:none}100%{opacity:0}}
+.pad{position:fixed;width:78px;height:78px;border-radius:50%;border:0;background:rgba(238,243,248,.9);color:#121820;display:grid;place-items:center;align-content:center;gap:2px;font-family:var(--display);font-weight:800;font-size:13px;line-height:1;
+  box-shadow:0 5px 0 rgba(0,0,0,.45);cursor:pointer;touch-action:none;transition:transform .12s,background .2s;bottom:calc(env(safe-area-inset-bottom,0px) + 26px)}
+.pad .ic{font-size:24px;line-height:1}
+.pad.on{transform:translateY(3px);box-shadow:0 2px 0 rgba(0,0,0,.45)}
+#run{right:max(18px,env(safe-area-inset-right,0px))}#run.on{background:var(--gold);color:#2A2000}
+#phone{right:calc(max(18px,env(safe-area-inset-right,0px)) + 92px)}#phone.on{background:var(--spy);color:#04201C}
+#act{right:max(18px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 118px);width:178px;height:62px;border-radius:22px;background-color:var(--spy);color:#04201C;font-size:15px;overflow:hidden;grid-auto-flow:column;gap:8px;
+  background-image:linear-gradient(90deg,rgba(255,255,255,.6) var(--p,0%),transparent var(--p,0%))}
+#act.sit{background-color:#B9C7FF}#act .ic{font-size:20px}
+#shoot{right:max(18px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 118px);width:96px;height:96px;background:var(--hunt);color:#fff;font-size:14px}
+#shoot.off{background:rgba(238,243,248,.35);color:rgba(18,24,32,.75)}
+#shoot .ic{font-size:30px}
+.overlay{position:fixed;inset:0;display:grid;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));background:rgba(6,9,14,.55);
+  overflow-y:auto;place-items:start center;padding-block:calc(env(safe-area-inset-top,0px) + 16px) calc(env(safe-area-inset-bottom,0px) + 16px)}
+.card{margin-block:auto;background:var(--card);border:1px solid var(--line);border-radius:24px;padding:24px 22px 22px;max-width:360px;width:100%;box-sizing:border-box;text-align:center;box-shadow:0 10px 0 rgba(0,0,0,.4);display:grid;gap:10px;animation:cardIn .45s cubic-bezier(.2,1.3,.4,1)}
+@keyframes cardIn{from{transform:translateY(24px) scale(.94);opacity:0}}
+@media (prefers-reduced-motion:reduce){.card{animation:none}}
+.card h1{font-family:var(--display);font-weight:800;font-size:44px;line-height:1;margin:0;color:var(--spy);text-wrap:balance}
+.card h1.lose{color:var(--hunt)}.card h1.win{color:var(--spy)}
+.card p{margin:0;font-size:15px;line-height:1.45}
+.card .hint{font-size:13px;opacity:.72}
+.btn{font-family:var(--display);font-weight:800;font-size:22px;background:var(--spy);color:#04201C;border:0;border-radius:16px;padding:10px 26px 8px;box-shadow:0 5px 0 var(--spy-deep);cursor:pointer;justify-self:center;margin-top:4px}
+.btn.hunt{background:var(--hunt);color:#fff;box-shadow:0 5px 0 var(--hunt-deep)}
+.btn:active{transform:translateY(3px);box-shadow:0 2px 0 var(--spy-deep)}
+.btn2{font-family:var(--display);font-weight:800;font-size:19px;background:transparent;color:var(--ink);border:2.5px solid var(--spy);border-radius:16px;padding:7px 22px 5px;cursor:pointer;justify-self:center}
+.btn2:disabled{opacity:.4;cursor:default}.btn2.sm{font-size:17px;padding:6px 14px 4px;flex:none}
+.duo{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.note{font-size:12px;opacity:.65;margin:0}
+.stack{display:grid;gap:10px}
+.field{display:grid;gap:4px;text-align:left}.field label{font-size:13px;opacity:.75}
+.rowf{display:flex;gap:8px}.rowf input{flex:1;min-width:0}
+input,select{font:inherit;font-size:17px;padding:9px 12px;border-radius:12px;border:2px solid var(--line);background:#0C1016;color:var(--ink)}
+input:focus-visible,select:focus-visible{outline:3px solid var(--gold);outline-offset:1px}
+#codeIn{text-transform:uppercase;letter-spacing:.2em;font-family:var(--display);font-weight:800}
+.swatch{width:44px;flex:none;border-radius:12px;border:3px solid var(--card);box-shadow:0 0 0 2px var(--line);cursor:pointer}
+.or{display:flex;align-items:center;gap:10px;font-size:13px;opacity:.6}.or::before,.or::after{content:"";flex:1;height:1px;background:currentColor;opacity:.35}
+.err{color:var(--hunt);font-size:14px;margin:0}
+.link{background:none;border:0;color:var(--ink);opacity:.7;font:inherit;font-size:14px;text-decoration:underline;cursor:pointer;justify-self:center}
+.eyebrow{font-size:12px;letter-spacing:.1em;text-transform:uppercase;opacity:.6;margin:0}
+.code{font-family:var(--display);font-weight:800;font-size:54px;line-height:1;letter-spacing:.14em;color:var(--spy)}
+.plist{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:6px;text-align:left;max-height:220px;overflow:auto}
+.plist li{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:12px;background:#1F2733;font-size:14px;min-width:0}
+.plist li span:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.plist em{margin-left:auto;font-style:normal;font-size:11px;opacity:.6}
+.pdot{width:14px;height:14px;border-radius:50%;flex:none}
+.rowf2{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:15px}
+.score{list-style:none;margin:0;padding:0;display:grid;gap:4px;text-align:left;font-size:14px;max-height:200px;overflow:auto}
+.score li{display:flex;gap:8px;padding:6px 10px;border-radius:10px;background:#1F2733}
+.score li b{margin-left:auto;font-family:var(--display)}
+.score li.me{outline:2px solid var(--spy)}
+</style>
+</head>
+<body>
+
+<canvas id="gl"></canvas>
+<canvas id="fx"></canvas>
+<div id="stun"></div>
+<div class="hud">
+  <div class="row">
+    <span class="chip role" id="roleChip">Агенти</span>
+    <span class="chip time" id="timeChip">3:00</span>
+    <button class="icon" id="mute" type="button" aria-label="Вимкнути звук">🔊</button>
+  </div>
+  <div class="row" style="justify-content:center">
+    <span class="chip prog" id="progChip">💾 0/4</span>
+    <span class="chip" id="spyChip">🕵 1</span>
+    <span class="chip ammo" id="ammoChip" hidden>🎯 4</span>
+  </div>
+</div>
+<div class="say" id="say"></div>
+<button class="pad" id="run" type="button" aria-pressed="false" hidden><span class="ic" aria-hidden="true">🏃</span><span>Біг</span></button>
+<button class="pad" id="phone" type="button" aria-pressed="false" hidden><span class="ic" aria-hidden="true">📱</span><span>Телефон</span></button>
+<button class="pad" id="act" type="button" hidden><span class="ic" aria-hidden="true">💾</span><span id="actTxt">Злам</span></button>
+<button class="pad" id="shoot" type="button" hidden><span class="ic" aria-hidden="true">🎯</span><span id="shootTxt">Постріл</span></button>
+<div class="tip" id="tip" hidden></div>
+
+<div class="overlay" id="ov">
+  <div class="card">
+    <h1 id="ovTitle">Агенти</h1>
+    <p id="ovText">Шпигуни ховаються серед натовпу перехожих і зламують термінали. Мисливець має кілька пострілів — і кожен промах по перехожому коштує дорого.</p>
+    <ul class="score" id="scoreList" hidden></ul>
+    <p class="hint" id="ovHint">Веди пальцем по екрану — або торкнись підлоги, і персонаж піде туди сам, як перехожі. Біля терміналу утримуй «Злам». Сідай на лавки й крісла, бери телефон — не вирізняйся.</p>
+    <div class="duo" id="soloBtns"><button class="btn" id="ovSpy" type="button">Я шпигун</button><button class="btn hunt" id="ovHunt" type="button">Я мисливець</button></div>
+    <button class="btn" id="ovBtn" type="button" hidden>Далі</button>
+    <button class="btn2" id="mpOpen" type="button" disabled>Грати з друзями</button>
+    <p class="note" id="mpNote">Гра з друзями потребує інтернету. Без нього — сам із ботами.</p>
+    <button class="btn2" id="ovLeave" type="button" hidden>Вийти з кімнати</button>
+  </div>
+</div>
+<div class="overlay" id="mp" hidden>
+  <div class="card">
+    <div id="mpA" class="stack">
+      <h1>З друзями</h1>
+      <p>До 10 телефонів. Один-два мисливці, решта — шпигуни в натовпі.</p>
+      <div class="field"><label for="nick">Твоє ім'я</label><div class="rowf"><input id="nick" maxlength="14" autocomplete="nickname" placeholder="Наприклад, Влад"><button class="swatch" id="colorBtn" type="button" aria-label="Змінити колір у лобі"></button></div></div>
+      <button class="btn" id="mpCreate" type="button">Створити кімнату</button>
+      <div class="or"><span>або</span></div>
+      <div class="field"><label for="codeIn">Код кімнати</label><div class="rowf"><input id="codeIn" maxlength="4" autocapitalize="characters" placeholder="KQRT"><button class="btn2 sm" id="mpJoinBtn" type="button">Увійти</button></div></div>
+      <p class="err" id="mpErr" role="alert" hidden></p>
+      <button class="link" id="mpBack" type="button">Назад</button>
+    </div>
+    <div id="mpB" class="stack" hidden>
+      <p class="eyebrow">Код кімнати</p>
+      <div class="code" id="roomCode">----</div>
+      <button class="link" id="copyCode" type="button">Скопіювати код</button>
+      <ul class="plist" id="plist"></ul>
+      <p class="note">У грі всі виглядають як перехожі: колір і шапку видасть гра навмання.</p>
+      <div id="hostCtl" class="stack" hidden>
+        <div class="rowf2"><label for="mapSel">Карта</label><select id="mapSel"><option value="auto">По черзі</option><option value="0">Вокзал</option><option value="1">Торговий центр</option></select></div>
+        <div class="rowf2"><label for="huntSel">Мисливець</label><select id="huntSel"><option value="player">Гравець, по черзі</option><option value="bot">Бот</option></select></div>
+        <div class="rowf2"><label for="crowdSel">Натовп</label><select id="crowdSel"><option value="24">24 перехожі</option><option value="36" selected>36 перехожих</option><option value="48">48 перехожих</option></select></div>
+        <div class="rowf2"><label for="timeSel">Раунд</label><select id="timeSel"><option value="180">3 хв</option><option value="240" selected>4 хв</option><option value="300">5 хв</option></select></div>
+        <button class="btn" id="mpStart" type="button">Почати</button>
+      </div>
+      <p class="hint" id="waitHost">Чекаємо, поки хост почне гру.</p>
+      <button class="link" id="mpQuit" type="button">Вийти з кімнати</button>
+    </div>
+  </div>
+</div>
+
+<!-- мережа: Realtime Database 41 Games (вузол agt); без інтернету — соло -->
+<script src="../../vendor/firebase/10.13.0/firebase-app-compat.js"></script>
+<script src="../../vendor/firebase/10.13.0/firebase-auth-compat.js"></script>
+<script src="../../vendor/firebase/10.13.0/firebase-database-compat.js"></script>
+<script src="../../js/core/firebase-config.js"></script>
+<script src="../net-firebase.js" data-root="agt"></script>
+<script src="../vendor/three.min.js"></script>
+<!-- меблі й карти спільні з Хованками; maps.js додає «Вокзал» -->
+<script src="../khovanky/world.js" charset="utf-8"></script>
+<script src="maps.js" charset="utf-8"></script>
+<script src="game.js" charset="utf-8"></script>
+
+<a href="../../index.html" class="__back" aria-label="До списку ігор" style="position:fixed;left:max(10px,env(safe-area-inset-left,0px));top:calc(env(safe-area-inset-top,0px) + 58px);z-index:50;width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,.45);color:#fff;display:grid;place-items:center;text-decoration:none;font:700 18px system-ui">←</a>
+<script src="../../js/core/back-button.js"></script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <g fill="none" stroke="#fff" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
+    <!-- натовп: троє однакових перехожих -->
+    <path d="M180 800q-10-170 20-250q30-80 100-80t100 80q30 80 20 250z"/>
+    <path d="M604 800q-10-170 20-250q30-80 100-80t100 80q30 80 20 250z"/>
+    <path d="M392 830q-12-200 24-300q36-96 96-96t96 96q36 100 24 300z"/>
+    <!-- очі -->
+    <path d="M272 560v14M328 560v14M696 560v14M752 560v14M484 520v16M540 520v16"/>
+    <!-- шпигун ховає телефон -->
+    <rect x="566" y="600" width="44" height="76" rx="10"/>
+  </g>
+  <!-- приціл мисливця -->
+  <g fill="none" stroke="#ff5c5c" stroke-width="22" stroke-linecap="round">
+    <circle cx="512" cy="560" r="190"/>
+    <path d="M512 330v90M512 700v90M282 560h90M652 560h90"/>
+  </g>
+</svg>

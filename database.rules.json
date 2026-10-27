@@ -36,6 +36,15 @@
         }
       }
     },
+    "agt": {
+      "$code": {
+        ".read": "auth != null",
+        "$peer": {
+          ".write": "auth != null",
+          ".validate": "newData.child('p').isString() && newData.child('p').val().length < 60000"
+        }
+      }
+    },
     "draw_rooms": {
       ".read": true,
       "$roomId": {
