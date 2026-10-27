@@ -165,7 +165,36 @@
   // ------------------------- присутність -------------------------
   function connectedEntries(players) { return Object.entries(players || {}).filter(([, p]) => Engine.isConnected(p)); }
   function connectedNames(state) { return connectedEntries(state.players).map(([n]) => n); }
-  function activeNames(state) { return Object.entries(state.players || {}).filter(([, p]) => Engine.isActiveNow(p)).map(([n]) => n); }
+  // Хто справді на зв'язку — для «всі відповіли/проголосували». Раніше бралось «серцебиття
+  // свіжіше за 5 с за годинником сервера»: телефон із затримкою мережі чи збитим годинником
+  // випадав із «чекаємо» — і раунд закінчувався, поки люди ще друкували (жовтень 2026: 2/5 відповідей
+  // при 40 с на таймері). Тепер дивимось, коли САМЕ ЦЕЙ телефон востаннє бачив, що heartbeat
+  // гравця оновився (годинники не важливі), і чекаємо 25 с тиші, а не 5.
+  const ALIVE_MS = 25000;
+  const beat = {};   // ім'я → { v: lastSeen, at: місцевий час, коли побачили зміну }
+  function trackBeats(state) {
+    const t = Date.now();
+    Object.entries(state.players || {}).forEach(([n, p]) => {
+      const v = (p && p.lastSeen) || 0, o = beat[n];
+      if (!o || o.v !== v) beat[n] = { v, at: t };
+    });
+  }
+  function silentFor(n) { const o = beat[n]; return o ? Math.round((Date.now() - o.at) / 1000) : null; }
+  function activeNames(state) {
+    const t = Date.now(), conn = connectedNames(state);
+    const alive = conn.filter((n) => { const o = beat[n]; return !o || t - o.at < ALIVE_MS; });
+    // замовкли ВСІ інші — найімовірніше, це в мене зникла мережа, а не в них: нікого не списуємо
+    if (!alive.some((n) => n !== username) && conn.some((n) => n !== username)) return conn;
+    return alive;
+  }
+  // знімок присутності для журналу: скільки секунд тиші в кожного (за цим телефоном)
+  // і наскільки старий lastSeen за годинником сервера (якщо сильно різниться — у гравця збитий годинник)
+  function presence(state) {
+    const o = {};
+    Object.entries(state.players || {}).forEach(([n, p]) => { o[n] = [silentFor(n), p && p.lastSeen ? Math.round((now() - p.lastSeen) / 1000) : null]; });
+    return o;
+  }
+  const glog = (k, d) => { try { if (window.GameLog) GameLog.ev(k, d); } catch (e) {} };
 
   // Хост — лише справжній клієнт гри (його heartbeat пише sessionId). Тестові
   // боти пишуть тільки lastSeen і крутити тік не вміють: раніше, щойно телефон
@@ -276,6 +305,7 @@
       const state = data.room;
       latest = state;
       ref = Engine.roomRef;
+      trackBeats(state);
       const me = state.players && state.players[username];
       const count = Object.keys(state.players || {}).length;
       if (!me) {
@@ -328,10 +358,12 @@
   function maybeRunAsHost(state) {
     const amHost = computeHost(state.players) === username;
     if (amHost && !isHost) {
+      glog("q-host", { on: true, phase: state.phase, pres: presence(state) });
       isHost = true;
       if (tickTimer) clearInterval(tickTimer);
       tickTimer = setInterval(tick, TICK_MS);
     } else if (!amHost && isHost) {
+      glog("q-host", { on: false, to: computeHost(state.players), pres: presence(state) });
       isHost = false;
       if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
     }
@@ -366,6 +398,7 @@
     if (!clean || !ref) return Promise.resolve(false);
     const state = latest;
     if (!state || state.phase !== "answering" || state.paused) return Promise.resolve(false);
+    glog("answer", { m: matchupId, len: clean.length, left: state.phaseDeadline ? Math.round((state.phaseDeadline - now()) / 1000) : null });
     if (state.gallery) {
       if (!isAnswerer(state, username)) return Promise.resolve(false);
       if (state.gallery.answers && !unanswered(state.gallery.answers[username])) return Promise.resolve(false);
@@ -394,6 +427,7 @@
     // тест удвох: голосуєш лише за чужу відповідь
     if ((username === m.playerAId && choice === "A") || (username === m.playerBId && choice === "B")) return;
     if (m.votes && m.votes[username]) return;
+    glog("vote", { m: matchupId, c: choice });
     ref.child(`matchups/${matchupId}/votes/${username}`).set(choice);
   }
 
@@ -404,6 +438,7 @@
     if (username === targetId) return;
     if (!state.gallery.answers || unanswered(state.gallery.answers[targetId])) return;
     if (state.gallery.votes && state.gallery.votes[username]) return;
+    glog("vote", { g: targetId });
     ref.child(`gallery/votes/${username}`).set(targetId);
   }
 
@@ -678,6 +713,12 @@
         return;
       case "answering":
         if (deadlinePassed || allAnswered(state)) {
+          const answerers = Object.keys(state.players || {}).filter((n) => isAnswerer(state, n));
+          glog("q-answers-end", {
+            r: state.round, why: deadlinePassed ? "time" : "all-answered", left: Math.round(((state.phaseDeadline || t) - t) / 1000),
+            done: answerers.filter((n) => playerAnswered(state, n)), waitedFor: activeNames(state).filter((n) => isAnswerer(state, n)),
+            pres: presence(state),
+          });
           ref.update({ phase: "answer_countdown", timedOut: !!deadlinePassed && !allAnswered(state), phaseStartedAt: t, phaseDeadline: t + ANSWER_DONE_MS });
         }
         return;
@@ -702,6 +743,7 @@
         if (state.voteRevealAt && t < state.voteRevealAt) return;
         if (state.gallery) {
           if (deadlinePassed || galleryVotesComplete(state)) {
+            glog("q-votes-end", { r: state.round, gallery: true, why: deadlinePassed ? "time" : "all-voted", votes: Object.keys(state.gallery.votes || {}), pres: presence(state) });
             ref.update(Object.assign(finalizeGallery(state), { phase: "reveal", phaseStartedAt: t, phaseDeadline: t + GALLERY_REVEAL_MS }));
           }
           return;
@@ -709,6 +751,7 @@
         const m = matchupList(state)[state.currentMatchupIndex];
         if (!m) { ref.update(enterMatchup(state, state.currentMatchupIndex + 1, t)); return; }
         if (deadlinePassed || votesComplete(state, m)) {
+          glog("q-votes-end", { r: state.round, m: state.currentMatchupIndex, why: deadlinePassed ? "time" : "all-voted", votes: Object.keys(m.votes || {}), pres: presence(state) });
           ref.update(Object.assign(finalizeMatchup(state, m), { phase: "reveal", phaseStartedAt: t, phaseDeadline: t + REVEAL_MS }));
         }
         return;

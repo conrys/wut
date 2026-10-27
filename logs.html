@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<script src="js/core/native.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#14161a" />
+<title>Журнали ігор</title>
+<link rel="stylesheet" href="./vendor/fonts/inter.css"><link rel="stylesheet" href="./vendor/fonts/space-grotesk.css">
+<link rel="stylesheet" href="js/styles/game-header.css">
+<script src="js/core/game-header.js" defer></script>
+<style>
+  :root {
+    --bg: #14161a; --surface-1: #1c1f2b; --surface-2: #262a3a; --surface-3: #31364a;
+    --line: rgba(255,255,255,0.08); --text: #f2f1ec; --text-muted: #8d90a3;
+    --accent: #d9b45c; --ok: #6fbf8a; --warn: #e6a35a; --danger: #e07474; --info: #7fa8e6;
+    --font-display: 'Space Grotesk', sans-serif; --font-body: 'Inter', sans-serif;
+    --r-sm: 8px; --r-md: 14px; --r-pill: 999px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; min-height: 100dvh; background: var(--bg); color: var(--text); font-family: var(--font-body); }
+  .page { max-width: 720px; margin: 0 auto; padding: 16px 16px 100px; }
+  h1 { font-family: var(--font-display); font-size: 22px; margin: 4px 0 2px; }
+  .muted { color: var(--text-muted); font-size: 13px; line-height: 1.45; }
+  .hidden { display: none !important; }
+  button {
+    font: 600 13px var(--font-body); cursor: pointer; touch-action: manipulation; border: none;
+    border-radius: var(--r-sm); padding: 9px 12px; color: var(--text); background: var(--surface-2);
+  }
+  button.primary { background: var(--accent); color: #14161a; }
+  button.danger { background: rgba(224,116,116,.16); color: var(--danger); }
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 6px; }
+  .seg button { border-radius: var(--r-pill); padding: 7px 12px; }
+  .seg button.on { background: var(--accent); color: #14161a; }
+  .list { display: grid; gap: 8px; margin-top: 12px; }
+  .log-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; text-align: left; width: 100%;
+    background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--r-md); padding: 12px 14px; }
+  .log-row b { font-family: var(--font-display); font-size: 16px; }
+  .log-row small { color: var(--text-muted); font-size: 12px; grid-column: 1 / -1; }
+  .log-row .when { color: var(--text-muted); font-size: 12px; font-weight: 500; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0; position: sticky; top: 0; z-index: 5;
+    background: var(--bg); padding: 8px 0; }
+  .bar .sp { flex: 1; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
+  .chip { border-radius: var(--r-pill); padding: 5px 10px; font-size: 12px; background: var(--surface-2); color: var(--text); border: 1px solid transparent; }
+  .chip.off { opacity: .4; }
+  .tl { display: grid; gap: 2px; }
+  .ev { display: grid; grid-template-columns: 64px 1fr; gap: 8px; padding: 6px 8px; border-radius: 8px; font-size: 13px; line-height: 1.4; }
+  .ev:nth-child(odd) { background: rgba(255,255,255,.025); }
+  .ev time { color: var(--text-muted); font-variant-numeric: tabular-nums; font-size: 12px; padding-top: 1px; }
+  .ev .who { font-weight: 700; margin-right: 6px; }
+  .ev .k { font-weight: 600; }
+  .ev .d { color: var(--text-muted); font-size: 12px; word-break: break-word; }
+  .ev.err { background: rgba(224,116,116,.12); } .ev.err .k { color: var(--danger); }
+  .ev.warn .k { color: var(--warn); }
+  .ev.bad { background: rgba(224,116,116,.18); outline: 1px solid rgba(224,116,116,.4); }
+  .ev.phase .k { color: var(--info); }
+  .ev.sys .k { color: var(--ok); }
+  .gap { text-align: center; color: var(--text-muted); font-size: 11px; padding: 4px 0; }
+  .empty { padding: 30px 0; text-align: center; color: var(--text-muted); }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Журнали ігор</h1>
+  <div class="muted" id="sub">Що відбувалося в онлайн-кімнатах: фази, хто згорнув гру, обриви зв'язку, помилки. Зберігаються 14 днів.</div>
+  <div id="denied" class="empty hidden">Ця сторінка — лише для dev-акаунтів.</div>
+
+  <section id="vList">
+    <div class="seg" id="games"></div>
+    <div class="list" id="logs"><div class="empty">Завантажую…</div></div>
+  </section>
+
+  <section id="vLog" class="hidden">
+    <div class="bar">
+      <button id="backBtn">← До списку</button>
+      <span class="sp"></span>
+      <button id="copyBtn" class="primary">Скопіювати текстом</button>
+      <button id="delBtn" class="danger">Видалити</button>
+    </div>
+    <div class="muted" id="logHead"></div>
+    <div class="chips" id="who"></div>
+    <div class="chips" id="opts"></div>
+    <div class="tl" id="tl"></div>
+  </section>
+</div>
+
+<script src="./vendor/firebase/10.13.0/firebase-app-compat.js"></script>
+<script src="./vendor/firebase/10.13.0/firebase-auth-compat.js"></script>
+<script src="./vendor/firebase/10.13.0/firebase-firestore-compat.js"></script>
+<script src="./vendor/firebase/10.13.0/firebase-database-compat.js"></script>
+<script src="js/core/firebase-config.js"></script>
+<script src="js/core/login.js"></script>
+<script src="js/core/back-button.js"></script>
+<script>
+(function () {
+  const DEV = ["conrys", "test", "1111"];
+  const KEEP_DAYS = 14;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const GAME_NAMES = { quiplash: "Сміхлист", mafia: "Мафія", spy: "Шпигун", memology: "Мемологія", teli: "Зіпсований телефон", draw: "Малювалка",
+    quiz: "Квіз", poker: "Покер", snake: "Змійка", whoami: "Хто я?", durak: "Дурак", chess: "Шахи", checkers: "Шашки", dilemmas: "Дилеми",
+    party: "Хто з нас?", party_whofrom: "Хто з нас", party_court: "Суд Лінча", party_bets: "Ставки", fakenews: "Fake News", alias: "Аліас",
+    charades: "Шаради", remake: "Дубль" };
+  const PHASES = { lobby: "лобі", round_intro: "інтро раунду", answering: "пишуть відповіді", answer_countdown: "відлік після відповідей",
+    voting: "голосування", reveal: "результат", round_end: "кінець раунду", game_over: "кінець гри", playing: "гра", paused: "пауза", ended: "кінець" };
+  const KINDS = {
+    join: ["зайшов у кімнату", "sys"], leave: ["вийшов з кімнати", "sys"], close: ["закрив сторінку", "warn"], hidden: ["згорнув / вимкнув екран", "warn"],
+    back: ["повернувся", "sys"], "net-off": ["немає мережі", "err"], "net-on": ["мережа є", "sys"], "db-off": ["звʼязок із базою обірвався", "err"],
+    "db-on": ["звʼязок із базою відновився", "sys"], err: ["помилка", "err"], "room-gone": ["кімната зникла", "err"],
+    phase: ["бачить фазу", "phase"], "host-on": ["став ведучим", "sys"], "host-off": ["перестав вести", "warn"], "q-host": ["ведучий (тік гри)", "sys"],
+    answer: ["відповів", ""], vote: ["проголосував", ""], "q-answers-end": ["КІНЕЦЬ ВІДПОВІДЕЙ", "phase"], "q-votes-end": ["кінець голосування", "phase"],
+  };
+  const fmtT = (t) => new Date(t).toLocaleTimeString("uk-UA", { timeZone: "Europe/Kyiv", hour12: false });
+  const fmtDT = (t) => new Date(t).toLocaleString("uk-UA", { timeZone: "Europe/Kyiv", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false });
+  const ago = (t) => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? "щойно" : m < 60 ? m + " хв тому" : m < 1440 ? Math.round(m / 60) + " год тому" : Math.round(m / 1440) + " дн тому"; };
+
+  const session = () => { try { return window.AppAuth && AppAuth.getSession(); } catch (e) { return null; } };
+  const isDev = () => { const s = session(); return !!s && DEV.includes(String(s.username || "").toLowerCase()); };
+
+  let index = {}, game = null, cur = null, events = [], hideUsers = new Set(), opt = { phases: true, focus: false };
+
+  function boot() {
+    if (!isDev()) { $("denied").classList.remove("hidden"); $("vList").classList.add("hidden"); return; }
+    if (!window.rtdb) { $("logs").innerHTML = '<div class="empty">База недоступна</div>'; return; }
+    firebase.auth().onAuthStateChanged((u) => { if (u) loadIndex(); });
+  }
+  function loadIndex() {
+    window.rtdb.ref("glogi").once("value").then((s) => {
+      index = s.val() || {};
+      cleanupOld();
+      const games = Object.keys(index).sort((a, b) => latest(b) - latest(a));
+      if (!game || !index[game]) game = games[0] || null;
+      $("games").innerHTML = games.map((g) => `<button data-g="${esc(g)}" class="${g === game ? "on" : ""}">${esc(GAME_NAMES[g] || g)} · ${Object.keys(index[g]).length}</button>`).join("");
+      renderList();
+    }).catch((e) => { $("logs").innerHTML = `<div class="empty">Не вдалося прочитати журнали: ${esc(e.code || e.message)}<br>Можливо, у консолі Firebase ще немає правил для glog / glogi.</div>`; });
+  }
+  const latest = (g) => Math.max(0, ...Object.values(index[g] || {}).map((x) => x.lastAt || 0));
+  function cleanupOld() {
+    const cut = Date.now() - KEEP_DAYS * 864e5, upd = {};
+    Object.entries(index).forEach(([g, logs]) => Object.entries(logs).forEach(([id, m]) => {
+      if ((m.lastAt || 0) < cut) { upd[`glogi/${g}/${id}`] = null; upd[`glog/${g}/${id}`] = null; delete logs[id]; }
+    }));
+    Object.keys(index).forEach((g) => { if (!Object.keys(index[g]).length) delete index[g]; });
+    if (Object.keys(upd).length) window.rtdb.ref().update(upd).catch(() => {});
+  }
+  function renderList() {
+    const logs = game ? Object.entries(index[game] || {}).sort((a, b) => (b[1].lastAt || 0) - (a[1].lastAt || 0)) : [];
+    $("logs").innerHTML = logs.length ? logs.map(([id, m]) => {
+      const players = Object.keys(m.players || {});
+      return `<button class="log-row" data-id="${esc(id)}"><b>Кімната ${esc(m.room)}</b><span class="when">${fmtDT(m.lastAt)} · ${ago(m.lastAt)}</span>
+        <small>${players.length} гравц${players.length === 1 ? "ь" : players.length < 5 ? "і" : "ів"}: ${esc(players.join(", "))}</small></button>`;
+    }).join("") : '<div class="empty">Журналів ще нема. Вони зʼявляться після першої онлайн-гри.</div>';
+  }
+  $("games").addEventListener("click", (e) => { const b = e.target.closest("button[data-g]"); if (!b) return; game = b.dataset.g; loadIndex(); });
+  $("logs").addEventListener("click", (e) => { const b = e.target.closest("button[data-id]"); if (b) openLog(b.dataset.id); });
+
+  // ---------------- один журнал ----------------
+  function openLog(id) {
+    cur = id; hideUsers = new Set();
+    $("vList").classList.add("hidden"); $("vLog").classList.remove("hidden");
+    $("tl").innerHTML = '<div class="empty">Завантажую…</div>'; window.scrollTo(0, 0);
+    window.rtdb.ref(`glog/${game}/${id}`).once("value").then((s) => {
+      // час події = час сервера, коли прийшла пачка, мінус скільки вона чекала на телефоні
+      events = Object.values(s.val() || {}).filter((e) => e && e.t).map((e) => Object.assign(e, { t: e.t - (e.o || 0) })).sort((a, b) => a.t - b.t);
+      events.forEach((e) => { try { e.dd = e.d && /^[{[]/.test(e.d) ? JSON.parse(e.d) : e.d; } catch (x) { e.dd = e.d; } });
+      const m = (index[game] || {})[id] || {};
+      $("logHead").textContent = `${GAME_NAMES[game] || game} · кімната ${m.room || id} · ${events.length} подій` +
+        (events.length ? ` · ${fmtDT(events[0].t)} – ${fmtT(events[events.length - 1].t)}` : "");
+      renderTimeline();
+    });
+  }
+  const users = () => [...new Set(events.map((e) => e.u))];
+  const COLORS = ["#f2c14e", "#7fc8f8", "#f78fb3", "#9be09b", "#c3a6ff", "#ffb07c", "#7fe0d6", "#ff8a80", "#b8d86b", "#e0c3fc"];
+  const colorOf = (u) => COLORS[users().indexOf(u) % COLORS.length];
+
+  function detail(e) {
+    const d = e.dd;
+    if (d == null || d === "") return "";
+    if (typeof d !== "object") return esc(d);
+    if (e.k === "phase") return esc((PHASES[d.p] || d.p || "") + (d.r != null ? ` · раунд ${d.r}` : ""));
+    if (e.k === "join") {
+      const skew = d.clk ? Math.round((d.clk - e.t) / 1000) : 0;
+      return esc(`${d.app ? "застосунок" : "браузер"} · ${d.os} · ${d.br} · ${d.w}×${d.h} · ${d.page}` +
+        (Math.abs(skew) >= 3 ? ` · ⚠️ годинник телефона ${skew > 0 ? "спішить" : "відстає"} на ${Math.abs(skew)} с` : ""));
+    }
+    const parts = [];
+    Object.entries(d).forEach(([k, v]) => {
+      if (k === "pres" && v && typeof v === "object") {
+        parts.push("на звʼязку: " + Object.entries(v).map(([n, [silent, age]]) => {
+          const bad = (silent != null && silent >= 8) || (age != null && age >= 8);
+          return `${bad ? "⚠️" : ""}${n} ${silent == null ? "?" : silent}с` + (age != null && Math.abs(age - (silent || 0)) > 4 ? `/${age}с` : "");
+        }).join(", "));
+      } else if (k === "why") parts.push({ time: "вийшов час", "all-answered": "усі відповіли", "all-voted": "усі проголосували" }[v] || v);
+      else if (k === "left") parts.push(`лишалось ${v} с`);
+      else if (Array.isArray(v)) parts.push(`${k}: ${v.join(", ") || "—"}`);
+      else if (v && typeof v === "object") parts.push(`${k}: ${JSON.stringify(v)}`);
+      else if (v !== undefined) parts.push(`${k}: ${v}`);
+    });
+    return esc(parts.join(" · "));
+  }
+  // підозріле: етап закінчився «усі відповіли», хоча часу лишалось багато, а відповіли не всі
+  function isBad(e) {
+    const d = e.dd;
+    if (e.twoHosts) return true;
+    return e.k === "q-answers-end" && d && d.why !== "time" && d.left > 5 && Array.isArray(d.done) && d.pres && d.done.length < Object.keys(d.pres).length;
+  }
+
+  function badText(e) {
+    if (!isBad(e)) return "";
+    return e.twoHosts ? ` ⚠️ два ведучі одночасно: ${esc(e.twoHosts.join(", "))}` : " ⚠️ раніше часу, не всі відповіли";
+  }
+  function renderTimeline() {
+    const all = users();
+    $("who").innerHTML = all.map((u) => `<button class="chip ${hideUsers.has(u) ? "off" : ""}" data-u="${esc(u)}" style="border-color:${colorOf(u)}">${esc(u)}</button>`).join("");
+    $("opts").innerHTML = `<button class="chip ${opt.phases ? "" : "off"}" data-o="phases">фази від кожного</button>` +
+      `<button class="chip ${opt.focus ? "" : "off"}" data-o="focus">лише важливе</button>`;
+    let html = "", prevT = 0, lastPhaseKey = "";
+    // два «ведучі» одночасно = обидва крутять гру й перебивають один одного
+    const hosts = new Set();
+    events.forEach((e) => {
+      if (e.k === "q-host" && e.dd && typeof e.dd === "object") {
+        if (e.dd.on) { hosts.add(e.u); e.twoHosts = hosts.size > 1 ? [...hosts] : null; } else hosts.delete(e.u);
+      }
+      if (e.k === "close" || e.k === "leave") hosts.delete(e.u);
+    });
+    events.forEach((e) => {
+      if (hideUsers.has(e.u)) return;
+      const [label, cls] = KINDS[e.k] || [e.k, ""];
+      if (e.k === "phase") {
+        if (!opt.phases) return;
+        // однакову фазу від різних телефонів за 5 с — одним рядком
+        const key = JSON.stringify(e.dd) + "|" + Math.floor(e.t / 5000);
+        if (key === lastPhaseKey) return; lastPhaseKey = key;
+      }
+      if (opt.focus && !["err", "warn"].includes(cls) && !/end|host/.test(e.k)) return;
+      if (prevT && e.t - prevT > 60000) html += `<div class="gap">… ${Math.round((e.t - prevT) / 60000)} хв …</div>`;
+      prevT = e.t;
+      html += `<div class="ev ${cls} ${isBad(e) ? "bad" : ""}"><time>${fmtT(e.t)}</time><div><span class="who" style="color:${colorOf(e.u)}">${esc(e.u)}</span>` +
+        `<span class="k">${esc(label)}</span>${badText(e)}<div class="d">${detail(e)}</div></div></div>`;
+    });
+    $("tl").innerHTML = html || '<div class="empty">Нічого не показано (перевір фільтри)</div>';
+  }
+  $("who").addEventListener("click", (e) => { const b = e.target.closest("[data-u]"); if (!b) return; const u = b.dataset.u; hideUsers.has(u) ? hideUsers.delete(u) : hideUsers.add(u); renderTimeline(); });
+  $("opts").addEventListener("click", (e) => { const b = e.target.closest("[data-o]"); if (!b) return; opt[b.dataset.o] = !opt[b.dataset.o]; renderTimeline(); });
+  $("backBtn").addEventListener("click", () => { $("vLog").classList.add("hidden"); $("vList").classList.remove("hidden"); cur = null; });
+  $("copyBtn").addEventListener("click", () => {
+    const m = (index[game] || {})[cur] || {};
+    const text = `${GAME_NAMES[game] || game} · кімната ${m.room || cur}\n` + events.map((e) => {
+      const [label] = KINDS[e.k] || [e.k];
+      const tmp = document.createElement("div"); tmp.innerHTML = detail(e);
+      const tb = document.createElement("div"); tb.innerHTML = badText(e);
+      return `${fmtT(e.t)} ${e.u}: ${label}${tb.textContent}${tmp.textContent ? " — " + tmp.textContent : ""}`;
+    }).join("\n");
+    const done = () => { $("copyBtn").textContent = "Скопійовано ✓"; setTimeout(() => { $("copyBtn").textContent = "Скопіювати текстом"; }, 1600); };
+    (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(done).catch(() => {
+      const ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); done(); } catch (e) {} ta.remove();
+    });
+  });
+  $("delBtn").addEventListener("click", () => {
+    if (!cur || !confirm("Видалити цей журнал?")) return;
+    window.rtdb.ref().update({ [`glogi/${game}/${cur}`]: null, [`glog/${game}/${cur}`]: null }).then(() => {
+      $("vLog").classList.add("hidden"); $("vList").classList.remove("hidden"); cur = null; loadIndex();
+    });
+  });
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => setTimeout(boot, 50)); else setTimeout(boot, 50);
+})();
+</script>
+</body>
+</html>

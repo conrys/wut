@@ -43,6 +43,20 @@
 // одним update(), замість падіння чи розсипання гри.
 // ==========================================================================
 (function () {
+  // Журнал онлайн-ігор (js/core/game-log.js) — підвантажуємо самі, щоб не правити кожну сторінку.
+  // Поки файл вантажиться, заглушка складає події в чергу.
+  if (!window.GameLog) {
+    window.GameLog = { _stub: true, _q: [], _a: null, ev(k, d) { if (this._q.length < 200) this._q.push([k, d]); }, attach(o) { this._a = o; }, detach() {}, flush() {} };
+    try {
+      const me = document.currentScript && document.currentScript.src;
+      const sc = document.createElement("script");
+      sc.src = me ? me.replace(/online-engine\.js(\?.*)?$/, "game-log.js") : "js/core/game-log.js";
+      sc.async = true;
+      (document.head || document.documentElement).appendChild(sc);
+    } catch (e) { /* без журналу гра однаково працює */ }
+  }
+  const glog = (k, d) => { try { window.GameLog.ev(k, d); } catch (e) {} };
+
   const HEARTBEAT_MS = 2000;
   const PRESENCE_TIMEOUT_MS = 5000; // "активний ЗАРАЗ": хост, тік, керування грою — має мігрувати швидко
   // "Ще в грі": гравець згорнув браузер/глянув у іншу апку чи закрив вкладку, але
@@ -318,10 +332,15 @@
       roomRef = window.rtdb.ref(`${ROOMS_PATH}/${roomId}`);
       myPlayerRef = roomRef.child("players/" + username);
 
+      try { window.GameLog.attach({ game: gameKey, room: roomId, user: username, now }); } catch (e) {}
+      let seenPhase = null;
       listeners.room = roomRef.on("value", (snap2) => {
         const room = snap2.val();
-        if (!room) { leaveRoomLocally(); return; }
+        if (!room) { glog("room-gone"); leaveRoomLocally(); return; }
         latestRoom = room;
+        // кожен телефон пише, яку фазу побачив і коли: видно, хто відстав чи «застряг»
+        const ph = (room.phase || "") + (room.round != null ? "#" + room.round : "");
+        if (ph !== seenPhase) { glog("phase", { p: room.phase, r: room.round, by: room.hostUsername || undefined }); seenPhase = ph; }
         // Повернення в кімнату (reload, вихід на головну й назад): гравець уже
         // є в players/, тож ігри з asPlayer:false не кличуть becomePlayer — і
         // без цього heartbeat мовчав, гравець "офлайн", ведучий іде до іншого.
@@ -363,7 +382,7 @@
       if (hostWatchTimer) { clearInterval(hostWatchTimer); hostWatchTimer = null; }
       if (roomRef && listeners.room) roomRef.off("value", listeners.room);
       if (myPlayerRef && !preservePresence) myPlayerRef.onDisconnect().cancel();
-      if (isHost) { isHost = false; releaseWakeLock(); onLoseHost(); }
+      if (isHost) { isHost = false; releaseWakeLock(); onLoseHost(); glog("host-off", { why: "leave" }); }
       currentRoomId = null; roomRef = null; myPlayerRef = null; isActivePlayer = false; latestRoom = null;
     }
 
@@ -426,8 +445,8 @@
         // Порівняння по mySessionId, а НЕ по username — щоб дві вкладки
         // одного й того ж гравця (стара незакрита + нова після reload)
         // не вважали хостом себе ОБИДВІ одночасно.
-        if (room.hostSessionId === mySessionId && !isHost) { isHost = true; requestWakeLock(); onBecomeHost(roomId); }
-        if (room.hostSessionId !== mySessionId && isHost) { isHost = false; releaseWakeLock(); onLoseHost(); }
+        if (room.hostSessionId === mySessionId && !isHost) { isHost = true; requestWakeLock(); onBecomeHost(roomId); glog("host-on"); }
+        if (room.hostSessionId !== mySessionId && isHost) { isHost = false; releaseWakeLock(); onLoseHost(); glog("host-off", { now: room.hostUsername }); }
         return;
       }
       const alive = Object.entries(players).filter(([, p]) => isActiveNow(p))
@@ -454,7 +473,7 @@
           // Тепер isHost=true лише якщо реально записане значення — наше.
           if (!result || !result.committed || result.snapshot.val() !== mySessionId) return;
           window.rtdb.ref(`${ROOMS_PATH}/${roomId}/hostUsername`).set(username); // для решти ігор/UI, які читають лише hostUsername
-          if (!isHost) { isHost = true; requestWakeLock(); onBecomeHost(roomId); }
+          if (!isHost) { isHost = true; requestWakeLock(); onBecomeHost(roomId); glog("host-on", { why: "elected" }); }
         });
       }
     }

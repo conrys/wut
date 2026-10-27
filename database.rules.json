@@ -213,6 +213,27 @@
           }
         }
       }
+    },
+    "glog": {
+      ".read": "auth != null",
+      "$game": {
+        "$log": {
+          ".write": "auth != null && !newData.exists()",
+          "$ev": {
+            ".write": "auth != null && !data.exists()",
+            ".validate": "newData.hasChildren(['t','u','k']) && newData.child('t').isNumber() && newData.child('u').isString() && newData.child('u').val().length <= 60 && newData.child('k').isString() && newData.child('k').val().length <= 40 && (!newData.child('d').exists() || (newData.child('d').isString() && newData.child('d').val().length <= 4000)) && (!newData.child('s').exists() || (newData.child('s').isString() && newData.child('s').val().length <= 12))"
+          }
+        }
+      }
+    },
+    "glogi": {
+      ".read": "auth != null",
+      "$game": {
+        "$log": {
+          ".write": "auth != null",
+          ".validate": "newData.child('room').isString() && newData.child('room').val().length <= 40 && newData.child('lastAt').isNumber()"
+        }
+      }
     }
   }
 }
