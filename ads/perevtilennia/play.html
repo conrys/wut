@@ -57,6 +57,12 @@ body{background:var(--grass);color:var(--ink);font-family:var(--body);overflow:h
 .blind{position:fixed;inset:0;display:grid;place-items:center;background:#1D1A26;color:#fff;text-align:center;z-index:5}
 .blind b{font-family:var(--display);font-weight:800;font-size:120px;line-height:1;display:block}.blind p{margin:8px 0 0;font-size:17px;opacity:.8}
 .crouch.off{opacity:.55}
+.crouch.kit{height:62px;bottom:calc(env(safe-area-inset-bottom,0px) + 120px);gap:2px;font-size:11.5px;border-radius:20px;background:rgba(255,251,244,.82)}
+.crouch.kit .ic{font-size:19px}.crouch.kit.k2{bottom:calc(env(safe-area-inset-bottom,0px) + 190px)}
+body.kit .tip{bottom:calc(env(safe-area-inset-bottom,0px) + 264px)}
+.spec{position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 96px);display:flex;align-items:center;gap:8px;background:rgba(29,26,38,.72);color:#fff;border-radius:16px;padding:6px;z-index:3}
+.spec span{display:grid;text-align:center;min-width:120px;font-family:var(--display);font-weight:800;line-height:1.1}.spec small{font:600 11px var(--body,system-ui);opacity:.75}
+.spec button{width:40px;height:40px;border:0;border-radius:12px;background:rgba(255,255,255,.16);color:#fff;font-size:16px;cursor:pointer}
 .hints{position:fixed;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 30px);display:grid;gap:8px;justify-items:start;pointer-events:none;max-width:calc(100% - 150px)}
 .hchip{font-family:var(--display);font-weight:800;font-size:15px;line-height:1;padding:9px 12px 7px;border-radius:12px;color:#fff;background:rgba(29,26,38,.7)}
 .hchip.good{background:#2E9E5B}.hchip.ok{background:#C98A1E}.hchip.bad{background:var(--seek-deep)}
@@ -123,6 +129,9 @@ input:focus-visible,select:focus-visible{outline:3px solid var(--hide);outline-o
 </div>
 <div class="say" id="say"></div>
 <button class="crouch" id="crouch" type="button" hidden><span class="ic" aria-hidden="true">🎭</span><span>Перевтілитися</span></button>
+<button class="crouch kit" id="decoyBtn" type="button" hidden><span class="ic" aria-hidden="true">👻</span><span>Обманка · 2</span></button>
+<button class="crouch kit k2" id="changeBtn" type="button" hidden><span class="ic" aria-hidden="true">🎭</span><span>Змінити</span></button>
+<div class="spec" id="spec" hidden><button id="specPrev" type="button" aria-label="Попередній гравець">◀</button><span><small>👁 Дивишся</small><b id="specName"></b></span><button id="specNext" type="button" aria-label="Наступний гравець">▶</button></div>
 <div class="pen" id="pen" aria-live="polite"></div>
 <div class="hints" id="hints" hidden><span class="hchip" id="blend">Схожих поруч: 0</span><div class="sus" id="sus" hidden><span id="susTxt">Підозра</span><i><b id="susBar"></b></i></div></div>
 <div class="blind" id="blind" hidden><div><b id="blindN">9</b><p>Заплющ очі. Предмети ховаються</p></div></div>
@@ -159,7 +168,7 @@ input:focus-visible,select:focus-visible{outline:3px solid var(--hide);outline-o
       <button class="link" id="copyCode" type="button">Скопіювати код</button>
       <ul class="plist" id="plist"></ul>
       <div id="hostCtl" class="stack" hidden>
-        <div class="rowf2"><label for="mapSel">Карта</label><select id="mapSel"><option value="auto">По черзі</option><option value="0">Будинок</option><option value="1">Супермаркет</option><option value="2">Школа</option><option value="3">Дача</option></select></div>
+        <div class="rowf2"><label for="mapSel">Карта</label><select id="mapSel"><option value="auto">По черзі</option><option value="0">Будинок</option><option value="1">Супермаркет</option><option value="2">Школа</option><option value="3">Дача</option><option value="4">Офіс</option><option value="5">Табір</option><option value="6">Торговий центр</option></select></div>
         <div class="rowf2"><label for="botSel">Боти-предмети</label><select id="botSel"><option>0</option><option>1</option><option selected>2</option><option>3</option><option>4</option></select></div>
         <button class="btn" id="mpStart" type="button">Почати</button>
       </div>

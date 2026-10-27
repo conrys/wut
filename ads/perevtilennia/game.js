@@ -211,9 +211,21 @@ function setCrouch(){}
 function setAct(){const b=$('crouch'),hunter=player&&player.role==='seeker';b.classList.toggle('hunter',hunter);
   let label='Бризнути',ic='💦',off=false;
   if(!hunter){if(phase==='play'){const cd=Math.max(0,Math.ceil(player.tauntT||0));label=cd?'Пискнути · '+cd:'Пискнути +15';ic='📣';off=cd>0}else{label=(player&&player.rerolls>0)?'Інший предмет':'Без замін';ic='🎲';off=!(player&&player.rerolls>0)}}
-  const sp=b.querySelector('span:not(.ic)');if(sp.textContent!==label)sp.textContent=label;b.querySelector('.ic').textContent=ic;b.classList.toggle('off',off)}
+  const sp=b.querySelector('span:not(.ic)');if(sp.textContent!==label)sp.textContent=label;b.querySelector('.ic').textContent=ic;b.classList.toggle('off',off);
+  // хованцю під час гри — ще дві кнопки: змінити предмет і обманка
+  const kit=!hunter&&phase==='play'&&player&&!player.caught&&!(MP.on&&MP.spectator)&&!b.hidden;
+  const cb=$('changeBtn'),db=$('decoyBtn');cb.hidden=db.hidden=!kit;document.body.classList.toggle('kit',!!kit);
+  if(kit){const cd=Math.ceil(player.changeT||0),l1=cd?'Змінити · '+cd:'Змінити';if(cb.lastChild.textContent!==l1)cb.lastChild.textContent=l1;cb.classList.toggle('off',cd>0);
+    const n=player.decoysLeft||0,l2='Обманка · '+n;if(db.lastChild.textContent!==l2)db.lastChild.textContent=l2;db.classList.toggle('off',n<=0||player.dis<0)}
+  // спостереження
+  const sb=$('spec'),st=specTarget();sb.hidden=!st;if(st){const nm=specName(st);if($('specName').textContent!==nm)$('specName').textContent=nm}}
 $('crouch').addEventListener('click',()=>{au();act()});
-addEventListener('keydown',e=>{if((e.key===' '||e.key==='e'||e.key==='E')&&!e.repeat&&(phase==='play'||phase==='intro')){e.preventDefault();act()}});
+$('changeBtn').addEventListener('click',()=>{au();changeProp()});
+$('decoyBtn').addEventListener('click',()=>{au();placeDecoy()});
+$('specPrev').addEventListener('click',()=>{specIdx--;camBlend=0;setAct()});
+$('specNext').addEventListener('click',()=>{specIdx++;camBlend=0;setAct()});
+addEventListener('keydown',e=>{if((e.key===' '||e.key==='e'||e.key==='E')&&!e.repeat&&(phase==='play'||phase==='intro')){e.preventDefault();act()}
+  if((e.key==='q'||e.key==='Q')&&!e.repeat)changeProp();if((e.key==='f'||e.key==='F')&&!e.repeat)placeDecoy()});
 
 function newChar(role,isPlayer,color,x,z){
   const kind=role==='seeker'?'seeker':isPlayer?'player':'hider';
@@ -222,7 +234,7 @@ function newChar(role,isPlayer,color,x,z){
   if(isPlayer){const ring=new T3.Mesh(ringGeo,new T3.MeshBasicMaterial({color:role==='seeker'?'#FFE38A':'#FFFFFF',transparent:true,opacity:0.85,depthWrite:false}));ring.position.y=0.03;mdl.root.add(ring);ch.ring=ring}
   chars.push(ch);return ch;
 }
-function clearChars(){for(const c of chars){scene.remove(c.mdl.root);if(c.cage)scene.remove(c.cage);if(c.prop)scene.remove(c.prop);if(c.pring)scene.remove(c.pring);if(c.cageLift)scene.remove(c.cageLift)}chars=[];pops=[]}
+function clearChars(){for(const c of chars){scene.remove(c.mdl.root);if(c.cage)scene.remove(c.cage);if(c.prop)scene.remove(c.prop);if(c.pring)scene.remove(c.pring);if(c.cageLift)scene.remove(c.cageLift)}chars=[];pops=[];clearDecoys();specIdx=0}
 
 function startLevel(){
   const v=Math.floor((level-1)/4)%4;buildWorld(Math.floor((level-1)/2)%HW.MAPS.length,!!(v&1),!!(v&2),level*977+13);
@@ -240,8 +252,10 @@ function startLevel(){
     timer=150;introT=9;
   }
   planProps(chars.filter(c=>c.role==='hider'&&!c.isPlayer));
+  if(mode==='seek')botDecoys(chars.filter(c=>c.role==='hider'&&!c.isPlayer));
   if(mode==='hide'){const it=randomProp(player,-1);player.rerolls=1;player.taunts=0;setTimeout(()=>pop(player,'Ти — '+PROPABLE[it.t],'#FFD23F'),300)}
-  stats={caught:0,freed:0,total:chars.filter(c=>c.role==='hider').length,time:timer,miss:0,hunted:0};
+  resetHiderKit(player);
+  stats={caught:0,freed:0,total:chars.filter(c=>c.role==='hider').length,time:timer,miss:0,hunted:0,decoys:0};
   phase='intro';darkK=0;lastTick=0;squeakAt=0;
   for(const c of chars){c.yaw=c===seeker?0:Math.PI;c.look=c.yaw}
   seeker.yaw=seeker.look=Math.PI;seeker.cover=1;
@@ -336,6 +350,48 @@ function randomProp(c,avoid){
   const it=(pool.length?pool:items)[Math.floor(Math.random()*(pool.length||items.length))];
   setDisguise(c,it.idx);return it;
 }
+/* ---------- хованець: змінити предмет (з перезарядкою) і обманки ---------- */
+const CHANGE_CD=20,DECOYS=2,DECOY_PEN=5,MISS_PEN=3;
+function resetHiderKit(c){if(!c)return;c.changeT=0;c.decoysLeft=DECOYS;c.decoyN=0}
+/* стати іншою річчю: спершу те, що стоїть поруч (так легше злитись), інакше — випадкова */
+function changeProp(){
+  const c=player;if(!c||c.role!=='hider'||c.caught||phase!=='play'||(MP.on&&MP.spectator))return;
+  if((c.changeT||0)>0){pop(c,'Ще '+Math.ceil(c.changeT)+' с','#FFFFFF');return}
+  const curT=c.dis>=0?world.items[c.dis].t:null;
+  const near=propItems().filter(i=>i.t!==curT&&Math.hypot(i.x-c.x,i.z-c.z)<3.4&&los(c.x,c.z,i.x,i.z)).sort((a,b)=>Math.hypot(a.x-c.x,a.z-c.z)-Math.hypot(b.x-c.x,b.z-c.z));
+  const kinds=[];for(const i of near)if(!kinds.some(k=>k.t===i.t))kinds.push(i);
+  let it;if(kinds.length){it=kinds[Math.floor(Math.random()*Math.min(3,kinds.length))];setDisguise(c,it.idx)}else it=randomProp(c,c.dis);
+  c.changeT=CHANGE_CD;pop(c,'Ти — '+PROPABLE[it.t],'#FFD23F');setAct();
+}
+/* обманки: нерухома копія твого предмета; шукач, що бризне в неї, втрачає 5 с */
+let decoys=[];
+function decoyMesh(d){const it=world.items[d.dis];if(!it)return null;let geo=geoCache.get(mapIdx+':'+d.dis);if(!geo){geo=HW.propGeometry(it.f);geoCache.set(mapIdx+':'+d.dis,geo)}
+  const grp=new T3.Group(),mesh=new T3.Mesh(geo,propMat);mesh.castShadow=mesh.receiveShadow=true;mesh.scale.set(flipX?-1:1,1,flipZ?-1:1);grp.add(mesh);grp.position.set(d.x,0,d.z);grp.rotation.y=d.yaw;scene.add(grp);return grp}
+function addDecoy(o){if(decoys.some(d=>d.key===o.key))return null;const d=Object.assign({isDecoy:true,vx:0,vz:0,sus:0,crouch:0,popped:false},o);d.prop=decoyMesh(d);decoys.push(d);return d}
+function clearDecoys(){for(const d of decoys)if(d.prop)scene.remove(d.prop);decoys=[]}
+function popDecoy(d){if(!d||d.popped)return;d.popped=true;if(d.prop){scene.remove(d.prop);d.prop=null}puffRing(d.x,d.z,16,'#C9A8FF');pop({x:d.x,z:d.z,vis:1},'Обманка!','#C9A8FF');SFX.free()}
+function placeDecoy(){
+  const c=player;if(!c||c.role!=='hider'||c.caught||phase!=='play'||(MP.on&&MP.spectator))return;
+  if(c.dis<0){pop(c,'Спершу стань предметом','#FFFFFF');return}
+  if((c.decoysLeft||0)<=0){pop(c,'Обманок більше нема','#FFFFFF');return}
+  const q=Math.round(c.yaw/(Math.PI/2))*(Math.PI/2);
+  addDecoy({key:(MP.on?MP.me:'me')+':'+(c.decoyN||0),own:true,x:+c.x.toFixed(2),z:+c.z.toFixed(2),dis:c.dis,yaw:+q.toFixed(2)});
+  c.decoyN=(c.decoyN||0)+1;c.decoysLeft--;puffRing(c.x,c.z,10,'#FFFFFF');SFX.free();
+  pop(c,'Обманка тут! Тікай','#C9A8FF');tip('Обманка лишилась на місці — відійди до іншої схожої речі. Шукач, що бризне в неї, втратить 5 с');setAct();
+}
+/* у кімнатах ботів-предметів частина ставить обманку біля іншої «пари» */
+function botDecoys(bots){
+  const items=propItems(),taken=chars.map(c=>[c.plan?c.plan.x:c.x,c.plan?c.plan.z:c.z]);
+  bots.forEach((b,i)=>{if(b.dis<0||Math.random()>0.6)return;const t=world.items[b.dis].t;
+    const twins=items.filter(o=>o.t===t&&(!b.plan||Math.hypot(o.x-b.plan.x,o.z-b.plan.z)>3)).sort(()=>Math.random()-0.5);
+    for(const o of twins){const p=freeSpotNear(o,taken);if(!p)continue;taken.push(p);addDecoy({key:(b.id||'bot'+i)+':0',bot:true,x:p[0],z:p[1],dis:b.dis,yaw:itemYaw(o)});break}});
+}
+/* ---------- спостереження: тебе облили (чи ти глядач) — дивишся очима інших ---------- */
+let specIdx=0;
+function spectating(){return MP.on&&(phase==='play'||phase==='intro')&&(MP.spectator||(player&&player.caught))}
+function specList(){const me=MP.spectator?null:player;return chars.filter(c=>c!==me&&!(c.role==='hider'&&c.caught)).sort((a,b)=>(a.role==='seeker'?-1:0)-(b.role==='seeker'?-1:0))}
+function specTarget(){if(!spectating())return null;const l=specList();if(!l.length)return null;return l[((specIdx%l.length)+l.length)%l.length]}
+function specName(c){return c.role==='seeker'?(c.nick||'Шукач')+' · шукач':(c.nick||'Бот')}
 function squeakFx(c,loud){pop(c,loud?'ПІК!':'Пік!','#A779F2');ripple(c.x,c.z,'#A779F2');const d=player?Math.hypot(c.x-player.x,c.z-player.z):5;SFX.squeak(Math.max(0.2,(loud?1.3:1)-d/14))}
 function disguiseNear(c){
   const cand=propItems().filter(i=>Math.hypot(i.x-c.x,i.z-c.z)<3.2&&los(c.x,c.z,i.x,i.z)).sort((a,b)=>Math.hypot(a.x-c.x,a.z-c.z)-Math.hypot(b.x-c.x,b.z-c.z));
@@ -355,7 +411,7 @@ function updDrops(dt){for(const d of drops){if(d.l<=0)continue;d.l-=dt;d.vy-=9*d
 function splash(x,z){for(let i=0;i<10;i++)puff(x,z,0.07,0.9,'#9FD6FF');ripple(x,z,'#7CC3FF')}
 function shootTarget(s,yaw,range){
   let best=null,bd=1e9;
-  for(const h of chars){if(h.role!=='hider'||h.caught)continue;const dx=h.x-s.x,dz=h.z-s.z,d=Math.hypot(dx,dz);if(d>range)continue;
+  for(const h of chars.concat(decoys)){if(h.isDecoy?h.popped:(h.role!=='hider'||h.caught))continue;const dx=h.x-s.x,dz=h.z-s.z,d=Math.hypot(dx,dz);if(d>range)continue;
     if(Math.abs(angDiff(Math.atan2(dx,dz),yaw))>(d<1.2?0.9:0.32))continue;if(!los(s.x,s.z,h.x,h.z))continue;if(d<bd){bd=d;best=h}}
   return best;
 }
@@ -366,10 +422,16 @@ function shoot(s,forced){
   // how far the stream flies: up to the target, a wall or the range
   const reach=h?Math.hypot(h.x-s.x,h.z-s.z):Math.min(range,rayHit(s.x,s.z,yaw,range));
   squirtFx(s.x,s.z,yaw,reach);
+  if(h&&h.isDecoy){splash(h.x,h.z);popDecoy(h);stats.decoys=(stats.decoys||0)+1;
+    if(MP.on){if(s.isPlayer){MP.dp.add(h.key);MP.pen+=DECOY_PEN;s.gunT=1;floatHud('−'+DECOY_PEN+' с')}}
+    else{timer=Math.max(0,timer-DECOY_PEN);floatHud('−'+DECOY_PEN+' с')}
+    return}
   if(h){splash(h.x,h.z);if(MP.on)MP.cg.add(h.id);else catchHider(h);return}
   const ex=s.x+Math.sin(yaw)*reach,ez=s.z+Math.cos(yaw)*reach;splash(ex,ez);
   pops.push({ch:{x:ex,z:ez,vis:1},text:'Мимо!',color:'#FFFFFF',t:0});
-  if(s.isPlayer){if(MP.on){s.gunT=2;tip('Мимо! Пістолет перезаряджається')}else{timer=Math.max(0,timer-3);stats.miss++;floatHud('−3 с')}}
+  // промах коштує шукачу 3 с (і бот-шукачу теж — граєш предметом, тобі це на руку)
+  if(s.isPlayer){if(MP.on){s.gunT=1.2;MP.pen+=MISS_PEN;stats.miss++;floatHud('−'+MISS_PEN+' с')}else{timer=Math.max(0,timer-MISS_PEN);stats.miss++;floatHud('−'+MISS_PEN+' с')}}
+  else if(!MP.on&&mode==='hide'){timer=Math.max(0,timer-MISS_PEN);floatHud('Шукач: −'+MISS_PEN+' с')}
   // props hit nearby by the splash may panic
   for(const c of chars)if(c.role==='hider'&&!c.caught&&!c.isPlayer&&Math.hypot(c.x-ex,c.z-ez)<1.4&&Math.random()<0.5)panic(c);
 }
@@ -423,13 +485,13 @@ function seekerAI(s,dt){
   if(s.state==='count'){s.vx*=0.8;s.vz*=0.8;return}
   s.gunT=(s.gunT||0)-dt;
   let tgt=null,best=0;
-  for(const h of chars){if(h.role!=='hider'||h.caught)continue;
+  for(const h of chars.concat(decoys)){if(h.isDecoy?h.popped:(h.role!=='hider'||h.caught))continue;
     if(sees(s,h)){const d=Math.hypot(h.x-s.x,h.z-s.z),mv=Math.hypot(h.vx,h.vz)>0.4;
       const rate=h.dis<0?6:(mv?3:(blends(h)?0.19:0.6))*Math.max(0.3,1.6-d/s.range)*s.sharp;h.sus=(h.sus||0)+rate*dt}
     else h.sus=Math.max(0,(h.sus||0)-dt*0.12);
     if(h.sus>1&&h.sus>best){best=h.sus;tgt=h}}
   if(tgt&&s.state!=='hunt'){s.state='hunt';s.target=tgt;s.aimT=0.5;pop(s,'?','#FFD23F');SFX.spot()}
-  if(s.state==='hunt'){const t=s.target;if(!t||t.caught){s.state='look';s.lookT=1.2;s.lookBase=s.yaw;s.path=null;return}
+  if(s.state==='hunt'){const t=s.target;if(!t||t.caught||t.popped){s.state='look';s.lookT=1.2;s.lookBase=s.yaw;s.path=null;return}
     const d=Math.hypot(t.x-s.x,t.z-s.z),aim=Math.atan2(t.x-s.x,t.z-s.z);
     if(d>3.2||!los(s.x,s.z,t.x,t.z)){s.repathT=(s.repathT||0)-dt;if(s.repathT<=0){s.path=astar(s.x,s.z,t.x,t.z);s.pi=0;s.repathT=0.4}steerPath(s,dt,s.chase);s.look=s.yaw;
       if(!sees(s,t)){s.lost=(s.lost||0)+dt;if(s.lost>3){s.state='patrol';s.path=null;s.lost=0;t.sus=0.5}}else s.lost=0;return}
@@ -468,6 +530,7 @@ function catchHider(h){
   h.cage=makeCage();h.cage.position.set(h.x,3.4,h.z);h.cageT=0;pop(h,h.isPlayer?'Ой!':'+1',h.isPlayer?'#FF5A5F':'#4CC97A');
   SFX.catch();try{navigator.vibrate&&navigator.vibrate(40)}catch(e){}
   renderDots();
+  if(h.isPlayer&&MP.on){$('crouch').hidden=true;specIdx=0;camBlend=0;tip('Тебе облили! Дивись за іншими: перемикай стрілками вгорі')}
   if(MP.on)return;
   if(h.isPlayer)endLevel(false);
   else if(mode==='seek'&&chars.every(c=>c.role!=='hider'||c.caught))endLevel(true);
@@ -515,7 +578,8 @@ function update(dt){
     if(timer<=10&&Math.ceil(timer)!==lastTick){lastTick=Math.ceil(timer);SFX.tick()}
     if(timer<=0){timer=0;endLevel(mode==='hide')}
   }
-  if(player){player.gunT=(player.gunT||0)-dt;player.tauntT=Math.max(0,(player.tauntT||0)-dt);if(phase==='play'||phase==='intro')setAct()}
+  if(player){player.gunT=(player.gunT||0)-dt;player.tauntT=Math.max(0,(player.tauntT||0)-dt);player.changeT=Math.max(0,(player.changeT||0)-dt);if(phase==='play'||phase==='intro')setAct()}
+  else $('spec').hidden=true;
   hints(dt);
   // player control
   if(player&&!player.caught&&!(MP.on&&MP.spectator)){
@@ -552,7 +616,7 @@ function update(dt){
   hemi.intensity=0.52;sun.intensity=0.62;flash.intensity=0;glow.intensity=0;
   // camera
   const a=W/H,far=1*(player&&player.role==='hider'?1.18:1);
-  const fol=player,oy=9.2*far,oz=6.6*far;
+  const fol=specTarget()||player,oy=9.2*far,oz=6.6*far;
   const want=new T3.Vector3(fol.x,oy,fol.z+oz),lookAt=new T3.Vector3(fol.x,0,fol.z-0.4);
   camPos.lerp(want,Math.min(1,dt*(camBlend<1?60:5)));camLook.lerp(lookAt,Math.min(1,dt*(camBlend<1?60:6)));camBlend=1;
   camera.position.copy(camPos);if(shakeT>0&&!reduce){shakeT-=dt;camera.position.x+=(Math.random()-.5)*0.12;camera.position.y+=(Math.random()-.5)*0.08}
@@ -698,6 +762,9 @@ function hostTick(dt){
   if(G.ph==='intro'&&left<=0){G.ph='play';G.k++;G.rem=at(G.dur*1000)}
   else if(G.ph==='play'){
     const sk=presOf(G.sk),cg=new Set(G.sk===MP.me?[...MP.cg]:(sk&&sk.cg)||[]);
+    // штрафи шукача (промах −3 с, обманка −5 с) скорочують раунд
+    const pen=G.sk===MP.me?MP.pen:(sk&&sk.dr===G.r?+sk.pen||0:0);
+    if(pen>(G.pa||0)){MP.hostEnd-=(pen-(G.pa||0))*1000;G.pa=pen}
     const ids=G.pl.filter(i=>i!==G.sk).concat(Array.from({length:G.bots},(_,i)=>'b'+i));
     const alive=G.pl.filter(id=>peersNow().some(p=>p.id===id));
     if(!alive.includes(G.sk)){G.ph='end';G.k++;G.res='left';G.rem=at(6000)}
@@ -721,6 +788,7 @@ function mpTick(dt){
   if(G.r!==MP.round){mpSetupRound(G);MP.round=G.r}
   const key=G.r+':'+G.k;
   if(key!==MP.phKey){MP.phKey=key;MP.phEnd=performance.now()+G.rem;mpPhase(G)}
+  {const pa=G.pa||0;if(MP.paKey!==key){MP.paKey=key;MP.paSeen=pa}if(pa>MP.paSeen){const dlt=pa-MP.paSeen;MP.phEnd-=dlt*1000;MP.paSeen=pa;if(mode!=='seek'&&phase==='play')floatHud('Шукач: −'+Math.round(dlt)+' с')}}
   timer=Math.max(0,(MP.phEnd-performance.now())/1000);
   if(G.ph==='play'&&timer<=10&&Math.ceil(timer)!==lastTick){lastTick=Math.ceil(timer);SFX.tick()}
   if(G.ph==='intro'){const n=Math.ceil(timer);if(n!==MP.lastN&&n<=3&&n>0){MP.lastN=n;say(String(n),'num');SFX.beep()}if(mode==='seek')$('blindN').textContent=Math.max(1,n)}
@@ -728,7 +796,7 @@ function mpTick(dt){
 function mpSetupRound(G){
   buildWorld(G.map,!!G.fx,!!G.fz,G.cl||1);clearChars();
   MP.spectator=!G.pl.includes(MP.me);mode=G.sk===MP.me?'seek':'hide';
-  MP.cg=new Set();MP.shots={};
+  MP.cg=new Set();MP.shots={};MP.dp=new Set();MP.pen=0;MP.paSeen=0;MP.paKey='';
   const sx=TX(world.def.spawn[0]),sz=TZ(world.def.spawn[1]);
   G.pl.forEach((id,i)=>{const p=presOf(id)||{},isSk=id===G.sk,a=i/Math.max(1,G.pl.length)*6.283;
     const [x,z]=isSk?[sx,sz]:snap(sx+Math.cos(a)*1.4,sz+Math.sin(a)*0.7);
@@ -739,11 +807,11 @@ function mpSetupRound(G){
   for(let i=0;i<G.bots;i++){const a=(i+0.5)/Math.max(1,G.bots)*6.283;const c=newChar('hider',false,COLORS[i%COLORS.length],...snap(sx+Math.cos(a)*1.2,sz+Math.sin(a)*0.5));c.id='b'+i;c.nick='';
     if(!MP.host)c.netBot=true}
   if(MP.spectator)player=seeker;
-  if(MP.host)planProps(chars.filter(c=>c.id&&c.id[0]==='b'));
-  if(!MP.spectator&&player.role==='hider'){randomProp(player,-1);player.rerolls=1}
+  if(MP.host){const bots=chars.filter(c=>c.id&&c.id[0]==='b');planProps(bots);botDecoys(bots)}
+  if(!MP.spectator&&player.role==='hider'){randomProp(player,-1);player.rerolls=1;resetHiderKit(player)}
   MP.q={};
   for(const c of chars){c.yaw=c.look=Math.PI}
-  stats={caught:0,freed:0,total:chars.filter(c=>c.role==='hider').length,time:G.dur,miss:0};squeakAt=0;
+  stats={caught:0,freed:0,total:chars.filter(c=>c.role==='hider').length,time:G.dur,miss:0,decoys:0};squeakAt=0;
   coneStyle();camBlend=0;setAct();$('crouch').hidden=MP.spectator;
   $('mp').hidden=true;$('ov').hidden=true;$('timer').hidden=false;
   $('modeChip').textContent=MP.spectator?'Глядач':mode==='hide'?'Ти предмет':'Ти шукач';$('modeChip').className='chip mode '+(MP.spectator?'':mode);
@@ -776,7 +844,7 @@ function mpFollow(dt){
     const ox=c.x,oz=c.z,k=Math.min(1,dt*14);c.x+=(s[0]-c.x)*k;c.z+=(s[1]-c.z)*k;
     c.vx=c.vx*0.7+((c.x-ox)/Math.max(dt,1e-3))*0.3;c.vz=c.vz*0.7+((c.z-oz)/Math.max(dt,1e-3))*0.3;
     c.yaw+=angDiff(s[2]||0,c.yaw)*Math.min(1,dt*12);if(c.role==='seeker')c.look=c.yaw;
-    const d=typeof s[4]==='number'?s[4]:-1;if(!c.caught&&d!==c.dis)setDisguise(c,d,true);
+    const d=typeof s[4]==='number'?s[4]:-1;if(!c.caught&&d!==c.dis)setDisguise(c,d,!(phase==='play'&&c.dis>=0&&d>=0));
     // someone else's squirt
     if(c.role==='hider'&&p&&typeof p.q==='number'){if(MP.q[c.id]===undefined)MP.q[c.id]=p.q;else if(p.q>MP.q[c.id]){MP.q[c.id]=p.q;squeakFx(c,true)}}
     if(c.role==='seeker'&&p&&typeof p.sh==='number'){if(MP.shots[c.id]===undefined)MP.shots[c.id]=p.sh;else if(p.sh>MP.shots[c.id]){MP.shots[c.id]=p.sh;squirtFx(c.x,c.z,c.look,Math.min(4.8,rayHit(c.x,c.z,c.look,4.8)))}}
@@ -785,9 +853,15 @@ function mpFollow(dt){
   const cg=iSeek?MP.cg:new Set((presOf(seeker&&seeker.id)||{}).cg||[]);
   for(const c of chars){if(c.role!=='hider')continue;const want=cg.has(c.id);
     if(want&&!c.caught)mpCatchFx(c);else if(!want&&c.caught)free(c)}
-  const me=player&&!MP.spectator?player:null,out={};
+  // обманки: кожен шле свої (хост — ще й ботів); хто лопнув — знає шукач
+  for(const p of peersNow()){if(p.isMe)continue;const pr=p.presence||{};if(pr.dr!==G.r||!Array.isArray(pr.dc))continue;
+    for(const a of pr.dc)if(Array.isArray(a)&&typeof a[4]==='string'&&typeof a[0]==='number')addDecoy({key:a[4],x:a[0],z:a[1],dis:a[2]|0,yaw:+a[3]||0})}
+  const dp=iSeek?MP.dp:new Set(((presOf(seeker&&seeker.id)||{}).dr===G.r&&(presOf(seeker&&seeker.id)||{}).dp)||[]);
+  for(const d of decoys)if(!d.popped&&dp.has(d.key))popDecoy(d);
+  const me=player&&!MP.spectator?player:null,out={dr:G.r};
+  out.dc=decoys.filter(d=>!d.popped&&(d.own||(MP.host&&d.bot))).map(d=>[d.x,d.z,d.dis,d.yaw,d.key]);
   if(me){out.x=+me.x.toFixed(2);out.z=+me.z.toFixed(2);out.y=+(me.role==='seeker'?me.look:me.yaw).toFixed(2);out.d=me.dis;out.q=me.taunts||0;
-    if(iSeek){out.cg=[...MP.cg];out.sh=me.shots||0}}
+    if(iSeek){out.cg=[...MP.cg];out.sh=me.shots||0;out.dp=[...MP.dp];out.pen=MP.pen}}
   if(MP.host){out.g=MP.g;out.b=chars.filter(c=>c.id&&c.id[0]==='b').sort((a,b)=>+a.id.slice(1)-+b.id.slice(1)).map(c=>[+c.x.toFixed(2),+c.z.toFixed(2),+c.yaw.toFixed(2),0,c.dis])}
   MP.net.presence(out);
 }
@@ -809,5 +883,5 @@ function frame(now){const dt=Math.min(0.1,(now-last)/1000);last=now;
   music(dt);
   renderer.render(scene,camera);drawFx(dt);requestAnimationFrame(frame)}
 requestAnimationFrame(frame);
-window.HNS={shoot:()=>shoot(player),disguise:()=>disguiseNear(player),get seeker(){return seeker},propItems,MP,get map(){return mapIdx},crouch:v=>setCrouch(v),info:()=>renderer.info.render,sim:(sec)=>{for(let t=0;t<sec;t+=1/30)update(1/30)},get chars(){return chars},get phase(){return phase},get mode(){return mode},get timer(){return timer},set timer(v){timer=v},startLevel,get level(){return level},set level(v){level=v},astar,sees,catchHider};
+window.HNS={_shoot:(s,t)=>shoot(s,t),changeProp,placeDecoy,get decoys(){return decoys},spec:{next:()=>{specIdx++},target:()=>specTarget()},shoot:()=>shoot(player),disguise:()=>disguiseNear(player),get seeker(){return seeker},propItems,MP,get map(){return mapIdx},crouch:v=>setCrouch(v),info:()=>renderer.info.render,sim:(sec)=>{for(let t=0;t<sec;t+=1/30)update(1/30)},get chars(){return chars},get phase(){return phase},get mode(){return mode},get timer(){return timer},set timer(v){timer=v},startLevel,get level(){return level},set level(v){level=v},astar,sees,catchHider};
 })();
