@@ -1,6 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
   <g fill="none" stroke="#fff" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M190 800q-90-10-70-130q20-90 120-90q-10-130 120-150q50-120 170-90q130 10 140 140q130-20 160 100q100 30 70 150q-10 70-90 70z"/><path d="M110 800h804"/>
+    <!-- шафа: ліві дверцята зачинені, праві прочинені назовні -->
+    <path d="M280 230h400q20 0 20 20v540q0 20-20 20H280q-20 0-20-20V250q0-20 20-20z"/>
+    <path d="M260 810h460M300 810v40M660 810v40"/>
+    <path d="M480 250v540"/>
+    <path d="M700 250l140 60v460l-140 30"/>
+    <path d="M440 480v60M800 520v60"/>
   </g>
-  <ellipse cx="440" cy="560" rx="62" ry="74" fill="#fff"/><ellipse cx="590" cy="560" rx="62" ry="74" fill="#fff"/><circle cx="458" cy="578" r="30" fill="#5fd38a"/><circle cx="608" cy="578" r="30" fill="#5fd38a"/>
+  <!-- у темній щілині — очі, що визирають -->
+  <ellipse cx="545" cy="440" rx="40" ry="52" fill="#fff"/><ellipse cx="635" cy="440" rx="40" ry="52" fill="#fff"/>
+  <circle cx="563" cy="452" r="20" fill="#5fd38a"/><circle cx="653" cy="452" r="20" fill="#5fd38a"/>
 </svg>
