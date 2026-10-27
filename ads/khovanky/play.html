@@ -54,6 +54,7 @@ body{background:var(--grass);color:var(--ink);font-family:var(--body);overflow:h
 .crouch:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
 .crouch.vent{right:calc(max(18px,env(safe-area-inset-right,0px)) + 96px);background:#3CC8C8;color:#0B2E2E;font-size:12px;animation:ventPulse 1.2s ease-in-out infinite}
 .crouch.abil{bottom:calc(env(safe-area-inset-bottom,0px) + 122px);width:118px;height:62px;border-radius:22px;background:#FFD23F;color:var(--ink);font-size:12px;gap:2px}
+.crouch.abil{overflow:hidden;--cd:0}.crouch.abil>span{position:relative}.crouch.abil::before{content:'';position:absolute;left:0;right:0;bottom:0;height:calc(var(--cd) * 100%);background:rgba(29,26,38,.16);pointer-events:none;transition:height .1s linear}
 .crouch.abil .ic{font-size:22px;line-height:1}.crouch.abil.off{background:rgba(255,251,244,.6);color:rgba(29,26,38,.55)}.crouch.abil.on{background:#A779F2;color:#fff}
 .crouch.vent.off{background:rgba(255,251,244,.6);color:rgba(29,26,38,.55);animation:none}
 @keyframes ventPulse{50%{transform:scale(1.07)}}

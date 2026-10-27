@@ -21,10 +21,10 @@ async function solo(b, lvl) {
   const ab0 = await p.evaluate(() => { const pl = HNSGame.player; return { ab: pl.ab, role: HNSGame.ABIL[pl.ab] && HNSGame.ABIL[pl.ab].role, seek: HNSGame.seeker.ab }; });
   check("усі отримали випадкове вміння своєї ролі", ab0.role === "hider" && !!ab0.seek, JSON.stringify(ab0));
   await until(() => p.evaluate(() => HNSGame.phase === "play"), 70000); await p.waitForTimeout(300);
-  check("кнопка вміння з'явилась", await p.evaluate(() => !document.getElementById("abil").hidden && /·/.test(document.getElementById("abil").innerText)));
+  check("кнопка вміння з'явилась", await p.evaluate(() => !document.getElementById("abil").hidden && document.getElementById("abil").innerText.includes(HNSGame.ABIL[HNSGame.player.ab].name)));
   await p.evaluate(() => { const s = HNSGame.seeker; s.state = "count"; s.path = null; HNSGame.player.caught = false; });   // шукач стоїть, поки перевіряємо вміння
-  const H = async (k, fn) => p.evaluate(([k, src]) => { const g = HNSGame, pl = g.player; g.giveAbility(pl, k); pl.abCd = 0; const before = { u: pl.abUses }; const ok = g.useAbility(pl); return Object.assign({ ok, used: before.u - pl.abUses }, new Function("g", "pl", src)(g, pl)); }, [k, fn]);
-  let r = await H("dash", "return {dash: pl.dashT>0}"); check("ривок", r.ok && r.dash, JSON.stringify(r));
+  const H = async (k, fn) => p.evaluate(([k, src]) => { const g = HNSGame, pl = g.player; g.giveAbility(pl, k); pl.abCd = 0; const ok = g.useAbility(pl); return Object.assign({ ok, cd: +pl.abCd.toFixed(1), hat: pl.mdl.hatAb === k }, new Function("g", "pl", src)(g, pl)); }, [k, fn]);
+  let r = await H("dash", "return {dash: pl.dashT>0, again: g.useAbility(pl)}"); check("ривок (+ кулдаун 6 с, капелюх)", r.ok && r.dash && r.cd === 6 && !r.again && r.hat, JSON.stringify(r));
   r = await H("invis", "const s=g.seeker; s.x=pl.x+2; s.z=pl.z; s.look=Math.atan2(pl.x-s.x,pl.z-s.z); return {invis: pl.invisT>0, seen: g.sees(s,pl)}");
   check("невидимість: шукач за 2 м не бачить", r.ok && r.invis && !r.seen, JSON.stringify(r));
   await p.evaluate(() => { HNSGame.player.invisT = 0; });
@@ -33,6 +33,10 @@ async function solo(b, lvl) {
   r = await H("double", "return {n:g.doubles.length}"); await p.waitForTimeout(1200);
   const dm = await p.evaluate(() => { const d = HNSGame.doubles[0]; return d ? Math.hypot(d.x - HNSGame.player.x, d.z - HNSGame.player.z) : -1; });
   check("двійник зʼявився й тікає", r.ok && r.n === 1 && dm > 0.8, `відбіг на ${dm.toFixed(1)} м`);
+  const dh = await p.evaluate(() => { const g = HNSGame, d = g.doubles[0], s = g.seeker; d.path = null; d.vx = d.vz = 0; s.state = "patrol"; s.x = d.x + 0.7; s.z = d.z; s.look = Math.atan2(d.x - s.x, d.z - s.z); return { hat: d.mdl.hatAb === g.player.mdl.hatAb }; });
+  await p.waitForTimeout(400);
+  const dpop = await p.evaluate(() => { const g = HNSGame; g.seeker.state = "count"; return g.pops.some((q) => q.ch.fake && q.text === "!"); });
+  check("двійник: той самий капелюх і «!», коли шукач помітив", dh.hat && dpop, JSON.stringify({ ...dh, dpop }));
   await p.evaluate(() => { const s = HNSGame.seeker; s.state = "patrol"; s.x = HNSGame.player.x + 8; });
   r = await H("lure", "const s=g.seeker; return {st:s.state, lure:!!pl.lure}");
   check("шум-приманка: бот-шукач іде глянути", r.ok && r.lure && r.st === "search", JSON.stringify(r));
@@ -52,7 +56,18 @@ async function solo(b, lvl) {
   await p.waitForTimeout(400);
   const st = await p.evaluate((i) => { const h = HNSGame.chars[i]; return { stuck: h.stuckT > 0, traps: HNSGame.traps.length }; }, tr);
   check("пастка: бот наступив → застряг, пастка зникла", r.ok && r.n === 1 && st.stuck && st.traps === 0, JSON.stringify(st));
-  r = await H("sonar", "return {a:g.chars.filter(c=>c.role==='hider'&&c.achoo>0).length}"); check("сонар: хованці видали себе", r.ok && r.a >= 1, JSON.stringify(r));
+  const t3 = await p.evaluate(() => { const g = HNSGame, pl = g.player, o = []; for (let i = 0; i < 3; i++) { pl.abCd = 0; pl.x += 1.5 * (i ? 1 : 0); g.useAbility(pl); o.push(g.traps.length) } return o; });
+  check("пастки: одночасно не більше двох", t3.join() === "1,2,2", t3.join());
+  r = await H("sonar", "const hs=g.chars.filter(c=>c.role==='hider'&&!c.caught);return {z:g.sonarZones.length,n:hs.length,lit:hs.filter(c=>c.achoo>0).length,off:g.sonarZones.map((z,i)=>Math.min(...hs.map(h=>Math.hypot(h.x-z.x,h.z-z.z))).toFixed(1))}");
+  check("сонар: зони біля хованців, без підсвітки", r.ok && r.z === r.n && r.lit === 0 && r.off.every((d) => d <= 2.2), JSON.stringify(r));
+  await p.waitForTimeout(300); await p.screenshot({ path: __dirname + "/out/hns-abil-sonar.png" });
+  const sb = await p.evaluate(() => { const g = HNSGame, pl = g.player, h = g.chars.find((c) => c.role === "hider" && !c.caught); g.giveAbility(h, "smoke"); h.abCd = 0; h.x = pl.x; h.z = pl.z; g.useAbility(h); h.x = pl.x + 2; return 1; });
+  await p.waitForTimeout(300);
+  const sb2 = await p.evaluate(() => { const g = HNSGame, pl = g.player, h = g.chars.find((c) => c.role === "hider" && !c.caught); pl.look = Math.atan2(h.x - pl.x, h.z - pl.z); return { blind: +pl.smokeBlindT.toFixed(1), seen: g.sees(pl, h) }; });
+  await p.waitForTimeout(200); await p.screenshot({ path: __dirname + "/out/hns-abil-smokeblind.png" });
+  check("шукач у диму: 2 с сліпий", sb2.blind > 1 && !sb2.seen, JSON.stringify(sb2));
+  r = await p.evaluate(() => { const g = HNSGame, pl = g.player, h = g.chars.find((c) => c.role === "hider" && !c.caught); g.giveAbility(h, "double"); h.abCd = 0; g.useAbility(h); g.giveAbility(pl, "reveal"); return { ok: g.useAbility(pl), t: pl.revealT, d: g.doubles.length, hat: pl.mdl.hatAb }; });
+  check("справжній погляд: 6 с, двійники позначені", r.ok && r.t > 5 && r.d >= 1 && r.hat === "reveal", JSON.stringify(r));
   await p.screenshot({ path: __dirname + "/out/hns-abil-seek.png" });
   await p.context().close();
 

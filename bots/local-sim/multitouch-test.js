@@ -25,8 +25,8 @@ async function center(p, sel) { return p.evaluate((s) => { const r = document.qu
   const ab = await center(p, "#abil");
   await T.send("touchStart", [{ ...j0, x: 170 }, { x: ab.x, y: ab.y, id: 2 }]); await p.waitForTimeout(80);
   await T.send("touchEnd", [{ ...j0, x: 170 }]); await p.waitForTimeout(250);
-  const k = await p.evaluate(() => ({ uses: HNSGame.player.abUses, vx: HNSGame.player.vx }));
-  check("Хованки: тримаєш джойстик і тиснеш вміння — спрацювало", k.uses === 2, JSON.stringify(k));
+  const k = await p.evaluate(() => ({ cd: HNSGame.player.abCd, vx: HNSGame.player.vx }));
+  check("Хованки: тримаєш джойстик і тиснеш вміння — спрацювало", k.cd > 4, JSON.stringify(k));
   await T.send("touchMove", [{ ...j0, x: 200 }]); await p.waitForTimeout(250);
   const v2 = await p.evaluate(() => HNSGame.player.vx);
   check("Хованки: джойстик після другого пальця далі працює", v2 > 1, `vx ${v2.toFixed(2)}`);
