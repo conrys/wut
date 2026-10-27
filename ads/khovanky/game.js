@@ -1,6 +1,9 @@
 /* Хованки — characters, navigation, vision, AI, game flow. */
 (function(){
 const T3=THREE,HW=HNSWorld,$=id=>document.getElementById(id);
+/* Мультитач: кнопки спрацьовують на дотик (pointerdown), а не на click — click браузер шле лише
+   для «першого» пальця, тож поки інший палець на джойстику, кнопки мовчали. Клавіатура/миша — через click. */
+function onTap(el,fn){let t=0;el.addEventListener('pointerdown',e=>{if(e.button>0)return;e.preventDefault();t=performance.now();fn(e)});el.addEventListener('click',e=>{if(performance.now()-t<700)return;fn(e)})}
 const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const mobile=Math.min(innerWidth,innerHeight)<700;
 
@@ -251,7 +254,7 @@ let introDur=10,lightsOff=true,flickerT=0,crouchOn=false,level=1,mode='hide',pha
 try{level=Math.max(1,parseInt(localStorage.getItem('hns_level'))||1);lightsOff=localStorage.getItem('hns_dark')!=='0'}catch(e){}
 $('lightsOff').checked=lightsOff;$('lightsOff').addEventListener('change',e=>{lightsOff=e.target.checked;try{localStorage.setItem('hns_dark',lightsOff?'1':'0')}catch(_){}});
 function setCrouch(v){crouchOn=v;$('crouch').querySelector('span').textContent=v?'Встати':'Присісти';$('crouch').setAttribute('aria-pressed',v?'true':'false');$('crouch').classList.toggle('on',v)}
-$('crouch').addEventListener('click',()=>{au();if(mode==='hide')setCrouch(!crouchOn)});
+onTap($('crouch'),()=>{au();if(mode==='hide')setCrouch(!crouchOn)});
 addEventListener('keydown',e=>{if((e.key==='c'||e.key==='C'||e.key==='Control')&&mode==='hide'&&!e.repeat)setCrouch(!crouchOn)});
 
 function newChar(role,isPlayer,color,x,z){
@@ -306,9 +309,10 @@ function say(text,cls){const el=$('say');el.textContent=text;el.className='say '
 /* ---------- input ---------- */
 let joy=null;const keys={};
 const gl=$('gl');
-gl.addEventListener('pointerdown',e=>{au();joy={sx:e.clientX,sy:e.clientY,x:e.clientX,y:e.clientY};try{gl.setPointerCapture(e.pointerId)}catch(_){}});
-gl.addEventListener('pointermove',e=>{if(joy){joy.x=e.clientX;joy.y=e.clientY}});
-const endJoy=()=>joy=null;gl.addEventListener('pointerup',endJoy);gl.addEventListener('pointercancel',endJoy);
+// джойстик веде лише той палець, що першим торкнувся поля; другий палець його не перехоплює
+gl.addEventListener('pointerdown',e=>{au();if(joy)return;joy={id:e.pointerId,sx:e.clientX,sy:e.clientY,x:e.clientX,y:e.clientY};try{gl.setPointerCapture(e.pointerId)}catch(_){}});
+gl.addEventListener('pointermove',e=>{if(joy&&e.pointerId===joy.id){joy.x=e.clientX;joy.y=e.clientY}});
+const endJoy=e=>{if(joy&&e.pointerId===joy.id)joy=null};gl.addEventListener('pointerup',endJoy);gl.addEventListener('pointercancel',endJoy);
 addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true});addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false});
 $('ovBtn').addEventListener('click',()=>{au();if(MP.on){if(MP.host&&MP.g&&MP.g.ph==='end')hostStartRound();return}startLevel()});
 $('mpOpen').addEventListener('click',()=>{au();$('ov').hidden=true;$('mp').hidden=false;$('mpA').hidden=false;$('mpB').hidden=true;$('nick').value=MP.nick;$('colorBtn').style.background=PCOL[MP.color];
@@ -561,7 +565,7 @@ function updVentUI(){
   if(!ventHinted&&!cd){ventHinted=true;pop(player,'Люк!','#3CC8C8')}
 }
 function doVent(){au();if(canVent()&&ventJump(player)){ventUIKey='';try{navigator.vibrate&&navigator.vibrate(25)}catch(e){}}}
-$('vent').addEventListener('click',doVent);
+onTap($('vent'),doVent);
 window.HNSGame={get vents(){return vents},get player(){return player},get chars(){return chars},get phase(){return phase},
   useAbility:(c)=>useAbility(c||player),giveAbility:(c,k)=>{giveAbility(c);if(k){c.ab=k;c.abUses=ABIL[k].uses}abUIKey=''},get ABIL(){return ABIL},get smokes(){return smokes},get doubles(){return doubles},get traps(){return traps},get seeker(){return seeker},sees:(s,h)=>sees(s,h)};   // для тестів (bots/local-sim)
 addEventListener('keydown',e=>{if((e.key==='e'||e.key==='E'||e.key==='у'||e.key==='У')&&!e.repeat)doVent()});
@@ -670,7 +674,7 @@ function updAbilUI(){
 function announceAbility(){const c=player;if(!c||!c.ab||(MP.on&&MP.spectator))return;const A=ABIL[c.ab];
   setTimeout(()=>{const tip=$('tip');tip.textContent='Твоє вміння: '+A.ic+' '+A.name+' — '+A.txt.toLowerCase()+'. Кнопка зʼявиться, коли почнеться гра';tip.hidden=false;tip.classList.remove('fade');void tip.offsetWidth;tip.classList.add('fade')},2600)}
 function clearAbilities(){for(const s of smokes)scene.remove(s.g);for(const d of doubles)scene.remove(d.mdl.root);for(const t of traps)scene.remove(t.g);smokes=[];doubles=[];traps=[];fxSeen={};abUIKey=''}
-$('abil').addEventListener('click',()=>{au();useAbility(player)});
+onTap($('abil'),()=>{au();useAbility(player)});
 addEventListener('keydown',e=>{if((e.key==='q'||e.key==='Q'||e.key==='й'||e.key==='Й')&&!e.repeat)useAbility(player)});
 /* мультиплеєр: мої ефекти → presence.fx; чужі ← */
 function fxOut(G){const mine=c=>!c.remote&&!c.netBot&&(c.isPlayer||(MP.host&&c.id&&c.id[0]==='b'));
