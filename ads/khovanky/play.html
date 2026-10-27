@@ -53,6 +53,8 @@ body{background:var(--grass);color:var(--ink);font-family:var(--body);overflow:h
 .crouch.on{background:var(--hide);color:#fff;transform:translateY(3px);box-shadow:0 2px 0 var(--hide-deep)}
 .crouch:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
 .crouch.vent{right:calc(max(18px,env(safe-area-inset-right,0px)) + 96px);background:#3CC8C8;color:#0B2E2E;font-size:12px;animation:ventPulse 1.2s ease-in-out infinite}
+.crouch.abil{bottom:calc(env(safe-area-inset-bottom,0px) + 122px);width:118px;height:62px;border-radius:22px;background:#FFD23F;color:var(--ink);font-size:12px;gap:2px}
+.crouch.abil .ic{font-size:22px;line-height:1}.crouch.abil.off{background:rgba(255,251,244,.6);color:rgba(29,26,38,.55)}.crouch.abil.on{background:#A779F2;color:#fff}
 .crouch.vent.off{background:rgba(255,251,244,.6);color:rgba(29,26,38,.55);animation:none}
 @keyframes ventPulse{50%{transform:scale(1.07)}}
 @media (prefers-reduced-motion:reduce){.crouch.vent{animation:none}}
@@ -115,6 +117,7 @@ input:focus-visible,select:focus-visible{outline:3px solid var(--hide);outline-o
 <div class="say" id="say"></div>
 <button class="crouch vent" id="vent" type="button" hidden><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><ellipse cx="12" cy="15" rx="8" ry="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 15h12M12 3v8m-3-3 3 3 3-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Телепорт</span></button>
 <button class="crouch" id="crouch" type="button" aria-pressed="false" hidden><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="6" r="3" fill="currentColor"/><path d="M8 12c1.5-1.2 6.5-1.2 8 0l-1 4h2.5l1 4H5.5l1-4H9z" fill="currentColor"/></svg><span>Присісти</span></button>
+<button class="crouch abil" id="abil" type="button" hidden><span class="ic" aria-hidden="true">✨</span><span>Вміння</span></button>
 <div class="tip" id="tip" hidden></div>
 <div class="overlay" id="ov">
   <div class="card">
@@ -148,7 +151,7 @@ input:focus-visible,select:focus-visible{outline:3px solid var(--hide);outline-o
       <button class="link" id="copyCode" type="button">Скопіювати код</button>
       <ul class="plist" id="plist"></ul>
       <div id="hostCtl" class="stack" hidden>
-        <div class="rowf2"><label for="mapSel">Карта</label><select id="mapSel"><option value="auto">По черзі</option><option value="0">Будинок</option><option value="1">Супермаркет</option><option value="2">Школа</option><option value="3">Дача</option><option value="4">Офіс</option><option value="5">Табір</option></select></div>
+        <div class="rowf2"><label for="mapSel">Карта</label><select id="mapSel"><option value="auto">По черзі</option><option value="0">Будинок</option><option value="1">Супермаркет</option><option value="2">Школа</option><option value="3">Дача</option><option value="4">Офіс</option><option value="5">Табір</option><option value="6">Лікарня</option><option value="7">Торговий центр</option></select></div>
         <div class="rowf2"><label for="botSel">Боти-хованці</label><select id="botSel"><option>0</option><option>1</option><option selected>2</option><option>3</option><option>4</option></select></div>
         <button class="btn" id="mpStart" type="button">Почати</button>
       </div>

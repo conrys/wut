@@ -252,6 +252,102 @@ const CAMP_FURN=[
   {t:'table',x:18,z:13.5,w:2.0,d:1.1,c:'#2E9A57'},{t:'sofa',x:17.5,z:15.5,w:2.4,d:0.9,r:2,c:'#F2994A'},{t:'tvstand',x:20.7,z:13.5,w:2.0,d:0.4,r:1},
   {t:'ball',x:15,z:12},{t:'armchair',x:14.7,z:15.4,w:0.95,d:0.95,r:1,c:'#E8C25C'},
 ];
+/* ---------- Торговий центр (велика карта): 7 крамниць навколо атріуму з фудкортом ---------- */
+const MALL_ROWS=[
+"##################################",
+"#ggggggg#nnnnnnn#cccccccc#lllllll#",
+"#ggggggg#nnnnnnn#cccccccc#lllllll#",
+"#gggggggggnnnnnn#ccccccccclllllll#",
+"#gggggggggnnnnnn#ccccccccclllllll#",
+"#ggggggg#nnnnnnn#cccccccc#lllllll#",
+"#ggggggg#nnnnnnn#cccccccc#lllllll#",
+"###gg######nn########cc######ll###",
+"#aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa#",
+"#aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa#",
+"#aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa#",
+"#aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa#",
+"#aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa#",
+"#aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa#",
+"#aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa#",
+"#aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa#",
+"####ww#########bb##########uu#####",
+"#wwwwwwwwww#bbbbbbbbbb#uuuuuuuuuu#",
+"#wwwwwwwwww#bbbbbbbbbb#uuuuuuuuuu#",
+"#wwwwwwwwwwwbbbbbbbbbbbuuuuuuuuuu#",
+"#wwwwwwwwwwwbbbbbbbbbbbuuuuuuuuuu#",
+"#wwwwwwwwww#bbbbbbbbbb#uuuuuuuuuu#",
+"#wwwwwwwwww#bbbbbbbbbb#uuuuuuuuuu#",
+"##################################"];
+const MALL_FLOOR={g:['#FFE8A3','#F7DC8E','carpet'],n:['#C9A27A','#BD966E','wood'],c:['#D9B07E','#CDA372','wood'],l:['#E7D3F0','#DCC6E8','carpet'],
+  a:['#EEF0F3','#DDE1E7','tile'],w:['#E3E5DF','#D3D6CF','tile'],b:['#C79B6E','#BC8F62','wood'],u:['#B9BCC2','#AEB2B8','tile']};
+const MALL_FURN=[
+  // іграшки
+  {t:'toybox',x:2.4,z:1.6,w:1.0,d:0.6},{t:'toybox',x:6.4,z:1.6,w:1.0,d:0.6},{t:'tent',x:4.2,z:4.6,w:1.4,d:1.4,tall:1},{t:'ball',x:2.2,z:5.6},{t:'ball',x:6.6,z:4.2},
+  {t:'rug',x:4.2,z:4.4,w:3.6,d:2.6,c:'#FFE8A3',c2:'#F29E4C',flat:1,round:1},
+  // книгарня
+  {t:'bookshelf',x:12.5,z:1.32,w:3.0,d:0.5,tall:1},{t:'table',x:12.5,z:4.2,w:2.2,d:1.0,c:'#C9A27A'},{t:'armchair',x:15.3,z:5.9,w:0.95,d:0.95,r:3,c:'#E8A25C'},{t:'lamp',x:15.5,z:1.6},
+  // кавʼярня
+  {t:'counter',x:21,z:1.38,w:4,d:0.72},{t:'fridge',x:24.4,z:1.45,w:0.9,d:0.8,tall:1},
+  ...[[19,4.3],[22.6,4.3]].flatMap(([x,z])=>[{t:'cafetable',x,z,c:'#FFFFFF'},{t:'chair',x:x-0.6,z,r:1,c:'#F2994A'},{t:'chair',x:x+0.6,z,r:3,c:'#F2994A'}]),
+  // дім і декор
+  {t:'sofa',x:29.5,z:5.5,w:2.6,d:0.9,r:2,c:'#6F8FD8'},{t:'coffee',x:29.5,z:3.9,w:1.4,d:0.7},{t:'tvstand',x:29.5,z:1.35,w:2.4,d:0.6},{t:'nightstand',x:32.4,z:3.2,w:0.6,d:0.55},
+  {t:'rug',x:29.5,z:4,w:4,d:2.8,c:'#E9D9B5',c2:'#D97B5E',flat:1},
+  // атріум: фудкорт, кіоски, лавки, вазони
+  ...[[13,10.5],[16.5,10.5],[20,10.5],[13,13.6],[16.5,13.6],[20,13.6]].flatMap(([x,z])=>[{t:'cafetable',x,z,c:'#FFFFFF'},{t:'chair',x:x-0.6,z,r:1,c:'#27AE60'},{t:'chair',x:x+0.6,z,r:3,c:'#27AE60'}]),
+  {t:'counter',x:6.5,z:12,w:2.4,d:0.72},{t:'counter',x:26.5,z:12,w:2.4,d:0.72},
+  {t:'bench',x:8,z:8.6,w:1.6,d:0.5},{t:'bench',x:25,z:8.6,w:1.6,d:0.5},{t:'bench',x:9,z:15.4,w:1.6,d:0.5},{t:'bench',x:23.5,z:15.4,w:1.6,d:0.5},
+  {t:'plant',x:1.6,z:8.6,big:1},{t:'plant',x:32.4,z:8.6,big:1},{t:'plant',x:1.6,z:15.4,big:1},{t:'plant',x:32.4,z:15.4,big:1},{t:'plant',x:16.5,z:8.6,big:1},
+  {t:'rug',x:16.5,z:12,w:10,d:5,c:'#DDE7F2',c2:'#5B8FC9',flat:1},
+  // супермаркет
+  ...[3,6.5,9.5].map((x,i)=>({t:'shelf',x,z:20.4,w:0.9,d:2.1,tall:1,seed:i})),{t:'cart',x:2,z:22.2,w:0.6,d:0.9},{t:'cart',x:2.62,z:22.2,w:0.6,d:0.9},
+  // меблевий
+  {t:'bed',x:14,z:21.2,w:1.8,d:2.4,c:'#F2A0B4'},{t:'nightstand',x:15.2,z:22.4,w:0.55,d:0.5},{t:'wardrobe',x:21.4,z:18.4,w:0.7,d:1.8,tall:1,r:2},
+  {t:'sofa',x:18,z:22.5,w:2.4,d:0.9,r:2,c:'#D98A5E'},{t:'armchair',x:12.8,z:18,w:0.95,d:0.95,r:1,c:'#E8C25C'},{t:'lamp',x:19.8,z:17.6},
+  // склад
+  {t:'pallet',x:24.2,z:17.9,w:1.4,d:1.2,tall:1,low:1},{t:'pallet',x:31.8,z:22.3,w:1.4,d:1.2,tall:1},{t:'boxes',x:27.5,z:21,w:1.0,d:0.8},{t:'boxes',x:30.5,z:18.4,w:1.0,d:0.8},
+  {t:'tallcab',x:32.6,z:19.8,w:0.55,d:1.2,tall:1,c:'#7E8794'},
+];
+/* ---------- Лікарня: реєстратура, дві палати, рентген, аптека, ординаторська ---------- */
+const HOSP_ROWS=[
+"##########################",
+"#rrrrrrrr#wwwwwww#vvvvvvv#",
+"#rrrrrrrr#wwwwwww#vvvvvvv#",
+"#rrrrrrrrrwwwwwwwwvvvvvvv#",
+"#rrrrrrrrrwwwwwwwwvvvvvvv#",
+"#rrrrrrrr#wwwwwww#vvvvvvv#",
+"#rrrrrrrr#wwwwwww#vvvvvvv#",
+"####rr######ww######vv####",
+"#hhhhhhhhhhhhhhhhhhhhhhhh#",
+"#hhhhhhhhhhhhhhhhhhhhhhhh#",
+"####oo######pp######ss####",
+"#oooooooo#ppppppp#sssssss#",
+"#oooooooo#ppppppp#sssssss#",
+"#oooooooooppppppppsssssss#",
+"#oooooooooppppppppsssssss#",
+"#oooooooo#ppppppp#sssssss#",
+"#oooooooo#ppppppp#sssssss#",
+"##########################"];
+const HOSP_FLOOR={r:['#E9EEF2','#DCE3E9','tile'],w:['#D6EAF2','#C9E1EB','carpet'],v:['#DDEFD9','#D0E6CB','carpet'],h:['#EEF0F3','#DDE1E7','tile'],
+  o:['#E2E9F5','#D4DDEE','tile'],p:['#F3F2EC','#E3E5DF','tile'],s:['#C79B6E','#BC8F62','wood']};
+const HOSP_FURN=[
+  // реєстратура
+  {t:'counter',x:5,z:1.38,w:3,d:0.72},{t:'bench',x:3,z:5.2,w:1.6,d:0.5},{t:'bench',x:7,z:5.2,w:1.6,d:0.5},{t:'plant',x:1.6,z:6.4,big:1},{t:'plant',x:8.4,z:1.5},{t:'cooler',x:8.5,z:1.75},
+  // палата 1
+  {t:'bed',x:11.2,z:2.2,w:1.6,d:2.2,c:'#FFFFFF'},{t:'nightstand',x:12.0,z:1.3,w:0.55,d:0.5},{t:'bed',x:14.6,z:2.2,w:1.6,d:2.2,c:'#FFFFFF'},{t:'nightstand',x:13.5,z:1.3,w:0.55,d:0.5},
+  {t:'plant',x:16.4,z:6.4},{t:'rug',x:13,z:5,w:3,d:1.4,c:'#FFFFFF',c2:'#7CC3D9',flat:1},
+  // палата 2
+  {t:'bed',x:19.4,z:2.2,w:1.6,d:2.2,c:'#FFFFFF'},{t:'nightstand',x:19.92,z:1.3,w:0.55,d:0.5},{t:'bed',x:23.6,z:2.2,w:1.6,d:2.2,c:'#FFFFFF'},{t:'nightstand',x:23.08,z:1.3,w:0.55,d:0.5},
+  {t:'tallcab',x:24.6,z:6,w:0.55,d:1.2,tall:1,c:'#FFFFFF'},
+  // рентген
+  {t:'bed',x:2.6,z:13.8,w:1.4,d:2.2,c:'#9BC4E8'},{t:'tallcab',x:8.5,z:12,w:0.55,d:1.4,tall:1,c:'#B9C2CB'},{t:'desk',x:6.5,z:16.2,w:1.2,d:0.6,r:2},{t:'chair',x:6.5,z:16.15,r:0,c:'#3A3F4B'},
+  // аптека
+  {t:'shelf',x:11.5,z:14.5,w:0.9,d:2.1,tall:1,seed:2},{t:'shelf',x:15.5,z:14.5,w:0.9,d:2.1,tall:1,seed:4},{t:'counter',x:13.5,z:16.62,w:3,d:0.72},
+  // ординаторська
+  {t:'sofa',x:21.5,z:16.5,w:2.4,d:0.9,r:2,c:'#5B8FC9'},{t:'coffee',x:21.5,z:15.1,w:1.2,d:0.6},{t:'cafetable',x:19.2,z:12.4,c:'#FFFFFF'},{t:'chair',x:19.8,z:12.4,r:3,c:'#F2994A'},
+  {t:'fridge',x:24.5,z:11.5,w:0.9,d:0.8,tall:1},{t:'plant',x:24.4,z:16.4},
+  // коридор
+  {t:'bench',x:8,z:8.3,w:1.6,d:0.5},{t:'bench',x:17,z:9.7,w:1.6,d:0.5},{t:'plant',x:1.6,z:8.5,big:1},{t:'plant',x:24.4,z:8.5,big:1},{t:'cart',x:15,z:8.4,w:0.6,d:0.9,r:1},
+];
 const MAPS=[
   {id:'house',name:'Будинок',rows:HOUSE_ROWS,floor:HOUSE_FLOOR,furn:HOUSE_FURN,grass:'#8FCB72',
    spawn:[11,8.6],noHide:'h',waypoints:[[4,6],[3.5,2.6],[9.6,5.8],[14,4.2],[18.6,5.6],[3,9],[19,9],[11,8.6],[4.5,13.5],[9.2,13],[13,14.6],[17,13],[16.4,11.6]]},
@@ -265,6 +361,11 @@ const MAPS=[
    spawn:[12,8],noHide:'h',waypoints:[[5.5,4.6],[10.5,2.5],[1.8,2.5],[15.5,4.8],[21.5,1.8],[18.5,5.0],[3,8],[21,8],[3,11.5],[6,15],[10,11],[14.8,12],[10.5,15.3],[18.5,13.5],[21,12.8]]},
   {id:'camp',name:'Табір',rows:CAMP_ROWS,floor:CAMP_FLOOR,furn:CAMP_FURN,grass:'#7DB861',
    spawn:[11,8.5],noHide:'y',waypoints:[[2,4.5],[5.8,1.6],[8.8,4.8],[13.2,2.4],[16,3.5],[19,4.5],[3,8.5],[19,8.2],[4,12.5],[7,15],[11,13.5],[15,12],[15.5,14.2],[20,15.5]]},
+  {id:'hospital',name:'Лікарня',rows:HOSP_ROWS,floor:HOSP_FLOOR,furn:HOSP_FURN,grass:'#8FCB72',
+   spawn:[13,8.6],noHide:'h',waypoints:[[3,3.5],[7,3],[5,6.4],[13,4.5],[11,6],[16,3.8],[21.5,4.5],[18.6,6.2],[24,3.6],[3,8.5],[22,8.6],[5,12.4],[4.5,15.5],[8,14],[13.5,12],[13.5,15],[21,12.6],[23.5,13.8],[19,15.6]]},
+  {id:'mall',name:'Торговий центр',rows:MALL_ROWS,floor:MALL_FLOOR,furn:MALL_FURN,grass:'#9AA7AE',
+   spawn:[16.5,12],noHide:'',waypoints:[[4,3],[3,6],[12,2.6],[10.5,5.5],[21,3],[24,5.6],[29.5,2.8],[27.5,6],[3.5,10],[8,12],[11,9],[22.5,12],[30,10.5],[30,14],[5,14],[16.5,15],
+     [2.5,18.5],[5,21.5],[8,18.5],[16.5,19],[19.8,20],[13,22.5],[25,20.5],[29,20],[31,17.6]]},
 ];
 let MAP=HOUSE_ROWS,MW=22,MH=17,FLOOR=HOUSE_FLOOR,FURN=HOUSE_FURN;
 function useMap(i){const m=MAPS[i];MAP=m.rows;MW=MAP[0].length;MH=MAP.length;FLOOR=m.floor;FURN=m.furn;return m}

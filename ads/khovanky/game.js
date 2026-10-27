@@ -131,6 +131,8 @@ const angDiff=(a,b)=>{let d=(a-b)%(Math.PI*2);if(d>Math.PI)d-=Math.PI*2;if(d<-Ma
 function sees(s,h){
   const ex=s.x+Math.sin(s.look)*0.15,ez=s.z+Math.cos(s.look)*0.15,dx=h.x-ex,dz=h.z-ez,d=Math.hypot(dx,dz);
   if(d>s.range+0.2)return false;if(d<0.9)return true;
+  if(h.invisT>0)return false;                       // невидимість: лише впритул
+  if(inSmoke(ex,ez,h.x,h.z))return false;           // крізь дим не видно
   // зовсім поруч шукач «чує» навіть за спиною (якщо між вами нема стіни)
   if(d<1.35&&los(ex,ez,h.x,h.z))return true;
   if(Math.abs(angDiff(Math.atan2(dx,dz),s.look))>s.fov/2+0.05)return false;
@@ -245,7 +247,7 @@ $('mute').addEventListener('click',()=>{muted=!muted;$('mute').textContent=muted
 $('mute').textContent=muted?'🔇':'🔊';
 
 /* ---------- game state ---------- */
-let lightsOff=true,flickerT=0,crouchOn=false,level=1,mode='hide',phase='menu',timer=0,introT=0,T=0,chars=[],player=null,seeker=null,pops=[],confetti=[],stats={},shakeT=0,darkK=0,lastTick=0,achooT=0;
+let introDur=10,lightsOff=true,flickerT=0,crouchOn=false,level=1,mode='hide',phase='menu',timer=0,introT=0,T=0,chars=[],player=null,seeker=null,pops=[],confetti=[],stats={},shakeT=0,darkK=0,lastTick=0,achooT=0;
 try{level=Math.max(1,parseInt(localStorage.getItem('hns_level'))||1);lightsOff=localStorage.getItem('hns_dark')!=='0'}catch(e){}
 $('lightsOff').checked=lightsOff;$('lightsOff').addEventListener('change',e=>{lightsOff=e.target.checked;try{localStorage.setItem('hns_dark',lightsOff?'1':'0')}catch(_){}});
 function setCrouch(v){crouchOn=v;$('crouch').querySelector('span').textContent=v?'Встати':'Присісти';$('crouch').setAttribute('aria-pressed',v?'true':'false');$('crouch').classList.toggle('on',v)}
@@ -259,7 +261,7 @@ function newChar(role,isPlayer,color,x,z){
   if(isPlayer){const ring=new T3.Mesh(ringGeo,new T3.MeshBasicMaterial({color:role==='seeker'?'#FFE38A':'#FFFFFF',transparent:true,opacity:0.85,depthWrite:false}));ring.position.y=0.03;mdl.root.add(ring);ch.ring=ring}
   chars.push(ch);return ch;
 }
-function clearChars(){for(const c of chars){scene.remove(c.mdl.root);if(c.cage)scene.remove(c.cage)}chars=[];pops=[]}
+function clearChars(){for(const c of chars){scene.remove(c.mdl.root);if(c.cage)scene.remove(c.cage)}chars=[];pops=[];clearAbilities()}
 
 function startLevel(){
   const v=Math.floor((level-1)/4)%4;buildWorld(Math.floor((level-1)/2)%HW.MAPS.length,!!(v&1),!!(v&2));
@@ -270,7 +272,7 @@ function startLevel(){
     seeker.chase=Math.min(3.45,2.95+level*0.05);seeker.patrol=Math.min(2.8,2.35+level*0.05);seeker.state='count';seeker.visited=[];
     player=newChar('hider',true,'#4C8DFF',...snap(hx-1.4,hz+0.6));player.speed=3.6;
     const n=Math.min(5,2+Math.floor(level/2));for(let i=0;i<n;i++){const a=i/n*6.283;newChar('hider',false,COLORS[i%COLORS.length],...snap(hx+Math.cos(a)*1.3,hz+Math.sin(a)*0.5))}
-    timer=lightsOff?120:Math.min(45,28+level*1.5);introT=5;
+    timer=lightsOff?120:Math.min(45,28+level*1.5);introT=10;
   }else{
     seeker=player=newChar('seeker',true,'#FF5A5F',hx,hz);player.speed=3.5;player.range=5.6;player.fov=1.45;player.state='count';
     const n=Math.min(6,3+Math.floor(level/3));for(let i=0;i<n;i++){const a=i/n*6.283;newChar('hider',false,COLORS[i%COLORS.length],...snap(hx+Math.cos(a)*1.3,hz+Math.sin(a)*0.5))}
@@ -283,6 +285,7 @@ function startLevel(){
     const cand=spots.filter(s=>s.room===room&&taken.every(t=>Math.hypot(t.x-s.x,t.z-s.z)>2)).sort((a,b)=>b.score-a.score+(Math.random()-.5)*6);
     const sp=cand[0]||spots[Math.floor(Math.random()*spots.length)];taken.push(sp);h.spot=sp;h.state='toSpot';h.speed=3.0;h.path=astar(h.x,h.z,sp.x,sp.z);h.pi=0});
   stats={caught:0,freed:0,total:hiders.length+(mode==='hide'?1:0),time:timer};
+  introDur=introT;for(const c of chars)giveAbility(c);announceAbility();
   phase='intro';darkK=0;achooT=12;lastTick=0;rescuer=null;
   for(const c of chars){c.yaw=c===seeker?0:Math.PI;c.look=c.yaw}
   seeker.yaw=seeker.look=Math.PI;seeker.cover=1;
@@ -321,6 +324,7 @@ $('copyCode').addEventListener('click',()=>{const t=MP.code.toUpperCase();try{na
 
 /* ---------- movement ---------- */
 function steerPath(ch,dt,speed){
+  if(ch.sprintT>0)speed*=1.5;if(ch.stuckT>0)speed=0;
   let tx=0,tz=0;
   if(ch.path&&ch.pi<ch.path.length){const p=ch.path[ch.pi],dx=p[0]-ch.x,dz=p[1]-ch.z,d=Math.hypot(dx,dz);
     if(d<0.22){ch.pi++;}else{const last=ch.pi===ch.path.length-1,sp=last?Math.min(speed,d*3+0.6):speed;tx=dx/d*sp;tz=dz/d*sp}}
@@ -368,7 +372,7 @@ function hiderAI(h,dt){
   if(phase==='intro'){steerPath(h,dt,h.speed);return}
   const seen=s.state!=='count'&&sees(s,h);
   h.cool=(h.cool||0)-dt;
-  if(seen&&h.state!=='flee'){pop(h,'!','#FFD23F');if(mode==='seek')SFX.spot()}
+  if(seen&&h.state!=='flee'){pop(h,'!','#FFD23F');if(mode==='seek')SFX.spot();botAbility(h,'seen')}
   h.repathT-=dt;
   if((seen||d<2.2)&&h.repathT<=0){
     if(rescuer===h){rescuer=null;h.cool=12}
@@ -398,8 +402,9 @@ function hiderAI(h,dt){
 function seekerAI(s,dt){
   if(s.state==='count'){s.vx*=0.8;s.vz*=0.8;return}
   // pick the nearest hider we can see
-  let tgt=null,bd=1e9;for(const h of chars)if(h.role==='hider'&&!h.caught&&sees(s,h)){const d=Math.hypot(h.x-s.x,h.z-s.z);if(d<bd){bd=d;tgt=h}}
-  if(tgt){if(s.state!=='chase'){pop(s,'!','#FF5A5F');SFX.spot();s.repathT=0}s.state='chase';s.target=tgt;s.lastSeen=[tgt.x,tgt.z];s.lostT=0}
+  let tgt=null,bd=1e9;for(const h of chars.concat(doubles))if(h.role==='hider'&&!h.caught&&!h.gone&&sees(s,h)){const d=Math.hypot(h.x-s.x,h.z-s.z);if(d<bd){bd=d;tgt=h}}
+  if(tgt){if(s.state!=='chase'){pop(s,'!','#FF5A5F');SFX.spot();s.repathT=0;botAbility(s,'chase')}s.state='chase';s.target=tgt;s.lastSeen=[tgt.x,tgt.z];s.lostT=0}
+  else if(s.state==='patrol')botAbility(s,'idle');
   // hearing: running close by gives you away; sneaking (small joystick tilt) does not
   if(s.state==='patrol'||s.state==='look'){s.hearCd=(s.hearCd||0)-dt;
     if(s.hearCd<=0)for(const h of chars){if(h.role!=='hider'||h.caught)continue;const d=Math.hypot(h.x-s.x,h.z-s.z),sp=Math.hypot(h.vx,h.vz);
@@ -465,7 +470,7 @@ function update(dt){
   if(MP.on)mpTick(dt);
   else if(phase==='intro'){
     const before=Math.ceil(introT);introT-=dt;const now=Math.ceil(introT);
-    if(now!==before&&now>0&&now<=3){say(String(now),'num');SFX.beep()}
+    if(now!==before&&now>0){if(now<=3){say(String(now),'num');SFX.beep()}else tone(520,0.07,{type:'sine',vol:0.06})}
     if(introT<=0){phase='play';seeker.state=mode==='hide'?'patrol':'idle';seeker.cover=0;
       if(mode==='hide'&&lightsOff){say('Світло вимкнули!','big go');flickerT=0.8;SFX.click()}else say(mode==='hide'?'Шукаю!':'Шукай!','big go');SFX.go();
       if(mode==='hide'){seeker.path=null;seeker.state='look';seeker.spin=true;seeker.lookT=1.8;seeker.lookBase=seeker.yaw}}
@@ -482,7 +487,7 @@ function update(dt){
     const im=Math.hypot(ix,iz);if(im>1){ix/=im;iz/=im}
     const frozen=phase==='end'||(mode==='seek'&&phase==='intro')||phase==='menu';
     player.crouch+=((crouchOn&&mode==='hide'?1:0)-player.crouch)*Math.min(1,dt*12);
-    const sp=frozen?0:player.speed*(1-0.55*player.crouch);
+    const sp=frozen||player.stuckT>0?0:player.speed*(1-0.55*player.crouch)*(player.sprintT>0?1.5:1);
     player.vx+=(ix*sp-player.vx)*Math.min(1,dt*11);player.vz+=(iz*sp-player.vz)*Math.min(1,dt*11);
     if(mode==='seek')player.look=player.yaw;
   }
@@ -492,6 +497,8 @@ function update(dt){
   }
   for(const c of chars)if(c.ventCD>0)c.ventCD-=dt;
   updVentUI();
+  updAbilities(dt);updAbilUI();
+  for(const c of chars)if(!c.remote&&!c.netBot){if(c.dashT>0){c.vx=c.dashX*8.5;c.vz=c.dashZ*8.5;if(Math.random()<0.5)puff(c.x,c.z,0.08,0.4)}if(c.stuckT>0){c.vx=c.vz=0}}
   const steps=dt>0.03?2:1;for(let k=0;k<steps;k++)for(const c of chars)if(!c.remote&&!c.netBot)integrate(c,dt/steps);
   if(MP.on)mpFollow(dt);
   // catches and rescues
@@ -504,7 +511,9 @@ function update(dt){
   for(const h of chars){if(h.role!=='hider')continue;
     let target=1;if(mode==='seek'&&phase==='play'&&!h.caught)target=(sees(player,h)||Math.hypot(h.x-player.x,h.z-player.z)<1.3)?1:0;
     if(h.achoo>0){h.achoo-=dt;target=Math.max(target,0.55)}
+    target=Math.min(target,invisVis(h));
     h.vis+=(target-h.vis)*Math.min(1,dt*(target>h.vis?10:4))}
+  for(const d of doubles){const target=mode==='seek'&&phase==='play'?((sees(player,d)||Math.hypot(d.x-player.x,d.z-player.z)<1.3)?1:0):1;d.vis+=(target-d.vis)*Math.min(1,dt*8)}
   // footsteps + dust
   for(const c of chars){const sp=Math.hypot(c.vx,c.vz);c.stepT-=dt*sp;if(sp>1.8&&c.stepT<=0){c.stepT=0.55;if(c.vis>0.5)puff(c.x-c.vx*0.05,c.z-c.vz*0.05,0.07,0.35);if(c.isPlayer)SFX.step()}}
   for(const c of chars)if(!c.isPlayer&&c.role==='hider'){const want=(c.state==='hidden'||c.state==='toSpot'&&!c.path)&&phase==='play'?1:0;c.crouch+=(want-c.crouch)*Math.min(1,dt*8)}
@@ -533,12 +542,12 @@ function update(dt){
   const fol=player,ox=0,oy=9.2*far,oz=6.6*far;
   const want=new T3.Vector3(fol.x+ox,oy,fol.z+oz),lookAt=new T3.Vector3(fol.x,0,fol.z-0.4);
   if(phase==='intro'){const s=seeker;const ov=new T3.Vector3(s.x,15*far,s.z+10.5*far),ol=new T3.Vector3(s.x,0,s.z-1);
-    const k=Math.max(0,Math.min(1,1-(introT-0.4)/(mode==='hide'?4.6:4.1)));want.lerpVectors(ov,want,k*k*(3-2*k));lookAt.lerpVectors(ol,lookAt,k*k*(3-2*k))}
+    const el=MP.on?10-timer:introDur-introT,k=Math.max(0,Math.min(1,(el-0.4)/2.6));want.lerpVectors(ov,want,k*k*(3-2*k));lookAt.lerpVectors(ol,lookAt,k*k*(3-2*k))}
   camPos.lerp(want,Math.min(1,dt*(camBlend<1?60:5)));camLook.lerp(lookAt,Math.min(1,dt*(camBlend<1?60:6)));camBlend=1;
   camera.position.copy(camPos);if(shakeT>0&&!reduce){shakeT-=dt;camera.position.x+=(Math.random()-.5)*0.12;camera.position.y+=(Math.random()-.5)*0.08}
   camera.lookAt(camLook);
   // HUD
-  if(phase==='play'||phase==='intro'){const t=Math.ceil(phase==='intro'?timer:timer);$('timer').textContent=Math.floor(t/60)+':'+String(t%60).padStart(2,'0');$('timer').classList.toggle('hot',phase==='play'&&timer<=10)}
+  if(phase==='play'||phase==='intro'){const t=Math.ceil(phase==='intro'&&!MP.on?introT:timer);$('timer').textContent=Math.floor(t/60)+':'+String(t%60).padStart(2,'0');$('timer').classList.toggle('hot',phase==='play'&&timer<=10)}
 }
 
 function canVent(){return !!(player&&player.role==='hider'&&!player.caught&&(phase==='play'||phase==='intro')&&!(MP.on&&MP.spectator)&&ventNear(player))}
@@ -553,8 +562,141 @@ function updVentUI(){
 }
 function doVent(){au();if(canVent()&&ventJump(player)){ventUIKey='';try{navigator.vibrate&&navigator.vibrate(25)}catch(e){}}}
 $('vent').addEventListener('click',doVent);
-window.HNSGame={get vents(){return vents},get player(){return player},get chars(){return chars},get phase(){return phase}};   // для тестів (bots/local-sim)
+window.HNSGame={get vents(){return vents},get player(){return player},get chars(){return chars},get phase(){return phase},
+  useAbility:(c)=>useAbility(c||player),giveAbility:(c,k)=>{giveAbility(c);if(k){c.ab=k;c.abUses=ABIL[k].uses}abUIKey=''},get ABIL(){return ABIL},get smokes(){return smokes},get doubles(){return doubles},get traps(){return traps},get seeker(){return seeker},sees:(s,h)=>sees(s,h)};   // для тестів (bots/local-sim)
 addEventListener('keydown',e=>{if((e.key==='e'||e.key==='E'||e.key==='у'||e.key==='У')&&!e.repeat)doVent()});
+
+/* ---------- вміння: кожен раунд кожен отримує одне випадкове ----------
+   Хованці: ривок, невидимість, димова завіса, двійник, шум-приманка.
+   Шукач: радар, прожектор, спринт, пастка, сонар.
+   Мультиплеєр: кожен шле свої ефекти в presence.fx (дим, двійники, шум, пастки, невидимість),
+   шукач — ще й кого з двійників спіймав (dk); хованці — у чию пастку вскочили (tz). */
+const ABIL={
+  dash:{role:'hider',name:'Ривок',ic:'💨',uses:3,cd:2,txt:'Різкий ривок уперед — вирватись із-під ліхтаря'},
+  invis:{role:'hider',name:'Невидимість',ic:'👻',uses:1,dur:5,txt:'5 с тебе не видно навіть у промені (крім упритул)'},
+  smoke:{role:'hider',name:'Димова завіса',ic:'🌫',uses:1,dur:8,txt:'Хмара диму: крізь неї ліхтар не бачить'},
+  double:{role:'hider',name:'Двійник',ic:'👥',uses:1,dur:7,txt:'Твоя копія тікає в інший бік і збиває шукача'},
+  lure:{role:'hider',name:'Шум-приманка',ic:'🔔',uses:2,cd:4,txt:'Шум за кілька метрів від тебе — шукач піде глянути'},
+  radar:{role:'seeker',name:'Радар',ic:'📡',uses:2,dur:3,txt:'Стрілка на найближчого хованця'},
+  spot:{role:'seeker',name:'Прожектор',ic:'🔦',uses:1,dur:7,txt:'7 с ліхтар світить ширше й далі'},
+  sprint:{role:'seeker',name:'Спринт',ic:'⚡',uses:2,dur:3,txt:'3 с бігаєш швидше'},
+  trap:{role:'seeker',name:'Пастка',ic:'🪤',uses:2,cd:1,txt:'Хто наступить — застрягне на 3 с'},
+  sonar:{role:'seeker',name:'Сонар',ic:'📣',uses:1,txt:'Усі хованці на мить видають себе звуком'},
+};
+const ABIL_KEYS={hider:Object.keys(ABIL).filter(k=>ABIL[k].role==='hider'),seeker:Object.keys(ABIL).filter(k=>ABIL[k].role==='seeker')};
+function giveAbility(c){const pool=ABIL_KEYS[c.role];c.ab=pool[Math.floor(Math.random()*pool.length)];c.abUses=ABIL[c.ab].uses;c.abCd=0;c.abN=0;
+  c.invisT=c.dashT=c.sprintT=c.spotT=c.stuckT=c.radarT=0}
+let smokes=[],doubles=[],traps=[],fxSeen={};
+const smokeGeo=new T3.SphereGeometry(1,16,12);
+function addSmoke(x,z,key,dur,own){if(smokes.some(s=>s.key===key))return;const g=new T3.Group(),mats=[];
+  for(let i=0;i<9;i++){const mt=new T3.MeshBasicMaterial({color:i%2?'#C9CDD6':'#AEB4C0',transparent:true,opacity:0,depthWrite:false});mats.push(mt);
+    const m=new T3.Mesh(smokeGeo,mt),a=i/9*6.283,r=i?0.9+Math.random()*0.5:0;m.position.set(Math.cos(a)*r,0.55+Math.random()*0.5,Math.sin(a)*r);m.scale.setScalar(0.9+Math.random()*0.5);g.add(m)}
+  g.position.set(x,0,z);scene.add(g);smokes.push({x,z,r:1.9,key,t:0,dur:dur||ABIL.smoke.dur,g,mats,own:!!own});puffRing(x,z,16,'#C9CDD6')}
+function inSmoke(ax,az,bx,bz){for(const s of smokes){if(s.t>s.dur)continue;const dx=bx-ax,dz=bz-az,l2=dx*dx+dz*dz||1e-6;let t=((s.x-ax)*dx+(s.z-az)*dz)/l2;t=Math.max(0,Math.min(1,t));
+  if(Math.hypot(ax+dx*t-s.x,az+dz*t-s.z)<s.r)return true}return false}
+function newFake(color){const mdl=makeBean(color,'hider');mdl.root.scale.setScalar(1.18);scene.add(mdl.root);
+  return{fake:true,role:'hider',crouch:0,x:0,z:0,vx:0,vz:0,yaw:Math.PI,look:Math.PI,mdl,state:'flee',caught:false,vis:1,ph:Math.random()*6,blinkT:2,stepT:0,alertT:1,cover:0,cheer:0,path:null,pi:0}}
+function addDouble(owner,key,remote){if(doubles.some(d=>d.key===key))return null;const d=newFake(owner.color);d.key=key;d.owner=owner;d.remote=!!remote;d.x=owner.x;d.z=owner.z;d.t=0;
+  if(!remote){const s=seeker,ax=owner.x-s.x,az=owner.z-s.z,base=Math.atan2(az,ax)+(Math.random()<0.5?1:-1)*1.2;let best=null;
+    for(let k=0;k<20&&!best;k++){const a=base+(Math.random()-.5)*1.2,r=5+Math.random()*3,[x,z]=snap(owner.x+Math.cos(a)*r,owner.z+Math.sin(a)*r);if(Math.hypot(x-owner.x,z-owner.z)>3)best=[x,z]}
+    if(best){d.path=astar(d.x,d.z,best[0],best[1]);d.pi=0}}
+  doubles.push(d);puffRing(d.x,d.z,10,'#FFFFFF');return d}
+function removeDouble(d,caught){if(d.gone)return;d.gone=true;scene.remove(d.mdl.root);puffRing(d.x,d.z,14,caught?'#FFD23F':'#FFFFFF');if(caught){pop({x:d.x,z:d.z,vis:1},'Двійник!','#FFD23F');SFX.achoo()}doubles=doubles.filter(x=>x!==d)}
+const trapGeo=new T3.TorusGeometry(0.3,0.05,6,18).rotateX(-Math.PI/2),trapTeeth=new T3.ConeGeometry(0.05,0.14,4);
+function addTrap(x,z,key){if(traps.some(t=>t.key===key))return;const g=new T3.Group(),mat=new T3.MeshBasicMaterial({color:'#5A3A2A',transparent:true,opacity:1});
+  g.add(new T3.Mesh(trapGeo,mat));for(let i=0;i<8;i++){const a=i/8*6.283,m=new T3.Mesh(trapTeeth,mat);m.position.set(Math.cos(a)*0.3,0.07,Math.sin(a)*0.3);g.add(m)}
+  g.position.set(x,0.03,z);scene.add(g);traps.push({x,z,key,g,mat})}
+function removeTrap(t,sprung){if(t.gone)return;t.gone=true;fxSeen['t'+t.key]=1;scene.remove(t.g);traps=traps.filter(x=>x!==t);if(sprung){ripple(t.x,t.z,'#FF5A5F');pop({x:t.x,z:t.z,vis:1},'Пастка!','#FF5A5F');SFX.click()}}
+function lureFx(x,z){for(let i=0;i<3;i++)setTimeout(()=>ripple(x,z,'#FFD23F'),i*220);pop({x,z,vis:1},'Дзень!','#FFD23F');
+  const d=player?Math.hypot(x-player.x,z-player.z):5;tone(1180,0.12,{type:'triangle',vol:Math.max(0.03,0.14-d/60)});tone(1480,0.18,{type:'triangle',vol:Math.max(0.03,0.12-d/60),delay:0.12});
+  // бот-шукач іде глянути
+  if(!MP.on&&mode==='hide'&&seeker&&!seeker.isPlayer&&seeker.state!=='chase'&&phase==='play'){seeker.state='search';seeker.lastSeen=[x,z];seeker.path=astar(seeker.x,seeker.z,x,z);seeker.pi=0;pop(seeker,'?','#FFD23F')}}
+function sonarFx(){for(const h of chars)if(h.role==='hider'&&!h.caught){ripple(h.x,h.z,'#FFD23F');setTimeout(()=>ripple(h.x,h.z,'#FFD23F'),250);h.achoo=1.6}
+  tone(520,0.4,{type:'sine',vol:0.1,slide:2});}
+function abilityKey(c){return (MP.on?(c.id||MP.me):(c.isPlayer?'me':'bot'+chars.indexOf(c)))+':'+(c.abN++)}
+/* використати вміння (гравець — кнопкою, бот — з AI). Повертає true, якщо спрацювало */
+function useAbility(c){
+  if(!c||!c.ab||c.caught||phase!=='play'||(c.abUses||0)<=0||(c.abCd||0)>0||(c.stuckT||0)>0)return false;
+  const A=ABIL[c.ab];c.abUses--;c.abCd=A.cd||0;
+  switch(c.ab){
+    case 'dash':{const sp=Math.hypot(c.vx,c.vz),dx=sp>0.3?c.vx/sp:Math.sin(c.yaw),dz=sp>0.3?c.vz/sp:Math.cos(c.yaw);c.dashT=0.32;c.dashX=dx;c.dashZ=dz;puffRing(c.x,c.z,10,'#FFFFFF');tone(300,0.2,{type:'sawtooth',vol:0.05,slide:2.5});break}
+    case 'invis':c.invisT=A.dur;puffRing(c.x,c.z,12,'#C9A8FF');tone(880,0.3,{type:'sine',vol:0.07,slide:0.4});break;
+    case 'smoke':addSmoke(c.x,c.z,abilityKey(c),A.dur,true);tone(200,0.4,{type:'sawtooth',vol:0.04,slide:0.6});break;
+    case 'double':addDouble(c,abilityKey(c),false);c.dblT=A.dur;tone(660,0.15,{type:'triangle',vol:0.07,delay:0});tone(660,0.15,{type:'triangle',vol:0.07,delay:0.12});break;
+    case 'lure':{let best=null;for(let k=0;k<16&&!best;k++){const a=c.yaw+(Math.random()-.5)*2.4,r=4.5+Math.random()*2.5,[x,z]=snap(c.x+Math.sin(a)*r,c.z+Math.cos(a)*r);if(Math.hypot(x-c.x,z-c.z)>3.2)best=[x,z]}
+      if(!best)best=snap(c.x+3,c.z);c.lure=[best[0],best[1],abilityKey(c)];lureFx(best[0],best[1]);break}
+    case 'radar':c.radarT=A.dur;tone(980,0.08,{type:'square',vol:0.05});tone(1300,0.08,{type:'square',vol:0.05,delay:0.1});break;
+    case 'spot':c.spotT=A.dur;tone(400,0.2,{type:'triangle',vol:0.07,slide:1.6});break;
+    case 'sprint':c.sprintT=A.dur;tone(500,0.15,{type:'sawtooth',vol:0.05,slide:1.8});break;
+    case 'trap':addTrap(+c.x.toFixed(2),+c.z.toFixed(2),abilityKey(c));tone(150,0.12,{type:'square',vol:0.08});pop(c,'Пастку поставлено','#FFD23F');break;
+    case 'sonar':c.sonarN=(c.sonarN||0)+1;sonarFx();break;
+  }
+  if(c.isPlayer){abUIKey='';try{navigator.vibrate&&navigator.vibrate(20)}catch(e){}}
+  return true;
+}
+/* таймери, двійники, пастки, дим — щокадру */
+function updAbilities(dt){
+  for(const c of chars){if(c.abCd>0)c.abCd-=dt;for(const k of ['invisT','dashT','sprintT','spotT','stuckT','radarT','dblT'])if(c[k]>0)c[k]=Math.max(0,c[k]-dt);
+    if(c.role==='seeker'){if(c.baseRange==null){c.baseRange=c.range;c.baseFov=c.fov}const on=c.spotT>0;c.range=on?c.baseRange*1.55:c.baseRange;c.fov=on?Math.min(2.4,c.baseFov*1.4):c.baseFov}}
+  for(const s of smokes){s.t+=dt;const k=s.t<0.5?s.t/0.5:s.t>s.dur?Math.max(0,1-(s.t-s.dur)/1.2):1;s.mats.forEach((m,i)=>{m.opacity=0.68*k});s.g.children.forEach((m,i)=>{m.position.y=0.6+Math.sin(T*1.3+i)*0.12})}
+  for(const s of smokes.filter(s=>s.t>s.dur+1.2)){scene.remove(s.g)}smokes=smokes.filter(s=>s.t<=s.dur+1.2);
+  for(const d of doubles.slice()){d.t+=dt;if(!d.remote){steerPath(d,dt,3.4);integrate(d,dt);if(d.t>ABIL.double.dur)removeDouble(d,false)}animate(d,dt);
+    const sp=Math.hypot(d.vx,d.vz);d.stepT-=dt*sp;if(sp>1.8&&d.stepT<=0){d.stepT=0.55;puff(d.x,d.z,0.07,0.35)}}
+  // шукач ловить двійників дотиком (у мультиплеєрі — лише сам шукач, і повідомляє власника)
+  if(phase==='play'&&seeker&&(!MP.on||seeker.id===MP.me))for(const d of doubles.slice())if(Math.hypot(d.x-seeker.x,d.z-seeker.z)<0.66){if(MP.on)MP.dk.add(d.key);removeDouble(d,true)}
+  // пастки: застрягаю я (і боти, якщо їх веду я)
+  if(phase==='play')for(const t of traps.slice())for(const c of chars){if(c.role!=='hider'||c.caught||(c.remote||c.netBot)||(MP.on&&!c.isPlayer&&!MP.host))continue;
+    if(Math.hypot(c.x-t.x,c.z-t.z)<0.45){c.stuckT=3;c.vx=c.vz=0;if(MP.on)MP.tz.add(t.key);removeTrap(t,true);if(c.isPlayer)say('Пастка! 3 с','big');break}}
+  // пастки бачить шукач; хованцям вони ледь помітні
+  for(const t of traps){t.mat.opacity=mode==='seek'?1:0.22}
+}
+function invisVis(h){if(!(h.invisT>0))return 1;return h===player?0.45:mode==='seek'?0:0.35}
+/* бот використовує вміння, коли його помітили / женуться */
+function botAbility(c,why){if(!c.ab||(c.abUses||0)<=0||(c.abCd||0)>0)return;
+  if(c.role==='hider'){if(why==='seen'&&Math.random()<0.75)useAbility(c)}
+  else{const A=c.ab;if(why==='chase'&&(A==='sprint'||A==='spot'))useAbility(c);
+    else if(why==='idle'&&(A==='radar'||A==='sonar'||A==='trap')&&Math.random()<0.004){if(useAbility(c)&&(A==='radar'||A==='sonar')){const h=chars.filter(x=>x.role==='hider'&&!x.caught).sort((a,b)=>Math.hypot(a.x-c.x,a.z-c.z)-Math.hypot(b.x-c.x,b.z-c.z))[0];
+      if(h){c.state='search';c.lastSeen=[h.x,h.z];c.path=astar(c.x,c.z,h.x,h.z);c.pi=0;pop(c,'?','#FFD23F')}}}}}
+/* кнопка вміння */
+let abUIKey='';
+function updAbilUI(){
+  const c=player,show=!!(c&&c.ab&&!c.caught&&(phase==='play'||phase==='intro')&&!(MP.on&&MP.spectator));
+  const A=show&&ABIL[c.ab],cd=show?Math.ceil(Math.max(c.abCd||0,c.stuckT||0)):0,active=show&&((c.invisT||0)+(c.spotT||0)+(c.sprintT||0)+(c.radarT||0))>0;
+  const key=show+':'+(show&&c.ab)+':'+(show&&c.abUses)+':'+cd+':'+phase+':'+active;if(key===abUIKey)return;abUIKey=key;
+  const b=$('abil');b.hidden=!show;if(!show)return;
+  b.querySelector('.ic').textContent=A.ic;b.querySelector('span:last-child').textContent=A.name+' · '+c.abUses;
+  b.classList.toggle('off',phase!=='play'||c.abUses<=0||cd>0);b.classList.toggle('on',active);b.setAttribute('aria-label',A.name+': '+A.txt);
+}
+function announceAbility(){const c=player;if(!c||!c.ab||(MP.on&&MP.spectator))return;const A=ABIL[c.ab];
+  setTimeout(()=>{const tip=$('tip');tip.textContent='Твоє вміння: '+A.ic+' '+A.name+' — '+A.txt.toLowerCase()+'. Кнопка зʼявиться, коли почнеться гра';tip.hidden=false;tip.classList.remove('fade');void tip.offsetWidth;tip.classList.add('fade')},2600)}
+function clearAbilities(){for(const s of smokes)scene.remove(s.g);for(const d of doubles)scene.remove(d.mdl.root);for(const t of traps)scene.remove(t.g);smokes=[];doubles=[];traps=[];fxSeen={};abUIKey=''}
+$('abil').addEventListener('click',()=>{au();useAbility(player)});
+addEventListener('keydown',e=>{if((e.key==='q'||e.key==='Q'||e.key==='й'||e.key==='Й')&&!e.repeat)useAbility(player)});
+/* мультиплеєр: мої ефекти → presence.fx; чужі ← */
+function fxOut(G){const mine=c=>!c.remote&&!c.netBot&&(c.isPlayer||(MP.host&&c.id&&c.id[0]==='b'));
+  const o={r:G.r,iv:chars.filter(c=>mine(c)&&c.invisT>0).map(c=>c.id),sm:smokes.filter(s=>s.own&&s.t<s.dur).map(s=>[+s.x.toFixed(2),+s.z.toFixed(2),s.key]),
+    dx:doubles.filter(d=>!d.remote).map(d=>[+d.x.toFixed(2),+d.z.toFixed(2),+d.yaw.toFixed(2),d.key,d.owner.id||'']),lu:[],tr:[],tz:[...MP.tz],dk:[...MP.dk],sp:0,so:0};
+  for(const c of chars)if(mine(c)&&c.lure)o.lu.push(c.lure);
+  if(player&&player.role==='seeker'&&!MP.spectator){o.tr=traps.map(t=>[t.x,t.z,t.key]);o.sp=player.spotT>0?1:0;o.so=player.sonarN||0}
+  return o}
+function fxIn(G){
+  const iSeek=seeker&&seeker.id===MP.me,listed=new Set();
+  for(const p of peersNow()){if(p.isMe)continue;const f=(p.presence||{}).fx;if(!f||f.r!==G.r)continue;
+    for(const id of f.iv||[]){const c=chars.find(x=>x.id===id);if(c)c.invisT=Math.max(c.invisT||0,0.4)}
+    for(const s of f.sm||[])if(!smokes.some(x=>x.key===s[2])&&!fxSeen[s[2]]){fxSeen[s[2]]=1;addSmoke(s[0],s[1],s[2])}
+    for(const d of f.dx||[]){listed.add(d[3]);let x=doubles.find(q=>q.key===d[3]);if(!x&&!fxSeen['d'+d[3]]){const ow=chars.find(c=>c.id===d[4])||{color:'#FFFFFF',x:d[0],z:d[1]};x=addDouble(ow,d[3],true)}
+      if(x){const ox=x.x,oz=x.z,k=Math.min(1,0.25);x.x+=(d[0]-x.x)*k;x.z+=(d[1]-x.z)*k;x.vx=(x.x-ox)*30;x.vz=(x.z-oz)*30;x.yaw=d[2]}}
+    for(const l of f.lu||[])if(!fxSeen['l'+l[2]]){fxSeen['l'+l[2]]=1;lureFx(l[0],l[1])}
+    const isSk=seeker&&p.id===seeker.id;
+    if(isSk){if(f.sp)seeker.spotT=Math.max(seeker.spotT||0,0.4);
+      const keys=new Set((f.tr||[]).map(t=>t[2]));for(const t of f.tr||[])if(!fxSeen['t'+t[2]])addTrap(t[0],t[1],t[2]);for(const t of traps.slice())if(!keys.has(t.key))removeTrap(t,false);
+      for(const k of f.dk||[]){fxSeen['d'+k]=1;const d=doubles.find(q=>q.key===k);if(d)removeDouble(d,true)}
+      if((f.so||0)>(MP.soSeen||0)){MP.soSeen=f.so;if(mode==='hide'&&!MP.spectator){say('Сонар!','big');tip2('Шукач почув усіх — зміни місце')}sonarFx()}}
+    if(iSeek)for(const k of f.tz||[]){const t=traps.find(q=>q.key===k);if(t)removeTrap(t,true)}
+  }
+  for(const d of doubles.slice())if(d.remote&&!listed.has(d.key))removeDouble(d,false);
+}
+function tip2(t){const tip=$('tip');tip.textContent=t;tip.hidden=false;tip.classList.remove('fade');void tip.offsetWidth;tip.classList.add('fade')}
 
 /* ---------- character animation ---------- */
 function animate(c,dt){
@@ -615,6 +757,13 @@ function drawFx(dt){
       fctx.fillStyle='rgba(0,0,0,.2)';fctx.beginPath();fctx.arc(0,3,17,0,6.283);fctx.fill();fctx.fillStyle=col;fctx.beginPath();fctx.arc(0,0,17,0,6.283);fctx.fill();
       fctx.rotate(a);fctx.fillStyle='#1D1A26';fctx.beginPath();fctx.moveTo(10,0);fctx.lineTo(-5,-7);fctx.lineTo(-2,0);fctx.lineTo(-5,7);fctx.fill();fctx.restore()}
   }
+  // радар: стрілка від тебе до найближчого хованця
+  if(player&&player.radarT>0&&phase==='play'){const hs=chars.filter(h=>h.role==='hider'&&!h.caught).sort((a,b)=>Math.hypot(a.x-player.x,a.z-player.z)-Math.hypot(b.x-player.x,b.z-player.z));
+    if(hs.length){const h=hs[0];_p.set(player.x,0.4,player.z).project(camera);const px=(_p.x+1)/2*W,py=(1-_p.y)/2*H;_p.set(h.x,0.4,h.z).project(camera);const hx=(_p.x+1)/2*W,hy=(1-_p.y)/2*H;
+      const a=Math.atan2(hy-py,hx-px),r=62,x=px+Math.cos(a)*r,y=py+Math.sin(a)*r,pulse=reduce?1:1+Math.sin(T*8)*0.1;
+      fctx.save();fctx.translate(x,y);fctx.scale(pulse,pulse);fctx.rotate(a);fctx.fillStyle='rgba(0,0,0,.25)';fctx.beginPath();fctx.moveTo(20,3);fctx.lineTo(-10,-11);fctx.lineTo(-4,3);fctx.lineTo(-10,17);fctx.fill();
+      fctx.fillStyle='#FFD23F';fctx.beginPath();fctx.moveTo(18,0);fctx.lineTo(-12,-14);fctx.lineTo(-6,0);fctx.lineTo(-12,14);fctx.fill();fctx.restore();
+      fctx.font='800 13px '+FONT;fctx.fillStyle='#FFD23F';fctx.textAlign='center';fctx.fillText(Math.round(Math.hypot(h.x-player.x,h.z-player.z))+' м',px+Math.cos(a)*(r+26),py+Math.sin(a)*(r+26))}}
   if(joy&&phase!=='end'){const dx=joy.x-joy.sx,dy=joy.y-joy.sy,m=Math.hypot(dx,dy),k=m>55?55/m:1;
     fctx.fillStyle='rgba(255,255,255,.18)';fctx.strokeStyle='rgba(255,255,255,.55)';fctx.lineWidth=2;fctx.beginPath();fctx.arc(joy.sx,joy.sy,55,0,6.283);fctx.fill();fctx.stroke();
     fctx.fillStyle='rgba(255,255,255,.9)';fctx.beginPath();fctx.arc(joy.sx+dx*k,joy.sy+dy*k,22,0,6.283);fctx.fill()}
@@ -669,8 +818,8 @@ function mpCycleColor(){MP.color=(MP.color+1)%PCOL.length;$('colorBtn').style.ba
 function hostStartRound(){
   const pl=humans().map(p=>p.id);if(!pl.length)return;
   const r=(MP.g?MP.g.r:0)+1,map=MP.mapSel==='auto'?(r-1)%HW.MAPS.length:+MP.mapSel;
-  MP.g={r,ph:'intro',k:1,map,fx:Math.random()<0.5?1:0,fz:Math.random()<0.5?1:0,sk:pl[(r-1)%pl.length],pl,bots:MP.botCount,dark:lightsOff?1:0,rem:5000,dur:lightsOff?120:Math.round(40+8*(pl.length-1+MP.botCount)),res:null};
-  MP.hostEnd=performance.now()+5000;
+  MP.g={r,ph:'intro',k:1,map,fx:Math.random()<0.5?1:0,fz:Math.random()<0.5?1:0,sk:pl[(r-1)%pl.length],pl,bots:MP.botCount,dark:lightsOff?1:0,rem:10000,dur:lightsOff?120:Math.round(40+8*(pl.length-1+MP.botCount)),res:null};
+  MP.hostEnd=performance.now()+10000;
 }
 function hostTick(dt){
   const G=MP.g;if(!G||G.ph==='lobby')return;
@@ -703,12 +852,12 @@ function mpTick(dt){
   if(key!==MP.phKey){MP.phKey=key;MP.phEnd=performance.now()+G.rem;mpPhase(G)}
   timer=Math.max(0,(MP.phEnd-performance.now())/1000);
   if(G.ph==='play'&&timer<=10&&Math.ceil(timer)!==lastTick){lastTick=Math.ceil(timer);SFX.tick()}
-  if(G.ph==='intro'){const n=Math.ceil(timer);if(n!==MP.lastN&&n<=3&&n>0){MP.lastN=n;say(String(n),'num');SFX.beep()}}
+  if(G.ph==='intro'){const n=Math.ceil(timer);if(n!==MP.lastN&&n>0){MP.lastN=n;if(n<=3){say(String(n),'num');SFX.beep()}else tone(520,0.07,{type:'sine',vol:0.06})}}
 }
 function mpSetupRound(G){
   const v=G;buildWorld(v.map,!!v.fx,!!v.fz);clearChars();
   MP.spectator=!G.pl.includes(MP.me);mode=G.sk===MP.me?'seek':'hide';lightsOffRound=!!G.dark;
-  MP.cg=new Set();MP.bf=new Set();rescuer=null;
+  MP.cg=new Set();MP.bf=new Set();MP.tz=new Set();MP.dk=new Set();MP.soSeen=0;rescuer=null;
   const sx=TX(world.def.spawn[0]),sz=TZ(world.def.spawn[1]);
   G.pl.forEach((id,i)=>{const p=presOf(id)||{},isSk=id===G.sk,a=i/Math.max(1,G.pl.length)*6.283;
     const [x,z]=isSk?[sx,sz]:snap(sx+Math.cos(a)*1.4,sz+Math.sin(a)*0.7);
@@ -723,6 +872,7 @@ function mpSetupRound(G){
     chars.filter(c=>c.id&&c.id[0]==='b').forEach((h,i)=>{const room=rooms[i%rooms.length];const cand=spots.filter(s=>s.room===room&&taken.every(t=>Math.hypot(t.x-s.x,t.z-s.z)>2)).sort((a,b)=>b.score-a.score+(Math.random()-.5)*6);
       const sp=cand[0]||spots[Math.floor(Math.random()*spots.length)];taken.push(sp);h.spot=sp;h.state='toSpot';h.path=astar(h.x,h.z,sp.x,sp.z);h.pi=0})}
   for(const c of chars){c.yaw=c.look=Math.PI}
+  for(const c of chars)if((c.isPlayer&&!MP.spectator)||(MP.host&&c.id&&c.id[0]==='b'))giveAbility(c);announceAbility();
   stats={caught:0,freed:0,total:chars.filter(c=>c.role==='hider').length,time:G.dur};
   coneMat.uniforms.color.value.set(mode==='hide'?'#FF4D5E':'#FFE6A0');coneMat.blending=mode==='hide'?T3.NormalBlending:T3.AdditiveBlending;coneMat.uniforms.opacity.value=mode==='hide'?0.5:0.3;coneMat.needsUpdate=true;
   camBlend=0;darkK=0;setCrouch(false);$('crouch').hidden=mode!=='hide'||MP.spectator;
@@ -733,7 +883,7 @@ function mpSetupRound(G){
 let lightsOffRound=true;
 function mpPhase(G){
   if(G.ph==='intro'){phase='intro';MP.lastN=0;say(MP.spectator?'Раунд почався':mode==='seek'?'Ти шукаєш!':'Ховайся!','big');SFX.beep();
-    const tip=$('tip');tip.textContent=MP.spectator?'Ти глядач. Приєднаєшся в наступному раунді':mode==='seek'?'Рахуєш до п’яти. Потім шукай усіх променем':'Тікай і сховайся, поки '+(seeker.nick||'шукач')+' рахує';tip.hidden=false;tip.classList.remove('fade');void tip.offsetWidth;tip.classList.add('fade')}
+    const tip=$('tip');tip.textContent=MP.spectator?'Ти глядач. Приєднаєшся в наступному раунді':mode==='seek'?'Рахуєш до десяти. Потім шукай усіх променем':'Тікай і сховайся, поки '+(seeker.nick||'шукач')+' рахує';tip.hidden=false;tip.classList.remove('fade');void tip.offsetWidth;tip.classList.add('fade')}
   if(G.ph==='play'){phase='play';seeker.state='idle';seeker.cover=0;
     if(mode==='hide'&&lightsOffRound){say('Світло вимкнули!','big go');flickerT=0.8;SFX.click()}else say(mode==='seek'?'Шукай!':'Шукаю!','big go');SFX.go()}
   if(G.ph==='end'){phase='end';joy=null;$('crouch').hidden=true;
@@ -770,8 +920,9 @@ function mpFollow(dt){
   const cg=iSeek?MP.cg:new Set((presOf(seeker&&seeker.id)||{}).cg||[]);
   for(const c of chars){if(c.role!=='hider')continue;const want=cg.has(c.id);
     if(want&&!c.caught)mpCatchFx(c);else if(!want&&c.caught)free(c,null)}
+  fxIn(G);
   // what I send
-  const me=player&&!MP.spectator?player:null,out={};
+  const me=player&&!MP.spectator?player:null,out={fx:fxOut(G)};
   if(me){out.x=+me.x.toFixed(2);out.z=+me.z.toFixed(2);out.y=+(me.role==='seeker'?me.look:me.yaw).toFixed(2);out.k=me.crouch>0.5?1:0;
     out.f=me.role==='hider'&&!me.caught?chars.filter(c=>c.caught&&c!==me&&Math.hypot(c.x-me.x,c.z-me.z)<0.85).map(c=>c.id):[];
     if(iSeek)out.cg=[...MP.cg]}
