@@ -314,7 +314,7 @@ let phase='menu',level=1,T=0,introT=0,playT=0,chars=[],player=null,mon=null,G=nu
   myGot=new Set(),pend=null,hold={on:false,id:null,p:0,ctx:''},downT=0,bleedSent=false,stats={},prev={op:0,bl:0,mk:0,ins:0},camBlend=0,blindT=0,slowT=0,dashT=0,dashCd=0,chkCd=0,
   auth={kCd:0,imm:0,bacc:{},last:{}};
 try{level=Math.max(1,parseInt(localStorage.getItem('mon_level'))||1)}catch(e){}
-const DOWN_MAX=45,SELF_T=5,REV_T=2.5,INS_T=2.5,BLIND_HOLD=0.9,BLIND_T=3,BLIND_IMM=12,BLIND_R=5;
+const DOWN_MAX=45,SELF_T=5,REV_T=2.5,INS_T=2.5,BLIND_HOLD=0,BLIND_T=3,BLIND_IMM=12,BLIND_R=5;
 const MON_SPD=3.25,PL_SPD=3.4;
 const fuseN=(l,n)=>Math.min(7,Math.min(5,3+Math.floor((l-1)/2))+Math.max(0,(n||1)-2));
 const isAuth=()=>!MP.on||MP.host;
@@ -482,12 +482,13 @@ function authMonster(dt){
   const blind=G.mm?(T<auth.blindUntil):m.state==='blind';
   // удар: дотик до монстра
   if(auth.kCd<=0&&!blind&&!(!G.mm&&m.state==='leave')&&!(!G.mm&&m.state==='sleep'))for(const c of chars)if(active(c)&&Math.hypot(c.x-m.x,c.z-m.z)<(G.mm?0.7:0.62)){applyDown(c.id);auth.kCd=G.mm?2.5:0.5;G.mk=(G.mk|0)+1;if(!G.mm)monAfterKnock(m,c.x,c.z);break}
-  // засліплення: світиш в обличчя зблизька ~0,9 с
+  // засліплення: світиш в обличчя зблизька — одразу
   if(T<auth.imm||blind)return;
   for(const c of chars){const k=c.id;if(!active(c)){auth.bacc[k]=0;continue}
-    const d=Math.hypot(m.x-c.x,m.z-c.z),face=Math.abs(angDiff(Math.atan2(c.x-m.x,c.z-m.z),m.look))<1.2;
-    if(d<BLIND_R&&face&&inBeam(c,m.x,m.z,BLIND_R))auth.bacc[k]=(auth.bacc[k]||0)+dt;else auth.bacc[k]=Math.max(0,(auth.bacc[k]||0)-dt*1.5);
-    if(auth.bacc[k]>=BLIND_HOLD){auth.bacc={};auth.imm=T+BLIND_T+BLIND_IMM;auth.blindUntil=T+BLIND_T;G.bl=(G.bl|0)+1;G.blb=c.id;
+    const d=Math.hypot(m.x-c.x,m.z-c.z),face=Math.abs(angDiff(Math.atan2(c.x-m.x,c.z-m.z),m.look))<1.5;
+    // миттєво: промінь в обличчя зблизька — і засліп
+    const hit=d<BLIND_R&&face&&inBeam(c,m.x,m.z,BLIND_R);if(hit)auth.bacc[k]=(auth.bacc[k]||0)+dt;else auth.bacc[k]=0;
+    if(hit&&auth.bacc[k]>=BLIND_HOLD){auth.bacc={};auth.imm=T+BLIND_T+BLIND_IMM;auth.blindUntil=T+BLIND_T;G.bl=(G.bl|0)+1;G.blb=c.id;
       if(!G.mm){m.state='blind';m.blindT=BLIND_T;m.target=null;m.path=null}break}}
 }
 

@@ -76,16 +76,17 @@ const park = (p) => p.evaluate(() => { const m = MONGame.mon; m.state = "sleep";
   const glare = await p.evaluate(() => { const g = MONGame, m = g.mon, pl = g.player;
     // знайти напрям, де між гравцем і монстром нема стін
     for (let a = 0; a < 6.28; a += 0.3) { const x = pl.x + Math.sin(a) * 6, z = pl.z + Math.cos(a) * 6; m.x = x; m.z = z; m.look = m.yaw = a; pl.yaw = a; if (g.sees({ x: x, z: z, look: a + Math.PI, sight: 9, state: "patrol" }, Object.assign({}, pl, { lightOn: false, crouch: 0, down: false, escaped: false, hidden: -1, out: false }))) return a; } return null; });
-  await p.evaluate(() => MONGame.sim(0.8));
-  const gs = await p.evaluate(() => ({ st: MONGame.mon.state, glare: MONGame.mon.glare }));
+  // з 6 м: помічає й біжить (зблизька далі засліпило б — це окрема перевірка)
+  const gs = await p.evaluate(() => { for (let i = 0; i < 30; i++) { MONGame.sim(0.034); if (MONGame.mon.state === "chase") return { st: "chase", glare: MONGame.mon.glare, t: i }; } return { st: MONGame.mon.state }; });
+  await p.evaluate(() => { const m = MONGame.mon; m.state = "sleep"; m.path = null; });
   check("світиш ліхтарем монстру в обличчя — він помічає й женеться", glare !== null && gs.st === "chase", JSON.stringify(gs));
   // засліпити: монстр за 4,5 м дивиться на мене (і біжить до мене), світю йому в очі ~0,9 с
   await park(p);
   const bl = await p.evaluate(() => { const g = MONGame, m = g.mon, pl = g.player;
     for (let a = 0; a < 6.28; a += 0.3) { const x = pl.x + Math.sin(a) * 4.5, z = pl.z + Math.cos(a) * 4.5; if (!g.sees({ x, z, look: a + Math.PI, sight: 9, state: "patrol" }, Object.assign({}, pl, { lightOn: false, crouch: 0, down: false, escaped: false, hidden: -1, out: false }))) continue;
-      m.x = x; m.z = z; m.look = m.yaw = a + Math.PI; pl.yaw = a; pl.lightOn = true; pl.battery = 90; m.state = "patrol"; m.path = null; g.sim(1.3); return { st: m.state, bl: g.G.bl }; } return null; });
-  check("світив в очі зблизька ~1 с — монстр засліплений", bl && bl.st === "blind" && bl.bl === 1, JSON.stringify(bl));
-  const after = await p.evaluate(() => { MONGame.player.lightOn = false; MONGame.sim(2.75); const st = MONGame.mon.state; MONGame.mon.state = "sleep"; MONGame.mon.path = null; return st; });   // далі сам підбіг би й збив
+      m.x = x; m.z = z; m.look = m.yaw = a + Math.PI; pl.yaw = a; pl.lightOn = true; pl.battery = 90; m.state = "patrol"; m.path = null; g.sim(0.1); return { st: m.state, bl: g.G.bl }; } return null; });
+  check("посвітив в обличчя зблизька — монстр засліплений одразу", bl && bl.st === "blind" && bl.bl === 1, JSON.stringify(bl));
+  const after = await p.evaluate(() => { MONGame.player.lightOn = false; MONGame.sim(3.05); const st = MONGame.mon.state; MONGame.mon.state = "sleep"; MONGame.mon.path = null; return st; });   // далі сам підбіг би й збив
   check("через 3 с монстр знову бачить", after !== "blind", after);
   await park(p);
   const imm = await p.evaluate(() => { const g = MONGame, m = g.mon, pl = g.player; pl.lightOn = true; m.look = m.yaw = Math.atan2(pl.x - m.x, pl.z - m.z); pl.yaw = Math.atan2(m.x - pl.x, m.z - pl.z); g.sim(1.5); return g.G.bl; });
