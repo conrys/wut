@@ -278,14 +278,20 @@ html.dark-games .al-word:not(.guess) { background: #e9fbf8; }
       lastCur = room.cur;
     } else if (ph === "last") {
       const T = G.teamCount(room);
-      paint("stage", `l|${room.turnNo}|${drive}`, `<div class="al-who"><small>Час вийшов! Останнє слово</small><div class="al-word" style="min-height:120px;width:100%"><b>${esc(room.cur || "")}</b></div>
-          <small>${drive ? "Хто встиг вгадати? Бал отримає ця команда" : `${esc(ex || "Пояснювач")} обирає, хто вгадав`}</small></div>` +
+      // останнє слово бачить лише пояснювач: вгадувати його можуть усі команди,
+      // тож решті воно відкривається, коли пояснювач завершить хід (екран підсумку)
+      const seeWord = iEx || (drive && !G.isConnected((room.players || {})[ex]));
+      paint("stage", `l|${room.turnNo}|${drive}|${seeWord}`, `<div class="al-who"><small>Час вийшов! ${seeWord ? "Останнє слово" : "Останнє слово — ще можна вгадати"}</small>` +
+          (seeWord ? `<div class="al-word" style="min-height:120px;width:100%"><b>${esc(room.cur || "")}</b></div>`
+                   : `<div class="al-word guess" style="min-height:120px;width:100%"><b>Вгадуйте!</b><small style="color:#5a4a00">Пояснює ${esc(ex || "")}</small></div>`) +
+          `<small>${drive ? "Хто встиг вгадати? Бал отримає ця команда" : `${esc(ex || "Пояснювач")} обирає, хто вгадав`}</small></div>` +
         (drive ? `<div class="al-last" id="lastBtns">${Array.from({ length: T }, (_, t) => `<button data-t="${t}"><i style="background:${tColor(t)}"></i>${esc(tName(t))}</button>`).join("")}<button class="none" data-t="-1">Ніхто не вгадав</button></div>` : ""));
       const lb = $("lastBtns"); if (lb && !lb.dataset.wired) { lb.dataset.wired = 1; lb.addEventListener("click", (e) => { const b = e.target.closest("[data-t]"); if (b) { G.setLast(+b.dataset.t); sfx("pop"); } }); }
     } else if (ph === "review") {
       const p = G.turnPoints(room), lastBy = room.lastBy;
       const rows = words.map((w, i) => w ? `<${drive ? "button" : "div"} class="it ${w.ok ? "ok" : "no"}" data-i="${i}"><span class="m">${w.ok ? "✓" : "✗"}</span><span>${esc(w.w)}</span></${drive ? "button" : "div"}>` : "");
       if (Number.isInteger(lastBy) && lastBy >= 0) rows.push(`<div class="it ok"><span class="m">✓</span><span>${esc(room.cur || "")}</span><span class="tag">останнє · ${esc(tName(lastBy))}</span></div>`);
+      else if (room.cur) rows.push(`<div class="it no"><span class="m">✗</span><span>${esc(room.cur)}</span><span class="tag">останнє · ніхто</span></div>`);
       const fresh = paint("stage", "v|" + JSON.stringify([words, lastBy, drive]), `<div class="al-sum">${p > 0 ? "+" : ""}${p}<small>для «${esc(tName(team))}»${Number.isInteger(lastBy) && lastBy >= 0 && lastBy !== team ? ` · +1 для «${esc(tName(lastBy))}»` : ""}</small></div>
         <div class="pp-card"><div class="pp-h">${drive ? "Слова ходу · торкнись, щоб виправити" : "Слова ходу"}</div><div class="al-review" id="reviewList">${rows.join("") || '<div class="pp-note" style="color:#fff">Жодного слова — буває</div>'}</div></div>` +
         (drive || ctx.host ? `<button class="pp-btn pp-primary pp-block pp-big" id="confirmBtn">Зарахувати</button>` : `<div class="pp-note" style="color:#fff;text-align:center">${esc(ex || "Пояснювач")} перевіряє слова…</div>`));
