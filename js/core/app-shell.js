@@ -12,19 +12,34 @@
   const Cap = window.Capacitor;
   if (!Cap || !Cap.registerPlugin || !Cap.isNativePlatform()) return;
   const SITE = "https://kzl-crm.web.app";
-  const reg = (n) => (Cap.Plugins && Cap.Plugins[n]) || Cap.registerPlugin(n);
-  ["App", "Haptics", "SplashScreen", "StatusBar", "CapacitorUpdater"].forEach(reg);
-  const { App, SplashScreen, StatusBar, CapacitorUpdater: Updater } = Cap.Plugins;
+  // Помилки оболонки — у localStorage, щоб показати в Налаштуваннях → «Застосунок»
+  const ERR_KEY = "app_shell_errors";
+  function note(e, where) {
+    const m = (where ? where + ": " : "") + String((e && (e.message || e.code)) || e).slice(0, 160);
+    console.warn("[41games]", m);
+    try { const a = JSON.parse(localStorage.getItem(ERR_KEY) || "[]"); a.unshift({ at: Date.now(), m }); localStorage.setItem(ERR_KEY, JSON.stringify(a.slice(0, 5))); } catch (x) {}
+  }
+  // Будь-який виклик плагіна: синхронна помилка чи не-проміс не валить решту оболонки
+  function safe(where, f) {
+    try { const r = f(); return r && typeof r.then === "function" ? r.catch((e) => { note(e, where); }) : Promise.resolve(r); }
+    catch (e) { note(e, where); return Promise.resolve(); }
+  }
+  // Плагіни — ЛИШЕ через registerPlugin (проміси й addListener, що повертає проміс).
+  // Нативна сторона заздалегідь кладе в Capacitor.Plugins старі обʼєкти, у яких addListener
+  // повертає звичайний обʼєкт: «.catch is not a function» валив усю оболонку (APK 1.4).
+  const reg = (n) => { try { return Cap.registerPlugin(n); } catch (e) { note(e, "reg " + n); return Cap.Plugins && Cap.Plugins[n]; } };
+  const App = reg("App"), SplashScreen = reg("SplashScreen"), StatusBar = reg("StatusBar"), Updater = reg("CapacitorUpdater");
+  reg("Haptics");
   const Http = reg("CapacitorHttp");
 
   // 1) ця версія файлів стартувала → без відкату
-  Updater.notifyAppReady().catch(() => {});
+  safe("notifyAppReady", () => Updater.notifyAppReady());
 
   // 2) заставка й рядок стану
-  const hide = () => SplashScreen.hide({ fadeOutDuration: 220 }).catch(() => {});
+  const hide = () => safe("splash", () => SplashScreen.hide({ fadeOutDuration: 220 }));
   if (document.readyState === "complete") hide(); else addEventListener("load", hide, { once: true });
   setTimeout(hide, 4000);
-  StatusBar.setStyle({ style: "DARK" }).catch(() => {});
+  safe("statusbar", () => StatusBar.setStyle({ style: "DARK" }));
 
   // 3) живі оновлення — лише з головної (на ній завжди опиняєшся між іграми)
   const path = location.pathname.replace(/\/+$/, "/");
@@ -75,10 +90,10 @@
     clearTimeout(barHideT);
     barHideT = setTimeout(() => { if (bar) { const b = bar; b.style.opacity = "0"; bar = null; setTimeout(() => b.remove(), 320); } }, delay || 0);
   }
-  Updater.addListener("download", (e) => {
+  safe("download-listener", () => Updater.addListener("download", (e) => {
     const p = Math.round((e && e.percent) || 0);
     if (busy && p < 100) progress(p, "⬇️ Оновлення · " + p + "%");
-  }).catch(() => {});
+  }));
 
   const READY_KEY = "app_update_ready";
   const localVersion = () => fetch(BASE + "app-version.json", { cache: "no-store" }).then((r) => r.json()).then((j) => j.version).catch(() => null);
@@ -88,7 +103,7 @@
   let fresh = false;
   try { fresh = !sessionStorage.getItem("app_launched"); sessionStorage.setItem("app_launched", "1"); } catch (e) {}
   // прибираємо «kill»-умову, яку ставила стара версія: вона блокувала встановлення назавжди
-  Updater.cancelDelay().catch(() => {});
+  safe("cancelDelay", () => Updater.cancelDelay());
   async function applyReadyOnLaunch() {
     let r = null;
     try { r = JSON.parse(localStorage.getItem(READY_KEY) || "null"); } catch (e) {}
@@ -146,12 +161,13 @@
       if (fresh && (await applyReadyOnLaunch())) return;   // зараз перезавантажиться в нову версію
       setTimeout(() => checkUpdate(false), 1500);
     }, { once: true });
-    App.addListener("appStateChange", (s) => { if (s.isActive) checkUpdate(false); });
+    safe("appState-listener", () => App.addListener("appStateChange", (s) => { if (s.isActive) checkUpdate(false); }));
   }
 
   window.AppShell = {
     checkUpdate: () => checkUpdate(true),
     status: getStatus,
+    errors: () => { try { return JSON.parse(localStorage.getItem(ERR_KEY) || "[]"); } catch (e) { return []; } },
     version: () => fetch(BASE + "app-version.json", { cache: "no-store" }).then((r) => r.json()).then((j) => j.version).catch(() => "?"),
   };
 })();

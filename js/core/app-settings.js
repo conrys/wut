@@ -417,6 +417,7 @@
     const keys = (obj) => Object.keys(obj).map((k) => [k, k]);
     const arrow = '<svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg>';
 
+    const IN_APP = !!(window.AppShell || (window.Capacitor && window.androidBridge));
     const panel = document.createElement("div");
     panel.id = "appSettingsPanel";
     panel.innerHTML = `
@@ -451,7 +452,7 @@
             [["auto", "Авто"], ["full", "Повна"], ["lite", "Легка"]])}
         </div></div>
 
-        ${window.AppShell ? `<div class="grp"><div class="grp-t">Застосунок</div><div class="card">
+        ${IN_APP ? `<div class="grp"><div class="grp-t">Застосунок</div><div class="card">
           <div class="item"><div class="item-h"><div class="item-l"><b>Версія <span id="appVer">…</span></b><small id="appUpd"></small></div>
             <button type="button" class="opt-btn" id="appUpdBtn" style="flex:none;padding:8px 12px">Перевірити</button></div></div>
         </div></div>` : ""}
@@ -475,9 +476,18 @@
 
     // «Застосунок» (лише в APK): версія файлів, остання перевірка оновлень, кнопка «Перевірити»
     function paintApp() {
-      if (!window.AppShell) return;
-      AppShell.version().then((v) => { const el = document.getElementById("appVer"); if (el) el.textContent = v; });
-      const st = AppShell.status(), el = document.getElementById("appUpd");
+      if (!IN_APP) return;
+      const el = document.getElementById("appUpd");
+      let errs = [];
+      try { errs = JSON.parse(localStorage.getItem("app_shell_errors") || "[]"); } catch (e) {}
+      const errLine = errs.length ? " · Помилки оболонки: " + errs.slice(0, 2).map((x) => x.m).join(" | ") : "";
+      if (!window.AppShell) {
+        fetch("app-version.json", { cache: "no-store" }).then((r) => r.json()).then((j) => { const v = document.getElementById("appVer"); if (v) v.textContent = j.version; }).catch(() => {});
+        if (el) el.textContent = "Оболонка застосунку не запустилась — оновлення не працюють." + errLine;
+        return;
+      }
+      AppShell.version().then((v) => { const e2 = document.getElementById("appVer"); if (e2) e2.textContent = v; });
+      const st = AppShell.status();
       if (!el) return;
       const ago = st && st.at ? Math.max(0, Math.round((Date.now() - st.at) / 60000)) : null;
       const when = ago === null ? "" : ago < 1 ? "щойно" : ago < 60 ? ago + " хв тому" : Math.round(ago / 60) + " год тому";
@@ -485,12 +495,13 @@
         : st.state === "latest" ? "Найновіша · перевірено " + when
         : st.state === "ready" ? "Оновлення " + st.remote + " завантажене — перезапусти застосунок"
         : st.state === "error" ? "Помилка (" + when + "): " + st.error : "";
+      if (errLine) el.textContent += errLine;
     }
-    if (window.AppShell) {
+    if (IN_APP) {
       const b = panel.querySelector("#appUpdBtn");
       b.addEventListener("click", async () => {
         b.disabled = true; b.textContent = "Перевіряю…";
-        try { await AppShell.checkUpdate(); } finally { b.disabled = false; b.textContent = "Перевірити"; paintApp(); }
+        try { if (window.AppShell) await AppShell.checkUpdate(); } finally { b.disabled = false; b.textContent = "Перевірити"; paintApp(); }
       });
     }
     const open = () => { refreshActive(); paintApp(); panel.classList.add("open"); };

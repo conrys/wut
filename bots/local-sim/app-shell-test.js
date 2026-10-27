@@ -7,10 +7,11 @@ const ok = (n, c, x) => console.log((c ? "✓ " : "✗ ") + n + (x ? "  — " + 
 const MOCK = (remoteVersion) => `
   window.__calls = [];
   window.androidBridge = { postMessage(){} };
-  const P = (name, methods) => ({ name, methods: methods.map((m) => ({ name: m, rtype: "promise" })) });
+  // як справжній Android (JSExport): addListener/removeListener — rtype "none"
+  const P = (name, methods) => ({ name, methods: methods.map((m) => ({ name: m, rtype: /Listener$/.test(m) ? "none" : "promise" })) });
   window.Capacitor = {
     PluginHeaders: [P("App", ["addListener", "exitApp"]), P("SplashScreen", ["hide", "show"]), P("StatusBar", ["setStyle"]), P("Haptics", ["vibrate"]),
-      P("CapacitorHttp", ["get", "request"]), Object.assign(P("CapacitorUpdater", ["notifyAppReady", "list", "download", "next", "set", "setMultiDelay", "cancelDelay"]), { methods: ["notifyAppReady", "list", "download", "next", "set", "setMultiDelay", "cancelDelay"].map((m) => ({ name: m, rtype: "promise" })).concat([{ name: "addListener", rtype: "callback" }, { name: "removeListener", rtype: "promise" }]) })],
+      P("CapacitorHttp", ["get", "request"]), Object.assign(P("CapacitorUpdater", ["notifyAppReady", "list", "download", "next", "set", "setMultiDelay", "cancelDelay"]), { methods: ["notifyAppReady", "list", "download", "next", "set", "setMultiDelay", "cancelDelay"].map((m) => ({ name: m, rtype: "promise" })).concat([{ name: "addListener", rtype: "none" }, { name: "removeListener", rtype: "none" }]) })],
     nativePromise(plugin, method, opts) {
       window.__calls.push(plugin + "." + method);
       if (plugin === "CapacitorHttp") return fetch("/app-manifest.json").then((r) => r.json()).then((m) => ({ data: Object.assign(m, ${remoteVersion ? `{ version: "${remoteVersion}" }` : "{}"}), status: 200 }));
@@ -24,7 +25,16 @@ const MOCK = (remoteVersion) => `
       return Promise.resolve({});
     },
     nativeCallback(plugin, method, opts, cb) { if (method === "addListener") { (window.__ls = window.__ls || {})[opts.eventName] = cb; } return "cb1"; },
-  };`;
+  };
+  // як справжній Android: нативна сторона заздалегідь кладе в Plugins «старі» обʼєкти,
+  // у яких addListener повертає звичайний обʼєкт { remove }, а не проміс
+  window.Capacitor.addListener = (pl, ev, cb) => { window.Capacitor.nativeCallback(pl, "addListener", { eventName: ev }, cb); return { remove: async () => {} }; };
+  window.Capacitor.Plugins = {};
+  window.Capacitor.PluginHeaders.forEach((h) => {
+    const t = (window.Capacitor.Plugins[h.name] = {});
+    t.addListener = (ev, cb) => window.Capacitor.addListener(h.name, ev, cb);
+    h.methods.forEach((m) => { if (!/Listener$/.test(m.name)) t[m.name] = (o) => window.Capacitor.nativePromise(h.name, m.name, o); });
+  });`;
 (async () => {
   const b = await launch();
   // 1) та сама версія — нічого не качаємо
