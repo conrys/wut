@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<script src="../../js/core/native.js"></script>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Редактор карт</title>
+<link rel="stylesheet" href="../../vendor/fonts/baloo-2.css"><link rel="stylesheet" href="../../vendor/fonts/rubik.css">
+<style>
+/* Редактор карт для Хованок, Перевтілення, Монстра й Агентів: вид зверху + 3D-тест аватаром. */
+:root{--ink:#EEF3F8;--bg:#0E1218;--card:#161C25;--line:#2A3442;--acc:#3DD6C3;--acc-ink:#04201C;--warn:#FFB547;--bad:#FF5C5C;--ok:#4CC97A;
+  --display:'Baloo 2','Arial Rounded MT Bold',sans-serif;--body:'Rubik',system-ui,-apple-system,sans-serif;color-scheme:dark}
+html,body{height:100%;margin:0}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+#cv{position:fixed;inset:0;width:100%;height:100%;display:block}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.top{position:fixed;left:0;right:0;top:0;padding:calc(env(safe-area-inset-top,0px) + 8px) max(10px,env(safe-area-inset-right,0px)) 8px max(10px,env(safe-area-inset-left,0px));display:flex;gap:8px;align-items:center;background:linear-gradient(rgba(14,18,24,.92),rgba(14,18,24,.65));z-index:5}
+.ib{border:0;border-radius:12px;min-width:40px;height:40px;background:#1F2733;font-size:18px;display:grid;place-items:center;padding:0 10px;flex:none}
+.ib:disabled{opacity:.35}
+#mapBtn{flex:1;min-width:0;text-align:left;font-family:var(--display);font-weight:800;font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#stat{font-family:var(--display);font-weight:800;font-size:15px}
+#stat.ok{background:rgba(76,201,122,.22);color:var(--ok)}#stat.bad{background:rgba(255,92,92,.22);color:var(--bad)}#stat.warn{background:rgba(255,181,71,.2);color:var(--warn)}
+.bottom{position:fixed;left:0;right:0;bottom:0;padding:8px max(10px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 10px) max(10px,env(safe-area-inset-left,0px));background:linear-gradient(rgba(14,18,24,.6),rgba(14,18,24,.95));z-index:5;display:grid;gap:8px}
+.strip{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}.strip::-webkit-scrollbar{display:none}
+.tool{border:2px solid transparent;border-radius:14px;background:#1F2733;min-width:54px;height:54px;display:grid;place-items:center;align-content:center;gap:1px;font-size:20px;line-height:1;flex:none;padding:0 6px}
+.tool small{font-size:10px;opacity:.8;font-family:var(--body)}
+.tool.on{border-color:var(--acc);background:#163A37}
+.tool.play{background:var(--acc);color:var(--acc-ink)}
+.chip{border:2px solid transparent;border-radius:12px;background:#1F2733;height:40px;padding:0 10px;display:flex;align-items:center;gap:6px;font-size:14px;white-space:nowrap;flex:none}
+.chip.on{border-color:var(--acc)}
+.chip i{width:16px;height:16px;border-radius:5px;display:block;flex:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.3)}
+.props{display:flex;gap:6px;align-items:center;flex-wrap:wrap;background:#161C25;border:1px solid var(--line);border-radius:14px;padding:8px}
+.props b{font-family:var(--display);font-size:16px;margin-right:auto}
+.props .num{display:flex;align-items:center;gap:2px;font-size:13px}
+.props .num button{width:34px;height:34px;border:0;border-radius:10px;background:#263040;font-size:16px}
+.props .num span{min-width:44px;text-align:center}
+.props input[type=color]{width:38px;height:34px;border:0;border-radius:10px;background:none;padding:0}
+.sheet{position:fixed;inset:0;background:rgba(5,8,12,.6);display:grid;place-items:end center;z-index:20;padding:0 max(10px,env(safe-area-inset-right,0px)) 0 max(10px,env(safe-area-inset-left,0px))}
+.card{width:100%;max-width:440px;box-sizing:border-box;background:var(--card);border:1px solid var(--line);border-radius:22px 22px 0 0;padding:18px 16px calc(env(safe-area-inset-bottom,0px) + 18px);display:grid;gap:10px;max-height:86vh;overflow:auto}
+.card h2{font-family:var(--display);font-size:24px;margin:0;line-height:1.1}
+.card p{margin:0;font-size:14px;line-height:1.4;opacity:.85}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.row label{font-size:14px;opacity:.8;min-width:90px}
+input[type=text],select{font:inherit;font-size:16px;padding:9px 12px;border-radius:12px;border:2px solid var(--line);background:#0C1016;color:var(--ink);flex:1;min-width:0}
+.btn{border:0;border-radius:14px;background:var(--acc);color:var(--acc-ink);font-family:var(--display);font-weight:800;font-size:18px;padding:10px 16px}
+.btn.sec{background:#263040;color:var(--ink)}.btn.bad{background:var(--bad);color:#fff}
+.list{display:grid;gap:6px}
+.list button{border:0;border-radius:12px;background:#1F2733;text-align:left;padding:10px 12px;font-size:15px;display:flex;gap:8px;align-items:center}
+.list button em{margin-left:auto;font-style:normal;font-size:12px;opacity:.65}
+.grp{font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.6;margin-top:6px}
+.issues{display:grid;gap:6px}
+.issues button{border:0;border-radius:12px;background:#1F2733;text-align:left;padding:9px 12px;font-size:14px}
+.issues .e{border-left:4px solid var(--bad)}.issues .w{border-left:4px solid var(--warn)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 64px);background:rgba(10,14,20,.92);padding:10px 16px;border-radius:14px;font-size:14px;z-index:30;pointer-events:none;max-width:calc(100% - 32px);text-align:center}
+/* 3D-тест */
+#test{position:fixed;inset:0;z-index:15;background:#000}
+#gl3,#fx3{position:fixed;inset:0;width:100%;height:100%;display:block}#fx3{pointer-events:none}
+#test .top{background:linear-gradient(rgba(0,0,0,.55),transparent)}
+#tinfo{font-size:13px;opacity:.85;flex:1;min-width:0}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div class="top">
+  <a class="ib" href="../../index.html" aria-label="До списку ігор" style="text-decoration:none">←</a>
+  <button class="ib" id="mapBtn" type="button">Карта</button>
+  <button class="ib" id="undo" type="button" aria-label="Скасувати">↶</button>
+  <button class="ib" id="redo" type="button" aria-label="Повторити">↷</button>
+  <button class="ib" id="stat" type="button" aria-label="Проблеми карти">…</button>
+</div>
+<div class="bottom">
+  <div class="props" id="props" hidden></div>
+  <div class="strip" id="sub" hidden></div>
+  <div class="strip" id="tools">
+    <button class="tool on" data-t="pan" type="button">✋<small>Огляд</small></button>
+    <button class="tool" data-t="wall" type="button">🧱<small>Стіна</small></button>
+    <button class="tool" data-t="floor" type="button">⬜<small>Підлога</small></button>
+    <button class="tool" data-t="furn" type="button">🪑<small>Меблі</small></button>
+    <button class="tool" data-t="erase" type="button">🧽<small>Гумка</small></button>
+    <button class="tool" data-t="spawn" type="button">📍<small>Старт</small></button>
+    <button class="tool play" id="playBtn" type="button">▶<small>Тест</small></button>
+    <button class="tool" id="saveBtn" type="button">💾<small>Зберегти</small></button>
+    <button class="tool" id="moreBtn" type="button">⋯<small>Ще</small></button>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+<div class="sheet" id="sheet" hidden><div class="card" id="sheetCard"></div></div>
+<div id="test" hidden>
+  <canvas id="gl3"></canvas><canvas id="fx3"></canvas>
+  <div class="top">
+    <button class="ib" id="tExit" type="button" aria-label="Вийти з тесту">✕</button>
+    <span id="tinfo">Торкнись підлоги — аватар з'явиться там. Веди пальцем — іти.</span>
+    <button class="ib" id="tSpeed" type="button" aria-label="Швидкість">🏃</button>
+    <button class="ib" id="tCam" type="button" aria-label="Камера">🎥</button>
+  </div>
+</div>
+
+<script src="../../vendor/firebase/10.13.0/firebase-app-compat.js"></script>
+<script src="../../vendor/firebase/10.13.0/firebase-auth-compat.js"></script>
+<script src="../../vendor/firebase/10.13.0/firebase-database-compat.js"></script>
+<script src="../../js/core/firebase-config.js"></script>
+<script src="../vendor/three.min.js"></script>
+<!-- обидва світи: Хованки (+ «Вокзал» Агентів) і Перевтілення; кожен файл перезаписує window.HNSWorld, тож запамʼятовуємо по черзі -->
+<script src="../khovanky/world.js" charset="utf-8"></script>
+<script src="../agents/maps.js" charset="utf-8"></script>
+<script>window.HW_HNS=window.HNSWorld</script>
+<script src="../perevtilennia/world.js" charset="utf-8"></script>
+<script>window.HW_PH=window.HNSWorld</script>
+<script src="edit.js" charset="utf-8"></script>
+<script src="../../js/core/back-button.js"></script>
+</body>
+</html>

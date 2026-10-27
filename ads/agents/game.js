@@ -12,7 +12,8 @@ const mobile=Math.min(innerWidth,innerHeight)<700;
 const dist=(ax,az,bx,bz)=>Math.hypot(ax-bx,az-bz);
 function rng(s){return()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 const angDiff=(a,b)=>{let d=(a-b)%(Math.PI*2);if(d>Math.PI)d-=Math.PI*2;if(d<-Math.PI)d+=Math.PI*2;return d};
-const MAPIDS=['station','mall'].map(id=>HW.MAPS.findIndex(m=>m.id===id)).filter(i=>i>=0);
+/* карти: «Вокзал», ТЦ і нові з редактора, позначені для Агентів (../maps-remote.js) */
+const mapIds=()=>['station','mall'].map(id=>HW.MAPS.findIndex(m=>m.id===id)).filter(i=>i>=0).concat(HW.MAPS.map((m,i)=>m.custom?i:-1).filter(i=>i>=0));
 
 /* ---------- константи ---------- */
 const NMAX=72,WALK=1.4,RUN=3.0,H_WALK=1.6,H_RUN=3.1,HACK_T=3.2,SHOT_R=7.5,SHOT_CD=1.3,STUN_T=3,SEAT_Y={chair:0.47,bench:0.47,sofa:0.5,armchair:0.48};
@@ -366,7 +367,7 @@ const aliveSpies=()=>spiesOf().filter(id=>!G.out.includes(id)&&(!MP.on||id[0]===
    goal скільки зламати, done зламані, out спіймані, am набої, fx події, sc бали, tl секунд, res, rem */
 function newG(r,map,seed,pl,hu,bs,nb,tl,sc){
   const spies=pl.filter(id=>!hu.includes(id)).length+bs.length,am={},per=Math.ceil((spies+2)/Math.max(1,hu.length));for(const h of hu)am[h]=per;
-  const nt=MAPIDS.length&&HW.MAPS[map].id==='station'?10:8;
+  const nt=HW.MAPS[map].rows.join('').replace(/#/g,'').length>900?10:8;
   return{r,ph:'intro',k:1,map,seed,pl,hu,bs,nb,goal:Math.max(3,Math.min(nt-2,2+spies)),done:[],out:[],am,fx:[],fxn:0,sc:sc||{},tl,res:null,rem:7000};
 }
 function setupRound(cfg){
@@ -530,7 +531,7 @@ function showEnd(){
     $('ovBtn').hidden=!(MP.on&&MP.host);$('ovBtn').textContent='Наступний раунд';$('ovLeave').hidden=!MP.on;$('ov').hidden=false},myWin?1500:1200);
 }
 function startSolo(role){
-  au();const map=MAPIDS[Math.floor(Math.random()*MAPIDS.length)],seed=Math.floor(Math.random()*1e9);
+  au();const ids=mapIds(),map=ids[Math.floor(Math.random()*ids.length)],seed=Math.floor(Math.random()*1e9);
   G=role==='hunter'?newG(Date.now(),map,seed,['me'],['me'],['s0','s1','s2'],34,180):newG(Date.now(),map,seed,['me'],['bh'],[],34,180);
   if(role!=='hunter'){G.am.bh=3;G.goal=4}else{G.goal=6;G.am.me=6}
   setupRound(G);lastKey='';introT=6;syncPhase();
@@ -663,6 +664,8 @@ function presOf(id){const p=peersNow().find(p=>p.id===id);return p?p.presence:nu
 function humans(){return peersNow().filter(p=>p.presence&&p.presence.n).sort((a,b)=>a.id<b.id?-1:1)}
 function hostId(){const ps=humans();const hs=ps.filter(p=>p.presence.h).sort((a,b)=>(+a.presence.h-+b.presence.h)||(a.id<b.id?-1:1));return(hs[0]||ps[0]||{}).id}
 const timerLeft=()=>Math.max(0,(MP.phEnd-performance.now())/1000);
+function mapOptions(){const s=$('mapSel'),v=s.value;s.innerHTML='<option value="auto">По черзі</option>'+mapIds().map((mi,k)=>'<option value="'+k+'">'+String(HW.MAPS[mi].name||'Карта').replace(/[<&]/g,'')+(HW.MAPS[mi].custom?' ✎':'')+'</option>').join('');if([...s.options].some(o=>o.value===v))s.value=v}
+mapOptions();addEventListener('maps41',mapOptions);
 $('mpOpen').addEventListener('click',()=>{au();$('ov').hidden=true;$('mp').hidden=false;$('mpA').hidden=false;$('mpB').hidden=true;$('nick').value=MP.nick;$('colorBtn').style.background=PAL[MP.color%PAL.length];
   const h=(location.hash||'').replace('#','');if(/^[a-z]{4}$/.test(h))$('codeIn').value=h.toUpperCase();setTimeout(()=>$('nick').focus(),50)});
 $('mpBack').addEventListener('click',()=>{$('mp').hidden=true;$('ov').hidden=false});
@@ -694,7 +697,7 @@ function mpLobbyRender(){
 }
 function hostStartRound(){
   const all=humans().map(p=>p.id);if(!all.length)return;
-  const prev=MP.g,r=(prev?prev.r:0)+1,map=MP.mapSel==='auto'?MAPIDS[(r-1)%MAPIDS.length]:MAPIDS[+MP.mapSel]||MAPIDS[0];
+  const prev=MP.g,r=(prev?prev.r:0)+1,map=MP.mapSel==='auto'?mapIds()[(r-1)%mapIds().length]:mapIds()[+MP.mapSel]||mapIds()[0];
   const pl=[MP.me].concat(all.filter(i=>i!==MP.me)).slice(0,10);
   let hu=['bh'];
   if(MP.huntSel==='player'&&pl.length>=2){const order=pl.slice().sort(),n=pl.length>=7?2:1;hu=[];for(let k=0;k<n;k++)hu.push(order[(MP.turn+k)%order.length]);MP.turn=(MP.turn+n)%order.length}
@@ -769,7 +772,7 @@ function resetMenu(){$('ov').hidden=false;$('ovTitle').textContent='Агенти
 const MENU_TEXT=$('ovText').textContent;
 function bootScene(){
   phase='menu';const seed=12345;G={r:0,ph:'menu',done:[],out:[],hu:[],pl:[],bs:[],am:{},fx:[],fxn:0,goal:0,sc:{},tl:0};
-  buildWorld(MAPIDS[0],seed);world.seed=null;clearChars();
+  buildWorld(mapIds()[0],seed);world.seed=null;clearChars();
   const R=rng(7);for(let i=0;i<30;i++){const p=wander[Math.floor(R()*wander.length)];newChar('b'+i,'bot','bot',p[0],p[1],appOf(R))}
   for(let k=0;k<2;k++)for(const b of chars){pathBudget=99;if(!b.plan)choose(b)}
   for(const id of['run','phone','act','shoot'])$(id).hidden=true;
@@ -788,5 +791,5 @@ requestAnimationFrame(frame);
 /* для автотестів (bots/local-sim/agents-test.js) */
 window.AGTGame={get phase(){return phase},get G(){return G},get player(){return player},get chars(){return chars},get terms(){return terms},get seats(){return seats},get works(){return works},get MP(){return MP},
   get nav(){return nav},get world(){return world},get hold(){return hold},get myStun(){return myStun},startSolo,sim:s=>{for(let t=0;t<s;t+=1/30)update(1/30)},actCtx,aimTarget,shoot,sitDown,standUp,astar,snap,los,tapAt,
-  select:id=>{selT=id},duel:()=>{G=newG(Date.now(),MAPIDS[Math.floor(Math.random()*MAPIDS.length)],Math.floor(Math.random()*1e9),[],['bh'],['s0','s1','s2'],34,180);G.goal=6;G.am.bh=5;setupRound(G);lastKey='';G.ph='play';G.rem=180000;syncPhase()},susp,set run(v){runOn=v},keys,encBots,renderer,MAPIDS,buildWorld,get spawn(){return spawnPt},chr};
+  select:id=>{selT=id},duel:()=>{G=newG(Date.now(),mapIds()[Math.floor(Math.random()*mapIds().length)],Math.floor(Math.random()*1e9),[],['bh'],['s0','s1','s2'],34,180);G.goal=6;G.am.bh=5;setupRound(G);lastKey='';G.ph='play';G.rem=180000;syncPhase()},susp,set run(v){runOn=v},keys,encBots,renderer,get MAPIDS(){return mapIds()},buildWorld,get spawn(){return spawnPt},chr};
 })();

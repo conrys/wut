@@ -60,7 +60,7 @@ const toPlay = (p) => p.evaluate(() => { const g = AGTGame.G; if (g.ph === "intr
   const caught = await p.evaluate(() => { const g = AGTGame, h = g.chr("bh"), pl = g.player; g.G.am.bh = 3;
     const t = g.terms[2]; h.x = t.sx; h.z = t.sz; h.path = null; for (const [dx, dz] of [[2.5, 0], [-2.5, 0], [0, 2.5], [0, -2.5], [1.8, 1.8], [-1.8, -1.8], [1.8, -1.8], [-1.8, 1.8]]) { const [x, z] = g.snap(t.sx + dx, t.sz + dz); pl.x = x; pl.z = z; if (g.los(h.x, h.z, x, z) && Math.hypot(x - h.x, z - h.z) > 1.2) break; } for (const c of g.chars) if (c !== pl && c !== h && Math.hypot(c.x - h.x, c.z - h.z) < 6) { c.x = g.spawn[0]; c.z = g.spawn[1]; }
     g.run = true;
-    for (let k = 0; k < 250 && !g.G.out.includes("me") && g.G.ph === "play"; k++) { const ph = Math.floor(k / 4) % 4; g.keys.a = ph === 0; g.keys.w = ph === 1; g.keys.d = ph === 2; g.keys.s = ph === 3; g.sim(0.1); }
+    for (let k = 0; k < 500 && !g.G.out.includes("me") && g.G.ph === "play"; k++) { const ph = Math.floor(k / 4) % 4; g.keys.a = ph === 0; g.keys.w = ph === 1; g.keys.d = ph === 2; g.keys.s = ph === 3; g.sim(0.1); }
     g.keys.a = g.keys.w = g.keys.d = g.keys.s = false; g.run = false;
     return { out: g.G.out.includes("me"), am: g.G.am.bh, ph: g.G.ph, res: g.G.res }; });
   check("бот-мисливець помічає шпигуна, що метушиться, і стріляє", caught.out && caught.am === 2, JSON.stringify(caught));

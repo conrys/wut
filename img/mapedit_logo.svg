@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <g fill="none" stroke="#fff" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
+    <!-- план: стіни й двері -->
+    <path d="M200 230h260M560 230h264v560H200V230M200 520h170M470 520h120v270M680 520h144"/>
+    <!-- стілець і стіл -->
+    <rect x="660" y="320" width="110" height="110" rx="12"/><path d="M300 330h80v80"/>
+  </g>
+  <!-- олівець -->
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <path d="M330 760l330-330 70 70-330 330-100 30z" fill="#3dd6c3"/>
+    <path d="M330 760l-30 100 100-30" fill="none" stroke="#fff" stroke-width="20"/>
+  </g>
+</svg>

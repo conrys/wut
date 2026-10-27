@@ -45,6 +45,13 @@
         }
       }
     },
+    "maps": {
+      ".read": true,
+      "$key": {
+        ".write": "auth != null",
+        ".validate": "newData.isString() && newData.val().length < 300000"
+      }
+    },
     "draw_rooms": {
       ".read": true,
       "$roomId": {
