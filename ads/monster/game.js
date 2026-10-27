@@ -12,18 +12,6 @@ const mobile=Math.min(innerWidth,innerHeight)<700;
 const dist=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
 function rng(s){return()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 
-/* ---------- виправлення карт (лише для цієї гри; у Хованках ті самі місця) ----------
-   меблі, що перекривають дверні отвори: шафа в дверях офіс→кафе (Супермаркет), столик зі стільцем у дверях
-   медпункту (Школа), унітаз упритул до дверей ванної (Будинок) */
-(function fixMaps(){
-  const M=id=>HW.MAPS.find(m=>m.id===id),near=(f,t,x,z)=>f.t===t&&Math.abs(f.x-x)<0.05&&Math.abs(f.z-z)<0.05;
-  const drop=(id,t,x,z)=>{const m=M(id);if(!m)return;const i=m.furn.findIndex(f=>near(f,t,x,z));if(i>=0)m.furn.splice(i,1)};
-  const move=(id,t,x,z,o)=>{const m=M(id);if(!m)return;const f=m.furn.find(f=>near(f,t,x,z));if(f)Object.assign(f,o)};
-  drop('market','tallcab',15.6,2.9);
-  drop('school','chair',16.9,12.6);move('school','cafetable',16.3,12.6,{x:15.9});move('school','chair',15.7,12.6,{x:15.3});
-  move('house','toilet',3.6,11.55,{x:5.15,z:15.55,r:2});
-})();
-
 /* ---------- renderer ---------- */
 const renderer=new T3.WebGLRenderer({canvas:$('gl'),antialias:true});
 renderer.setPixelRatio(Math.min(mobile?1.6:2,devicePixelRatio||1));
