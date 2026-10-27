@@ -131,7 +131,7 @@ function gameActions(game, room, bots, now) {
     return { updates, actions };
   }
 
-  if (["whofrom", "court", "bets", "charades", "fakenews"].includes(game)) {
+  if (["whofrom", "court", "bets", "fakenews"].includes(game)) {
     if (room.phase !== "round" || !room.stage) return { updates, actions };
     const stage = room.stage;
     const expected = stage.expect || [];

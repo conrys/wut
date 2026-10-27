@@ -6,7 +6,7 @@ Run the command from the project root after opening the target room in the game:
 node bots/run-tests.js <game> <room-code> [bot-count]
 ```
 
-Supported games: `dilemmas`, `whofrom`, `court`, `bets`, `charades`, `fakenews`, `mafia`, `teli`, `quiplash`, `spy`, and `memology`.
+Supported games: `dilemmas`, `whofrom`, `court`, `bets`, `fakenews`, `mafia`, `teli`, `quiplash`, `spy`, and `memology`.
 
 Spy bots just sit in the circle (the game is spoken aloud); each round the console prints which bots are spies and the word the others got. Charades bots only act as encoders (guessing is spoken aloud): they think 6–20 s and send 2–4 random emoji, then listen 12–25 s and mark one or two humans as guessers (sometimes nobody). Memology bots throw a meme 3–15 s into the round and vote for someone else's meme. The default is three bots; for example:
 

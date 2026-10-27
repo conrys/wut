@@ -335,7 +335,6 @@
     "whofrom": "Хто з нас?",
     "court": "Суд Лінча",
     "bets": "Ставки",
-    "charades": "Зіпсовані шаради",
     "fakenews": "Fake News",
     "remake": "Дубль",
     "naklep": "Наклеп",

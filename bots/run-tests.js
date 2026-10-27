@@ -13,7 +13,6 @@ const MIN_PLAYERS = {
   whofrom: 3,
   court: 3,
   bets: 3,
-  charades: 3,
   fakenews: 3,
   mafia: 4,
   teli: 2,
@@ -27,7 +26,6 @@ const GAME_KEYS = {
   whofrom: "party_whofrom",
   court: "party_court",
   bets: "party_bets",
-  charades: "charades",
   fakenews: "fakenews",
   mafia: "mafia",
   teli: "teli",
@@ -40,8 +38,8 @@ const AVATAR_COLORS = ["#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#9b59b6", "#
 
 function usage() {
   console.log("Usage: node bots/run-tests.js <game> <room-code> [bot-count]");
-  console.log("Games: dilemmas, whofrom, court, bets, charades, fakenews, mafia, teli, quiplash, spy, memology, remake");
-  console.log("Example: node bots/run-tests.js charades ROOM42 3");
+  console.log("Games: dilemmas, whofrom, court, bets, fakenews, mafia, teli, quiplash, spy, memology, remake");
+  console.log("Example: node bots/run-tests.js dilemmas ROOM42 3");
   console.log("Resume bots already in a running game: node bots/run-tests.js fakenews 1 2 --resume a4679ffc");
 }
 
@@ -80,7 +78,7 @@ async function prepareBot(game, roomId, bot, currentPlayers, photoFiles) {
     joinedAt: now,
     lastSeen: now,
     status: "active",
-    character: ["quiplash", "spy", "memology", "dilemmas", "charades", "teli"].includes(game) ? ((currentPlayers.length + bot.index + 7) % 20) + 1 : (avatarNumber % 8) + 1,
+    character: ["quiplash", "spy", "memology", "dilemmas", "teli"].includes(game) ? ((currentPlayers.length + bot.index + 7) % 20) + 1 : (avatarNumber % 8) + 1,
     color: AVATAR_COLORS[avatarNumber],
     ...(game === "mafia" ? { role: null, isDon: false, alive: true, ready: false } : {}),
     ...(game === "quiplash" ? { score: 0 } : {}),

@@ -1,7 +1,7 @@
 // Rejoin: player leaves the room page and comes back — presence must resume.
 // node rejoin-test.js   (simulator must be running)
 const { launch, phone, BASE } = require("./harness");
-const GAMES = [["whofrom.html", "party_whofrom"], ["dilemmas.html", "dilemmas"], ["charades.html", "charades"],
+const GAMES = [["whofrom.html", "party_whofrom"], ["dilemmas.html", "dilemmas"],
   ["fakenews.html", "fakenews"], ["draw.html", "draw"], ["teli.html", "teli"], ["court.html", "party_court"], ["bets.html", "party_bets"],
   ["mafia.html", "mafia"], ["quiplash.html", "quiplash"], ["spy.html", "spy"], ["memology.html", "memology"], ["quiz.html", "quiz"]];
 const ago = async (key, room, name) => {
