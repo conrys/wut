@@ -5,34 +5,40 @@
 <script src="js/core/native.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
 <title>Блоки</title>
-<link rel="stylesheet" href="./vendor/fonts/fredoka.css">
-<meta name="theme-color" content="#1a1f3d" />
+<link rel="stylesheet" href="./vendor/fonts/press-start-2p.css">
+<meta name="theme-color" content="#2b2620" />
 <style>
   /* Block Blast: поле 8×8, три фігури знизу. Заповнений рядок чи стовпчик зникає; лінії поспіль — комбо. */
-  :root { --bg: #1a1f3d; --bg2: #2a2f63; --ink: #fff; --muted: rgba(255,255,255,.65); --gold: #ffcf3f; }
+  /* вигляд як у Тетрісі: жовта консоль «Brick Game 9999 in 1», LCD-екран, піксельний шрифт */
+  :root { --lcd: #c9d1bd; --ink: #333f2f; --muted: #5a6652; --px: 'Press Start 2P', 'Courier New', monospace; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
-  html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; overscroll-behavior: none;
-    background: radial-gradient(90% 60% at 50% 0%, #3a3f86, transparent 70%), linear-gradient(180deg, var(--bg2), var(--bg)); color: var(--ink); font-family: 'Fredoka', system-ui, sans-serif; }
+  html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; overscroll-behavior: none; color: var(--ink); font-family: var(--px);
+    background: radial-gradient(70% 50% at 50% 0%, rgba(255,214,90,.16), transparent 70%), repeating-linear-gradient(90deg, rgba(255,255,255,.02) 0 2px, transparent 2px 7px), linear-gradient(180deg, #2b2620, #17140f); }
   #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-  .hud { position: fixed; left: 0; right: 0; top: calc(env(safe-area-inset-top, 0px) + 56px); display: flex; flex-direction: column; align-items: center; pointer-events: none; }
-  .hud .best { font: 600 15px 'Fredoka', sans-serif; color: var(--gold); display: flex; align-items: center; gap: 6px; }
-  .hud .best svg { width: 16px; height: 16px; }
-  .hud .score { font: 700 48px/1.05 'Fredoka', sans-serif; font-variant-numeric: tabular-nums; text-shadow: 0 3px 0 rgba(0,0,0,.25); }
-  #ov { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(10,12,30,.6); padding: 16px; z-index: 20; }
+  .hud { position: fixed; display: flex; justify-content: space-between; align-items: flex-end; pointer-events: none; height: 48px; z-index: 1; }
+  .hud .title { font: 400 12px var(--px); color: #5a3a00; letter-spacing: .06em; }
+  .hud .title::after { content: "  9999 IN 1"; color: #b5730a; font-size: 8px; }
+  .hud .nums { text-align: right; }
+  .hud .best { font: 400 9px var(--px); color: #8a5c00; display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-bottom: 6px; }
+  .hud .best svg { width: 12px; height: 12px; }
+  .hud .score { font: 400 20px/1 var(--px); color: #3a2a10; font-variant-numeric: tabular-nums; }
+  #ov { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(23,20,15,.55); padding: 16px; z-index: 20; }
   #ov[hidden] { display: none; }
-  .card { width: 100%; max-width: 320px; background: #fff; color: #1a1f3d; border-radius: 26px; padding: 26px 22px; text-align: center; box-shadow: 0 8px 0 rgba(0,0,0,.25); display: grid; gap: 10px; }
-  .card h1 { margin: 0; font: 700 32px/1 'Fredoka', sans-serif; }
-  .card p { margin: 0; font: 500 17px/1.4 'Fredoka', sans-serif; color: #4a5080; }
-  .card .big { font: 700 54px/1 'Fredoka', sans-serif; color: #3e6fd8; }
-  .card button { justify-self: center; margin-top: 6px; border: 0; border-radius: 999px; padding: 12px 30px; background: #4cc04a; color: #fff; font: 700 20px 'Fredoka', sans-serif; box-shadow: 0 4px 0 #2e8a2c; cursor: pointer; }
-  .card button:active { transform: translateY(3px); box-shadow: 0 1px 0 #2e8a2c; }
+  .card { width: 100%; max-width: 320px; background: var(--lcd); color: var(--ink); border-radius: 10px 10px 30px 10px; padding: 24px 20px; text-align: center; display: grid; gap: 14px;
+    border: 8px solid #2c2f33; box-shadow: inset 0 0 18px rgba(0,0,0,.25), 0 10px 30px rgba(0,0,0,.5); }
+  .card h1 { margin: 0; font: 400 18px/1.3 var(--px); }
+  .card p { margin: 0; font: 400 10px/1.8 var(--px); color: var(--muted); }
+  .card .big { font: 400 30px/1 var(--px); color: var(--ink); }
+  .card button { justify-self: center; margin-top: 4px; border: 0; border-radius: 999px; padding: 12px 24px; font: 400 11px var(--px); color: #5a3a00; cursor: pointer;
+    background: radial-gradient(circle at 35% 30%, #fff1a0, #f6c52a 55%, #c88d0a); box-shadow: 0 5px 0 #8a5c00, 0 8px 14px rgba(0,0,0,.3); }
+  .card button:active { transform: translateY(4px); box-shadow: 0 1px 0 #8a5c00; }
 </style>
 <link rel="stylesheet" href="js/styles/game-header.css">
 <script src="js/core/game-header.js" defer></script>
 </head>
 <body>
 <canvas id="c"></canvas>
-<div class="hud"><div class="best"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5 4h14v3a5 5 0 0 1-4 4.9V14h2v3H7v-3h2v-2.1A5 5 0 0 1 5 7zm-3 1h2v2a2 2 0 0 1-2-2zm18 0h2a2 2 0 0 1-2 2z"/><rect x="6" y="18" width="12" height="2" rx="1"/></svg><span id="best">0</span></div><div class="score" id="score">0</div></div>
+<div class="hud"><div class="title">БЛОКИ</div><div class="nums"><div class="best"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5 4h14v3a5 5 0 0 1-4 4.9V14h2v3H7v-3h2v-2.1A5 5 0 0 1 5 7zm-3 1h2v2a2 2 0 0 1-2-2zm18 0h2a2 2 0 0 1-2 2z"/><rect x="6" y="18" width="12" height="2" rx="1"/></svg><span id="best">0</span></div><div class="score" id="score">0</div></div></div>
 <div id="ov">
   <div class="card">
     <h1 id="ovT">Блоки</h1>
@@ -76,10 +82,11 @@
   function resize() {
     const d = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight;
     cv.width = W * d; cv.height = H * d; ctx.setTransform(d, 0, 0, d, 0, 0);
-    const top = 150, trayH = Math.min(170, H * 0.22);
-    cell = Math.floor(Math.min((W - 24) / N, (H - top - trayH - 30) / N, 56));
+    const top = 160, trayH = Math.min(170, H * 0.22);
+    cell = Math.floor(Math.min((W - 24 - 72) / N, (H - top - trayH - 50) / N, 52));   // 72 — корпус і рамка консолі з боків
     BX = Math.round((W - cell * N) / 2); BY = top + Math.max(0, (H - top - trayH - 20 - cell * N) / 2);
     trayY = BY + cell * N + 20 + trayH / 2; trayCell = Math.min(cell * 0.55, 28);
+    const hud = document.querySelector('.hud'); hud.style.top = (BY - 86) + 'px'; hud.style.left = (BX - 22) + 'px'; hud.style.right = (W - BX - cell * N - 22) + 'px'; hud.style.padding = '0 6px';
   }
   addEventListener('resize', resize);
 
@@ -173,14 +180,16 @@
   $('ovB').addEventListener('click', start);
 
   // ---------- малювання ----------
+  // клітинка LCD, як у Тетрісі: рамка + квадрат усередині (колір фігури не важливий — екран монохромний)
   function block(x, y, s, col, a) {
-    const r = s * 0.18;
     ctx.globalAlpha = a == null ? 1 : a;
-    ctx.fillStyle = col; ctx.beginPath(); ctx.roundRect(x + 1.5, y + 1.5, s - 3, s - 3, r); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.roundRect(x + s * 0.16, y + s * 0.12, s * 0.68, s * 0.2, r * 0.6); ctx.fill();
-    ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.beginPath(); ctx.roundRect(x + 1.5, y + s * 0.78, s - 3, s * 0.2 - 1.5, [0, 0, r, r]); ctx.fill();
+    const pad = Math.round(s * 0.08), inner = s * 0.32;
+    ctx.strokeStyle = col === LIT ? '#1d241a' : '#3a4536'; ctx.fillStyle = col === LIT ? '#1d241a' : '#333f2f'; ctx.lineWidth = Math.max(1, s * 0.07);
+    ctx.strokeRect(x + pad, y + pad, s - pad * 2, s - pad * 2); ctx.fillRect(x + inner, y + inner, s - inner * 2, s - inner * 2);
     ctx.globalAlpha = 1;
   }
+  const LIT = 'lit';
+  function rr(x, y, w, h, r, fill) { ctx.fillStyle = fill; ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fill(); }
   function shapeAt(sh, cx, cy, s, col, a) {
     const [w, h] = dims(sh);
     for (const [x, y] of sh) block(cx - w * s / 2 + x * s, cy - h * s / 2 + y * s, s, col, a);
@@ -189,11 +198,17 @@
     ctx.clearRect(0, 0, W, H);
     ctx.save();
     if (shake > 0) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
-    // поле
-    ctx.fillStyle = 'rgba(8,10,30,.55)'; ctx.beginPath(); ctx.roundRect(BX - 8, BY - 8, cell * N + 16, cell * N + 16, 16); ctx.fill();
-    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-      ctx.fillStyle = 'rgba(255,255,255,.06)'; ctx.beginPath(); ctx.roundRect(BX + x * cell + 2, BY + y * cell + 2, cell - 4, cell - 4, cell * 0.16); ctx.fill();
-    }
+    // консоль: жовтий пластик → темна рамка з індикатором → LCD (поле й лоток на одному екрані)
+    const sx = BX - 22, sy = BY - 30, sw = cell * N + 44, sh = trayY + Math.min(170, H * 0.22) / 2 - sy + 6;
+    const cg = ctx.createLinearGradient(0, sy - 70, sw, sy + sh); cg.addColorStop(0, '#ffd84a'); cg.addColorStop(0.45, '#f2b91c'); cg.addColorStop(1, '#d99a0c');
+    rr(sx - 14, sy - 66, sw + 28, sh + 86, [26, 26, 60, 26], cg);
+    rr(sx, sy, sw, sh, [10, 10, 30, 10], '#2c2f33');
+    ctx.fillStyle = '#ff3b30'; ctx.beginPath(); ctx.arc(sx + 15, sy + 12, 3.5, 0, 6.283); ctx.fill();
+    ctx.font = "6px 'Press Start 2P', monospace"; ctx.fillStyle = '#8a8d92'; ctx.textAlign = 'left'; ctx.fillText('BATTERY', sx + 24, sy + 15);
+    rr(BX - 8, BY - 8, cell * N + 16, sy + sh - 10 - (BY - 8), [4, 4, 22, 4], '#c9d1bd');
+    ctx.strokeStyle = '#8f9a80'; ctx.lineWidth = 3; ctx.strokeRect(BX - 2, BY - 2, cell * N + 4, cell * N + 4);
+    ctx.fillStyle = 'rgba(51,63,47,0.14)';
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) ctx.fillRect(BX + x * cell + cell / 2 - 1.5, BY + y * cell + cell / 2 - 1.5, 3, 3);
     // підказка: куди ляже фігура + які лінії згорять
     let hint = null;
     if (drag) {
@@ -211,12 +226,11 @@
       const c = board[y][x]; if (!c) continue;
       const lit = hint && (hint.lines[0].includes(y) || hint.lines[1].includes(x));
       const k = c.pop > 0 ? 1 + c.pop : 1, s = cell * k, o = (s - cell) / 2;
-      block(BX + x * cell - o, BY + y * cell - o, s, lit ? hint.p.col : c.col);
+      if (lit && !reduce && Math.sin(T * 14) < -0.2) continue;   // лінія згорить — блимає
+      block(BX + x * cell - o, BY + y * cell - o, s, lit ? LIT : c.col);
     }
     if (hint) {
       for (const [x, y] of hint.p.sh) block(BX + (hint.gx + x) * cell, BY + (hint.gy + y) * cell, cell, hint.p.col, 0.4);
-      if (!reduce) for (const y of hint.lines[0]) { ctx.fillStyle = 'rgba(255,255,255,' + (0.12 + 0.08 * Math.sin(T * 10)) + ')'; ctx.fillRect(BX, BY + y * cell, cell * N, cell); }
-      if (!reduce) for (const x of hint.lines[1]) { ctx.fillStyle = 'rgba(255,255,255,' + (0.12 + 0.08 * Math.sin(T * 10)) + ')'; ctx.fillRect(BX + x * cell, BY, cell, cell * N); }
     }
     // згорілі клітинки
     for (const f of fx) {
@@ -228,16 +242,16 @@
     for (let i = 0; i < 3; i++) {
       const p = tray[i]; if (p.used || (drag && drag.i === i)) continue;
       const [tx, ty] = trayPos(i), fitsAny = anyFit(p.sh);
-      shapeAt(p.sh, tx, ty, trayCell, fitsAny ? p.col : '#5a5f80', fitsAny ? 1 : 0.6);
+      shapeAt(p.sh, tx, ty, trayCell, p.col, fitsAny ? 1 : 0.28);
     }
     if (drag) { const p = tray[drag.i]; shapeAt(p.sh, drag.x, drag.y - LIFT(), cell, p.col, 0.95); }
     // написи
     ctx.textAlign = 'center';
     for (const p of pops) {
       const a = Math.min(1, p.l * 1.5), dy = (1.2 - p.l) * 40;
-      ctx.globalAlpha = a; ctx.font = "700 " + Math.round(cell * 0.6) + "px 'Fredoka', sans-serif";
-      ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(20,20,50,.7)'; ctx.strokeText(p.t, p.x, p.y - dy); ctx.fillStyle = '#fff'; ctx.fillText(p.t, p.x, p.y - dy);
-      if (p.w) { ctx.font = "700 " + Math.round(cell * 0.9) + "px 'Fredoka', sans-serif"; ctx.strokeText(p.w, W / 2, BY + cell * N / 2 - dy); ctx.fillStyle = '#ffcf3f'; ctx.fillText(p.w, W / 2, BY + cell * N / 2 - dy); }
+      ctx.globalAlpha = a; ctx.font = Math.round(cell * 0.3) + "px 'Press Start 2P', monospace";
+      ctx.lineWidth = 6; ctx.strokeStyle = '#c9d1bd'; ctx.strokeText(p.t, p.x, p.y - dy); ctx.fillStyle = '#1d241a'; ctx.fillText(p.t, p.x, p.y - dy);
+      if (p.w) { ctx.font = Math.round(cell * 0.42) + "px 'Press Start 2P', monospace"; ctx.strokeText(p.w, W / 2, BY + cell * N / 2 - dy); ctx.fillStyle = '#1d241a'; ctx.fillText(p.w, W / 2, BY + cell * N / 2 - dy); }
       ctx.globalAlpha = 1;
     }
     ctx.restore();
