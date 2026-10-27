@@ -65,8 +65,15 @@ jobs:
             echo "::error::Немає секрету APK_SIGNING_PASSWORD (Settings → Secrets and variables → Actions). Без нього APK не можна буде оновлювати поверх."
             exit 1
           fi
-          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in app/android/release.jks.enc -out "$RUNNER_TEMP/release.jks" -pass env:APK_SIGNING_PASSWORD
+          # пароль із телефона часто вставляється з пробілом чи переносом рядка — прибираємо їх
+          PW=$(printf '%s' "$APK_SIGNING_PASSWORD" | tr -d '[:space:]')
+          echo "::add-mask::$PW"
+          if ! PW="$PW" openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in app/android/release.jks.enc -out "$RUNNER_TEMP/release.jks" -pass env:PW; then
+            echo "::error::Секрет APK_SIGNING_PASSWORD не підходить до ключа (довжина ${#PW}, а має бути 28 символів: літери й цифри). Встав рядок із apk_pw.txt ще раз (Settings → Secrets and variables → Actions → APK_SIGNING_PASSWORD → Update)."
+            exit 1
+          fi
           echo "KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+          echo "KEYSTORE_PASSWORD=$PW" >> "$GITHUB_ENV"
 
       - name: Залежності
         working-directory: app
@@ -84,7 +91,6 @@ jobs:
       - name: Gradle assembleRelease
         working-directory: app/android
         env:
-          KEYSTORE_PASSWORD: ${{ secrets.APK_SIGNING_PASSWORD }}
           KEY_ALIAS: games41
           APP_VERSION_CODE: ${{ github.run_number }}
           APP_VERSION_NAME: 1.${{ github.run_number }}
