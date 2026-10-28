@@ -443,7 +443,13 @@
   function emoji(t, x, y, size) { g.font = size + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(t, x, y); }
 
   // готові спрайти: основа (ромб клітинки) у файлі — 256 px завширшки; ax/ay — центр основи в пікселях файлу
-  const SPR = { home: { src: 'img/home.webp', ax: 130, ay: 147, fit: 1.15 } };
+  const SPR = {
+    home: { src: 'img/home.webp', ax: 130, ay: 147, fit: 1.15 },
+    coop: { src: 'img/coop.webp', ax: 128, ay: 140, fit: 1.1 },
+    mill: { src: 'img/mill.webp', ax: 128, ay: 207, fit: 1.1 },
+    saw: { src: 'img/saw.webp', ax: 128, ay: 151, fit: 1.1 },
+    lumber: { src: 'img/lumber.webp', ax: 128, ay: 110, fit: 1.1 },
+  };
   for (const k in SPR) { const im = new Image(); im.src = SPR[k].src; SPR[k].im = im; }
   function sprite(k, X, Y, z) {
     const sp = SPR[k]; if (!sp || !sp.im.complete || !sp.im.naturalWidth) return false;
@@ -669,7 +675,8 @@
   function drawBuilding(b, X, Y, z, t, dt, bon, s) {
     const d = B[b.k], dur = d.d ? K.durOf(b, bon) : 1;
     const prog = b.p >= 0 ? Math.min(1, (b.p + dt) / dur) : b.buf ? 1 : 0;
-    if (d.kind === 'field') drawField(X, Y, z, b.buf ? 1 : prog, b.buf >= K.capOf(b) || (b.buf && b.p < 0));
+    if (d.kind !== 'home' && sprite(b.k, X, Y, z)) { if (d.wall) lights.push([X + 9 * z, Y - 8 * z, 0.7]); }
+    else if (d.kind === 'field') drawField(X, Y, z, b.buf ? 1 : prog, b.buf >= K.capOf(b) || (b.buf && b.p < 0));
     else if (d.kind === 'orchard') { g.fillStyle = '#6DAF4E'; diamond(X, Y, TW * 0.9 * z, TH * 0.9 * z); g.fill(); drawTree(X - 12 * z, Y - 2 * z, z * 0.75, 1, b.buf ? 3 : Math.floor(prog * 3)); drawTree(X + 12 * z, Y - 2 * z, z * 0.75, 1, b.buf ? 3 : Math.floor(prog * 2)); drawTree(X, Y + 6 * z, z * 0.8, 1, b.buf ? 4 : Math.floor(prog * 3)); }
     else if (d.kind === 'well') drawWell(X, Y, z);
     else if (d.kind === 'home') { if (!sprite('home', X, Y, z)) drawHouse(X, Y, z, '#F4EFE4', '#C9A24A', '', true); lights.push([X - 10 * z, Y - 10 * z, 1]); }
