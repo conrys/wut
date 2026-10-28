@@ -8,7 +8,7 @@
 
   // ================= стан =================
   let S = null, view = null, viewAt = 0;       // S — справжній стан; view — S, доведений до «зараз» (для показу)
-  let mode = null, code = '', net = null, srvOff = 0, warp = 0;
+  let mode = null, code = '', net = null, srvOff = 0, warp = 0, onlineUids = new Set();
   const me = { name: '', uid: '' };
   const now = () => Date.now() + (mode === 'shared' ? srvOff : 0) + warp;
   const clone = (o) => JSON.parse(JSON.stringify(o));
@@ -18,6 +18,8 @@
     return '';
   }
   me.name = nickFromSession() || ls.get('khutir_nick') || '';
+  const myUid = () => (mode === 'shared' ? me.uid : 'me');
+  const myV = () => (view && view.vl ? view.vl[myUid()] : null);
 
   function refreshView(force) {
     if (!S) return;
@@ -90,6 +92,8 @@
     centerCam();
     if (was && now() - was > 60e3 && gain.length) toast('Поки тебе не було: ' + gain.slice(0, 6).join('  '));
     if (mode === 'solo') saveSolo();
+    if (!S.vl || !S.vl[myUid()]) commit({ t: 'join', uid: myUid(), n: me.name || 'Селянин' });
+    else if (mode === 'shared' && S.vl[myUid()].n !== me.name && me.name) commit({ t: 'join', uid: myUid(), n: me.name });
   }
 
   // ================= спільний хутір (RTDB khutir/<код>) =================
@@ -133,7 +137,7 @@
     if (net) net.leave();
     const onRef = db.ref('khutir/' + c + '/on'), meRef = onRef.child(u.uid);
     let online = [];
-    const onVal = (snap) => { const v = snap.val() || {}; online = Object.keys(v).map((k) => v[k] && v[k].n).filter(Boolean); $('hOnN').textContent = online.length || 1; };
+    const onVal = (snap) => { const v = snap.val() || {}; onlineUids = new Set(Object.keys(v)); online = Object.keys(v).map((k) => v[k] && v[k].n).filter(Boolean); $('hOnN').textContent = online.length || 1; };
     onRef.on('value', onVal);
     meRef.onDisconnect().remove(); meRef.set({ n: me.name, t: firebase.database.ServerValue.TIMESTAMP });
     let entered = false;
@@ -210,7 +214,7 @@
     $('shT').textContent = title; sheetFn = () => { if (view) $('shB').innerHTML = render(); bindSheet(); };
     refreshView(true); sheetFn(); $('sheet').classList.add('open'); sheetAt = performance.now();
   }
-  function closeSheet() { $('sheet').classList.remove('open'); sheetFn = null; sel = null; buildAt = null; }
+  function closeSheet() { $('sheet').classList.remove('open'); sheetFn = null; sel = null; buildAt = null; villFor = null; }
   $('shX').addEventListener('click', closeSheet);
   // кнопки в шторці: data-a='{"t":"…"}' — дія; data-go — перехід
   function bindSheet() {
@@ -224,6 +228,7 @@
       if (r && r.ok && a.t === 'clear') closeSheet();
     }));
     $('shB').querySelectorAll('[data-place]').forEach((el) => el.addEventListener('click', () => { if (fresh()) return; au(); startPlace(el.dataset.place); }));
+    bindVill();
     $('shB').querySelectorAll('[data-go]').forEach((el) => el.addEventListener('click', () => { if (fresh()) return; au(); go(el.dataset.go); }));
   }
   const A = (o) => esc(JSON.stringify(o));
@@ -238,9 +243,11 @@
     else if (what === 'orders') openSheet('📋 Замовлення', ordersSheet);
     else if (what === 'farm') openSheet(mode === 'shared' ? '👥 Спільний хутір' : '🏡 Мій хутір', farmSheet);
     else if (what === 'level') openSheet('⭐ Рівень ' + view.lv, levelSheet);
+    else if (what === 'vill') { const v = myV(); if (v) { villFor = myUid(); openSheet('🧑‍🌾 ' + v.n, villSheet); } }
   }
   $('bBuild').addEventListener('click', () => { au(); cancelPlace(); buildAt = null; sel = null; go('build'); });
   $('bStore').addEventListener('click', () => { au(); go('store'); });
+  $('bVill').addEventListener('click', () => { au(); go('vill'); });
   $('bOrders').addEventListener('click', () => { au(); go('orders'); });
   $('bAll').addEventListener('click', () => { au(); commit({ t: 'collectAll' }); });
   $('hName').addEventListener('click', () => { au(); go('farm'); });
@@ -264,18 +271,47 @@
     if (!b) { setTimeout(closeSheet); return ''; }
     const d = B[b.k];
     let h = '';
+    if (b.k === 'home') { const v = s.vl && s.vl[b.o]; return '<p class="note">Тут живе <b>' + esc(v ? v.n : '?') + '</b>. Звідси селянин ходить по найближчих будівлях.</p>' + (b.o === myUid() ? '<div class="btns"><button class="btn" data-go="vill">🧑‍🌾 Мій селянин</button></div>' : ''); }
     if (!d.d) return '<p class="note">' + esc(d.hint || '') + '</p><div class="btns"><button class="btn red" data-a="' + A({ t: 'demolish', id: b.id }) + '">🗑 Знести<small>повернеться половина ціни</small></button></div>';
     const bon = K.bonuses(s).get(b.id) || 0, dur = K.durOf(b, K.bonuses(s)), cap = K.capOf(b), w = K.why(s, b);
-    h += '<div class="row"><span class="ic">' + d.ic + '</span><span class="tx"><b>' + recipe(d) + '</b><small>цикл ' + secs(dur) + (bon ? ' · бонус сусідів +' + Math.round(bon * 100) + '%' : '') + (b.h ? ' · 🧑‍🌾 наймит збирає сам' : '') + '</small></span></div>';
+    const rt = K.routes(s); let who = '';
+    for (const u in rt) if (rt[u].some((q) => q.id === b.id)) who = s.vl[u].n;
+    h += '<div class="row"><span class="ic">' + d.ic + '</span><span class="tx"><b>' + recipe(d) + '</b><small>цикл ' + secs(dur) + (bon ? ' · бонус сусідів +' + Math.round(bon * 100) + '%' : '') + (b.h ? ' · 🧑‍🌾 наймит збирає сам' : who ? ' · 🧑‍🌾 збирає ' + esc(who) : ' · далеко від хат — збирай сам') + '</small></span></div>';
     const st = b.p >= 0 ? '⏳ працює: ' + Math.floor((100 * b.p) / dur) + '%' : w === 'full' ? '✋ повно — збери' : w ? '💤 чекає: нема ' + RES[w].ic + ' ' + RES[w].n.toLowerCase() : '';
     h += '<div class="row"><span class="tx"><b>Готово: ' + b.buf + ' / ' + cap + ' ' + RES[d.out[0]].ic + '</b><small>' + st + '</small><span class="cap"><i class="' + (b.buf >= cap ? 'full' : '') + '" style="width:' + Math.min(100, (100 * b.buf) / cap) + '%"></i></span></span></div>';
     const uc = K.upCost(b), hc = K.hireCost(b);
     h += '<div class="btns">';
     if (b.buf) h += '<button class="btn" data-a="' + A({ t: 'collect', id: b.id }) + '">🧺 Зібрати ' + b.buf + ' ' + RES[d.out[0]].ic + '</button>';
     h += '<button class="btn' + (b.buf ? ' sec' : '') + '" data-a="' + A({ t: 'upgrade', id: b.id }) + '"' + (K.canAfford(s, uc) ? '' : ' disabled') + '>⬆ Рівень ' + (b.lv + 1) + '<small>' + costTxt(uc) + ' · швидше й більше місця</small></button>';
-    if (!b.h) h += '<button class="btn sec" data-a="' + A({ t: 'hire', id: b.id }) + '"' + (s.lv >= 3 && K.canAfford(s, hc) ? '' : ' disabled') + '>🧑‍🌾 Наймит<small>' + (s.lv < 3 ? 'з 3 рівня' : costTxt(hc) + ' · сам носить у комору') + '</small></button>';
+    void hc;
     h += '<button class="btn red" data-a="' + A({ t: 'demolish', id: b.id }) + '">🗑 Знести<small>повернеться половина ціни</small></button>';
     return h + '</div>';
+  }
+  let villFor = null, lookDraft = null;
+  function villSheet() {
+    const s = view, v = s.vl && s.vl[villFor]; if (!v) return '';
+    const mine = villFor === myUid(), L = K.LOOK;
+    if (!lookDraft || lookDraft.u !== villFor) lookDraft = { u: villFor, c: { ...v.c } };
+    const c = lookDraft.c, r = (K.routes(s)[villFor] || []);
+    let h = '<div class="row" style="justify-content:center;background:linear-gradient(#9FD07A,#6DAF4E)"><canvas id="villPv" width="120" height="140" style="width:120px;height:140px" aria-label="Вигляд селянина"></canvas></div>';
+    h += '<div class="row"><span class="ic">🧺</span><span class="tx"><b>Обходить ' + r.length + ' з ' + K.route(v) + ' будівель · кошик ' + K.basket(v) + '</b><small>обхід за ' + secs(K.tripMs(v)) + ' · усього приніс ' + fmt(v.got || 0) + '. Працює й тоді, коли нікого нема.</small></span></div>';
+    if (!mine) return h;
+    const pick = (k, list, label) => '<div class="row"><span class="tx"><b>' + label + '</b><small>' + (k === 'st' || k === 'h' ? L[k === 'st' ? 'style' : 'hat'][c[k]] : '') + '</small></span><button class="sell" data-look="' + k + ':-1" aria-label="' + label + ': попередній">◀</button>' +
+      (list ? '<span style="width:22px;height:22px;border-radius:50%;background:' + list[c[k]] + ';border:2px solid #fff;flex:none"></span>' : '') + '<button class="sell" data-look="' + k + ':1" aria-label="' + label + ': наступний">▶</button></div>';
+    h += pick('sh', L.shirt, 'Сорочка') + pick('st', null, 'Одяг') + pick('p', L.pants, 'Штани') + pick('h', null, 'Шапка') + pick('s', L.skin, 'Обличчя');
+    const changed = JSON.stringify(c) !== JSON.stringify(v.c);
+    h += '<div class="btns"><button class="btn" data-a="' + A({ t: 'look', uid: villFor, c }) + '"' + (changed ? '' : ' disabled') + '>Вдягнути</button><button class="btn sec" id="moveHome">🏠 Перенести хату</button></div>';
+    for (const k in K.VUP) { const cost = K.vupCost(v, k); h += '<button class="row' + (K.canAfford(s, cost) ? '' : ' off') + '" data-a="' + A({ t: 'vup', uid: villFor, k }) + '"><span class="ic">' + (k === 'rt' ? '🗺' : k === 'bk' ? '🧺' : '👢') + '</span><span class="tx"><b>' + K.VUP[k].n + ' · рів. ' + ((v.u[k] || 0) + 1) + '</b><small>' + K.VUP[k].d + '</small></span><span class="pr">' + costTxt(cost) + '</span></button>'; }
+    return h;
+  }
+  function bindVill() {
+    const pv = $('villPv'); if (pv && lookDraft) { const q = pv.getContext('2d'); q.clearRect(0, 0, 120, 140); drawVillager(q, 60, 124, 3.2, lookDraft.c, performance.now(), false, 1); }
+    $('shB').querySelectorAll('[data-look]').forEach((el) => el.addEventListener('click', () => {
+      if (fresh()) return;
+      const [k, d] = el.dataset.look.split(':'), n = { s: K.LOOK.skin, sh: K.LOOK.shirt, p: K.LOOK.pants, st: K.LOOK.style, h: K.LOOK.hat }[k].length;
+      lookDraft.c[k] = (lookDraft.c[k] + +d + n) % n; sfx('pick'); sheetFn();
+    }));
+    const mh = $('moveHome'); if (mh) mh.onclick = () => { if (fresh()) return; closeSheet(); placing = '@home'; $('place').hidden = false; $('placeT').textContent = 'Куди перенести хату?'; };
   }
   function storeSheet() {
     const s = view, cap = K.storeCap(s), sc = K.storeCost(s);
@@ -342,11 +378,18 @@
   const free = (s, x, y) => K.owned(s, x, y) && !K.at(s, x, y) && !s.ob[K.idx(x, y)];
 
   // ================= торкання карти =================
+  function tapVillager(px, py) {
+    let best = null, bd = 18 * Math.max(0.8, cam.z);
+    for (const p of vpos) { const d = Math.hypot(p.sx - px, p.sy - 12 * cam.z - py); if (d < bd) { bd = d; best = p; } }
+    if (!best) return false;
+    villFor = best.uid; lookDraft = null; openSheet('🧑‍🌾 ' + view.vl[best.uid].n, villSheet); return true;
+  }
   function tapTile(x, y) {
     const s = view; if (!s) return;
     if (x < 0 || y < 0 || x >= N || y >= N) { closeSheet(); return; }
     if (placing) {
       if (!free(s, x, y)) { toast(K.owned(s, x, y) ? 'Тут зайнято' : 'Це не твоя земля', true); return; }
+      if (placing === '@home') { const r = commit({ t: 'movehome', uid: myUid(), x, y }); if (r && r.ok) cancelPlace(); return; }
       const r = commit({ t: 'build', k: placing, x, y });
       if (r && r.ok) { const k = placing; cancelPlace(); if (K.canAfford(view, K.buildCost(view, k)) && B[k].kind === 'field') toast('Ще поле? 🏗 → Поле'); }
       return;
@@ -354,7 +397,7 @@
     const b = K.at(s, x, y);
     if (b) {
       if (b.buf && !b.h && !sheetFn) { const r = commit({ t: 'collect', id: b.id }); if (r && r.ok) return; }
-      buildAt = null; sel = b.id; openSheet(B[b.k].ic + ' ' + B[b.k].n + (B[b.k].d ? ' · рів. ' + b.lv : ''), bSheet); return;
+      buildAt = null; sel = b.id; openSheet(B[b.k].ic + ' ' + B[b.k].n + (B[b.k].d ? ' · рів. ' + b.lv : b.k === 'home' && s.vl && s.vl[b.o] ? ' · ' + s.vl[b.o].n : ''), bSheet); return;
     }
     if (!K.owned(s, x, y)) {
       const c = K.chunkOf(x, y), cost = K.chunkCost(s);
@@ -399,7 +442,7 @@
   function shade(hex, k) { const n = parseInt(hex.slice(1), 16); let r = n >> 16, gg = (n >> 8) & 255, b = n & 255; r = Math.round(r * k); gg = Math.round(gg * k); b = Math.round(b * k); return 'rgb(' + Math.min(255, r) + ',' + Math.min(255, gg) + ',' + Math.min(255, b) + ')'; }
   function emoji(t, x, y, size) { g.font = size + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(t, x, y); }
 
-  function drawHouse(cx, cy, z, wall, roof, ic) {
+  function drawHouse(cx, cy, z, wall, roof, ic, hut) {
     const w = TW * 0.72 * z, hh = TH * 0.72 * z, h = 20 * z, rh = 18 * z;
     const L = [cx - w / 2, cy], Bm = [cx, cy + hh / 2], R = [cx + w / 2, cy], T = [cx, cy - hh / 2];
     g.fillStyle = 'rgba(0,0,0,.18)'; diamond(cx + 4 * z, cy + 2 * z, w * 1.05, hh * 1.05); g.fill();
@@ -411,6 +454,14 @@
     const ax = cx, ay = cy - h - rh, e = 3 * z;
     g.fillStyle = shade(roof, 0.8); g.beginPath(); g.moveTo(ax, ay); g.lineTo(L[0] - e, L[1] - h + e * 0.3); g.lineTo(Bm[0], Bm[1] - h + e); g.closePath(); g.fill();
     g.fillStyle = roof; g.beginPath(); g.moveTo(ax, ay); g.lineTo(Bm[0], Bm[1] - h + e); g.lineTo(R[0] + e, R[1] - h + e * 0.3); g.closePath(); g.fill();
+    if (hut) {
+      // вікно з віконницями на лівій стіні й солом'яні пасма на стрісі
+      const wx0 = (L[0] + Bm[0]) / 2, wy0 = (L[1] + Bm[1]) / 2 - h * 0.55;
+      g.fillStyle = '#5B86B0'; g.beginPath(); g.moveTo(wx0 - 4 * z, wy0 - 3 * z); g.lineTo(wx0 + 4 * z, wy0 + 1 * z); g.lineTo(wx0 + 4 * z, wy0 + 7 * z); g.lineTo(wx0 - 4 * z, wy0 + 3 * z); g.closePath(); g.fill();
+      g.fillStyle = '#2F6EA5'; g.fillRect(wx0 - 7 * z, wy0 - 3 * z, 2.5 * z, 7 * z); g.fillRect(wx0 + 4.5 * z, wy0 + 1 * z, 2.5 * z, 7 * z);
+      g.strokeStyle = 'rgba(120,85,30,.55)'; g.lineWidth = 1 * z;
+      for (let i = 1; i < 6; i++) { const u = i / 6; g.beginPath(); g.moveTo(ax, ay + 2 * z); g.lineTo(L[0] - e + (Bm[0] - L[0] + e) * u, L[1] - h + e * 0.3 + (Bm[1] - L[1] + e * 0.7) * u); g.stroke(); g.beginPath(); g.moveTo(ax, ay + 2 * z); g.lineTo(Bm[0] + (R[0] + e - Bm[0]) * u, Bm[1] - h + e + (R[1] - Bm[1] - e * 0.7) * u); g.stroke(); }
+    }
     if (ic) { g.fillStyle = 'rgba(255,255,255,.9)'; g.beginPath(); g.arc((L[0] + Bm[0]) / 2, (L[1] + Bm[1]) / 2 - h * 0.55, 8 * z, 0, 7); g.fill(); emoji(ic, (L[0] + Bm[0]) / 2, (L[1] + Bm[1]) / 2 - h * 0.55 + 0.5 * z, Math.round(11 * z)); }
   }
   function drawTree(cx, cy, z, k, apples) {
@@ -465,6 +516,70 @@
     if (warn) { g.strokeStyle = '#FF6B6B'; g.lineWidth = 2 * z; g.beginPath(); g.moveTo(cx - 8 * z, by + 8 * z); g.lineTo(cx + 8 * z, by - 8 * z); g.stroke(); }
   }
 
+  // селянин: q — контекст, (x,y) — точка під ногами, k — масштаб, c — вигляд, walk — чи йде, dir — ±1 куди дивиться
+  function drawVillager(q, x, y, k, c, t, walk, dir, basket) {
+    const L = K.LOOK, skin = L.skin[c.s] || L.skin[0], shirt = L.shirt[c.sh] || L.shirt[0], pants = L.pants[c.p] || L.pants[0];
+    const ph = walk ? Math.sin(t / 110) : 0, bob = walk ? Math.abs(Math.sin(t / 110)) * 0.8 * k : 0;
+    q.save(); q.translate(x, y - bob); q.scale(dir < 0 ? -1 : 1, 1);
+    q.fillStyle = 'rgba(0,0,0,.22)'; q.beginPath(); q.ellipse(0, bob, 4.5 * k, 1.8 * k, 0, 0, 7); q.fill();
+    // ноги
+    q.fillStyle = pants; q.fillRect(-2.6 * k + ph * 0.8 * k, -6 * k, 2.2 * k, 6 * k); q.fillRect(0.4 * k - ph * 0.8 * k, -6 * k, 2.2 * k, 6 * k);
+    q.fillStyle = '#3B2A1E'; q.fillRect(-2.8 * k + ph * 0.8 * k, -1 * k, 2.6 * k, 1.2 * k); q.fillRect(0.3 * k - ph * 0.8 * k, -1 * k, 2.6 * k, 1.2 * k);
+    // тулуб
+    const coat = c.st === 3, len = coat ? 9.5 : 7;
+    q.fillStyle = coat ? '#7A5532' : shirt; q.beginPath(); q.moveTo(-3.6 * k, -5.2 * k + (coat ? 2.5 * k : 0)); q.lineTo(3.6 * k, -5.2 * k + (coat ? 2.5 * k : 0)); q.lineTo(3 * k, -5.5 * k - len * k + 2 * k); q.lineTo(-3 * k, -5.5 * k - len * k + 2 * k); q.closePath(); q.fill();
+    if (coat) { q.fillStyle = shirt; q.fillRect(-1 * k, -12 * k, 2 * k, 5 * k); }
+    if (c.st === 1) { q.fillStyle = '#C62828'; q.fillRect(-0.6 * k, -12 * k, 1.2 * k, 4 * k); q.fillRect(-3 * k, -7.2 * k, 6 * k, 0.9 * k); q.fillRect(-3.3 * k, -10.5 * k, 1 * k, 1 * k); q.fillRect(2.3 * k, -10.5 * k, 1 * k, 1 * k); }
+    if (c.st === 2) { q.fillStyle = '#2E2A24'; q.fillRect(-3.3 * k, -12 * k, 2 * k, 6.6 * k); q.fillRect(1.3 * k, -12 * k, 2 * k, 6.6 * k); }
+    // руки
+    q.fillStyle = coat ? '#7A5532' : shirt; q.fillRect(-4.6 * k, -11.5 * k - ph * 0.5 * k, 1.6 * k, 5 * k); q.fillRect(3 * k, -11.5 * k + ph * 0.5 * k, 1.6 * k, 5 * k);
+    q.fillStyle = skin; q.fillRect(-4.6 * k, -6.7 * k - ph * 0.5 * k, 1.6 * k, 1.4 * k);
+    if (basket) { q.fillStyle = '#B5823C'; q.beginPath(); q.moveTo(3 * k, -7 * k); q.lineTo(8 * k, -7 * k); q.lineTo(7.2 * k, -3.5 * k); q.lineTo(3.8 * k, -3.5 * k); q.closePath(); q.fill(); q.strokeStyle = '#8A5A2B'; q.lineWidth = 0.7 * k; q.beginPath(); q.arc(5.5 * k, -7 * k, 2.4 * k, Math.PI, 0); q.stroke(); q.fillStyle = '#F2C14E'; q.beginPath(); q.arc(5.5 * k, -7.3 * k, 1.6 * k, Math.PI, 0); q.fill(); }
+    else { q.fillStyle = skin; q.fillRect(3 * k, -6.7 * k + ph * 0.5 * k, 1.6 * k, 1.4 * k); }
+    // голова
+    q.fillStyle = skin; q.beginPath(); q.arc(0, -15 * k, 3.2 * k, 0, 7); q.fill();
+    q.fillStyle = '#2B1D14'; q.fillRect(1.2 * k, -15.6 * k, 0.9 * k, 0.9 * k);
+    // шапка
+    const hat = c.h;
+    if (hat === 1) { q.fillStyle = '#E3C16F'; q.beginPath(); q.ellipse(0, -17 * k, 6 * k, 1.6 * k, 0, 0, 7); q.fill(); q.fillRect(-2.8 * k, -20.5 * k, 5.6 * k, 3.6 * k); q.fillStyle = '#B23A2E'; q.fillRect(-2.8 * k, -18.2 * k, 5.6 * k, 0.9 * k); }
+    else if (hat === 2) { q.fillStyle = '#37474F'; q.beginPath(); q.arc(0, -16.5 * k, 3.4 * k, Math.PI, 0); q.fill(); q.fillRect(0, -17 * k, 5 * k, 1.2 * k); }
+    else if (hat === 3) { q.fillStyle = '#D32F2F'; q.beginPath(); q.arc(0, -15.5 * k, 3.7 * k, Math.PI * 0.95, Math.PI * 2.05); q.lineTo(-1 * k, -11 * k); q.closePath(); q.fill(); q.fillStyle = '#FFEB3B'; q.beginPath(); q.arc(-1.5 * k, -17.5 * k, 0.7 * k, 0, 7); q.arc(1.5 * k, -17.8 * k, 0.7 * k, 0, 7); q.fill(); }
+    else if (hat === 4) { const fl = ['#E53935', '#FDD835', '#1E88E5', '#E53935', '#8E24AA']; fl.forEach((f, i) => { q.fillStyle = f; q.beginPath(); q.arc(-3.4 * k + i * 1.7 * k, -18 * k - Math.sin(i / 4 * Math.PI) * 1.2 * k, 1.1 * k, 0, 7); q.fill(); }); q.strokeStyle = '#E53935'; q.lineWidth = 0.7 * k; q.beginPath(); q.moveTo(-3 * k, -16 * k); q.lineTo(-4.5 * k, -9 * k); q.stroke(); q.strokeStyle = '#1E88E5'; q.beginPath(); q.moveTo(-2.4 * k, -16 * k); q.lineTo(-3.3 * k, -9.5 * k); q.stroke(); }
+    else if (hat === 5) { q.fillStyle = '#1F1A17'; q.fillRect(-3.4 * k, -22 * k, 6.8 * k, 6.4 * k); q.fillStyle = '#3A2F28'; q.fillRect(-3.4 * k, -22 * k, 6.8 * k, 1.2 * k); }
+    else { q.fillStyle = '#4E342E'; q.beginPath(); q.arc(0, -16 * k, 3.3 * k, Math.PI, 0); q.fill(); }
+    q.restore();
+  }
+  // де селянин зараз: хата → будівлі маршруту → хата; на кожній будівлі трохи стоїть
+  function villPos(s, uid, rts, t, dt) {
+    const v = s.vl[uid], h = v && s.b.find((b) => b.id === v.home); if (!h) return null;
+    const r = rts[uid] || [], trip = K.tripMs(v);
+    if (!r.length) { const a = t / 2600 + uid.length; return { x: h.x + 0.45 + Math.cos(a) * 0.25, y: h.y + 0.35 + Math.sin(a) * 0.25, walk: true, dir: Math.cos(a + 1.57) > 0 ? 1 : -1, basket: false }; }
+    const pts = [h].concat(r, [h]), segs = pts.length - 1;
+    const f = (((v.vp + dt) % trip) / trip) * segs, i = Math.min(segs - 1, Math.floor(f)), fr = f - i;
+    const a = pts[i], b = pts[i + 1], w = Math.min(1, fr / 0.75);
+    // підходить до краю клітинки, а не в середину будівлі
+    const ox = 0.42, oy = 0.42;
+    const x = a.x + ox + (b.x - a.x) * w, y = a.y + oy + (b.y - a.y) * w;
+    const sxd = (b.x - a.x) - (b.y - a.y);
+    return { x, y, walk: fr < 0.75, dir: sxd >= 0 ? 1 : -1, basket: i > 0 };
+  }
+  let vpos = [], lights = [], bubbles = [];
+  function drawVill(p, s, z, t) {
+    const X = sx(p.x, p.y), Y = sy(p.x, p.y), v = s.vl[p.uid];
+    drawVillager(g, X, Y, 1.25 * z, v.c, t, p.walk, p.dir, p.basket);
+    vpos.push({ uid: p.uid, sx: X, sy: Y });
+    const nt = darkness(t); if (nt.dark > 0.2) lights.push([X + 7 * z * p.dir, Y - 14 * z, 0.45]);
+    if (mode === 'shared' || p.uid !== 'me') {
+      const mine = p.uid === myUid(), on = mine || onlineUids.has(p.uid);
+      g.font = '700 ' + Math.round(11 * Math.max(0.85, z)) + 'px Rubik,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'bottom';
+      g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.55)'; g.strokeText(v.n, X, Y - 30 * z); g.fillStyle = mine ? '#FFC93C' : on ? '#FFFFFF' : 'rgba(255,255,255,.6)'; g.fillText(v.n, X, Y - 30 * z);
+    }
+  }
+
+  // день і ніч — лише для краси: доба 20 хв, однакова для всіх; урожай росте однаково
+  const DAY = 20 * 60e3;
+  function darkness(t) { const sun = Math.sin(((t % DAY) / DAY) * 2 * Math.PI - Math.PI / 2); return { dark: Math.max(0, Math.min(1, (0.15 - sun) / 0.7)) * 0.62, dusk: Math.max(0, 1 - Math.abs(sun) / 0.3) }; }
+
   const floats = [];
   function floatText(x, y, t) { floats.push({ x, y, t, at: performance.now() }); }
 
@@ -476,7 +591,9 @@
     refreshView();
     const s = view, z = cam.z, t = now(), dt = t - viewAt;
     const bmap = new Map(); for (const b of s.b) bmap.set(K.idx(b.x, b.y), b);
-    const bon = K.bonuses(s);
+    const bon = K.bonuses(s), rts = K.routes(s), vByTile = new Map();
+    lights = []; vpos = []; bubbles = [];
+    for (const uid of s.vo || []) { const p = villPos(s, uid, rts, t, dt); if (!p) continue; p.uid = uid; const key = Math.floor(p.x + 0.5) + Math.floor(p.y + 0.5); if (!vByTile.has(key)) vByTile.set(key, []); vByTile.get(key).push(p); }
     const ownedSet = new Set(s.ch);
     const buyable = new Set();
     for (const c of s.ch) { const x = c % K.NC, y = Math.floor(c / K.NC); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy; if (X >= 0 && Y >= 0 && X < K.NC && Y < K.NC && !ownedSet.has(Y * K.NC + X)) buyable.add(Y * K.NC + X); } }
@@ -501,13 +618,24 @@
     // предмети за глибиною
     for (let d = 0; d < 2 * N - 1; d++) for (let x = Math.max(0, d - N + 1); x <= Math.min(N - 1, d); x++) {
       const y = d - x, X = sx(x, y), Y = sy(x, y);
-      if (X < -tw || X > W + tw || Y < -pad || Y > H + th + pad * 2) continue;
+      if (X < -tw || X > W + tw || Y < -pad || Y > H + th + pad * 2) { if (x === Math.min(N - 1, d) && vByTile.has(d)) for (const p of vByTile.get(d)) drawVill(p, s, z, t); continue; }
       const i = K.idx(x, y), b = bmap.get(i);
-      if (b) { drawBuilding(b, X, Y, z, t, dt, bon, s); continue; }
-      const ob = s.ob[i];
-      if (ob === 't') drawTree(X, Y, z, ownedSet.has(K.chunkOf(x, y)), 0);
-      else if (ob === 'r') drawRock(X, Y, z);
+      if (b) drawBuilding(b, X, Y, z, t, dt, bon, s);
+      else if (s.ob[i] === 't') drawTree(X, Y, z, ownedSet.has(K.chunkOf(x, y)), 0);
+      else if (s.ob[i] === 'r') drawRock(X, Y, z);
+      // селяни, що стоять на цій «діагоналі», — після неї, щоб не ховалися за будинками
+      if (x === Math.min(N - 1, d) && vByTile.has(d)) for (const p of vByTile.get(d)) drawVill(p, s, z, t);
     }
+    // ніч
+    const nt = darkness(t);
+    if (nt.dusk > 0) { g.fillStyle = 'rgba(255,120,40,' + (0.13 * nt.dusk) + ')'; g.fillRect(0, 0, W, H); }
+    if (nt.dark > 0.01) {
+      g.fillStyle = 'rgba(10,16,48,' + nt.dark + ')'; g.fillRect(0, 0, W, H);
+      g.globalCompositeOperation = 'lighter';
+      for (const [lx, ly, k] of lights) { const r = 26 * z * k, gr = g.createRadialGradient(lx, ly, 0, lx, ly, r); gr.addColorStop(0, 'rgba(255,190,90,' + (0.75 * nt.dark) + ')'); gr.addColorStop(1, 'rgba(255,150,60,0)'); g.fillStyle = gr; g.fillRect(lx - r, ly - r, 2 * r, 2 * r); }
+      g.globalCompositeOperation = 'source-over';
+    }
+    for (const [bx, by, bz, ic, warn] of bubbles) bubble(bx, by, bz, t, ic, warn);
     // таблички на землі, яку можна купити
     for (const c of buyable) {
       const x = (c % K.NC) * K.CH + 1.5, y = Math.floor(c / K.NC) * K.CH + 1.5, X = sx(x, y), Y = sy(x, y);
@@ -515,6 +643,7 @@
       g.fillStyle = 'rgba(12,10,16,.65)'; g.beginPath(); g.roundRect ? g.roundRect(X - 22 * z, Y - 13 * z, 44 * z, 26 * z, 10 * z) : g.rect(X - 22 * z, Y - 13 * z, 44 * z, 26 * z); g.fill();
       emoji('🗺', X - 9 * z, Y, Math.round(13 * z)); g.fillStyle = '#FFC93C'; g.font = '800 ' + Math.round(15 * z) + 'px "Baloo 2",sans-serif'; g.fillText('+', X + 9 * z, Y + 1 * z);
     }
+    if (sheetFn && villFor && rts[villFor]) { g.strokeStyle = 'rgba(255,201,60,.8)'; g.setLineDash([4 * z, 4 * z]); g.lineWidth = 2 * z; for (const b of rts[villFor]) { diamond(sx(b.x, b.y), sy(b.x, b.y), tw * 0.9, th * 0.9); g.stroke(); } g.setLineDash([]); }
     // вибрана будівля
     if (sel && sheetFn) { const b = s.b.find((q) => q.id === sel); if (b) { g.strokeStyle = '#FFC93C'; g.lineWidth = 2.5 * z; diamond(sx(b.x, b.y), sy(b.x, b.y), tw * 0.96, th * 0.96); g.stroke(); } }
     if (buildAt && sheetFn) { g.strokeStyle = '#FFFFFF'; g.lineWidth = 2.5 * z; diamond(sx(buildAt[0], buildAt[1]), sy(buildAt[0], buildAt[1]), tw * 0.96, th * 0.96); g.stroke(); }
@@ -533,16 +662,17 @@
     if (d.kind === 'field') drawField(X, Y, z, b.buf ? 1 : prog, b.buf >= K.capOf(b) || (b.buf && b.p < 0));
     else if (d.kind === 'orchard') { g.fillStyle = '#6DAF4E'; diamond(X, Y, TW * 0.9 * z, TH * 0.9 * z); g.fill(); drawTree(X - 12 * z, Y - 2 * z, z * 0.75, 1, b.buf ? 3 : Math.floor(prog * 3)); drawTree(X + 12 * z, Y - 2 * z, z * 0.75, 1, b.buf ? 3 : Math.floor(prog * 2)); drawTree(X, Y + 6 * z, z * 0.8, 1, b.buf ? 4 : Math.floor(prog * 3)); }
     else if (d.kind === 'well') drawWell(X, Y, z);
+    else if (d.kind === 'home') { drawHouse(X, Y, z, '#F4EFE4', '#C9A24A', '', true); lights.push([X - 10 * z, Y - 10 * z, 1]); }
     else if (d.kind === 'apiary') { g.fillStyle = '#88C463'; diamond(X, Y, TW * 0.9 * z, TH * 0.9 * z); g.fill(); drawHives(X, Y, z, t); }
-    else drawHouse(X, Y, z, d.wall, d.roof, d.ic);
+    else { drawHouse(X, Y, z, d.wall, d.roof, d.ic); lights.push([X + 9 * z, Y - 8 * z, 0.7]); }
     if (!d.d) return;
     if (b.lv > 1) { g.fillStyle = 'rgba(12,10,16,.75)'; g.beginPath(); g.arc(X + 20 * z, Y + 4 * z, 7 * z, 0, 7); g.fill(); g.fillStyle = '#FFC93C'; g.font = '800 ' + Math.round(10 * z) + 'px "Baloo 2",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(b.lv, X + 20 * z, Y + 4.5 * z); }
     if (b.h) emoji('🧑‍🌾', X - 20 * z, Y + 2 * z, Math.round(11 * z));
     const out = RES[d.out[0]].ic;
-    if (b.buf && !b.h) bubble(X, Y, z, t, out, false);
+    if (b.buf && !b.h) bubbles.push([X, Y, z, out, false]);
     else if (b.p >= 0 && d.kind !== 'field') {
       const w = 28 * z; g.fillStyle = 'rgba(12,10,16,.6)'; g.fillRect(X - w / 2, Y + 11 * z, w, 4 * z); g.fillStyle = '#7BD389'; g.fillRect(X - w / 2, Y + 11 * z, w * prog, 4 * z);
-    } else if (b.p < 0) { const w = K.why(s, b); if (w && w !== 'full') bubble(X, Y, z * 0.8, t, RES[w].ic, true); }
+    } else if (b.p < 0) { const w = K.why(s, b); if (w && w !== 'full') bubbles.push([X, Y, z * 0.8, RES[w].ic, true]); }
   }
   // заставка меню: трохи полів
   function drawMenuBg(t) {
@@ -585,7 +715,7 @@
   const up = (e) => {
     const p = ptr.get(e.pointerId); ptr.delete(e.pointerId);
     if (!p || !gest) return;
-    if (!gest.moved && !gest.pinch && ptr.size === 0 && performance.now() - p.t0 < 600) { const [x, y] = pick(p.x, p.y); tapTile(x, y); }
+    if (!gest.moved && !gest.pinch && ptr.size === 0 && performance.now() - p.t0 < 600) { if (!placing && view && tapVillager(p.x, p.y)) return; const [x, y] = pick(p.x, p.y); tapTile(x, y); }
     if (ptr.size === 0) gest = null;
     else if (gest.pinch && ptr.size === 1) { const q = [...ptr.values()][0]; q.x0 = q.x; q.y0 = q.y; gest = { moved: true, cx: cam.x, cy: cam.y }; }
   };
@@ -617,7 +747,7 @@
   window.KHUTIR = {
     get S() { return S; }, get view() { return view; }, get mode() { return mode; }, get code() { return code; }, get cam() { return cam; },
     commit, tapTile, warp(ms) { warp += ms; refreshView(true); }, refresh() { refreshView(true); }, startSolo, openShared, showMenu, go, closeSheet,
-    screenOf(x, y) { return [sx(x, y), sy(x, y)]; }, get sheetOpen() { return !!sheetFn; }, get placing() { return placing; }, me,
+    screenOf(x, y) { return [sx(x, y), sy(x, y)]; }, get vpos() { return vpos; }, darkness, DAY, focus(x, y) { cam.x = wx(x, y); cam.y = wy(x, y); }, get sheetOpen() { return !!sheetFn; }, get placing() { return placing; }, me,
   };
 
   showMenu();

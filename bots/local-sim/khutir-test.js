@@ -20,15 +20,15 @@ const tapTile = async (p, x, y) => { const [sx, sy] = await p.evaluate(([x, y]) 
   await p.tap("#mSolo");
   await until(() => p.evaluate(() => KHUTIR.mode === "solo" && !!KHUTIR.view));
   const st0 = await p.evaluate(() => ({ c: KHUTIR.view.coins, b: KHUTIR.view.b.length, f: KHUTIR.view.b[0] }));
-  check("новий хутір: 60 💰 і одне поле", st0.c === 60 && st0.b === 1 && st0.f.k === "field", JSON.stringify(st0));
+  check("новий хутір: 60 💰, одне поле й хата селянина", st0.c === 60 && st0.b === 2 && st0.f.k === "field", JSON.stringify(st0));
   check("поле одразу росте", st0.f.p >= 0);
   await p.evaluate(() => KHUTIR.warp(65e3));
-  const buf = await p.evaluate(() => KHUTIR.view.b[0].buf);
-  check("за 65 с поле дало 6 🌾", buf === 6, String(buf));
+  const buf = await p.evaluate(() => KHUTIR.view.b[0].buf + (KHUTIR.view.st.wheat || 0));
+  check("за 65 с поле дало 6 🌾 (частину вже відніс селянин)", buf === 6, String(buf));
   await p.screenshot({ path: OUT + "/1-ripe.png" });
   // торкання поля — збір
   await tapTile(p, st0.f.x, st0.f.y);
-  const wheat = await p.evaluate(() => KHUTIR.view.st.wheat || 0);
+  const wheat = await p.evaluate(() => (KHUTIR.view.st.wheat || 0) + KHUTIR.view.b[0].buf);
   check("торкнувся поля → пшениця в коморі", wheat === 6, String(wheat));
   // торкання вільної клітинки → шторка «Будувати тут» → Курник
   await tapTile(p, 17, 16);
@@ -82,6 +82,35 @@ const tapTile = async (p, x, y) => { const [sx, sy] = await p.evaluate(([x, y]) 
   await touch("touchEnd", []); await p.waitForTimeout(150);
   const z1 = await p.evaluate(() => KHUTIR.cam.z);
   check("щипок збільшує карту", z1 > cam1.z * 1.3, cam1.z.toFixed(2) + " → " + z1.toFixed(2));
+  // селянин
+  const v0 = await p.evaluate(() => { const s = KHUTIR.view, v = s.vl && s.vl.me; return v && { home: s.b.find((b) => b.id === v.home), r: KhutirSim.routes(s).me.length }; });
+  check("у соло є свій селянин із хатою", !!(v0 && v0.home && v0.home.k === "home"), JSON.stringify(v0));
+  check("селянин обходить будівлі", v0 && v0.r >= 2, String(v0 && v0.r));
+  const sold = await p.evaluate(() => { const s = KHUTIR.S; for (const r in s.st) s.st[r] = 0; for (const b of s.b) b.buf = 0; KHUTIR.refresh(); return 1; });
+  await p.evaluate(() => KHUTIR.warp(3 * 60e3));
+  const vg = await p.evaluate(() => ({ st: KHUTIR.view.st, got: KHUTIR.view.vl.me.got }));
+  check("за 3 хв селянин сам приніс урожай у комору", (vg.st.wheat || 0) + (vg.st.egg || 0) > 0 && vg.got > 0, JSON.stringify(vg));
+  await p.evaluate(() => KHUTIR.closeSheet());
+  await p.evaluate(() => { const h = KHUTIR.view.b.find((b) => b.k === "home"); KHUTIR.focus(h.x, h.y); });
+  await p.waitForTimeout(400);
+  const vp = await p.evaluate(() => KHUTIR.vpos[0]);
+  check("селянина видно на карті", !!vp, JSON.stringify(vp));
+  if (vp) { await tapAt(p, vp.sx, vp.sy - 12); await p.waitForTimeout(450); }
+  check("торкання селянина відкриває його шторку", await p.evaluate(() => KHUTIR.sheetOpen && document.getElementById("shT").textContent.includes("🧑‍🌾")));
+  const look0 = await p.evaluate(() => JSON.stringify(KHUTIR.view.vl.me.c));
+  await (await p.$("[data-look='h:1']")).tap(); await p.waitForTimeout(150);
+  await (await p.$("[data-look='sh:1']")).tap(); await p.waitForTimeout(150);
+  await p.screenshot({ path: OUT + "/7-villager.png" });
+  await (await p.$("#shB button.btn:has-text('Вдягнути')")).tap(); await p.waitForTimeout(300);
+  const look1 = await p.evaluate(() => JSON.stringify(KHUTIR.view.vl.me.c));
+  check("переодягнути селянина", look0 !== look1, look0 + " → " + look1);
+  const nightOk = await p.evaluate(() => { const S = KHUTIR.S, a = JSON.parse(JSON.stringify(S)), b = JSON.parse(JSON.stringify(S)); const D = KHUTIR.DAY, base = Math.floor(S.t / D) * D;
+    a.t = base; b.t = base + D / 2; KhutirSim.advance(a, base + 60e3); KhutirSim.advance(b, base + D / 2 + 60e3);
+    return { night: KHUTIR.darkness(base).dark, day: KHUTIR.darkness(base + D / 2).dark, same: a.b.map((q) => q.buf).join() === b.b.map((q) => q.buf).join() }; });
+  check("ніч темна, день світлий, а урожай росте однаково", nightOk.night > 0.4 && nightOk.day === 0 && nightOk.same, JSON.stringify(nightOk));
+  await p.evaluate(() => KHUTIR.closeSheet());
+  await p.evaluate(() => { for (let i = 0; i < 25 && KHUTIR.darkness(KHUTIR.view.t).dark < 0.55; i++) KHUTIR.warp(60e3); });
+  await p.waitForTimeout(500); await p.screenshot({ path: OUT + "/8-night.png" });
   // збереження + офлайн-прибуток
   await p.evaluate(() => KHUTIR.showMenu());
   const saved = await p.evaluate(() => JSON.parse(localStorage.getItem("khutir_solo")));
@@ -106,24 +135,24 @@ const tapTile = async (p, x, y) => { const [sx, sy] = await p.evaluate(([x, y]) 
   await c2.fill("#mNick", "Олена К"); await c2.fill("#mCode", code.toLowerCase()); await c2.tap("#mJoin");
   await until(() => c2.evaluate(() => KHUTIR.mode === "shared" && !!KHUTIR.view), 20000);
   check("другий телефон зайшов за кодом", await c2.evaluate(() => KHUTIR.mode === "shared"));
+  check("у спільному в кожного свій селянин", !!(await until(() => a.evaluate(() => Object.keys(KHUTIR.view.vl || {}).length === 2), 10000)));
   check("👥 показує двох", !!(await until(() => a.evaluate(() => document.getElementById("hOnN").textContent === "2"), 10000)));
   // A будує курник — B бачить
-  await a.evaluate(() => KHUTIR.commit({ t: "build", k: "field", x: 17, y: 17 }));
-  check("B бачить поле, яке збудував A", !!(await until(() => c2.evaluate(() => KHUTIR.view.b.some((b) => b.x === 17 && b.y === 17)), 10000)));
-  // обидва водночас збирають те саме поле — пшениця не дублюється
-  await a.evaluate(() => KHUTIR.warp(70e3)); await c2.evaluate(() => KHUTIR.warp(70e3));
-  const fid = await a.evaluate(() => KHUTIR.view.b[0].id);
-  await Promise.all([a.evaluate((id) => KHUTIR.commit({ t: "collect", id }), fid), c2.evaluate((id) => KHUTIR.commit({ t: "collect", id }), fid)]);
-  await a.waitForTimeout(1500);
-  const w2 = await a.evaluate(() => JSON.parse(KHUTIR.S ? JSON.stringify(KHUTIR.S) : "{}").st.wheat || 0);
-  const wB = await c2.evaluate(() => KHUTIR.S.st.wheat || 0);
-  check("одночасний збір: пшениця зарахована раз (≤ 12)", w2 > 0 && w2 <= 12 && w2 === wB, w2 + " / " + wB);
+  await a.evaluate(() => KHUTIR.commit({ t: "build", k: "field", x: 14, y: 14 }));
+  check("B бачить поле, яке збудував A", !!(await until(() => c2.evaluate(() => KHUTIR.view.b.some((b) => b.k === "field" && b.x === 14 && b.y === 14)), 10000)));
+  // обидва водночас будують на тій самій клітинці — стане одна будівля, гроші списано раз
+  const coins0 = await a.evaluate(() => KHUTIR.S.coins);
+  await Promise.all([a.evaluate(() => KHUTIR.commit({ t: "build", k: "field", x: 15, y: 14 })), c2.evaluate(() => KHUTIR.commit({ t: "build", k: "field", x: 15, y: 14 }))]);
+  await a.waitForTimeout(2000);
+  const rA = await a.evaluate(() => ({ n: KHUTIR.S.b.filter((b) => b.x === 15 && b.y === 14).length, c: KHUTIR.S.coins }));
+  const rB = await c2.evaluate(() => ({ n: KHUTIR.S.b.filter((b) => b.x === 15 && b.y === 14).length, c: KHUTIR.S.coins }));
+  check("одночасна дія двох: одна будівля, гроші списано раз, на обох телефонах однаково", rA.n === 1 && rB.n === 1 && rA.c === rB.c && rA.c >= coins0 - 20, JSON.stringify([coins0, rA, rB]));
   // журнал і внески
   await c2.evaluate(() => KHUTIR.commit({ t: "sell", r: "wheat", n: 2 }));
   await a.waitForTimeout(1000);
   await a.tap("#hName"); await a.waitForTimeout(300);
   const farmTxt = await a.textContent("#shB");
-  check("у меню хутора: код, хто тут, внески, журнал", farmTxt.includes(code) && farmTxt.includes("Олена К") && farmTxt.includes("збудував"), farmTxt.slice(0, 160));
+  check("у меню хутора: код, хто тут, внески, журнал", farmTxt.includes(code) && farmTxt.includes("Олена К") && farmTxt.includes("збудував"), farmTxt.slice(0, 400));
   await a.screenshot({ path: OUT + "/6-shared.png" });
   // посилання ?farm=КОД
   const d = await phone(b, "Тарас", { lite: true });

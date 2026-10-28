@@ -34,8 +34,8 @@ button:focus-visible{outline:3px solid var(--sky);outline-offset:2px}
 .place{position:fixed;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 56px);margin:0 auto;width:max-content;max-width:calc(100% - 24px);display:flex;gap:8px;align-items:center;background:rgba(12,10,16,.85);padding:6px 6px 6px 14px;border-radius:14px;font-size:15px}
 .place button{border:0;border-radius:10px;background:var(--card2);padding:8px 12px;font-size:14px}
 /* --- низ --- */
-.bar{position:fixed;left:0;right:0;bottom:0;padding:8px max(10px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 10px) max(10px,env(safe-area-inset-left,0px));display:grid;grid-template-columns:repeat(4,1fr);gap:8px;pointer-events:none}
-.bb{pointer-events:auto;position:relative;border:0;border-radius:16px;background:rgba(20,18,26,.88);padding:8px 2px 7px;display:grid;gap:2px;justify-items:center;font-size:12px;font-weight:600;box-shadow:0 4px 0 rgba(0,0,0,.35)}
+.bar{position:fixed;left:0;right:0;bottom:0;padding:8px max(10px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 10px) max(10px,env(safe-area-inset-left,0px));display:grid;grid-template-columns:repeat(5,1fr);gap:6px;pointer-events:none}
+.bb{pointer-events:auto;position:relative;border:0;border-radius:16px;background:rgba(20,18,26,.88);padding:8px 1px 7px;display:grid;gap:2px;justify-items:center;font-size:11px;min-width:0;overflow:hidden;font-weight:600;box-shadow:0 4px 0 rgba(0,0,0,.35)}
 .bb b{font-size:24px;line-height:1;font-weight:400}
 .bb:active{transform:translateY(2px);box-shadow:0 2px 0 rgba(0,0,0,.35)}
 .bb .dot{position:absolute;top:4px;right:8px;min-width:18px;height:18px;border-radius:9px;background:var(--red);color:#fff;font-size:12px;font-weight:800;line-height:18px;padding:0 4px;box-sizing:border-box}
@@ -107,6 +107,7 @@ button:focus-visible{outline:3px solid var(--sky);outline-offset:2px}
   <button class="bb" id="bAll"><b>🧺</b>Зібрати<span class="dot" id="dAll" hidden></span></button>
   <button class="bb" id="bOrders"><b>📋</b>Замовлення<span class="dot" id="dOrders" hidden></span></button>
   <button class="bb" id="bStore"><b>📦</b>Комора</button>
+  <button class="bb" id="bVill"><b>🧑‍🌾</b>Селянин</button>
 </div>
 
 <div class="sheet" id="sheet" role="dialog" aria-modal="false" aria-labelledby="shT">

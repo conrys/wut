@@ -27,6 +27,7 @@
     coop: { n: 'Курник', ic: '🐔', lv: 1, c: 40, d: 30, in: [['wheat', 1]], out: ['egg', 1], cap: 6, wall: '#E9D9B8', roof: '#C8553D' },
     mill: { n: 'Млин', ic: '🌬', lv: 2, c: 90, d: 40, in: [['wheat', 2]], out: ['flour', 1], cap: 6, wall: '#EFE6D2', roof: '#7A5C3E' },
     lumber: { n: 'Лісоруб', ic: '🪓', lv: 2, c: 60, d: 30, out: ['wood', 1], cap: 8, wall: '#B98A5A', roof: '#5E7D3A' },
+    home: { n: 'Хата', ic: '🏠', lv: 999, c: 0, kind: 'home', hint: 'Тут живе селянин. Звідси він ходить по врожай.' },
     well: { n: 'Криниця', ic: '💧', lv: 3, c: 120, kind: 'well', hint: '+25% швидкості полям, саду, курнику й корівнику навколо (8 клітинок).' },
     saw: { n: 'Тартак', ic: '🪚', lv: 3, c: 120, d: 40, in: [['wood', 2]], out: ['plank', 1], cap: 6, wall: '#C9A06B', roof: '#6B4A2E' },
     bakery: { n: 'Пекарня', ic: '🍞', lv: 4, c: 250, d: 60, in: [['flour', 1], ['egg', 1]], out: ['bread', 1], cap: 5, wall: '#F2D3A2', roof: '#B5452E' },
@@ -38,7 +39,70 @@
     pastry: { n: 'Кондитерська', ic: '🥧', lv: 10, c: 900, pl: 18, d: 90, in: [['flour', 1], ['apple', 1], ['egg', 1]], out: ['pie', 1], cap: 4, wall: '#FFD6E0', roof: '#C2477A' },
     meadery: { n: 'Медоварня', ic: '🍺', lv: 12, c: 1400, pl: 28, d: 120, in: [['honey', 2], ['apple', 1]], out: ['mead', 1], cap: 4, wall: '#D9B97A', roof: '#5B3A1E' },
   };
-  const ORDER = Object.keys(B);
+  const ORDER = Object.keys(B).filter((k) => B[k].kind !== 'home');
+
+  // ---------- селяни ----------
+  // По одному на гравця (соло — 'me'). Живе в хаті, обходить найближчі будівлі й носить урожай у комору.
+  // Обхід — подія в тому самому годиннику, що й урожай, тож селянин «працює», навіть коли нікого нема.
+  const LOOK = {
+    skin: ['#F1C9A5', '#E0A97E', '#B97F57', '#8A5A3C'],
+    shirt: ['#F5F5F5', '#E53935', '#1E88E5', '#43A047', '#FDD835', '#8E24AA', '#FB8C00', '#3E2723'],
+    pants: ['#3B4A6B', '#5D4037', '#263238', '#6D8B3A', '#8C2F39'],
+    style: ['Сорочка', 'Вишиванка', 'Жилетка', 'Свитка'],
+    hat: ['Без шапки', 'Бриль', 'Кашкет', 'Хустка', 'Вінок', 'Смушкова шапка'],
+  };
+  const VUP = { rt: { n: 'Маршрут', d: '+2 будівлі в обході' }, bk: { n: 'Кошик', d: '+4 місця в кошику' }, sp: { n: 'Чоботи', d: 'обхід на 20% швидший' } };
+  const route = (v) => 3 + 2 * (v.u.rt || 0);
+  const basket = (v) => 6 + 4 * (v.u.bk || 0);
+  const tripMs = (v) => (8000 + 3000 * route(v)) / (1 + 0.2 * (v.u.sp || 0));
+  const vupCost = (v, k) => { const L = v.u[k] || 0; return { c: Math.round(80 * Math.pow(1.9, L)), pl: L >= 1 ? 3 * L : 0 }; };
+  // хто що обходить: по черзі приходу, найближчі вільні будівлі до хати
+  function routes(s) {
+    const out = {}, taken = new Set();
+    for (const uid of s.vo || []) {
+      const v = s.vl[uid], h = v && s.b.find((b) => b.id === v.home);
+      if (!h) { out[uid] = []; continue; }
+      const cand = s.b.filter((b) => B[b.k].d && !b.h && !taken.has(b.id))
+        .map((b) => [Math.max(Math.abs(b.x - h.x), Math.abs(b.y - h.y)) * 1000 + Math.abs(b.x - h.x) + Math.abs(b.y - h.y), b])
+        .sort((a, b) => a[0] - b[0] || a[1].id - b[1].id).slice(0, route(v)).map((e) => e[1]);
+      cand.forEach((b) => taken.add(b.id));
+      // порядок обходу — «ланцюжком» від хати, щоб не бігати навхрест
+      const ord = []; let cur = h; const left = cand.slice();
+      while (left.length) { let bi = 0, bd = 1e9; left.forEach((b, i) => { const d = Math.abs(b.x - cur.x) + Math.abs(b.y - cur.y); if (d < bd) { bd = d; bi = i; } }); cur = left.splice(bi, 1)[0]; ord.push(cur); }
+      out[uid] = ord;
+    }
+    return out;
+  }
+  function trip(s, v, list) {
+    let room = basket(v), got = 0;
+    for (const b of list) {
+      if (!room) break;
+      const take = Math.min(room, b.buf); if (!take) continue;
+      const r = B[b.k].out[0], fit = Math.min(take, Math.max(0, storeCap(s) - (s.st[r] || 0)));
+      if (!fit) continue;
+      b.buf -= fit; s.st[r] = (s.st[r] || 0) + fit; s.made += fit; room -= fit; got += fit;
+    }
+    v.got = (v.got || 0) + got;
+    return got;
+  }
+  function freeTileNear(s, cx, cy) {
+    let best = null, bd = 1e9;
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      if (!owned(s, x, y) || at(s, x, y) || s.ob[idx(x, y)]) continue;
+      const d = Math.abs(x - cx) + Math.abs(y - cy) + (x + y) * 1e-3;
+      if (d < bd) { bd = d; best = [x, y]; }
+    }
+    return best;
+  }
+  function addVillager(s, uid, name) {
+    if (!s.vl) { s.vl = {}; s.vo = []; }
+    if (s.vl[uid]) { s.vl[uid].n = name; return s.vl[uid]; }
+    const v = { n: name, c: { s: Math.floor(rnd(s) * 4), sh: Math.floor(rnd(s) * 8), p: Math.floor(rnd(s) * 5), st: Math.floor(rnd(s) * 4), h: Math.floor(rnd(s) * 6) }, u: {}, vp: 0, home: null, got: 0 };
+    const t = freeTileNear(s, N / 2 + 1, N / 2 + 1);
+    if (t) { const h = { id: s.nid++, k: 'home', x: t[0], y: t[1], lv: 1, buf: 0, p: -1, h: 0, o: uid }; s.b.push(h); v.home = h.id; }
+    s.vl[uid] = v; s.vo.push(uid);
+    return v;
+  }
 
   // ---------- випадковість: лише з ядра у стані, щоб транзакція при повторі дала те саме ----------
   function rnd(s) { s.r = (s.r + 0x6D2B79F5) | 0; let t = s.r; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
@@ -129,17 +193,25 @@
     let t = Math.max(s.t, now - MAX_AWAY);
     const bon = bonuses(s), dur = new Map(), prod = s.b.filter((b) => B[b.k].d);
     for (const b of prod) dur.set(b.id, durOf(b, bon));
+    const rts = routes(s), vs = (s.vo || []).map((u) => [s.vl[u], rts[u]]).filter(([v, r]) => v && v.home && r.length);
     for (let guard = 0; guard < 3e6; guard++) {
       kick(s);
       if (t >= now) break;
       let m = Infinity;
       for (const b of prod) if (b.p >= 0) m = Math.min(m, dur.get(b.id) - b.p);
+      // селянину є сенс іти, лише якщо щось росте або щось чекає в будівлях маршруту
+      const busy = m !== Infinity;
+      for (const [v, r] of vs) if (busy || r.some((b) => b.buf)) m = Math.min(m, tripMs(v) - v.vp);
       if (m === Infinity) break;
       const step = Math.min(Math.max(m, 0), now - t);
       for (const b of prod) if (b.p >= 0) b.p += step;
+      for (const [v] of vs) v.vp += step;
       t += step;
       for (const b of prod) if (b.p >= 0 && b.p >= dur.get(b.id) - 1e-6) { b.buf += B[b.k].out[1]; b.p = -1; }
+      for (const [v, r] of vs) if (v.vp >= tripMs(v) - 1e-6) { v.vp = 0; trip(s, v, r); }
     }
+    // поки нічого не росте й нічого не чекає — селянин удома, але годинник обходу йде далі для показу
+    if (t < now) for (const [v] of vs) v.vp = (v.vp + (now - t)) % tripMs(v);
     s.t = now;
     return s;
   }
@@ -219,7 +291,8 @@
       }
       case 'demolish': {
         const i = s.b.findIndex((q) => q.id === a.id); if (i < 0) return fail('Нема');
-        const b = s.b[i]; flush(s, b); s.b.splice(i, 1);
+        const b = s.b[i]; if (b.k === 'home') return fail('Хату не знести — її можна перенести');
+        flush(s, b); s.b.splice(i, 1);
         const back = Math.round(buildCost(s, b.k).c / 1.15 * 0.5); s.coins += back;
         log(s, who, 'зніс(ла) ' + B[b.k].n); res.fx.push([b.x, b.y, '+' + back + ' 💰']);
         kick(s); return res;
@@ -264,6 +337,30 @@
         pay(s, cost); s.sl++; log(s, who, 'розширив(ла) комору до ' + storeCap(s));
         gainXp(s, 5, res); kick(s); return res;
       }
+      case 'join': {
+        const nm = String(a.n || '').replace(/[<>&"]/g, '').trim().slice(0, 16) || 'Селянин';
+        const v = addVillager(s, String(a.uid), nm); if (!v.home) res.err = 'Немає місця для хати'; log(s, nm, 'оселився(лась) на хуторі');
+        return res;
+      }
+      case 'look': {
+        const v = s.vl && s.vl[a.uid]; if (!v) return fail('Нема селянина');
+        const c = a.c || {}, ok = (k, L) => Number.isInteger(c[k]) && c[k] >= 0 && c[k] < L;
+        if (!(ok('s', LOOK.skin.length) && ok('sh', LOOK.shirt.length) && ok('p', LOOK.pants.length) && ok('st', LOOK.style.length) && ok('h', LOOK.hat.length))) return fail('Не той вигляд');
+        v.c = { s: c.s, sh: c.sh, p: c.p, st: c.st, h: c.h }; return res;
+      }
+      case 'vup': {
+        const v = s.vl && s.vl[a.uid]; if (!v || !VUP[a.k]) return fail('Нема');
+        const cost = vupCost(v, a.k); if (!canAfford(s, cost)) return fail('Треба ' + fmtCost(cost));
+        pay(s, cost); v.u[a.k] = (v.u[a.k] || 0) + 1; v.vp = Math.min(v.vp, tripMs(v)); log(s, v.n, 'отримав(ла) ' + VUP[a.k].n.toLowerCase() + ' ' + v.u[a.k] + '-го рівня');
+        return res;
+      }
+      case 'movehome': {
+        const v = s.vl && s.vl[a.uid], h = v && s.b.find((b) => b.id === v.home);
+        if (!v) return fail('Нема селянина');
+        if (!owned(s, a.x, a.y) || at(s, a.x, a.y) || s.ob[idx(a.x, a.y)]) return fail('Сюди не можна');
+        if (h) { h.x = a.x; h.y = a.y; } else { const nh = { id: s.nid++, k: 'home', x: a.x, y: a.y, lv: 1, buf: 0, p: -1, h: 0, o: a.uid }; s.b.push(nh); v.home = nh.id; }
+        v.vp = 0; res.fx.push([a.x, a.y, '🏠']); return res;
+      }
       case 'rename': {
         const nm = String(a.nm || '').replace(/[<>&"]/g, '').trim().slice(0, 24); if (!nm) return fail('Порожня назва');
         s.nm = nm; return res;
@@ -280,6 +377,6 @@
     return '';
   }
 
-  const api = { kick, N, CH, NC, RES, B, ORDER, create, advance, act, why, storeCap, xpNeed, buildCost, upCost, hireCost, storeCost, chunkCost, capOf, durOf, bonuses, slots, owned, chunkOf, idx, at, count, ROCK, fmtCost, canAfford, MAX_AWAY };
+  const api = { LOOK, VUP, routes, route, basket, tripMs, vupCost, addVillager, kick, N, CH, NC, RES, B, ORDER, create, advance, act, why, storeCap, xpNeed, buildCost, upCost, hireCost, storeCost, chunkCost, capOf, durOf, bonuses, slots, owned, chunkOf, idx, at, count, ROCK, fmtCost, canAfford, MAX_AWAY };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.KhutirSim = api;
 })(typeof window !== 'undefined' ? window : globalThis);
