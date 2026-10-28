@@ -442,6 +442,16 @@
   function shade(hex, k) { const n = parseInt(hex.slice(1), 16); let r = n >> 16, gg = (n >> 8) & 255, b = n & 255; r = Math.round(r * k); gg = Math.round(gg * k); b = Math.round(b * k); return 'rgb(' + Math.min(255, r) + ',' + Math.min(255, gg) + ',' + Math.min(255, b) + ')'; }
   function emoji(t, x, y, size) { g.font = size + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(t, x, y); }
 
+  // готові спрайти: основа (ромб клітинки) у файлі — 256 px завширшки; ax/ay — центр основи в пікселях файлу
+  const SPR = { home: { src: 'img/home.webp', ax: 130, ay: 147, fit: 1.15 } };
+  for (const k in SPR) { const im = new Image(); im.src = SPR[k].src; SPR[k].im = im; }
+  function sprite(k, X, Y, z) {
+    const sp = SPR[k]; if (!sp || !sp.im.complete || !sp.im.naturalWidth) return false;
+    const sc = (TW * z * sp.fit) / 256;
+    g.imageSmoothingQuality = 'high';
+    g.drawImage(sp.im, X - sp.ax * sc, Y - sp.ay * sc, sp.im.naturalWidth * sc, sp.im.naturalHeight * sc);
+    return true;
+  }
   function drawHouse(cx, cy, z, wall, roof, ic, hut) {
     const w = TW * 0.72 * z, hh = TH * 0.72 * z, h = 20 * z, rh = 18 * z;
     const L = [cx - w / 2, cy], Bm = [cx, cy + hh / 2], R = [cx + w / 2, cy], T = [cx, cy - hh / 2];
@@ -662,7 +672,7 @@
     if (d.kind === 'field') drawField(X, Y, z, b.buf ? 1 : prog, b.buf >= K.capOf(b) || (b.buf && b.p < 0));
     else if (d.kind === 'orchard') { g.fillStyle = '#6DAF4E'; diamond(X, Y, TW * 0.9 * z, TH * 0.9 * z); g.fill(); drawTree(X - 12 * z, Y - 2 * z, z * 0.75, 1, b.buf ? 3 : Math.floor(prog * 3)); drawTree(X + 12 * z, Y - 2 * z, z * 0.75, 1, b.buf ? 3 : Math.floor(prog * 2)); drawTree(X, Y + 6 * z, z * 0.8, 1, b.buf ? 4 : Math.floor(prog * 3)); }
     else if (d.kind === 'well') drawWell(X, Y, z);
-    else if (d.kind === 'home') { drawHouse(X, Y, z, '#F4EFE4', '#C9A24A', '', true); lights.push([X - 10 * z, Y - 10 * z, 1]); }
+    else if (d.kind === 'home') { if (!sprite('home', X, Y, z)) drawHouse(X, Y, z, '#F4EFE4', '#C9A24A', '', true); lights.push([X - 10 * z, Y - 10 * z, 1]); }
     else if (d.kind === 'apiary') { g.fillStyle = '#88C463'; diamond(X, Y, TW * 0.9 * z, TH * 0.9 * z); g.fill(); drawHives(X, Y, z, t); }
     else { drawHouse(X, Y, z, d.wall, d.roof, d.ic); lights.push([X + 9 * z, Y - 8 * z, 0.7]); }
     if (!d.d) return;
