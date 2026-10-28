@@ -453,6 +453,11 @@
     dairy: { src: 'img/dairy.webp', ax: 128, ay: 150, fit: 1.1 },
     cheese: { src: 'img/cheese.webp', ax: 128, ay: 150, fit: 1.1 },
     apiary: { src: 'img/apiary.webp', ax: 128, ay: 146, fit: 1.1 },
+    press: { src: 'img/press.webp', ax: 128, ay: 162, fit: 1.1 },
+    pastry: { src: 'img/pastry.webp', ax: 128, ay: 193, fit: 1.1 },
+    meadery: { src: 'img/meadery.webp', ax: 128, ay: 175, fit: 1.1 },
+    well: { src: 'img/well.webp', ax: 128, ay: 162, fit: 1.1 },
+    soil: { src: 'img/soil.webp', ax: 137, ay: 71, fit: 0.95 },
   };
   for (const k in SPR) { const im = new Image(); im.src = SPR[k].src; SPR[k].im = im; }
   function sprite(k, X, Y, z) {
@@ -498,9 +503,10 @@
     g.fillStyle = '#B0B0B5'; g.beginPath(); g.moveTo(cx - 8 * z, cy - 8 * z); g.lineTo(cx + 2 * z, cy - 12 * z); g.lineTo(cx + 3 * z, cy - 4 * z); g.closePath(); g.fill();
   }
   function drawField(cx, cy, z, grow, ripe) {
-    g.fillStyle = '#8A5A35'; diamond(cx, cy, TW * 0.94 * z, TH * 0.94 * z); g.fill();
+    const soil = sprite('soil', cx, cy, z);
+    if (!soil) { g.fillStyle = '#8A5A35'; diamond(cx, cy, TW * 0.94 * z, TH * 0.94 * z); g.fill(); }
     g.strokeStyle = '#74492A'; g.lineWidth = 1.5 * z;
-    for (let i = -2; i <= 2; i++) { g.beginPath(); g.moveTo(cx - TW * 0.22 * z + i * 6 * z, cy - TH * 0.11 * z - i * 3 * z + TH * 0.11 * z); g.lineTo(cx + TW * 0.22 * z + i * 6 * z - TW * 0.22 * z, cy + TH * 0.22 * z - i * 3 * z); g.stroke(); }
+    if (!soil) for (let i = -2; i <= 2; i++) { g.beginPath(); g.moveTo(cx - TW * 0.22 * z + i * 6 * z, cy - TH * 0.11 * z - i * 3 * z + TH * 0.11 * z); g.lineTo(cx + TW * 0.22 * z + i * 6 * z - TW * 0.22 * z, cy + TH * 0.22 * z - i * 3 * z); g.stroke(); }
     const hgt = (3 + 11 * grow) * z, col = ripe ? '#F2C14E' : grow > 0.6 ? '#C6C24A' : '#7FBF4D';
     g.strokeStyle = col; g.lineWidth = 2 * z; g.lineCap = 'round';
     for (let i = 0; i < 9; i++) {
