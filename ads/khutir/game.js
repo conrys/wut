@@ -449,6 +449,10 @@
     mill: { src: 'img/mill.webp', ax: 128, ay: 207, fit: 1.1 },
     saw: { src: 'img/saw.webp', ax: 128, ay: 151, fit: 1.1 },
     lumber: { src: 'img/lumber.webp', ax: 128, ay: 110, fit: 1.1 },
+    bakery: { src: 'img/bakery.webp', ax: 128, ay: 183, fit: 1.1 },
+    dairy: { src: 'img/dairy.webp', ax: 128, ay: 150, fit: 1.1 },
+    cheese: { src: 'img/cheese.webp', ax: 128, ay: 150, fit: 1.1 },
+    apiary: { src: 'img/apiary.webp', ax: 128, ay: 146, fit: 1.1 },
   };
   for (const k in SPR) { const im = new Image(); im.src = SPR[k].src; SPR[k].im = im; }
   function sprite(k, X, Y, z) {
