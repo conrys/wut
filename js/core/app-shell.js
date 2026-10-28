@@ -32,6 +32,23 @@
   reg("Haptics");
   const Http = reg("CapacitorHttp");
 
+  // 0) Набір тексту. У старих APK (≤ жовтень 2026) стоїть android.captureInput: кирилицю Capacitor
+  //    вписує в поле напряму (value = …) без події input — пошук і всі поля «не бачать» літер.
+  //    Поки поле у фокусі, звіряємо value і самі шлемо input, якщо його не було. З новим APK — просто нічого не робить.
+  (function () {
+    let el = null, last = "", t = 0;
+    const tick = () => {
+      if (!el || document.activeElement !== el) { clearInterval(t); t = 0; el = null; return; }
+      if (el.value !== last) { last = el.value; el.dispatchEvent(new Event("input", { bubbles: true })); }
+    };
+    document.addEventListener("focusin", (e) => {
+      const x = e.target;
+      if (!x || !(x.tagName === "TEXTAREA" || (x.tagName === "INPUT" && /^(text|search|email|url|tel|password|number|)$/.test(x.type || "")))) return;
+      el = x; last = x.value; clearInterval(t); t = setInterval(tick, 150);
+    }, true);
+    document.addEventListener("input", (e) => { if (e.target === el) last = el.value; }, true);
+  })();
+
   // 1) ця версія файлів стартувала → без відкату
   safe("notifyAppReady", () => Updater.notifyAppReady());
 
