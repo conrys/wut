@@ -4,7 +4,7 @@
 (function(){
 const $=id=>document.getElementById(id),T3=THREE;
 const WORLDS={
-  hns:{HW:window.HW_HNS,label:'Хованки · Монстр · Агенти',games:{khovanky:'Хованки',monster:'Монстр',agents:'Агенти'}},
+  hns:{HW:window.HW_HNS,label:'Хованки · Монстр · Агенти · Цар гори',games:{khovanky:'Хованки',monster:'Монстр',agents:'Агенти',hill:'Цар гори'}},
   ph:{HW:window.HW_PH,label:'Перевтілення',games:{perevtilennia:'Перевтілення'}}};
 const SLOT='__edit';
 const NAMES={counter:'Прилавок',fridge:'Холодильник',table:'Стіл',chair:'Стілець',sofa:'Диван',armchair:'Крісло',coffee:'Журнальний столик',tvstand:'Тумба з ТВ',bookshelf:'Книжкова шафа',

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <g fill="none" stroke="#fff" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
+    <!-- пагорб-зона -->
+    <ellipse cx="512" cy="760" rx="330" ry="86"/>
+    <!-- цар у центрі -->
+    <path d="M440 760q-8-150 16-220q24-68 56-68t56 68q24 70 16 220z"/>
+    <path d="M492 560v14M532 560v14"/>
+    <!-- суперник, якого виштовхують -->
+    <path d="M700 790q-6-110 14-160q18-48 46-48t46 48q18 50 12 160z" transform="rotate(14 760 700)"/>
+    <path d="M610 650l60-20M600 690l60-6"/>
+  </g>
+  <!-- корона -->
+  <path d="M432 440l20-120 60 70 60-70 20 120z" fill="none" stroke="#FFC93C" stroke-width="22" stroke-linejoin="round"/>
+  <g fill="#FFC93C"><circle cx="452" cy="306" r="18"/><circle cx="512" cy="372" r="18"/><circle cx="572" cy="306" r="18"/></g>
+</svg>
