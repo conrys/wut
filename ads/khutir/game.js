@@ -457,7 +457,11 @@
     pastry: { src: 'img/pastry.webp', ax: 128, ay: 193, fit: 1.1 },
     meadery: { src: 'img/meadery.webp', ax: 128, ay: 175, fit: 1.1 },
     well: { src: 'img/well.webp', ax: 128, ay: 162, fit: 1.1 },
-    soil: { src: 'img/soil.webp', ax: 137, ay: 71, fit: 0.95 },
+    soil: { src: 'img/soil.webp', ax: 128, ay: 66, fit: 1.02 },
+    wheat0: { src: 'img/wheat0.webp', ax: 129, ay: 66, fit: 1.02 },
+    wheat1: { src: 'img/wheat1.webp', ax: 129, ay: 92, fit: 1.02 },
+    wheat2: { src: 'img/wheat2.webp', ax: 129, ay: 145, fit: 1.02 },
+    wheat3: { src: 'img/wheat3.webp', ax: 129, ay: 145, fit: 1.02 },
   };
   for (const k in SPR) { const im = new Image(); im.src = SPR[k].src; SPR[k].im = im; }
   function sprite(k, X, Y, z) {
@@ -503,6 +507,8 @@
     g.fillStyle = '#B0B0B5'; g.beginPath(); g.moveTo(cx - 8 * z, cy - 8 * z); g.lineTo(cx + 2 * z, cy - 12 * z); g.lineTo(cx + 3 * z, cy - 4 * z); g.closePath(); g.fill();
   }
   function drawField(cx, cy, z, grow, ripe) {
+    // мальовані стадії: паростки → зелена → жовтіє → стигла
+    if (sprite(ripe ? 'wheat3' : grow < 0.34 ? 'wheat0' : grow < 0.67 ? 'wheat1' : 'wheat2', cx, cy, z)) return;
     const soil = sprite('soil', cx, cy, z);
     if (!soil) { g.fillStyle = '#8A5A35'; diamond(cx, cy, TW * 0.94 * z, TH * 0.94 * z); g.fill(); }
     g.strokeStyle = '#74492A'; g.lineWidth = 1.5 * z;
