@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <g fill="none" stroke="#fff" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
+    <!-- хата-мазанка під стріхою -->
+    <path d="M300 760V540h300v220z"/>
+    <path d="M250 560l200-170 200 170"/>
+    <path d="M410 760V640h80v120"/>
+    <path d="M530 600h50v50h-50z"/>
+    <!-- поле -->
+    <path d="M140 820h744"/>
+    <path d="M700 820v-90M740 820v-110M780 820v-90M820 820v-70"/>
+  </g>
+  <!-- сонце й колоски -->
+  <circle cx="780" cy="300" r="70" fill="none" stroke="#FFC93C" stroke-width="22"/>
+  <g fill="#FFC93C"><ellipse cx="700" cy="718" rx="14" ry="26"/><ellipse cx="740" cy="698" rx="14" ry="26"/><ellipse cx="780" cy="718" rx="14" ry="26"/><ellipse cx="820" cy="738" rx="14" ry="26"/></g>
+</svg>

@@ -54,6 +54,21 @@
         }
       }
     },
+    "khutir": {
+      "$code": {
+        ".read": "auth != null",
+        "s": {
+          ".write": "auth != null",
+          ".validate": "newData.isString() && newData.val().length < 300000"
+        },
+        "on": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid",
+            ".validate": "newData.child('n').isString() && newData.child('n').val().length <= 16"
+          }
+        }
+      }
+    },
     "hill": {
       "$code": {
         ".read": "auth != null",
