@@ -16,8 +16,8 @@ const FREEZE = `for (const c of RLGame.chars) if (c.kind === "bot") { c.go = fal
   let p = await phone(b, null, { lite: true });
   await p.goto(URL_); await p.waitForTimeout(2500);
   check("меню: на заставці боти грають самі", await p.evaluate(() => RLGame.phase === "menu" && RLGame.chars.length === 7 && RLGame.world.def.arena === 1));
-  const maps = await p.evaluate(() => RLGame.MAPIDS.map((mi) => { RLGame.buildWorld(mi, 1); return [RLGame.world.def.id, RLGame.world.tallBoxes.length, RLGame.FIN, RLGame.START]; }));
-  check("дві арени (Спортзал, Двір) з укриттями", maps.length === 2 && maps.every((m) => m[1] >= 6), JSON.stringify(maps));
+  const maps = await p.evaluate(() => RLGame.MAPIDS.map((mi) => { RLGame.buildWorld(mi, 1); return [RLGame.world.def.id, RLGame.world.tallBoxes.length, RLGame.world.lowBoxes.length, RLGame.FIN]; }));
+  check("дві арени (Спортзал, Двір): низькі перепони, жодного високого укриття", maps.length === 2 && maps.every((m) => m[1] === 0 && m[2] >= 8), JSON.stringify(maps));
   await p.click("#ovSolo");
   await until(() => p.evaluate(() => RLGame.phase === "intro"), 20000);
   const st = await p.evaluate(() => ({ n: RLGame.chars.length, behind: RLGame.chars.every((c) => c.z > RLGame.START) }));
@@ -51,14 +51,13 @@ const FREEZE = `for (const c of RLGame.chars) if (c.kind === "bot") { c.go = fal
   await p.evaluate(() => { const g = RLGame; g.setDl("g", 5000); g.sim(0.05); g.keys.w = true; g.sim(0.4); g.setDl("t", 350); g.sim(0.05); g.keys.w = false; g.sim(0.45); });
   await wait(450); await p.evaluate(() => RLGame.sim(0.3));
   check("відпустив, щойно лялька почала обертатись, — поблажка, живий", await p.evaluate(() => !RLGame.player.out));
-  // за укриттям — можна рухатись
-  const hid = await p.evaluate(() => { const g = RLGame; const box = g.world.tallBoxes.slice().sort((a, b) => b[1] - a[1])[2]; const me = g.player;
-    me.x = (box[0] + box[2]) / 2; me.z = box[3] + 0.45; me.vx = me.vz = 0; g.setDl("r", 6000); g.sim(0.05); return !g.seen(me.x, me.z); });
+  // сховатися ніде: стоїш упритул за ящиком і рухаєшся — вибув
+  const box = await p.evaluate(() => { const g = RLGame, b = g.world.lowBoxes.slice().sort((a, b) => b[1] - a[1])[3], me = g.player; me.out = false; g.G.out = g.G.out.filter((x) => x !== "me"); me.outReq = false;
+    me.x = (b[0] + b[2]) / 2; me.z = b[3] + 0.4; me.vx = me.vz = 0; g.setDl("r", 6000); g.sim(0.05); return g.seen(me.x, me.z); });
   await wait(450);
-  await p.evaluate(() => { const g = RLGame; g.keys.a = true; g.sim(0.12); g.keys.a = false; g.sim(0.3); });   // крок уздовж ящика — лишаєшся в укритті
-  check("🫣 за високим ящиком лялька не бачить — рух не карається", hid && (await p.evaluate(() => !RLGame.player.out)));
-  const far = await p.evaluate(() => { const g = RLGame, box = g.world.tallBoxes.slice().sort((a, b) => b[1] - a[1])[2], x = (box[0] + box[2]) / 2; return { near: g.seen(x, box[3] + 0.6), far: g.seen(x, box[3] + 2.5) }; });
-  check("відійшов від ящика на 2,5 м — лялька вже бачить (ховатись можна лише впритул)", !far.near && far.far, JSON.stringify(far));
+  await p.evaluate(() => { const g = RLGame; g.keys.a = true; g.sim(0.25); g.keys.a = false; });
+  check("за низьким ящиком не сховаєшся — рух на «червоне» = вибув", box && (await p.evaluate(() => RLGame.player.out)));
+  await freshRound();
   // поштовх на «червоне»: відкинутий бот вибуває
   await p.evaluate(() => { const g = RLGame, me = g.player, v = g.chars.find((c) => c.kind === "bot" && !c.out); window.__v = v.id; me.x = 4; me.z = 24; me.cdP = 0; me.stun = 0; me.vx = me.vz = 0;
     v.x = 4.9; v.z = 24; v.vx = v.vz = 0; v.kx = v.kz = 0; g.setDl("r", 8000); g.sim(0.05); });

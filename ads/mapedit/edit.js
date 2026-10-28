@@ -164,6 +164,9 @@ function draw(){
   if(s>10){const acc={};for(let z=0;z<mh;z++)for(let x=0;x<mw;x++){const ch=D.rows[z][x];if(ch==='#')continue;const a=acc[ch]||(acc[ch]={x:0,z:0,n:0});a.x+=x+.5;a.z+=z+.5;a.n++}
     ctx.font='700 '+Math.min(16,s*0.5)+'px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
     for(const ch in acc){const a=acc[ch],t=(D.rooms[ch]||ch)+(D.noHide.includes(ch)?' ⊘':'');ctx.fillStyle='rgba(0,0,0,.45)';const tw=ctx.measureText(t).width+10;ctx.fillRect(sx(a.x/a.n)-tw/2,sy(a.z/a.n)-10,tw,20);ctx.fillStyle='#fff';ctx.fillText(t,sx(a.x/a.n),sy(a.z/a.n))}}
+  // підлогою можна малювати й за картою — пунктирна рамка показує, що там теж поле
+  if(tool==='floor'){const g=Math.min(GROW_MAX,Math.max(2,Math.round(60/s)));ctx.save();ctx.setLineDash([6,6]);ctx.strokeStyle='rgba(255,255,255,.45)';ctx.lineWidth=1.5;
+    ctx.strokeRect(sx(-g),sy(-g),(mw+2*g)*s,(mh+2*g)*s);ctx.restore()}
   // старт
   const px=sx(D.spawn[0]),py=sy(D.spawn[1]);ctx.fillStyle='#4CC97A';ctx.beginPath();ctx.arc(px,py-10,9,0,6.283);ctx.fill();ctx.beginPath();ctx.moveTo(px-6,py-6);ctx.lineTo(px,py+2);ctx.lineTo(px+6,py-6);ctx.fill();
   ctx.fillStyle='#04201C';ctx.font='800 11px system-ui';ctx.fillText('S',px,py-10);
@@ -175,13 +178,32 @@ const toMap=(x,y)=>[(x-view.ox)/view.s,(y-view.oy)/view.s];
 const snap05=v=>Math.round(v*20)/20;
 function furnAt(x,z){for(let k=D.furn.length-1;k>=0;k--){const f=D.furn[k];if(f.flat)continue;const [w,d]=fp(f);if(Math.abs(x-f.x)<=w/2+0.08&&Math.abs(z-f.z)<=d/2+0.08)return k}
   for(let k=D.furn.length-1;k>=0;k--){const f=D.furn[k];if(!f.flat)continue;const [w,d]=fp(f);if(Math.abs(x-f.x)<=w/2&&Math.abs(z-f.z)<=d/2)return k}return-1}
-function paint(x,z){const tx=Math.floor(x),tz=Math.floor(z);if(tx<0||tz<0||tx>=MW()||tz>=MH())return;const ch=tool==='wall'?'#':room;if(D.rows[tz][tx]!==ch){D.rows[tz][tx]=ch;draw()}}
+/* малювання підлоги за межею карти — карта сама виростає в той бік (по краю лишається рядок стіни).
+   Повертає зсув [dx,dz], на який зсунулись координати (коли карта виросла зліва чи згори). */
+const MAXD=80,GROW_MAX=12;
+function grow(tx,tz){let L=0,R=0,T=0,B=0;const w=MW(),h=MH();
+  if(tx<1)L=1-tx;if(tx>w-2)R=tx-(w-2);if(tz<1)T=1-tz;if(tz>h-2)B=tz-(h-2);
+  if(L>GROW_MAX||R>GROW_MAX||T>GROW_MAX||B>GROW_MAX)return null;          // палець далеко за картою — не роздуваємо
+  if(w+L+R>MAXD||h+T+B>MAXD){if(!grow.warned){grow.warned=1;toast('Більше 80×80 карта не буває')}return null}
+  if(!(L||R||T||B))return[0,0];
+  for(const r of D.rows){for(let k=0;k<L;k++)r.unshift('#');for(let k=0;k<R;k++)r.push('#')}
+  const nw=w+L+R;for(let k=0;k<T;k++)D.rows.unshift(Array(nw).fill('#'));for(let k=0;k<B;k++)D.rows.push(Array(nw).fill('#'));
+  if(L||T){shift(L,T);view.ox-=L*view.s;view.oy-=T*view.s}
+  check.bad=check.warn=null;if(!grow.told){grow.told=1;toast('Карта виросла — малюй далі')}
+  return[L,T]}
+function paint(x,z){let tx=Math.floor(x),tz=Math.floor(z),off=[0,0];const ch=tool==='wall'?'#':room;
+  if(tx<0||tz<0||tx>=MW()||tz>=MH()||(ch!=='#'&&(tx<1||tz<1||tx>MW()-2||tz>MH()-2))){if(ch==='#'&&(tx<0||tz<0||tx>=MW()||tz>=MH()))return off;
+    const g=grow(tx,tz);if(!g)return off;off=g;tx+=g[0];tz+=g[1]}
+  if(D.rows[tz][tx]!==ch){D.rows[tz][tx]=ch;draw()}return off}
+/* лінія пальцем: якщо карта виросла зліва/згори, решта точок лінії теж зсувається */
+function paintLine(a,b){const n=Math.max(1,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/0.3));let ox=0,oz=0;
+  for(let k=0;k<=n;k++){const o=paint(a[0]+(b[0]-a[0])*k/n+ox,a[1]+(b[1]-a[1])*k/n+oz);ox+=o[0];oz+=o[1]}return[b[0]+ox,b[1]+oz]}
 function line(a,b,fn){const n=Math.max(1,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/0.3));for(let k=0;k<=n;k++)fn(a[0]+(b[0]-a[0])*k/n,a[1]+(b[1]-a[1])*k/n)}
 cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(ptrs.size===2){if(gest&&gest.kind!=='pinch'&&pendingSnap!==null){const o=JSON.parse(pendingSnap);Object.assign(D,o);pendingSnap=null;sel=-1;updUI();draw()}const [a,b]=[...ptrs.values()];gest={kind:'pinch',d:Math.hypot(a.x-b.x,a.y-b.y),cx:(a.x+b.x)/2,cy:(a.y+b.y)/2,s:view.s,ox:view.ox,oy:view.oy};return}
   if(ptrs.size>2)return;
   const [x,z]=toMap(e.clientX,e.clientY);gest={kind:'none',sx:e.clientX,sy:e.clientY,last:[x,z],t:e.timeStamp,moved:false};
-  if(tool==='wall'||tool==='floor'){if(tool==='floor'&&!room)return;begin();gest.kind='paint';gest.began=true;paint(x,z)}
+  if(tool==='wall'||tool==='floor'){if(tool==='floor'&&!room)return;begin();gest.kind='paint';gest.began=true;const o=paint(x,z);gest.last=[x+o[0],z+o[1]]}
   else if(tool==='pan'||tool==='furn'){const k=furnAt(x,z);if(k>=0){sel=k;begin();gest.kind='move';gest.off=[D.furn[k].x-x,D.furn[k].z-z];updUI();draw()}else gest.kind=tool==='pan'?'pan':'place'}
   else if(tool==='erase'){begin();gest.kind='erase';const k=furnAt(x,z);if(k>=0){D.furn.splice(k,1);sel=-1;draw()}}
   else if(tool==='spawn'){begin();D.spawn=[snap05(x),snap05(z)];gest.kind='spawn';draw()}
@@ -190,7 +212,7 @@ cv.addEventListener('pointermove',e=>{if(!ptrs.has(e.pointerId))return;ptrs.set(
   if(gest.kind==='pinch'&&ptrs.size>=2){const [a,b]=[...ptrs.values()],d=Math.hypot(a.x-b.x,a.y-b.y),cx=(a.x+b.x)/2,cy=(a.y+b.y)/2,k=Math.max(4,Math.min(90,gest.s*d/gest.d))/gest.s;
     view.s=gest.s*k;view.ox=cx-(gest.cx-gest.ox)*k;view.oy=cy-(gest.cy-gest.oy)*k;draw();return}
   const [x,z]=toMap(e.clientX,e.clientY);if(Math.hypot(e.clientX-gest.sx,e.clientY-gest.sy)>8)gest.moved=true;
-  if(gest.kind==='paint'){line(gest.last,[x,z],paint);gest.last=[x,z]}
+  if(gest.kind==='paint'){gest.last=paintLine(gest.last,[x,z])}
   else if(gest.kind==='pan'){if(gest.moved){view.ox+=e.clientX-(gest.px||gest.sx);view.oy+=e.clientY-(gest.py||gest.sy);gest.px=e.clientX;gest.py=e.clientY;draw()}}
   else if(gest.kind==='move'&&gest.moved){const f=D.furn[sel];f.x=snap05(x+gest.off[0]);f.z=snap05(z+gest.off[1]);draw()}
   else if(gest.kind==='erase'){const k=furnAt(x,z);if(k>=0){D.furn.splice(k,1);draw()}}

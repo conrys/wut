@@ -1,6 +1,6 @@
 /* Тихо-голосно — «червоне світло, зелене світло». Лялька на дальньому кінці арени співає, дивлячись у стіну (🟢 біжи),
    і раптом обертається (🔴 завмри). Хто рухається після короткої поблажки (0,25 с від повного повороту) і кого вона бачить — вибуває.
-   Впритул за високим укриттям (≤ 1 м від ящика чи намету) лялька не бачить; відійшов — бачить. Обманки: лялька смикає головою й не обертається.
+   Перепони на арені лише низькі — їх треба оббігати, сховатися за ними не можна. Обманки: лялька смикає головою й не обертається.
    ✋ Поштовх (перезарядка 5 с): на «червоне» відкинутий сусід рухається — і вибуває, якщо його видно.
    Раунди (3 або 5), бали за місце на фініші: 5, 3, 2, далі по 1. Вибулий — 0.
    Авторитет: соло — сам телефон; мережа — хост (лялька, раунд, боти, бали). Свій рух кожен перевіряє сам на своєму телефоні
@@ -65,7 +65,7 @@ const doll=new T3.Group();
   doll.add(dress,collar,head);doll.head=head;doll.traverse(o=>{if(o.isMesh)o.castShadow=true});doll.scale.setScalar(1.25);scene.add(doll)}
 
 /* ---------- світ ---------- */
-let world=null,staticMesh=null,nav=null,mapIdx=-1,mapDef=null,segs=[],FIN=4.6,START=39.5,DX=7,DZ=1.6;
+let world=null,staticMesh=null,nav=null,mapIdx=-1,mapDef=null,FIN=4.6,START=39.5,DX=7,DZ=1.6;
 function buildWorld(mi,seed){
   if(staticMesh){scene.remove(staticMesh);staticMesh.geometry.dispose()}
   mapIdx=mi;world=HW.build(scene,{map:mi});mapDef=world.def;world.seed=seed;
@@ -73,19 +73,12 @@ function buildWorld(mi,seed){
   world.boxes.push([DX-1.1,1,DX+1.1,2.6]);   // лялька — тверда
   ground.position.set(world.W/2,-0.11,world.H/2);scene.background.set(mapDef.grass||'#9AA7AE');
   staticMesh=world.mesh.mesh(new T3.MeshToonMaterial({vertexColors:true,gradientMap:gm}));staticMesh.castShadow=staticMesh.receiveShadow=true;scene.add(staticMesh);
-  nav=HW.walkGrid(world.boxes,0.3);allocNav();segs=HW.segmentsOf(world.tallBoxes);
+  nav=HW.walkGrid(world.boxes,0.3);allocNav();
   doll.position.set(DX,0,DZ);
   sunAt=[1e9,1e9];renderer.shadowMap.needsUpdate=true;
 }
-/* лялька бачить персонажа, якщо між ними немає високого укриття, до якого він притулився (≤ SHADOW м).
-   Відійшов від ящика далі — лялька бачить поверх: сховатися можна лише впритул, а не будь-де «в тіні» на пів арени. */
-const SHADOW=1.0;
-function boxDist(b,x,z){const cx=Math.max(b[0],Math.min(x,b[2])),cz=Math.max(b[1],Math.min(z,b[3]));return Math.hypot(x-cx,z-cz)}
-function seen(x,z){const ax=DX,az=DZ+0.6,dx=x-ax,dz=z-az;
-  for(const b of world.tallBoxes){if(boxDist(b,x,z)>SHADOW)continue;
-    for(const s of[[b[0],b[1],b[2],b[1]],[b[2],b[1],b[2],b[3]],[b[2],b[3],b[0],b[3]],[b[0],b[3],b[0],b[1]]]){const sx=s[2]-s[0],sz=s[3]-s[1],den=dx*sz-dz*sx;if(Math.abs(den)<1e-9)continue;
-      const qx=s[0]-ax,qz=s[1]-az,t=(qx*sz-qz*sx)/den,u=(qx*dz-qz*dx)/den;if(t>0.001&&t<0.999&&u>=0&&u<=1)return false}}
-  return true}
+/* сховатися ніде: перепони низькі, лялька бачить усіх на арені (функція лишається — нею користуються боти й тести) */
+function seen(x,z){return true}
 
 /* ---------- навігація ---------- */
 let AG=null,AC_=null,ACL=null;const HEAP=[];
@@ -450,15 +443,14 @@ let hudKey='';
 function updHud(force){
   if(!G||!G.pl)return;const me=player,rem=G.ph==='play'?Math.max(0,G.rem/1000):G.ph==='intro'?ROUND_T:0,mm=Math.floor(rem/60),ss=Math.floor(rem%60);
   const ids=G.pl.concat(G.bots).sort((a,b)=>(G.sc[b]||0)-(G.sc[a]||0)).slice(0,4);
-  const hidden=me&&!me.out&&!me.fin&&!seen(me.x,me.z);
-  const lightS=!me?'':me.out?'out':me.fin?'fin':G.ph!=='play'?'':red()?(hidden?'hide':'stop'):'go';
+  const lightS=!me?'':me.out?'out':me.fin?'fin':G.ph!=='play'?'':red()?'stop':'go';
   const key=[me?G.sc[me.id]||0:0,mm,ss,G.rd,G.fin.length,G.out.length,lightS,ids.map(id=>id+(G.sc[id]||0)).join(',')].join(':');if(key===hudKey&&!force)return;hudKey=key;
   $('meChip').textContent=me?'⭐ '+(G.sc[me.id]||0):'👁 Глядач';
   const tc=$('timeChip');tc.textContent=mm+':'+String(ss).padStart(2,'0');tc.classList.toggle('low',G.ph==='play'&&rem<15);
   $('zoneChip').textContent='Раунд '+G.rd+'/'+G.nr+' · 🏁 '+G.fin.length+(G.out.length?' · 💀 '+G.out.length:'');
   const L=$('light');L.hidden=!lightS;L.className='light '+lightS;
-  L.textContent={go:'🟢 Біжи!',stop:'🔴 Завмри!',hide:'🫣 За ящиком — не відходь',out:'💀 Вибув',fin:'🏁 Фініш!'}[lightS]||'';
-  $('red').classList.toggle('on',G.ph==='play'&&red()&&!hidden&&!!me&&!me.out&&!me.fin);
+  L.textContent={go:'🟢 Біжи!',stop:'🔴 Завмри!',out:'💀 Вибув',fin:'🏁 Фініш!'}[lightS]||'';
+  $('red').classList.toggle('on',G.ph==='play'&&red()&&!!me&&!me.out&&!me.fin);
   const bd=$('board');bd.innerHTML='';
   for(const id of ids){const li=document.createElement('li');if(me&&id===me.id)li.className='me';const d=document.createElement('i');d.style.background=PAL[(G.col[id]|0)%PAL.length];
     const s=document.createElement('span');s.textContent=nameOf(id)+' '+(G.sc[id]||0);li.append(d,s);bd.append(li)}
