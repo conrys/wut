@@ -166,6 +166,8 @@ body { background:
 <script src="js/core/login.js"></script>
 <script src="js/promts/quiz-topics.js"></script>
 <script src="js/promts/quiz-topics-2.js"></script>
+<script src="js/promts/quiz-topics-3.js"></script>
+<script src="js/promts/quiz-topics-4.js"></script>
 <script src="js/core/online-engine.js"></script>
 <script src="js/quiplash-avatars.js"></script>
 <script src="js/quiplash-sounds.js"></script>
@@ -246,15 +248,16 @@ body { background:
   }
   // вибір набору питань: усі бачать, змінює лише ведучий (до старту)
   function renderSets(state, ctx) {
-    const cur = state.quizSet || "1", host = !!ctx.host && !ctx.spectating && state.phase === "lobby";
+    const cur = (window.QUIZ_SETS[state.quizSet] ? state.quizSet : quizDefaultSet()), host = !!ctx.host && !ctx.spectating && state.phase === "lobby";
     const ids = Q.quizSetIds();
     if (paint("setBtns", cur + "|" + host + "|" + ids.join(","), ids.map((id) =>
       `<button class="${id === cur ? "selected" : ""}" data-set="${id}" ${host ? "" : "disabled"}>Квіз ${id}</button>`).join(""))) {
       $("setBtns").querySelectorAll("[data-set]").forEach((b) => b.addEventListener("click", () => { Q.setQuizSet(b.dataset.set); sfx("pop"); }));
     }
     const n = (window.QUIZ_SETS[cur] || []).length;
-    $("setNote").textContent = host ? `Квіз ${cur}: ${n} тем, на поле йде 6. Обери номер — поле збереться заново.`
-      : `Квіз ${cur} · обирає ведучий`;
+    const credit = (window.QUIZ_SET_CREDITS || {})[cur];
+    $("setNote").textContent = (host ? `Квіз ${cur}: ${n} тем, на поле йде 6. Обери номер — поле збереться заново.`
+      : `Квіз ${cur} · обирає ведучий`) + (credit ? ` ${credit}.` : "");
   }
   function updateCountdown() {
     const s = lastState;

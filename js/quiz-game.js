@@ -40,7 +40,7 @@
     catchUpGivenTo: null, // { [username]: round } — щоб не сипати бонус тому самому гравцю щохід
     currentPlayerUsername: null,
     currentQuestion: null, // { categoryIndex, questionIndex }
-    quizSet: "1", // номер набору питань (window.QUIZ_SETS), обирає ведучий у лобі
+    quizSet: null, // номер набору питань (window.QUIZ_SETS), обирає ведучий у лобі; null → quizDefaultSet()
     board: null, // [{ set, ti, name, questions:[{qi, played}] }]
     pendingAnswer: null, // { selectedIndex, at } — кладе активний гравець, забирає хост
     phaseDeadline: null,
@@ -54,9 +54,11 @@
   const PH = window.PromptHistory;
   if (PH) { PH.preload("quiz_topics"); PH.preload("quiz"); }
   function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-  function quizSetIds() { return Object.keys(window.QUIZ_SETS || { 1: QUIZ_TOPICS }).sort((a, b) => Number(a) - Number(b)); }
+  function quizSetIds() { return Object.keys(window.QUIZ_SETS || {}).sort((a, b) => Number(a) - Number(b)); }
+  // поточний набір кімнати; прибраний (напр. старий «1») або порожній → набір за замовчуванням
+  function roomSet(set) { return (window.QUIZ_SETS && window.QUIZ_SETS[set]) ? String(set) : quizDefaultSet(); }
   function buildFreshBoard(set) {
-    set = (window.QUIZ_SETS && window.QUIZ_SETS[set]) ? String(set) : "1";
+    set = roomSet(set);
     const bank = quizBank(set);
     const all = bank.map((t, ti) => ti)
       .filter((ti) => BOARD_VALUES.every((v) => bank[ti].questions.some((q) => q.value === v)));
@@ -214,7 +216,7 @@
       if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
     };
 
-    return Engine.getOrCreateRoom(roomId, ROOM_SCHEMA, () => ({ quizSet: "1", board: buildFreshBoard("1") })).then(({ room }) => {
+    return Engine.getOrCreateRoom(roomId, ROOM_SCHEMA, () => { const set = quizDefaultSet(); return { quizSet: set, board: buildFreshBoard(set) }; }).then(({ room }) => {
       const alreadyIn = !!(room.players && room.players[username]);
       const canJoinAsPlayer = alreadyIn || room.phase === "lobby" || room.phase === "countdown";
       // хто вже в кімнаті (перезайшов) — рахунок і монстрик лишаються як були
@@ -267,7 +269,7 @@
     const room = Engine.latestRoom;
     set = String(set);
     if (!room || room.phase !== "lobby" || !quizSetIds().includes(set)) return;
-    if (computeHost(room.players) !== username || (room.quizSet || "1") === set) return;
+    if (computeHost(room.players) !== username || roomSet(room.quizSet) === set) return;
     ref.update({ quizSet: set, board: buildFreshBoard(set) });
   }
   function skipQuestion() {
@@ -283,7 +285,7 @@
   function resetGame() {
     const roomId = Engine.currentRoomId;
     if (!roomId) return Promise.resolve();
-    const set = (Engine.latestRoom && Engine.latestRoom.quizSet) || "1";   // «Заново» лишає вибраний квіз
+    const set = roomSet(Engine.latestRoom && Engine.latestRoom.quizSet);   // «Заново» лишає вибраний квіз
     return Engine.forceResetRoom(roomId, ROOM_SCHEMA, () => ({ quizSet: set, board: buildFreshBoard(set) })).then(() => {
       return Engine.joinRoom(roomId, { extra: { score: 0, ...avatarFor(Engine.latestRoom) } });
     });
@@ -352,7 +354,7 @@
         ref.update({
           phase: "categorySelect",
           round: (room.round || 1) + 1,
-          board: buildFreshBoard(room.quizSet || "1"),
+          board: buildFreshBoard(room.quizSet),
           currentPlayerUsername: pickNextPlayer(room, room.currentPlayerUsername),
           currentQuestion: null,
           phaseDeadline: null,
