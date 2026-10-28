@@ -462,6 +462,10 @@
     wheat1: { src: 'img/wheat1.webp', ax: 129, ay: 92, fit: 1.02 },
     wheat2: { src: 'img/wheat2.webp', ax: 129, ay: 145, fit: 1.02 },
     wheat3: { src: 'img/wheat3.webp', ax: 129, ay: 145, fit: 1.02 },
+    apple0: { src: 'img/apple0.webp', ax: 128, ay: 138, fit: 1.0 },
+    apple1: { src: 'img/apple1.webp', ax: 128, ay: 239, fit: 1.0 },
+    apple2: { src: 'img/apple2.webp', ax: 148, ay: 273, fit: 1.0 },
+    apple3: { src: 'img/apple3.webp', ax: 148, ay: 273, fit: 1.0 },
   };
   for (const k in SPR) { const im = new Image(); im.src = SPR[k].src; SPR[k].im = im; }
   function sprite(k, X, Y, z) {
@@ -653,6 +657,7 @@
       if (X < -tw || X > W + tw || Y < -pad || Y > H + th + pad * 2) { if (x === Math.min(N - 1, d) && vByTile.has(d)) for (const p of vByTile.get(d)) drawVill(p, s, z, t); continue; }
       const i = K.idx(x, y), b = bmap.get(i);
       if (b) drawBuilding(b, X, Y, z, t, dt, bon, s);
+      else if (s.ob[i] === 't' && sprite(h01(x + 7, y + 3) < 0.35 ? 'apple1' : 'apple2', X, Y, z * 0.95)) {}
       else if (s.ob[i] === 't') drawTree(X, Y, z, ownedSet.has(K.chunkOf(x, y)), 0);
       else if (s.ob[i] === 'r') drawRock(X, Y, z);
       // селяни, що стоять на цій «діагоналі», — після неї, щоб не ховалися за будинками
@@ -693,6 +698,7 @@
     const prog = b.p >= 0 ? Math.min(1, (b.p + dt) / dur) : b.buf ? 1 : 0;
     if (d.kind !== 'home' && sprite(b.k, X, Y, z)) { if (d.wall) lights.push([X + 9 * z, Y - 8 * z, 0.7]); }
     else if (d.kind === 'field') drawField(X, Y, z, b.buf ? 1 : prog, b.buf > 0);
+    else if (d.kind === 'orchard' && sprite(b.buf ? 'apple3' : 'apple2', X, Y, z)) {}
     else if (d.kind === 'orchard') { g.fillStyle = '#6DAF4E'; diamond(X, Y, TW * 0.9 * z, TH * 0.9 * z); g.fill(); drawTree(X - 12 * z, Y - 2 * z, z * 0.75, 1, b.buf ? 3 : Math.floor(prog * 3)); drawTree(X + 12 * z, Y - 2 * z, z * 0.75, 1, b.buf ? 3 : Math.floor(prog * 2)); drawTree(X, Y + 6 * z, z * 0.8, 1, b.buf ? 4 : Math.floor(prog * 3)); }
     else if (d.kind === 'well') drawWell(X, Y, z);
     else if (d.kind === 'home') { if (!sprite('home', X, Y, z)) drawHouse(X, Y, z, '#F4EFE4', '#C9A24A', '', true); lights.push([X - 10 * z, Y - 10 * z, 1]); }
