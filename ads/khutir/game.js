@@ -444,6 +444,7 @@
 
   // готові спрайти: основа (ромб клітинки) у файлі — 256 px завширшки; ax/ay — центр основи в пікселях файлу
   const SPR = {
+    grass: { src: 'img/grass.webp', ax: 128, ay: 64, fit: 1.0 },
     home: { src: 'img/home.webp', ax: 130, ay: 147, fit: 1.15 },
     coop: { src: 'img/coop.webp', ax: 128, ay: 140, fit: 1.1 },
     mill: { src: 'img/mill.webp', ax: 128, ay: 207, fit: 1.1 },
@@ -663,8 +664,16 @@
       const y = d - x, X = sx(x, y), Y = sy(x, y);
       if (X < -tw || X > W + tw || Y < -th - pad || Y > H + th + pad) continue;
       const c = K.chunkOf(x, y), own = ownedSet.has(c), hv = h01(x, y);
-      g.fillStyle = own ? (hv < 0.5 ? '#7DBE5A' : '#78B955') : buyable.has(c) ? (hv < 0.5 ? '#4F7A45' : '#4B7542') : (hv < 0.5 ? '#3C5C37' : '#395833');
-      diamond(X, Y, tw + 0.6, th + 0.6); g.fill();
+      const gr = SPR.grass.im;
+      if (gr.complete && gr.naturalWidth) {
+        // мальована трава; дзеркалимо через одну, щоб не було видно повторів
+        if (hv < 0.5) g.drawImage(gr, X - tw / 2 - 0.5, Y - th / 2 - 0.5, tw + 1, th + 1);
+        else { g.save(); g.translate(X, Y); g.scale(-1, 1); g.drawImage(gr, -tw / 2 - 0.5, -th / 2 - 0.5, tw + 1, th + 1); g.restore(); }
+        if (!own) { g.fillStyle = buyable.has(c) ? 'rgba(10,30,10,.38)' : 'rgba(10,25,10,.55)'; diamond(X, Y, tw + 0.6, th + 0.6); g.fill(); }
+      } else {
+        g.fillStyle = own ? (hv < 0.5 ? '#7DBE5A' : '#78B955') : buyable.has(c) ? (hv < 0.5 ? '#4F7A45' : '#4B7542') : (hv < 0.5 ? '#3C5C37' : '#395833');
+        diamond(X, Y, tw + 0.6, th + 0.6); g.fill();
+      }
       if (!bmap.has(K.idx(x, y)) && !s.ob[K.idx(x, y)] && decor(x, y) === 'pebbles') { g.globalAlpha = 0.85; sprite('pebbles', X, Y, z * 0.55); g.globalAlpha = 1; }
       if (placing && free(s, x, y)) { g.fillStyle = 'rgba(255,255,255,.22)'; diamond(X, Y, tw * 0.86, th * 0.86); g.fill(); }
     }
