@@ -126,7 +126,7 @@
     if (createName) {
       for (let i = 0; i < 5 && !c; i++) {
         const cand = newCode();
-        const res = await db.ref('khutir/' + cand + '/s').transaction((cur) => (cur ? undefined : JSON.stringify(K.advance(K.create((Math.random() * 2 ** 31) | 0, createName), now() + srvOff))));
+        const res = await db.ref('khutir/' + cand + '/s').transaction((cur) => (cur ? undefined : JSON.stringify(Object.assign(K.advance(K.create((Math.random() * 2 ** 31) | 0, createName), now() + srvOff), { own: u.uid }))));
         if (res.committed) c = cand;
       }
       if (!c) { $('mErr').textContent = 'Не вийшло створити, спробуй ще'; return; }
@@ -355,6 +355,7 @@
       const pc = Object.entries(s.pc || {}).sort((a, b) => b[1] - a[1]).slice(0, 8);
       if (pc.length) h += '<div class="row"><span class="ic">🏆</span><span class="tx"><b>Хто скільки заробив</b><small>' + pc.map(([n, c]) => esc(n) + ' ' + fmt(c) + ' 💰').join(' · ') + '</small></span></div>';
       if (s.lg && s.lg.length) h += '<div class="row"><span class="ic">📰</span><span class="tx"><b>Що нового</b><small>' + s.lg.slice(-8).reverse().map((l) => '<b>' + esc(l[1]) + '</b> ' + esc(l[2]) + ' · ' + ago(l[0])).join('<br>') + '</small></span></div>';
+      if (!s.own || s.own === me.uid) h += '<div class="btns"><button class="btn red" id="delFarm">🗑 Видалити хутір<small>для всіх, назавжди</small></button></div>';
       h += '<span hidden id="shareL">' + esc(link) + '</span>';
     }
     h += '<div class="row"><span class="ic">📊</span><span class="tx"><b>Рівень ' + s.lv + ' · ' + s.b.length + ' будівель · ' + s.ch.length * 16 + ' клітинок землі</b><small>Усього вироблено: ' + fmt(s.made) + '</small></span></div>';
@@ -365,6 +366,11 @@
       $('renameB').onclick = () => commit({ t: 'rename', nm: $('renameI').value });
       $('muteB').onclick = () => { muted = !muted; ls.set('khutir_mute', muted ? '1' : '0'); sheetFn && sheetFn(); };
       $('exitB').onclick = showMenu;
+      const df = $('delFarm'); if (df) df.onclick = () => {
+        if (df.dataset.sure !== '1') { df.dataset.sure = '1'; df.innerHTML = 'Точно видалити?<small>натисни ще раз</small>'; return; }
+        const c = code, db = firebase.database(); forgetFarm(c); showMenu();
+        db.ref('khutir/' + c).remove().then(() => toast('Хутір видалено'), () => toast('Не вдалося видалити', true));
+      };
     });
     return h;
   }
