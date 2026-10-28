@@ -1,6 +1,6 @@
 /* Тихо-голосно — «червоне світло, зелене світло». Лялька на дальньому кінці арени співає, дивлячись у стіну (🟢 біжи),
    і раптом обертається (🔴 завмри). Хто рухається після короткої поблажки (0,25 с від повного повороту) і кого вона бачить — вибуває.
-   За високими укриттями (ящики, намети) лялька не бачить. Обманки: лялька смикає головою й не обертається.
+   Впритул за високим укриттям (≤ 1 м від ящика чи намету) лялька не бачить; відійшов — бачить. Обманки: лялька смикає головою й не обертається.
    ✋ Поштовх (перезарядка 5 с): на «червоне» відкинутий сусід рухається — і вибуває, якщо його видно.
    Раунди (3 або 5), бали за місце на фініші: 5, 3, 2, далі по 1. Вибулий — 0.
    Авторитет: соло — сам телефон; мережа — хост (лялька, раунд, боти, бали). Свій рух кожен перевіряє сам на своєму телефоні
@@ -29,7 +29,7 @@ const renderer=new T3.WebGLRenderer({canvas:$('gl'),antialias:true});
 renderer.setPixelRatio(Math.min(mobile?1.5:2,devicePixelRatio||1));
 renderer.shadowMap.enabled=true;renderer.shadowMap.type=T3.PCFSoftShadowMap;renderer.shadowMap.autoUpdate=false;
 const scene=new T3.Scene();scene.background=new T3.Color('#9AA7AE');
-const camera=new T3.PerspectiveCamera(46,1,0.5,160);
+const camera=new T3.PerspectiveCamera(46,1,0.2,160);
 const fx=$('fx'),fctx=fx.getContext('2d');let W,H;
 const VIEW_LONG=60*Math.PI/180;
 function resize(){W=innerWidth;H=innerHeight;renderer.setSize(W,H,false);camera.aspect=W/H;
@@ -77,9 +77,15 @@ function buildWorld(mi,seed){
   doll.position.set(DX,0,DZ);
   sunAt=[1e9,1e9];renderer.shadowMap.needsUpdate=true;
 }
-/* лялька бачить персонажа, якщо між ними немає високого укриття */
-function seen(x,z){const ax=DX,az=DZ+0.6,dx=x-ax,dz=z-az;for(const s of segs){const sx=s[2]-s[0],sz=s[3]-s[1],den=dx*sz-dz*sx;if(Math.abs(den)<1e-9)continue;
-  const qx=s[0]-ax,qz=s[1]-az,t=(qx*sz-qz*sx)/den,u=(qx*dz-qz*dx)/den;if(t>0.001&&t<0.999&&u>=0&&u<=1)return false}return true}
+/* лялька бачить персонажа, якщо між ними немає високого укриття, до якого він притулився (≤ SHADOW м).
+   Відійшов від ящика далі — лялька бачить поверх: сховатися можна лише впритул, а не будь-де «в тіні» на пів арени. */
+const SHADOW=1.0;
+function boxDist(b,x,z){const cx=Math.max(b[0],Math.min(x,b[2])),cz=Math.max(b[1],Math.min(z,b[3]));return Math.hypot(x-cx,z-cz)}
+function seen(x,z){const ax=DX,az=DZ+0.6,dx=x-ax,dz=z-az;
+  for(const b of world.tallBoxes){if(boxDist(b,x,z)>SHADOW)continue;
+    for(const s of[[b[0],b[1],b[2],b[1]],[b[2],b[1],b[2],b[3]],[b[2],b[3],b[0],b[3]],[b[0],b[3],b[0],b[1]]]){const sx=s[2]-s[0],sz=s[3]-s[1],den=dx*sz-dz*sx;if(Math.abs(den)<1e-9)continue;
+      const qx=s[0]-ax,qz=s[1]-az,t=(qx*sz-qz*sx)/den,u=(qx*dz-qz*dx)/den;if(t>0.001&&t<0.999&&u>=0&&u<=1)return false}}
+  return true}
 
 /* ---------- навігація ---------- */
 let AG=null,AC_=null,ACL=null;const HEAP=[];
@@ -416,7 +422,8 @@ function update(dt){
   playFx();sing(dt);
   drawChars(dt);drawDoll(dt);
   const fo=camFollow();if(fo){
-    const want=new T3.Vector3(fo.x*0.5+DX*0.5,13.5,fo.z+6.5),look=new T3.Vector3(fo.x*0.5+DX*0.5,0,fo.z-9);   // дивимось уперед, на ляльку
+    // вид від третьої особи: за спиною, трохи згори, дивимось уперед — на ляльку (джойстик «вгору» = до ляльки, як і раніше)
+    const want=new T3.Vector3(fo.x,3.0,fo.z+4.8),look=new T3.Vector3(fo.x*0.7+DX*0.3,0.8,fo.z-7);
     if(!camInit){camPos.copy(want);camLook.copy(look);camInit=true}
     camPos.lerp(want,Math.min(1,dt*5));camLook.lerp(look,Math.min(1,dt*6));camera.position.copy(camPos);
     if(shakeT>0&&!reduce){shakeT-=dt;camera.position.x+=(Math.random()-.5)*0.18;camera.position.y+=(Math.random()-.5)*0.1}
@@ -450,7 +457,7 @@ function updHud(force){
   const tc=$('timeChip');tc.textContent=mm+':'+String(ss).padStart(2,'0');tc.classList.toggle('low',G.ph==='play'&&rem<15);
   $('zoneChip').textContent='Раунд '+G.rd+'/'+G.nr+' · 🏁 '+G.fin.length+(G.out.length?' · 💀 '+G.out.length:'');
   const L=$('light');L.hidden=!lightS;L.className='light '+lightS;
-  L.textContent={go:'🟢 Біжи!',stop:'🔴 Завмри!',hide:'🫣 Сховався — можна',out:'💀 Вибув',fin:'🏁 Фініш!'}[lightS]||'';
+  L.textContent={go:'🟢 Біжи!',stop:'🔴 Завмри!',hide:'🫣 За ящиком — не відходь',out:'💀 Вибув',fin:'🏁 Фініш!'}[lightS]||'';
   $('red').classList.toggle('on',G.ph==='play'&&red()&&!hidden&&!!me&&!me.out&&!me.fin);
   const bd=$('board');bd.innerHTML='';
   for(const id of ids){const li=document.createElement('li');if(me&&id===me.id)li.className='me';const d=document.createElement('i');d.style.background=PAL[(G.col[id]|0)%PAL.length];
@@ -477,7 +484,7 @@ function drawFx(dt){
   if(G&&phase!=='menu'){
     // лінія фінішу підписана
     const f=scr(DX,0.1,FIN);if(f.z<1&&f.y>0&&f.y<H)label(f.x,f.y,'🏁 ФІНІШ','rgba(232,69,60,.9)');
-    for(const c of chars){if(c.gone)continue;const s=scr(c.x,c.out?0.7:1.55,c.z);if(s.z>1)continue;
+    for(const c of chars){if(c.gone||c===me&&!c.out)continue;const s=scr(c.x,c.out?0.7:1.55,c.z);if(s.z>1)continue;   // себе видно зі спини — без підпису
       const t=(c===me?'Ти':c.nick||'?')+(c.out?' 💀':c.fin?' 🏁':'');label(s.x,s.y,t,c===me?'rgba(160,120,0,.85)':'rgba(20,18,26,.62)',c===me||c.out?'#fff':'#'+c.col.getHexString())}}
   for(const p of pops){p.t+=dt;if(p.t>1.2||p.ch.gone)continue;const s=scr(p.ch.x,1.85,p.ch.z);if(s.z>1)continue;const y=s.y-p.t*22,e=p.t<0.25?(1-Math.pow(1-p.t/0.25,3))*1.15:1;
     fctx.globalAlpha=p.t>0.9?Math.max(0,1-(p.t-0.9)/0.3):1;fctx.save();fctx.translate(s.x,y);fctx.scale(e,e);fctx.font='800 22px '+FONT;fctx.textAlign='center';fctx.textBaseline='middle';fctx.fillStyle='#fff';fctx.strokeStyle='rgba(0,0,0,.5)';fctx.lineWidth=4;fctx.strokeText(p.text,0,0);fctx.fillText(p.text,0,0);fctx.restore();fctx.globalAlpha=1}

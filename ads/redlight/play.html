@@ -23,7 +23,7 @@ body{background:var(--night);color:var(--ink);font-family:var(--body);overflow:h
 #stun{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,rgba(255,255,255,0) 45%,rgba(255,201,60,.45) 100%);opacity:0;transition:opacity .2s}
 #red{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,rgba(255,40,60,0) 40%,rgba(255,40,60,.5) 100%);opacity:0;transition:opacity .15s}
 #red.on{opacity:1}
-.light{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 140px);font-family:var(--display);font-weight:800;font-size:22px;line-height:1;padding:9px 18px 7px;border-radius:16px;pointer-events:none;background:rgba(12,10,16,.72);white-space:nowrap}
+.light{position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 140px);font-family:var(--display);font-weight:800;font-size:22px;line-height:1;padding:9px 18px 7px;border-radius:16px;pointer-events:none;background:rgba(12,10,16,.72);white-space:nowrap}
 .light.go{color:var(--green)}.light.stop{color:#fff;background:var(--red)}.light.hide{color:var(--sky)}.light.out{color:#aaa}.light.fin{color:var(--gold)}
 .hud{position:fixed;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 12px);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:8px;pointer-events:none}
 .row{display:flex;align-items:center;gap:8px;min-width:0}
@@ -121,7 +121,7 @@ input:focus-visible,select:focus-visible{outline:3px solid var(--sky);outline-of
     <h1 id="ovTitle">Тихо-голосно</h1>
     <p id="ovText">Поки лялька співає й дивиться в стіну — біжи до червоної лінії. Обернулась — завмри: хто ворухнеться, вибуває. Три раунди, бали за місце на фініші.</p>
     <ul class="score" id="scoreList" hidden></ul>
-    <p class="hint" id="ovHint">Веди пальцем по екрану — і просто відпусти, коли лялька обертається. За високими ящиками й наметами вона тебе не бачить. ✋ штовхає сусіда: якщо на «червоне» — його рух теж рахується.</p>
+    <p class="hint" id="ovHint">Веди пальцем по екрану — і просто відпусти, коли лялька обертається. Притулишся впритул до високого ящика чи намету — лялька тебе не побачить, але відійдеш хоч на крок — побачить. ✋ штовхає сусіда: якщо на «червоне» — його рух теж рахується.</p>
     <div class="stack" id="soloBox">
       <div class="rowf2"><label for="soloBots">Боти</label><select id="soloBots"><option value="3">3 боти</option><option value="5" selected>5 ботів</option><option value="7">7 ботів</option></select></div>
       <button class="btn" id="ovSolo" type="button">Грати з ботами</button>

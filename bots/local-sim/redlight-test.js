@@ -55,12 +55,15 @@ const FREEZE = `for (const c of RLGame.chars) if (c.kind === "bot") { c.go = fal
   const hid = await p.evaluate(() => { const g = RLGame; const box = g.world.tallBoxes.slice().sort((a, b) => b[1] - a[1])[2]; const me = g.player;
     me.x = (box[0] + box[2]) / 2; me.z = box[3] + 0.45; me.vx = me.vz = 0; g.setDl("r", 6000); g.sim(0.05); return !g.seen(me.x, me.z); });
   await wait(450);
-  await p.evaluate(() => { const g = RLGame; g.keys.s = true; g.sim(0.25); g.keys.s = false; });
+  await p.evaluate(() => { const g = RLGame; g.keys.a = true; g.sim(0.12); g.keys.a = false; g.sim(0.3); });   // крок уздовж ящика — лишаєшся в укритті
   check("🫣 за високим ящиком лялька не бачить — рух не карається", hid && (await p.evaluate(() => !RLGame.player.out)));
+  const far = await p.evaluate(() => { const g = RLGame, box = g.world.tallBoxes.slice().sort((a, b) => b[1] - a[1])[2], x = (box[0] + box[2]) / 2; return { near: g.seen(x, box[3] + 0.6), far: g.seen(x, box[3] + 2.5) }; });
+  check("відійшов від ящика на 2,5 м — лялька вже бачить (ховатись можна лише впритул)", !far.near && far.far, JSON.stringify(far));
   // поштовх на «червоне»: відкинутий бот вибуває
-  const push = await p.evaluate(() => { const g = RLGame, me = g.player, v = g.chars.find((c) => c.kind === "bot" && !c.out); me.x = 4; me.z = 24; me.cdP = 0; me.stun = 0;
-    v.x = 4.9; v.z = 24; v.vx = v.vz = 0; v.kx = v.kz = 0; g.setDl("r", 6000); g.sim(0.4); for (const c of g.chars) if (c.kind === "bot") { c.go = false; c.want = false; c.goAt = 1e15; c.vx = c.vz = 0; c.dlN = g.G.dlN; }
-    g.sim(0.2); const before = g.G.out.includes(v.id); me.yaw = Math.PI / 2; g.doPush(); g.sim(0.4); return { before, after: g.G.out.includes(v.id), seen: g.seen(v.x, v.z) }; });
+  await p.evaluate(() => { const g = RLGame, me = g.player, v = g.chars.find((c) => c.kind === "bot" && !c.out); window.__v = v.id; me.x = 4; me.z = 24; me.cdP = 0; me.stun = 0; me.vx = me.vz = 0;
+    v.x = 4.9; v.z = 24; v.vx = v.vz = 0; v.kx = v.kz = 0; g.setDl("r", 8000); g.sim(0.05); });
+  await p.evaluate(FREEZE); await wait(450);
+  const push = await p.evaluate(() => { const g = RLGame, me = g.player, v = g.chr(window.__v); g.sim(0.1); const before = g.G.out.includes(v.id); me.yaw = Math.PI / 2; g.doPush(); g.sim(0.4); return { before, after: g.G.out.includes(v.id), seen: g.seen(v.x, v.z) }; });
   check("✋ штовхнув сусіда на «червоне» — він вибув", !push.before && push.after, JSON.stringify(push));
   // фініш
   await freshRound();
@@ -79,7 +82,7 @@ const FREEZE = `for (const c of RLGame.chars) if (c.kind === "bot") { c.go = fal
   p = await phone(b, null, { lite: true });
   await p.goto(URL_); await p.waitForTimeout(2000); await p.click("#ovSolo");
   await until(() => p.evaluate(() => RLGame.phase === "play"), 40000);
-  await p.evaluate(() => { const g = RLGame; g.setDl("g", 60000); const me = g.player; me.x = 7; me.z = 30; });
+  await p.evaluate(() => { const g = RLGame; g.setDl("g", 60000); const me = g.player; me.x = 12.2; me.z = 30; });
   const cdp = await p.context().newCDPSession(p), send = (type, pts) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: pts });
   const j0 = { x: 150, y: 520, id: 1 };
   await send("touchStart", [j0]); await send("touchMove", [{ ...j0, y: 470 }]); await p.waitForTimeout(300);
