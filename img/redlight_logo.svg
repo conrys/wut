@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <g fill="none" stroke="#fff" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
+    <!-- лялька: сукня, голова з хвостиками -->
+    <path d="M372 820l60-300h160l60 300z"/>
+    <circle cx="512" cy="410" r="92"/>
+    <circle cx="404" cy="436" r="34"/><circle cx="620" cy="436" r="34"/>
+    <path d="M424 360q88-70 176 0"/>
+    <!-- лінія фінішу -->
+    <path d="M160 880h704" stroke-dasharray="40 30"/>
+  </g>
+  <!-- очі світяться червоним -->
+  <g fill="#FF4D5E"><circle cx="478" cy="420" r="16"/><circle cx="546" cy="420" r="16"/></g>
+</svg>
