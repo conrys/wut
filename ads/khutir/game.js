@@ -466,7 +466,27 @@
     apple1: { src: 'img/apple1.webp', ax: 128, ay: 239, fit: 1.0 },
     apple2: { src: 'img/apple2.webp', ax: 148, ay: 273, fit: 1.0 },
     apple3: { src: 'img/apple3.webp', ax: 148, ay: 273, fit: 1.0 },
+    oak: { src: 'img/oak.webp', ax: 171, ay: 347, fit: 1.0 },
+    spruce: { src: 'img/spruce.webp', ax: 116, ay: 482, fit: 1.0 },
+    rock: { src: 'img/rock.webp', ax: 98, ay: 157, fit: 1.0 },
+    rocks: { src: 'img/rocks.webp', ax: 110, ay: 131, fit: 1.0 },
+    pebbles: { src: 'img/pebbles.webp', ax: 94, ay: 84, fit: 1.0 },
+    bush0: { src: 'img/bush0.webp', ax: 32, ay: 60, fit: 1.0 },
+    bush1: { src: 'img/bush1.webp', ax: 32, ay: 60, fit: 1.0 },
+    bush2: { src: 'img/bush2.webp', ax: 25, ay: 55, fit: 1.0 },
+    bush3: { src: 'img/bush3.webp', ax: 31, ay: 53, fit: 1.0 },
+    bush5: { src: 'img/bush5.webp', ax: 26, ay: 50, fit: 1.0 },
+    bush6: { src: 'img/bush6.webp', ax: 33, ay: 62, fit: 1.0 },
+    bush7: { src: 'img/bush7.webp', ax: 34, ay: 60, fit: 1.0 },
+    bush8: { src: 'img/bush8.webp', ax: 31, ay: 54, fit: 1.0 },
+    bush10: { src: 'img/bush10.webp', ax: 30, ay: 47, fit: 1.0 },
+    bush11: { src: 'img/bush11.webp', ax: 34, ay: 56, fit: 1.0 },
+    bush12: { src: 'img/bush12.webp', ax: 32, ay: 52, fit: 1.0 },
+    bush13: { src: 'img/bush13.webp', ax: 34, ay: 68, fit: 1.0 },
+    bush14: { src: 'img/bush14.webp', ax: 38, ay: 60, fit: 1.0 },
+    bush15: { src: 'img/bush15.webp', ax: 46, ay: 49, fit: 1.0 },
   };
+  const BUSHES = ["bush0", "bush1", "bush2", "bush3", "bush5", "bush6", "bush7", "bush8", "bush10", "bush11", "bush12", "bush13", "bush14", "bush15"];
   for (const k in SPR) { const im = new Image(); im.src = SPR[k].src; SPR[k].im = im; }
   function sprite(k, X, Y, z) {
     const sp = SPR[k]; if (!sp || !sp.im.complete || !sp.im.naturalWidth) return false;
@@ -510,6 +530,10 @@
     g.fillStyle = '#8E8E93'; g.beginPath(); g.moveTo(cx - 12 * z, cy + 2 * z); g.lineTo(cx - 8 * z, cy - 8 * z); g.lineTo(cx + 2 * z, cy - 12 * z); g.lineTo(cx + 11 * z, cy - 4 * z); g.lineTo(cx + 10 * z, cy + 3 * z); g.closePath(); g.fill();
     g.fillStyle = '#B0B0B5'; g.beginPath(); g.moveTo(cx - 8 * z, cy - 8 * z); g.lineTo(cx + 2 * z, cy - 12 * z); g.lineTo(cx + 3 * z, cy - 4 * z); g.closePath(); g.fill();
   }
+  // що росте на клітинці: дуб, ялина або молода яблуня-дичка
+  function treeKind(x, y) { const h = h01(x + 7, y + 3); return h < 0.45 ? 'oak' : h < 0.85 ? 'spruce' : 'apple1'; }
+  // декор на порожній траві: кущі й галька, лише для краси (будувати не заважає)
+  function decor(x, y) { const h = h01(x + 31, y + 17); if (h < 0.07) return BUSHES[Math.floor(h01(x, y + 99) * BUSHES.length)]; if (h < 0.09) return 'pebbles'; return ''; }
   function drawField(cx, cy, z, grow, ripe) {
     // мальовані стадії: паростки → зелена → жовтіє → стигла
     if (sprite(ripe ? 'wheat3' : grow < 0.34 ? 'wheat0' : grow < 0.67 ? 'wheat1' : 'wheat2', cx, cy, z)) return;
@@ -641,6 +665,7 @@
       const c = K.chunkOf(x, y), own = ownedSet.has(c), hv = h01(x, y);
       g.fillStyle = own ? (hv < 0.5 ? '#7DBE5A' : '#78B955') : buyable.has(c) ? (hv < 0.5 ? '#4F7A45' : '#4B7542') : (hv < 0.5 ? '#3C5C37' : '#395833');
       diamond(X, Y, tw + 0.6, th + 0.6); g.fill();
+      if (!bmap.has(K.idx(x, y)) && !s.ob[K.idx(x, y)] && decor(x, y) === 'pebbles') { g.globalAlpha = 0.85; sprite('pebbles', X, Y, z * 0.55); g.globalAlpha = 1; }
       if (placing && free(s, x, y)) { g.fillStyle = 'rgba(255,255,255,.22)'; diamond(X, Y, tw * 0.86, th * 0.86); g.fill(); }
     }
     // межа своєї землі
@@ -657,9 +682,11 @@
       if (X < -tw || X > W + tw || Y < -pad || Y > H + th + pad * 2) { if (x === Math.min(N - 1, d) && vByTile.has(d)) for (const p of vByTile.get(d)) drawVill(p, s, z, t); continue; }
       const i = K.idx(x, y), b = bmap.get(i);
       if (b) drawBuilding(b, X, Y, z, t, dt, bon, s);
-      else if (s.ob[i] === 't' && sprite(h01(x + 7, y + 3) < 0.35 ? 'apple1' : 'apple2', X, Y, z * 0.95)) {}
+      else if (s.ob[i] === 't' && sprite(treeKind(x, y), X, Y + 4 * z, z * (treeKind(x, y) === 'apple1' ? 0.8 : 0.6))) {}
+      else if (s.ob[i] === 'r' && sprite(h01(x + 3, y + 11) < 0.5 ? 'rock' : 'rocks', X, Y + 6 * z, z * 0.8)) {}
       else if (s.ob[i] === 't') drawTree(X, Y, z, ownedSet.has(K.chunkOf(x, y)), 0);
       else if (s.ob[i] === 'r') drawRock(X, Y, z);
+      else if (!s.ob[i]) { const dk = decor(x, y); if (dk && dk !== 'pebbles') sprite(dk, X + (h01(x, y + 5) - 0.5) * 18 * z, Y + (h01(x + 5, y) - 0.5) * 8 * z, z); }
       // селяни, що стоять на цій «діагоналі», — після неї, щоб не ховалися за будинками
       if (x === Math.min(N - 1, d) && vByTile.has(d)) for (const p of vByTile.get(d)) drawVill(p, s, z, t);
     }
