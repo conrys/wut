@@ -451,18 +451,18 @@
   // готові спрайти: основа (ромб клітинки) у файлі — 256 px завширшки; ax/ay — центр основи в пікселях файлу
   const SPR = {
     grass: { src: 'img/grass.webp', ax: 128, ay: 64, fit: 1.0 },
-    home: { src: 'img/home.webp', ax: 130, ay: 147, fit: 1.15 },
+    home: { src: 'img/home.webp', ax: 130, ay: 147, fit: 1.15, ch: [143, 5] },
     coop: { src: 'img/coop.webp', ax: 128, ay: 140, fit: 1.1 },
     mill: { src: 'img/mill.webp', ax: 128, ay: 207, fit: 1.1 },
     saw: { src: 'img/saw.webp', ax: 128, ay: 151, fit: 1.1 },
     lumber: { src: 'img/lumber.webp', ax: 128, ay: 110, fit: 1.1 },
-    bakery: { src: 'img/bakery.webp', ax: 128, ay: 183, fit: 1.1 },
+    bakery: { src: 'img/bakery.webp', ax: 128, ay: 183, fit: 1.1, ch: [142, 43] },
     dairy: { src: 'img/dairy.webp', ax: 128, ay: 150, fit: 1.1 },
     cheese: { src: 'img/cheese.webp', ax: 128, ay: 150, fit: 1.1 },
     apiary: { src: 'img/apiary.webp', ax: 128, ay: 146, fit: 1.1 },
     press: { src: 'img/press.webp', ax: 128, ay: 162, fit: 1.1 },
-    pastry: { src: 'img/pastry.webp', ax: 128, ay: 193, fit: 1.1 },
-    meadery: { src: 'img/meadery.webp', ax: 128, ay: 175, fit: 1.1 },
+    pastry: { src: 'img/pastry.webp', ax: 128, ay: 193, fit: 1.1, ch: [142, 43] },
+    meadery: { src: 'img/meadery.webp', ax: 128, ay: 175, fit: 1.1, ch: [148, 41] },
     well: { src: 'img/well.webp', ax: 128, ay: 162, fit: 1.1 },
     soil: { src: 'img/soil.webp', ax: 128, ay: 66, fit: 1.02 },
     wheat0: { src: 'img/wheat0.webp', ax: 129, ay: 66, fit: 1.02 },
@@ -495,12 +495,33 @@
   };
   const BUSHES = ["bush0", "bush1", "bush2", "bush3", "bush5", "bush6", "bush7", "bush8", "bush10", "bush11", "bush12", "bush13", "bush14", "bush15"];
   for (const k in SPR) { const im = new Image(); im.src = SPR[k].src; SPR[k].im = im; }
-  function sprite(k, X, Y, z) {
+  function sprite(k, X, Y, z, sw, sq) {
     const sp = SPR[k]; if (!sp || !sp.im.complete || !sp.im.naturalWidth) return false;
     const sc = (TW * z * sp.fit) / 256;
     g.imageSmoothingQuality = 'high';
-    g.drawImage(sp.im, X - sp.ax * sc, Y - sp.ay * sc, sp.im.naturalWidth * sc, sp.im.naturalHeight * sc);
-    return true;
+    if (!sw && !sq) { g.drawImage(sp.im, X - sp.ax * sc, Y - sp.ay * sc, sp.im.naturalWidth * sc, sp.im.naturalHeight * sc); return true; }
+    g.save(); g.translate(X, Y); g.transform(1 - (sq || 0) * 0.5, 0, -(sw || 0), 1 + (sq || 0), 0, 0);
+    g.drawImage(sp.im, -sp.ax * sc, -sp.ay * sc, sp.im.naturalWidth * sc, sp.im.naturalHeight * sc);
+    g.restore(); return true;
+  }
+  // вітер: повільні пориви, що біжать по карті
+  const wind = (x, y, t, amp) => amp * (Math.sin(t / 900 + x * 0.6 + y * 0.35) * 0.7 + Math.sin(t / 2300 + x * 0.2) * 0.3);
+  // дим із комина: клубочки піднімаються, ростуть і тануть
+  function smoke(k, X, Y, z, t, seed) {
+    const sp = SPR[k]; if (!sp || !sp.ch || !sp.im.naturalWidth) return;
+    const sc = (TW * z * sp.fit) / 256, cx = X + (sp.ch[0] - sp.ax) * sc, cy = Y + (sp.ch[1] - sp.ay) * sc;
+    for (let i = 0; i < 6; i++) {
+      const ph = ((t / 2600 + i / 6 + seed * 0.37) % 1);
+      const x = cx + Math.sin(ph * 5 + seed + i) * 3 * z + ph * 10 * z, y = cy - ph * 34 * z, r = (2 + ph * 6) * z;
+      g.globalAlpha = 0.55 * (1 - ph) * Math.min(1, ph * 6);
+      g.fillStyle = '#E9E4DA'; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+    }
+    g.globalAlpha = 1;
+  }
+  // бджілки над пасікою
+  function bees(X, Y, z, t, seed) {
+    g.fillStyle = '#2B2116';
+    for (let i = 0; i < 5; i++) { const a = t / 380 + i * 1.3 + seed; g.beginPath(); g.arc(X + Math.cos(a) * 16 * z + Math.sin(a * 2.3) * 4 * z, Y - 22 * z + Math.sin(a * 1.6) * 8 * z, 1.3 * z, 0, 7); g.fill(); }
   }
   function drawHouse(cx, cy, z, wall, roof, ic, hut) {
     const w = TW * 0.72 * z, hh = TH * 0.72 * z, h = 20 * z, rh = 18 * z;
@@ -543,7 +564,8 @@
   function decor(x, y) { const h = h01(x + 31, y + 17); if (h < 0.07) return BUSHES[Math.floor(h01(x, y + 99) * BUSHES.length)]; if (h < 0.09) return 'pebbles'; return ''; }
   function drawField(cx, cy, z, grow, ripe) {
     // мальовані стадії: паростки → зелена → жовтіє → стигла
-    if (sprite(ripe ? 'wheat3' : grow < 0.34 ? 'wheat0' : grow < 0.67 ? 'wheat1' : 'wheat2', cx, cy, z)) return;
+    const st = ripe ? 'wheat3' : grow < 0.34 ? 'wheat0' : grow < 0.67 ? 'wheat1' : 'wheat2';
+    if (sprite(st, cx, cy, z, st === 'wheat0' ? 0 : wind(cx / 40, cy / 40, performance.now(), 0.05))) return;
     const soil = sprite('soil', cx, cy, z);
     if (!soil) { g.fillStyle = '#8A5A35'; diamond(cx, cy, TW * 0.94 * z, TH * 0.94 * z); g.fill(); }
     g.strokeStyle = '#74492A'; g.lineWidth = 1.5 * z;
@@ -697,11 +719,11 @@
       if (X < -tw || X > W + tw || Y < -pad || Y > H + th + pad * 2) { if (x === Math.min(N - 1, d) && vByTile.has(d)) for (const p of vByTile.get(d)) drawVill(p, s, z, t); continue; }
       const i = K.idx(x, y), b = bmap.get(i);
       if (b) drawBuilding(b, X, Y, z, t, dt, bon, s);
-      else if (s.ob[i] === 't' && sprite(treeKind(x, y), X, Y + 4 * z, z * (treeKind(x, y) === 'apple1' ? 0.8 : 0.6))) {}
+      else if (s.ob[i] === 't' && sprite(treeKind(x, y), X, Y + 4 * z, z * (treeKind(x, y) === 'apple1' ? 0.8 : 0.6), wind(x, y, t, 0.025))) {}
       else if (s.ob[i] === 'r' && sprite(h01(x + 3, y + 11) < 0.5 ? 'rock' : 'rocks', X, Y + 6 * z, z * 0.8)) {}
       else if (s.ob[i] === 't') drawTree(X, Y, z, ownedSet.has(K.chunkOf(x, y)), 0);
       else if (s.ob[i] === 'r') drawRock(X, Y, z);
-      else if (!s.ob[i]) { const dk = decor(x, y); if (dk && dk !== 'pebbles') sprite(dk, X + (h01(x, y + 5) - 0.5) * 18 * z, Y + (h01(x + 5, y) - 0.5) * 8 * z, z); }
+      else if (!s.ob[i]) { const dk = decor(x, y); if (dk && dk !== 'pebbles') sprite(dk, X + (h01(x, y + 5) - 0.5) * 18 * z, Y + (h01(x + 5, y) - 0.5) * 8 * z, z, wind(x, y, t, 0.05)); }
       // селяни, що стоять на цій «діагоналі», — після неї, щоб не ховалися за будинками
       if (x === Math.min(N - 1, d) && vByTile.has(d)) for (const p of vByTile.get(d)) drawVill(p, s, z, t);
     }
@@ -738,12 +760,17 @@
   function drawBuilding(b, X, Y, z, t, dt, bon, s) {
     const d = B[b.k], dur = d.d ? K.durOf(b, bon) : 1;
     const prog = b.p >= 0 ? Math.min(1, (b.p + dt) / dur) : b.buf ? 1 : 0;
-    if (d.kind !== 'home' && sprite(b.k, X, Y, z)) { if (d.wall) lights.push([X + 9 * z, Y - 8 * z, 0.7]); }
+    const busy = b.p >= 0, sq = busy && d.kind !== 'well' ? 0.012 * Math.sin(t / 240 + b.id * 1.7) : 0;
+    if (d.kind !== 'home' && d.kind !== 'orchard' && sprite(b.k, X, Y, z, 0, sq)) {
+      if (d.wall) lights.push([X + 9 * z, Y - 8 * z, 0.7]);
+      if (busy && SPR[b.k].ch) smoke(b.k, X, Y, z, t, b.id);
+      if (busy && b.k === 'apiary') bees(X, Y, z, t, b.id);
+    }
     else if (d.kind === 'field') drawField(X, Y, z, b.buf ? 1 : prog, b.buf > 0);
-    else if (d.kind === 'orchard' && sprite(b.buf ? 'apple3' : 'apple2', X, Y, z)) {}
+    else if (d.kind === 'orchard' && sprite(b.buf ? 'apple3' : 'apple2', X, Y, z, wind(b.x, b.y, t, 0.02))) {}
     else if (d.kind === 'orchard') { g.fillStyle = '#6DAF4E'; diamond(X, Y, TW * 0.9 * z, TH * 0.9 * z); g.fill(); drawTree(X - 12 * z, Y - 2 * z, z * 0.75, 1, b.buf ? 3 : Math.floor(prog * 3)); drawTree(X + 12 * z, Y - 2 * z, z * 0.75, 1, b.buf ? 3 : Math.floor(prog * 2)); drawTree(X, Y + 6 * z, z * 0.8, 1, b.buf ? 4 : Math.floor(prog * 3)); }
     else if (d.kind === 'well') drawWell(X, Y, z);
-    else if (d.kind === 'home') { if (!sprite('home', X, Y, z)) drawHouse(X, Y, z, '#F4EFE4', '#C9A24A', '', true); lights.push([X - 10 * z, Y - 10 * z, 1]); }
+    else if (d.kind === 'home') { if (!sprite('home', X, Y, z)) drawHouse(X, Y, z, '#F4EFE4', '#C9A24A', '', true); else smoke('home', X, Y, z, t, b.id); lights.push([X - 10 * z, Y - 10 * z, 1]); }
     else if (d.kind === 'apiary') { g.fillStyle = '#88C463'; diamond(X, Y, TW * 0.9 * z, TH * 0.9 * z); g.fill(); drawHives(X, Y, z, t); }
     else { drawHouse(X, Y, z, d.wall, d.roof, d.ic); lights.push([X + 9 * z, Y - 8 * z, 0.7]); }
     if (!d.d) return;
