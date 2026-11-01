@@ -305,6 +305,7 @@
     const d = B[b.k];
     let h = '';
     if (b.k === 'home') { const v = s.vl && s.vl[b.o]; return '<p class="note">Тут живе <b>' + esc(v ? v.n : '?') + '</b>. Звідси селянин ходить по найближчих будівлях.</p>' + (b.o === myUid() ? '<div class="btns"><button class="btn" data-go="vill">🧑‍🌾 Мій селянин</button></div>' : ''); }
+    if (d.kind === 'barn') return storeSheet();
     if (d.kind === 'market') return marketHtml(s) + '<div class="btns"><button class="btn red" data-a="' + A({ t: 'demolish', id: b.id }) + '">🗑 Знести<small>повернеться половина ціни</small></button></div>';
     if (!d.d) return '<p class="note">' + esc(d.hint || '') + '</p><div class="btns"><button class="btn red" data-a="' + A({ t: 'demolish', id: b.id }) + '">🗑 Знести<small>повернеться половина ціни</small></button></div>';
     const bon = K.bonuses(s).get(b.id) || 0, dur = K.durOf(b, K.bonuses(s)), cap = K.capOf(b), w = K.why(s, b);
@@ -375,7 +376,7 @@
   }
   function storeSheet() {
     const s = view, cap = K.storeCap(s), sc = K.storeCost(s);
-    let h = '<div class="row"><span class="ic">📦</span><span class="tx"><b>Місця: по ' + cap + ' кожного</b><small>Повна комора — будівлі стоять. Продавай або розширюй.</small></span></div>';
+    let h = '<div class="row"><span class="ic">📦</span><span class="tx"><b>Місця: по ' + cap + ' кожного</b><small>Селянин зносить сюди врожай. Повна комора — будівлі стоять.</small></span></div>';
     h += '<div class="btns"><button class="btn sec" data-a="' + A({ t: 'store' }) + '"' + (K.canAfford(s, sc) ? '' : ' disabled') + '>Розширити до ' + Math.round(cap * 1.5) + '<small>' + costTxt(sc) + '</small></button></div>';
     const list = Object.keys(RES).filter((r) => s.st[r] > 0);
     if (!list.length) h += '<p class="note">Поки порожньо. Збирай урожай із будівель.</p>';
@@ -528,7 +529,7 @@
     if (gest && gest.tile === key) return; if (gest) gest.tile = key;
     if (hit && (hit.d < 7 * cam.z || !b)) { doAct({ t: 'fence', x: hit.x, y: hit.y, e: hit.e, off: 1, full: 1 }); return; }
     if (s.d[K.idx(x, y)]) { doAct({ t: 'undeco', x, y, full: 1 }); return; }
-    if (b && !dragging) { if (b.k === 'home') toast('Хату не знести, її можна пересунути', true); else doAct({ t: 'demolish', id: b.id }); }
+    if (b && !dragging) { if (b.k === 'home' || b.k === 'barn') toast(B[b.k].n + ': не знести, її можна пересунути', true); else doAct({ t: 'demolish', id: b.id }); }
   }
   $('mBuild').addEventListener('click', () => { au(); applyDraft(); tool = null; cancelPlace(); toolUI(); go('build'); });
   $('mHammer').addEventListener('click', () => { au(); setTool('hammer'); });
@@ -669,6 +670,8 @@
     press: { src: 'img/press.webp', ax: 128, ay: 162, fit: 1.1 },
     pastry: { src: 'img/pastry.webp', ax: 128, ay: 193, fit: 1.1, ch: [142, 43] },
     meadery: { src: 'img/meadery.webp', ax: 128, ay: 175, fit: 1.1, ch: [148, 41] },
+    barn0: { src: 'img/barn0.webp', ax: 139, ay: 192, fit: 1.15 },
+    barn1: { src: 'img/barn1.webp', ax: 139, ay: 192, fit: 1.15 },
     well: { src: 'img/well.webp', ax: 128, ay: 162, fit: 1.1 },
     soil: { src: 'img/soil.webp', ax: 128, ay: 66, fit: 1.02 },
     wheat0: { src: 'img/wheat0.webp', ax: 129, ay: 66, fit: 1.02 },
@@ -987,7 +990,7 @@
     const legs = villLegs(s, h, r), segs = legs.length;
     const f = (((v.vp + dt) % trip) / trip) * segs, i = Math.min(segs - 1, Math.floor(f)), fr = f - i;
     const w = Math.min(1, fr / 0.75), pos = alongLeg(legs[i], w);
-    return { x: pos[0], y: pos[1], walk: fr < 0.75, dir: pos[2] - pos[3] >= 0 ? 1 : -1, basket: i > 0, back: fr < 0.75 && pos[2] + pos[3] < 0 };
+    return { x: pos[0], y: pos[1], walk: fr < 0.75, dir: pos[2] - pos[3] >= 0 ? 1 : -1, basket: i > 0 && i <= r.length, back: fr < 0.75 && pos[2] + pos[3] < 0 };
   }
   // ---------- стежки селянина: обходить будівлі, дерева й тин, любить дороги ----------
   // Клітинка зайнята, якщо там будівля, дерево, камінь або прикраса (крім доріг).
@@ -1022,12 +1025,13 @@
   function villLegs(s, h, r) {
     const key = h.id + '|' + r.map((b) => b.id).join() + '|' + s.b.map((b) => b.x + '.' + b.y).join() + '|' + Object.keys(s.ob).length + '|' + Object.keys(s.d).length + '|' + Object.keys(s.f).length;
     const hit = legCache.get(h.id); if (hit && hit.key === key) return hit.legs;
-    const blocked = blockedSet(s), straight = () => { const pts = [h].concat(r, [h]), o = []; for (let i = 0; i + 1 < pts.length; i++) o.push([[pts[i].x + 0.42, pts[i].y + 0.42], [pts[i + 1].x + 0.42, pts[i + 1].y + 0.42]]); return o; };
+    const barn = s.b.find((b) => b.k === 'barn'), stops = r.length && barn ? r.concat([barn]) : r;   // із кошиком — у комору, потім додому
+    const blocked = blockedSet(s), straight = () => { const pts = [h].concat(stops, [h]), o = []; for (let i = 0; i + 1 < pts.length; i++) o.push([[pts[i].x + 0.42, pts[i].y + 0.42], [pts[i + 1].x + 0.42, pts[i + 1].y + 0.42]]); return o; };
     // виходить із того боку хати, звідки весь обхід найкоротший, і туди ж повертається
     let legs = null, best = 1e9;
     for (const door of around(h, blocked)) {
       const mid = (a, t) => [(a[0] + t.x) / 2, (a[1] + t.y) / 2], o = []; let cur = door, p = mid(door, h), ok = true, total = 0;
-      for (const t of r.concat([h])) {
+      for (const t of stops.concat([h])) {
         const goals = t === h ? [door] : around(t, blocked), tiles = goals.length ? findTiles(s, blocked, cur, goals) : null;
         if (!tiles) { ok = false; break; }
         total += tiles.length; cur = tiles[tiles.length - 1]; const e = mid(cur, t); o.push([p].concat(tiles, [e])); p = e;
@@ -1167,6 +1171,7 @@
       if (busy && SPR[b.k].ch) smoke(b.k, X, Y, z, t, b.id);
       if (busy && b.k === 'apiary') bees(X, Y, z, t, b.id);
     }
+    else if (d.kind === 'barn') sprite(s.sl >= 1 ? 'barn1' : 'barn0', X, Y, z);
     else if (d.kind === 'field') { if (b.p < 0 && !b.buf) sprite('soil', X, Y, z); else drawField(X, Y, z, b.buf ? 1 : prog, b.buf > 0, b.cr); }
     else if (d.kind === 'orchard' && sprite(b.buf ? 'apple3' : 'apple2', X, Y, z, wind(b.x, b.y, t, 0.02))) {}
     else if (d.kind === 'orchard') { g.fillStyle = '#6DAF4E'; diamond(X, Y, TW * 0.9 * z, TH * 0.9 * z); g.fill(); drawTree(X - 12 * z, Y - 2 * z, z * 0.75, 1, b.buf ? 3 : Math.floor(prog * 3)); drawTree(X + 12 * z, Y - 2 * z, z * 0.75, 1, b.buf ? 3 : Math.floor(prog * 2)); drawTree(X, Y + 6 * z, z * 0.8, 1, b.buf ? 4 : Math.floor(prog * 3)); }

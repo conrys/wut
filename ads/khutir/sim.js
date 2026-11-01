@@ -45,6 +45,7 @@
     coop: { n: 'Курник', ic: '🐔', lv: 2, c: 80, d: 1200, in: [['corn', 1]], out: ['egg', 1], cap: 6, q: 2, wall: '#E9D9B8', roof: '#C8553D' },
     lumber: { n: 'Лісоруб', ic: '🪓', lv: 2, c: 60, d: 1800, out: ['wood', 2], cap: 4, wall: '#B98A5A', roof: '#5E7D3A' },
     home: { n: 'Хата', ic: '🏠', lv: 999, c: 0, kind: 'home', hint: 'Тут живе селянин. Звідси він ходить по врожай.' },
+    barn: { n: 'Комора', ic: '📦', lv: 999, c: 0, kind: 'barn' },
     well: { n: 'Криниця', ic: '💧', lv: 3, c: 120, kind: 'well', hint: '+25% швидкості полям, саду, курнику й корівнику навколо (8 клітинок).' },
     saw: { n: 'Тартак', ic: '🪚', lv: 3, c: 120, d: 2400, in: [['wood', 2]], out: ['plank', 1], cap: 6, q: 2, wall: '#C9A06B', roof: '#6B4A2E' },
     bakery: { n: 'Пекарня', ic: '🍞', lv: 4, c: 250, d: 1800, in: [['flour', 1], ['egg', 1]], out: ['bread', 1], cap: 6, q: 3, wall: '#F2D3A2', roof: '#B5452E' },
@@ -71,7 +72,7 @@
     pot: { n: 'Опішнянський глечик', ic: '🏺', c: 150, b: 12, shop: false },
     baba: { n: 'Кам’яна баба', ic: '🗿', c: 400, b: 30, shop: false },
   };
-  const ORDER = Object.keys(B).filter((k) => B[k].kind !== 'home');
+  const ORDER = Object.keys(B).filter((k) => B[k].kind !== 'home' && B[k].kind !== 'barn');
   // що й скільки дає будівля зараз (поле — залежно від посіяного)
   const outOf = (b) => (b.k === 'field' ? [b.cr || 'wheat', CROP[b.cr || 'wheat'].y] : B[b.k].out);
 
@@ -165,6 +166,7 @@
     for (let y = 4; y <= 6; y++) for (let x = 4; x <= 6; x++) { const c = y * NC + x; s.ch.push(c); genChunk(s, c, true); }
     for (let y = MID - 3; y <= MID + 2; y++) for (let x = MID - 3; x <= MID + 2; x++) delete s.ob[idx(x, y)];
     s.b.push({ id: s.nid++, k: 'field', x: MID - 1, y: MID - 1, lv: 1, buf: 0, p: 0, h: 0, cr: 'wheat' });
+    s.b.push({ id: s.nid++, k: 'barn', x: MID + 1, y: MID - 2, lv: 1, buf: 0, p: -1, h: 0 });
     fillOrders(s, 0);
     return s;
   }
@@ -228,6 +230,7 @@
     }
   }
   function advance(s, now) {
+    if (!s.b.some((b) => b.k === 'barn')) { const t = freeTileNear(s, MID + 1, MID - 2); if (t) s.b.push({ id: s.nid++, k: 'barn', x: t[0], y: t[1], lv: 1, buf: 0, p: -1, h: 0 }); }
     if (!s.f) { s.f = {}; for (const i in s.d || {}) if (s.d[i] === 'fence') delete s.d[i]; }   // тин тепер на межах, а не на клітинках
     if (!s.t) { s.t = now; kick(s); return s; }
     if (now <= s.t) return s;
@@ -450,7 +453,7 @@
       }
       case 'demolish': {
         const i = s.b.findIndex((q) => q.id === a.id); if (i < 0) return fail('Нема');
-        const b = s.b[i]; if (b.k === 'home') return fail('Хату не знести — її можна перенести');
+        const b = s.b[i]; if (b.k === 'home' || b.k === 'barn') return fail(B[b.k].n + ': не знести, можна лише пересунути');
         flush(s, b); s.b.splice(i, 1);
         const back = Math.round(buildCost(s, b.k).c / 1.15 * 0.5); s.coins += back;
         log(s, who, 'зніс(ла) ' + B[b.k].n); res.fx.push([b.x, b.y, '+' + back + ' 💰']);
