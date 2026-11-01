@@ -59,8 +59,9 @@
     else if (a.t === 'sell' || a.t === 'order') sfx('coin');
     else if (a.t === 'build' || a.t === 'upgrade' || a.t === 'chunk' || a.t === 'store') sfx('build');
     else if (a.t === 'clear') sfx('chop');
+    else if (a.t === 'deco') sfx('pick');
     if (r.lvUp) {
-      const opened = K.ORDER.filter((k) => B[k].lv === r.lvUp).map((k) => B[k].ic + ' ' + B[k].n);
+      const opened = K.ORDER.filter((k) => B[k].lv === r.lvUp).map((k) => B[k].ic + ' ' + B[k].n).concat(Object.keys(K.CROP).filter((c) => K.CROP[c].lv === r.lvUp).map((c) => RES[c].ic + ' ' + RES[c].n));
       say('Рівень ' + r.lvUp + '!', opened.length ? 'Відкрито: ' + opened.join(', ') : 'Нові замовлення стали більшими');
       sfx('lvl');
     }
@@ -68,10 +69,10 @@
   }
 
   // ================= соло =================
-  function saveSolo() { if (mode === 'solo' && S) ls.set('khutir_solo', JSON.stringify(S)); }
+  function saveSolo() { if (mode === 'solo' && S) ls.set('khutir_solo2', JSON.stringify(S)); }
   setInterval(saveSolo, 10000);
   document.addEventListener('visibilitychange', () => { if (document.hidden) saveSolo(); });
-  function soloInfo() { try { const s = JSON.parse(ls.get('khutir_solo') || 'null'); return s ? s : null; } catch (e) { return null; } }
+  function soloInfo() { try { const s = JSON.parse(ls.get('khutir_solo2') || 'null'); return s && s.v === K.VER ? s : null; } catch (e) { return null; } }
 
   function startSolo() {
     let s = soloInfo();
@@ -81,7 +82,7 @@
   }
 
   // що набігло, поки нікого не було
-  function totals(s) { const o = {}; for (const r in s.st) o[r] = (o[r] || 0) + s.st[r]; for (const b of s.b) if (b.buf && B[b.k].out) o[B[b.k].out[0]] = (o[B[b.k].out[0]] || 0) + b.buf; return o; }
+  function totals(s) { const o = {}; for (const r in s.st) o[r] = (o[r] || 0) + s.st[r]; for (const b of s.b) if (b.buf && B[b.k].out) { const r = K.outOf(b)[0]; o[r] = (o[r] || 0) + b.buf; } return o; }
   function enter(s) {
     const before = totals(s), was = s.t;
     S = s; refreshView(true);
@@ -134,6 +135,12 @@
     const ref = db.ref('khutir/' + c + '/s');
     const first = (await ref.once('value')).val();
     if (typeof first !== 'string') { $('mErr').textContent = 'Хутора з кодом ' + c + ' нема'; forgetFarm(c); drawFarms(); return; }
+    // хутір зі старими правилами починається заново: назва й власник лишаються
+    await ref.transaction((cur) => {
+      let o = null; try { o = JSON.parse(cur); } catch (e) { return cur; }
+      if (!o || o.v === K.VER) return cur;
+      return JSON.stringify(Object.assign(K.advance(K.create((Math.random() * 2 ** 31) | 0, o.nm), Date.now() + srvOff), { own: o.own }));
+    });
     if (net) net.leave();
     const onRef = db.ref('khutir/' + c + '/on'), meRef = onRef.child(u.uid);
     let online = [];
@@ -184,7 +191,7 @@
     $('hNameT').textContent = (mode === 'shared' ? '👥 ' : '🏡 ') + s.nm;
     if (s.coins !== lastCoins) { $('hCoins').textContent = '💰 ' + fmt(s.coins); lastCoins = s.coins; }
     $('hLvlN').textContent = s.lv; $('hLvlBar').style.setProperty('--w', Math.min(100, (100 * s.xp) / K.xpNeed(s.lv)) + '%');
-    let ready = 0; for (const b of s.b) if (b.buf && !b.h) ready++;
+    let ready = 0; for (const b of s.b) if ((b.buf && !b.h) || (b.k === 'field' && b.cr && b.p < 0)) ready++;
     $('dAll').hidden = !ready; $('dAll').textContent = ready;
     let can = 0; for (const o of s.o) if (o.w <= now() && o.it.every(([r, n]) => (s.st[r] || 0) >= n)) can++;
     $('dOrders').hidden = !can; $('dOrders').textContent = can;
@@ -199,10 +206,12 @@
       const ready = s.b.some((b) => b.buf);
       if (!s.made && !ready) t = '🌾 Поле росте. Коли над ним зʼявиться колосок — торкнись';
       else if (!s.made && ready) t = '👆 Торкнись поля, щоб зібрати пшеницю';
-      else if (!K.count(s, 'coop')) t = '🏗 Збудуй курник: він робить яйця з пшениці';
-      else if (s.lv === 1) t = '📋 Замовлення платять більше, ніж ярмарок у коморі';
-      else if (!K.count(s, 'mill')) t = '⭐ Рівень 2: відкрито млин і лісоруба';
+      else if (s.b.some((b) => b.k === 'field' && !b.buf && b.p < 0)) t = '🌱 Торкнись порожнього поля й обери, що сіяти';
+      else if (!K.count(s, 'mill')) t = '🏗 Збудуй млин: борошно дорожче за пшеницю';
+      else if (s.lv === 1) t = '📋 Замовлення платять більше, ніж продаж у коморі';
+      else if (!K.count(s, 'market')) t = '🏪 Збудуй ринок: сюди приїздять торговці';
     }
+    if (!t && !placing) { const m = K.market(s, now()); if (m && m.here) t = '🛒 На ринку торговець із ' + m.v + ', ще ' + secs(m.end - now()); }
     el.hidden = !t; el.textContent = t;
   }
 
@@ -225,7 +234,7 @@
       const r = commit(a);
       if (r && r.ok && (a.t === 'demolish' || a.t === 'build')) closeSheet();
       if (r && r.ok && a.t === 'chunk') closeSheet();
-      if (r && r.ok && a.t === 'clear') closeSheet();
+      if (r && r.ok && (a.t === 'clear' || a.t === 'undeco' || a.t === 'sow')) closeSheet();
     }));
     $('shB').querySelectorAll('[data-place]').forEach((el) => el.addEventListener('click', () => { if (fresh()) return; au(); startPlace(el.dataset.place); }));
     bindVill();
@@ -233,7 +242,7 @@
   }
   const A = (o) => esc(JSON.stringify(o));
   const items = (list, s, need) => list.map(([r, n]) => '<span class="it' + (need ? ((s.st[r] || 0) >= n ? ' ok' : ' no') : '') + '">' + RES[r].ic + ' ' + (need ? Math.min(s.st[r] || 0, n) + '/' : '') + n + '</span>').join('');
-  const secs = (ms) => { const s = Math.ceil(ms / 1000); return s >= 60 ? Math.floor(s / 60) + ' хв' + (s % 60 ? ' ' + (s % 60) + ' с' : '') : s + ' с'; };
+  const secs = (ms) => { const s = Math.ceil(ms / 1000), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return h ? h + ' год' + (m ? ' ' + m + ' хв' : '') : m ? m + ' хв' + (s < 600 && s % 60 ? ' ' + (s % 60) + ' с' : '') : s + ' с'; };
   const costTxt = (c) => (c.c ? fmt(c.c) + ' 💰' : '') + (c.pl ? ' · ' + c.pl + ' 🪚' : '');
   const recipe = (d) => (d.in ? items(d.in) + ' → ' : '') + (d.out ? '<span class="it">' + RES[d.out[0]].ic + ' ' + d.out[1] + '</span>' : '');
 
@@ -260,8 +269,16 @@
     let h = buildAt ? '<p class="note">Будуємо на вибраній клітинці.</p>' : '<p class="note">Обери будівлю, потім — вільну клітинку на своїй землі.</p>';
     for (const k of K.ORDER) {
       const d = B[k], lock = s.lv < d.lv, c = K.buildCost(s, k), ok = !lock && K.canAfford(s, c);
-      const info = d.d ? recipe(d) + ' · ' + d.d + ' с' : esc(d.hint || '');
+      const info = d.kind === 'field' ? esc(d.hint) : d.d ? recipe(d) + ' · ' + secs(d.d * 1000) : esc(d.hint || '');
       h += '<button class="row' + (ok ? '' : ' off') + '" ' + (lock ? 'disabled' : buildAt ? 'data-a="' + A({ t: 'build', k, x: buildAt[0], y: buildAt[1] }) + '"' : 'data-place="' + k + '"') + '><span class="ic">' + d.ic + '</span><span class="tx"><b>' + d.n + '</b><small>' + (lock ? '🔒 з ' + d.lv + ' рівня' : info) + '</small></span><span class="pr">' + (lock ? '' : costTxt(c)) + '</span></button>';
+    }
+    const bt = K.tier(s), bv = K.beauty(s), nextB = bt < 10 ? K.tierNeed(bt + 1) : 0;
+    h += '<div class="row"><span class="ic">🌸</span><span class="tx"><b>Краса: ' + bv + ' · ступінь ' + bt + '</b><small>Замовники платять +' + bt * 4 + '%' + (bt >= 2 ? ', торговець купує дорожче й більше' : ', з вищою красою торговець купує дорожче') + (nextB ? '. До наступного ступеня: ' + (nextB - bv) : '') + '. Різні прикраси дають більше, ніж багато однакових.</small></span></div>';
+    for (const k in K.DECOR) {
+      const d = K.DECOR[k], only = d.shop === false, have = (s.inv && s.inv[k]) || 0;
+      if (only && !have) continue;
+      const lock = !only && s.lv < d.lv, ok = only || (!lock && s.coins >= d.c);
+      h += '<button class="row' + (ok ? '' : ' off') + '" ' + (lock ? 'disabled' : 'data-place="deco:' + k + '"') + '><span class="ic">' + d.ic + '</span><span class="tx"><b>' + d.n + '</b><small>' + (lock ? '🔒 з ' + d.lv + ' рівня' : '+' + d.b + ' краси' + (d.hint ? ' · ' + d.hint : '')) + '</small></span><span class="pr">' + (only ? 'є ' + have : d.c + ' 💰') + '</span></button>';
     }
     return h;
   }
@@ -272,20 +289,43 @@
     const d = B[b.k];
     let h = '';
     if (b.k === 'home') { const v = s.vl && s.vl[b.o]; return '<p class="note">Тут живе <b>' + esc(v ? v.n : '?') + '</b>. Звідси селянин ходить по найближчих будівлях.</p>' + (b.o === myUid() ? '<div class="btns"><button class="btn" data-go="vill">🧑‍🌾 Мій селянин</button></div>' : ''); }
+    if (d.kind === 'market') return marketHtml(s) + '<div class="btns"><button class="btn red" data-a="' + A({ t: 'demolish', id: b.id }) + '">🗑 Знести<small>повернеться половина ціни</small></button></div>';
     if (!d.d) return '<p class="note">' + esc(d.hint || '') + '</p><div class="btns"><button class="btn red" data-a="' + A({ t: 'demolish', id: b.id }) + '">🗑 Знести<small>повернеться половина ціни</small></button></div>';
     const bon = K.bonuses(s).get(b.id) || 0, dur = K.durOf(b, K.bonuses(s)), cap = K.capOf(b), w = K.why(s, b);
     const rt = K.routes(s); let who = '';
     for (const u in rt) if (rt[u].some((q) => q.id === b.id)) who = s.vl[u].n;
-    h += '<div class="row"><span class="ic">' + d.ic + '</span><span class="tx"><b>' + recipe(d) + '</b><small>цикл ' + secs(dur) + (bon ? ' · бонус сусідів +' + Math.round(bon * 100) + '%' : '') + (b.h ? ' · 🧑‍🌾 наймит збирає сам' : who ? ' · 🧑‍🌾 збирає ' + esc(who) : ' · далеко від хат — збирай сам') + '</small></span></div>';
-    const st = b.p >= 0 ? '⏳ працює: ' + Math.floor((100 * b.p) / dur) + '%' : w === 'full' ? '✋ повно — збери' : w ? '💤 чекає: нема ' + RES[w].ic + ' ' + RES[w].n.toLowerCase() : '';
-    h += '<div class="row"><span class="tx"><b>Готово: ' + b.buf + ' / ' + cap + ' ' + RES[d.out[0]].ic + '</b><small>' + st + '</small><span class="cap"><i class="' + (b.buf >= cap ? 'full' : '') + '" style="width:' + Math.min(100, (100 * b.buf) / cap) + '%"></i></span></span></div>';
+    h += '<div class="row"><span class="ic">' + d.ic + '</span><span class="tx"><b>' + (d.kind === 'field' ? 'Поле' : recipe(d)) + '</b><small>цикл ' + secs(dur) + (bon ? ' · бонус сусідів +' + Math.round(bon * 100) + '%' : '') + (b.h ? ' · 🧑‍🌾 наймит збирає сам' : who ? ' · 🧑‍🌾 збирає ' + esc(who) : ' · далеко від хат — збирай сам') + '</small></span></div>';
+    const st = b.p >= 0 ? '⏳ ще ' + secs(dur - b.p) + ((b.qn || 0) ? ' · далі в черзі ' + b.qn : '') : w === 'full' ? '✋ повно — збери' : w === 'queue' ? '💤 чекає на твою чергу' : '';
+    const outR = K.outOf(b)[0];
+    if (d.kind === 'field') {
+      if (b.p < 0 && !b.buf) {
+        h += '<p class="note">Що сіємо?</p>';
+        for (const c in K.CROP) { const q = K.CROP[c], lock = s.lv < q.lv, dd = secs((q.d * dur) / K.CROP[b.cr || 'wheat'].d); h += '<button class="row' + (lock ? ' off' : '') + '" ' + (lock ? 'disabled' : 'data-a="' + A({ t: 'sow', id: b.id, c }) + '"') + '><span class="ic">' + RES[c].ic + '</span><span class="tx"><b>' + RES[c].n + '</b><small>' + (lock ? '🔒 з ' + q.lv + ' рівня' : dd + ' · врожай ' + q.y + ' · за цикл ' + q.y * RES[c].p + ' 💰') + '</small></span></button>'; }
+      } else h += '<div class="row"><span class="ic">' + RES[outR].ic + '</span><span class="tx"><b>' + RES[outR].n + '</b><small>' + (b.buf ? 'Дозріло: ' + b.buf : '⏳ ще ' + secs(dur - b.p)) + '</small></span></div>';
+    }
+    if (d.in) {
+      const busyN = (b.qn || 0) + (b.p >= 0 ? 1 : 0), qm = K.qMax(b), can = busyN < qm && d.in.every(([r, n]) => (s.st[r] || 0) >= n);
+      h += '<div class="btns"><button class="btn" data-a="' + A({ t: 'queue', id: b.id }) + '"' + (can ? '' : ' disabled') + '>▶ Зробити ' + RES[outR].ic + '<small>черга ' + busyN + ' / ' + qm + (busyN >= qm ? '' : ' · ' + d.in.map(([r, n]) => n + ' ' + RES[r].ic).join(' + ')) + '</small></button></div>';
+    }
+    if (d.kind !== 'field') h += '<div class="row"><span class="tx"><b>Готово: ' + b.buf + ' / ' + cap + ' ' + RES[outR].ic + '</b><small>' + st + '</small><span class="cap"><i class="' + (b.buf >= cap ? 'full' : '') + '" style="width:' + Math.min(100, (100 * b.buf) / cap) + '%"></i></span></span></div>';
     const uc = K.upCost(b), hc = K.hireCost(b);
     h += '<div class="btns">';
-    if (b.buf) h += '<button class="btn" data-a="' + A({ t: 'collect', id: b.id }) + '">🧺 Зібрати ' + b.buf + ' ' + RES[d.out[0]].ic + '</button>';
+    if (b.buf) h += '<button class="btn" data-a="' + A({ t: 'collect', id: b.id }) + '">🧺 Зібрати ' + b.buf + ' ' + RES[outR].ic + '</button>';
     h += '<button class="btn' + (b.buf ? ' sec' : '') + '" data-a="' + A({ t: 'upgrade', id: b.id }) + '"' + (K.canAfford(s, uc) ? '' : ' disabled') + '>⬆ Рівень ' + (b.lv + 1) + '<small>' + costTxt(uc) + ' · швидше й більше місця</small></button>';
     void hc;
     h += '<button class="btn red" data-a="' + A({ t: 'demolish', id: b.id }) + '">🗑 Знести<small>повернеться половина ціни</small></button>';
     return h + '</div>';
+  }
+  function marketHtml(s) {
+    const m = K.market(s, now());
+    if (!m || !m.here) return '<div class="row"><span class="ic">🏪</span><span class="tx"><b>Торговця зараз нема</b><small>' + (m ? 'Приїде за ' + secs(m.next - now()) : '') + '. Купує вдвічі дорожче за комору, привозить рідкісні прикраси.</small></span></div>';
+    let h = '<div class="row"><span class="ic">🛒</span><span class="tx"><b>Торговець із ' + esc(m.v) + '</b><small>поїде за ' + secs(m.end - now()) + '</small></span></div>';
+    m.o.forEach((o, i) => {
+      if (o.d) { const d = K.DECOR[o.d]; h += '<div class="row"><span class="ic">' + d.ic + '</span><span class="tx"><b>' + d.n + '</b><small>' + (o.n ? '+' + d.b + ' краси · лише від торговця' : 'куплено') + '</small></span><button class="sell" data-a="' + A({ t: 'mk', i }) + '"' + (o.n && s.coins >= d.c ? '' : ' disabled') + '>' + d.c + ' 💰</button></div>'; return; }
+      const have = Math.min(o.n, s.st[o.r] || 0);
+      h += '<div class="row"><span class="ic">' + RES[o.r].ic + '</span><span class="tx"><b>' + RES[o.r].n + ' по ' + o.p + ' 💰</b><small>' + (o.n ? 'візьме ще ' + o.n + ', у тебе ' + (s.st[o.r] || 0) : 'більше не треба') + '</small></span><button class="sell" data-a="' + A({ t: 'mk', i, n: have || 1 }) + '"' + (have ? '' : ' disabled') + '>Продати ' + have + '</button></div>';
+    });
+    return h;
   }
   let villFor = null, lookDraft = null;
   function villSheet() {
@@ -329,7 +369,7 @@
   }
   function ordersSheet() {
     const s = view, t = now();
-    let h = '<p class="note">Замовлення платять в 1,5 раза більше за ярмарок і дають ⭐ досвід. Нові приходять одразу.</p>';
+    let h = '<p class="note">Замовлення платять в 1,6 раза більше за комору і дають ⭐ досвід. Нові приходять одразу.</p>';
     s.o.forEach((o, i) => {
       if (o.w > t) { h += '<div class="row off"><span class="ic">🛒</span><span class="tx"><b>Новий замовник у дорозі</b><small>ще ' + secs(o.w - t) + '</small></span></div>'; return; }
       const ok = o.it.every(([r, n]) => (s.st[r] || 0) >= n);
@@ -359,6 +399,7 @@
       if (!s.own || s.own === me.uid) h += '<div class="btns"><button class="btn red" id="delFarm">🗑 Видалити хутір<small>для всіх, назавжди</small></button></div>';
       h += '<span hidden id="shareL">' + esc(link) + '</span>';
     }
+    h += '<div class="row"><span class="ic">🌸</span><span class="tx"><b>Краса: ' + K.beauty(s) + ' · ступінь ' + K.tier(s) + '</b><small>Замовники платять +' + K.tier(s) * 4 + '%</small></span></div>';
     h += '<div class="row"><span class="ic">📊</span><span class="tx"><b>Рівень ' + s.lv + ' · ' + s.b.length + ' будівель · ' + s.ch.length * 16 + ' клітинок землі</b><small>Усього вироблено: ' + fmt(s.made) + '</small></span></div>';
     h += '<div class="inp"><input id="renameI" maxlength="24" value="' + esc(s.nm) + '" aria-label="Назва хутора"><button class="btn sec" id="renameB">Назвати</button></div>';
     h += '<div class="btns"><button class="btn sec" id="muteB">' + (muted ? '🔇 Звук вимкнено' : '🔊 Звук увімкнено') + '</button><button class="btn sec" id="exitB">↩ До меню</button></div>';
@@ -378,11 +419,15 @@
   const ago = (t) => { const m = Math.round((now() - t) / 60000); return m < 1 ? 'щойно' : m < 60 ? m + ' хв тому' : m < 1440 ? Math.round(m / 60) + ' год тому' : Math.round(m / 1440) + ' дн тому'; };
 
   // ================= розміщення будівлі =================
-  let placing = null;
-  function startPlace(k) { closeSheet(); placing = k; $('place').hidden = false; $('placeT').textContent = 'Куди поставити ' + B[k].ic + ' ' + B[k].n + '?'; $('tip').hidden = true; }
+  let placing = null, painting = false;
+  function startPlace(k) {
+    closeSheet(); placing = k; $('place').hidden = false; $('tip').hidden = true;
+    if (k.startsWith('deco:')) { const d = K.DECOR[k.slice(5)]; $('placeT').textContent = d.ic + ' ' + d.n + ': торкайся або веди пальцем'; $('placeX').textContent = 'Готово'; }
+    else { $('placeT').textContent = 'Куди поставити ' + B[k].ic + ' ' + B[k].n + '?'; $('placeX').textContent = 'Скасувати'; }
+  }
   function cancelPlace() { placing = null; $('place').hidden = true; }
   $('placeX').addEventListener('click', cancelPlace);
-  const free = (s, x, y) => K.owned(s, x, y) && !K.at(s, x, y) && !s.ob[K.idx(x, y)];
+  const free = (s, x, y) => K.owned(s, x, y) && !K.at(s, x, y) && !s.ob[K.idx(x, y)] && !s.d[K.idx(x, y)];
 
   // ================= торкання карти =================
   function tapVillager(px, py) {
@@ -395,6 +440,12 @@
     const s = view; if (!s) return;
     if (x < 0 || y < 0 || x >= N || y >= N) { closeSheet(); return; }
     if (placing) {
+      if (placing.startsWith('deco:')) {
+        const k = placing.slice(5); if (!free(s, x, y)) { if (!painting) toast(K.owned(s, x, y) ? 'Тут зайнято' : 'Це не твоя земля', true); return; }
+        const r = commit({ t: 'deco', k, x, y });
+        if (r && r.ok && K.DECOR[k].shop === false && !view.inv[k]) cancelPlace();
+        return;
+      }
       if (!free(s, x, y)) { toast(K.owned(s, x, y) ? 'Тут зайнято' : 'Це не твоя земля', true); return; }
       if (placing === '@home') { const r = commit({ t: 'movehome', uid: myUid(), x, y }); if (r && r.ok) cancelPlace(); return; }
       const r = commit({ t: 'build', k: placing, x, y });
@@ -411,6 +462,8 @@
       openSheet('🗺 Нова земля', () => '<p class="note">Ділянка 4×4. Купувати можна лише поруч зі своєю землею. Там можуть рости дерева (дають колоди) і лежати камені.</p><div class="btns"><button class="btn" data-a="' + A({ t: 'chunk', c }) + '"' + (K.canAfford(view, cost) ? '' : ' disabled') + '>Купити за ' + costTxt(K.chunkCost(view)) + '</button></div>');
       return;
     }
+    const dk = s.d[K.idx(x, y)];
+    if (dk) { const d = K.DECOR[dk]; openSheet(d.ic + ' ' + d.n, () => '<p class="note">+' + d.b + ' краси.</p><div class="btns"><button class="btn red" data-a="' + A({ t: 'undeco', x, y }) + '">🗑 Прибрати<small>' + (d.shop === false ? 'повернеться в запас' : 'повернеться ' + Math.floor(d.c / 2) + ' 💰') + '</small></button></div>'); return; }
     const ob = s.ob[K.idx(x, y)];
     if (ob === 't') { closeSheet(); commit({ t: 'clear', x, y }); return; }
     if (ob === 'r') { openSheet('🪨 Камінь', () => '<p class="note">Заважає будувати. Прибрати коштує ' + K.ROCK + ' 💰.</p><div class="btns"><button class="btn" data-a="' + A({ t: 'clear', x, y }) + '"' + (view.coins >= K.ROCK ? '' : ' disabled') + '>Прибрати · ' + K.ROCK + ' 💰</button></div>'); return; }
@@ -574,7 +627,65 @@
   function treeKind(x, y) { const h = h01(x + 7, y + 3); return h < 0.45 ? 'oak' : h < 0.85 ? 'spruce' : 'apple1'; }
   // декор на порожній траві: кущі й галька, лише для краси (будувати не заважає)
   function decor(x, y) { const h = h01(x + 31, y + 17); if (h < 0.07) return BUSHES[Math.floor(h01(x, y + 99) * BUSHES.length)]; if (h < 0.09) return 'pebbles'; return ''; }
-  function drawField(cx, cy, z, grow, ripe) {
+  // дорога: той самий ромб, з краями до сусідньої дороги рівними
+  function drawRoad(x, y, X, Y, z, k) {
+    const dirt = k === 'path', base = dirt ? '#A98354' : '#9A958A', dk = dirt ? '#8E6B42' : '#7C776D', lt = dirt ? '#BE9A69' : '#B7B2A6';
+    g.fillStyle = base; diamond(X, Y, TW * z + 1, TH * z + 1); g.fill();
+    for (let i = 0; i < (dirt ? 7 : 10); i++) {
+      const u = h01(x + i, y * 3) - 0.5, v = h01(y + i, x * 5) - 0.5, px = X + (u - v) * TW * 0.5 * z, py = Y + (u + v) * TH * 0.5 * z;
+      g.fillStyle = i % 2 ? dk : lt; const w = (dirt ? 2 : 4) * z, h = (dirt ? 1 : 2) * z; g.fillRect(px - w / 2, py - h / 2, w, h);
+    }
+  }
+  // дрібні прикраси — піксельні, як селянин; їх можна замінити спрайтами img/<назва>.webp у SPR
+  const decoCache = {};
+  function pxDeco(k) {
+    if (decoCache[k]) return decoCache[k];
+    const c = document.createElement('canvas'), W0 = 32, H0 = 40; c.width = W0; c.height = H0;
+    const q = c.getContext('2d'), R = (col, x, y, w, h) => { q.fillStyle = col; q.fillRect(x, y, w, h); };
+    if (k === 'bench') { R('#8A5A2B', 5, 25, 22, 3); R('#B98A5A', 5, 25, 22, 1); R('#8A5A2B', 5, 18, 22, 3); R('#B98A5A', 5, 18, 22, 1); R('#5E3C1E', 7, 21, 2, 11); R('#5E3C1E', 23, 21, 2, 11); }
+    if (k === 'lantern') { R('#3A3030', 15, 12, 2, 24); R('#3A3030', 12, 35, 8, 2); R('#3A3030', 11, 5, 10, 2); R('#FFD36B', 12, 7, 8, 7); R('#FFF0B8', 14, 8, 3, 4); R('#3A3030', 11, 14, 10, 1); R('#3A3030', 15, 2, 2, 3); }
+    if (k === 'pot') { R('#B5592E', 12, 8, 8, 2); R('#C96B3A', 13, 10, 6, 3); R('#C96B3A', 9, 13, 14, 16); R('#C96B3A', 11, 29, 10, 4); R('#8E4522', 9, 13, 3, 16); R('#F3E3C3', 9, 18, 14, 2); R('#3B6E8F', 12, 21, 2, 3); R('#3B6E8F', 17, 21, 2, 3); R('#F3E3C3', 9, 26, 14, 1); }
+    if (k === 'baba') { R('#8D8A80', 11, 3, 10, 9); R('#8D8A80', 9, 12, 14, 22); R('#6E6B62', 9, 12, 3, 22); R('#A5A296', 17, 13, 3, 17); R('#55524A', 13, 6, 2, 2); R('#55524A', 17, 6, 2, 2); R('#55524A', 14, 10, 4, 1); R('#6E6B62', 12, 21, 8, 2); R('#6E6B62', 11, 34, 10, 3); }
+    const d = q.getImageData(0, 0, W0, H0).data, on = (x, y) => x >= 0 && y >= 0 && x < W0 && y < H0 && d[(y * W0 + x) * 4 + 3] > 200, e = [];
+    for (let y = 0; y < H0; y++) for (let x = 0; x < W0; x++) if (!on(x, y) && (on(x - 1, y) || on(x + 1, y) || on(x, y - 1) || on(x, y + 1))) e.push([x, y]);
+    q.fillStyle = '#2A1C14'; for (const [x, y] of e) q.fillRect(x, y, 1, 1);
+    return (decoCache[k] = c);
+  }
+  function drawDecor(s, x, y, X, Y, z, t) {
+    const k = s.d[K.idx(x, y)];
+    if (k === 'path' || k === 'stone') return;
+    if (k === 'flower') { sprite(BUSHES[Math.floor(h01(x + 3, y + 9) * BUSHES.length)], X, Y + 3 * z, z, wind(x, y, t, 0.05)); return; }
+    if (k === 'oak' || k === 'spruce') { sprite(k, X, Y + 4 * z, z * 0.6, wind(x, y, t, 0.025)); return; }
+    if (k === 'fence') {
+      const seg = (dx, dy) => { const xe = X + (dx - dy) * TW * 0.5 * z, ye = Y + (dx + dy) * TH * 0.5 * z; g.strokeStyle = '#7A5230'; g.lineWidth = 1.6 * z; for (const h of [6, 10, 14]) { g.beginPath(); g.moveTo(X, Y - h * z); g.lineTo(xe, ye - h * z); g.stroke(); } };
+      const is = (a, b) => s.d[K.idx(x + a, y + b)] === 'fence';
+      if (is(-1, 0)) seg(-1, 0); if (is(0, -1)) seg(0, -1);
+      g.fillStyle = '#5E3C1E'; g.fillRect(X - 1.5 * z, Y - 18 * z, 3 * z, 19 * z); g.fillStyle = '#8A5A2B'; g.fillRect(X - 0.5 * z, Y - 18 * z, 1 * z, 19 * z);
+      if (is(1, 0)) seg(1, 0); if (is(0, 1)) seg(0, 1);
+      return;
+    }
+    const im = pxDeco(k), c = 0.75 * z; g.imageSmoothingEnabled = false; g.drawImage(im, X - 16 * c, Y - 36 * c, 32 * c, 40 * c); g.imageSmoothingEnabled = true;
+    if (k === 'lantern') lights.push([X, Y - 24 * z, 1.5]);
+  }
+  // кибитка торговця: стоїть біля ринку, поки він приїхав
+  function drawWagon(X, Y, z) {
+    const R = (col, x, y, w, h) => { g.fillStyle = col; g.fillRect(X + x * z, Y + y * z, w * z, h * z); };
+    R('#E9DFC8', -10, -24, 22, 12); R('#CFC3A6', -10, -24, 3, 12); R('#B5452E', -10, -14, 22, 2); R('#8A5A2B', -11, -12, 24, 5); R('#5E3C1E', -8, -7, 6, 6); R('#3A2517', -6, -5, 2, 2); R('#5E3C1E', 6, -7, 6, 6); R('#3A2517', 8, -5, 2, 2);
+  }
+  // поле: пшениця — намальована; решта культур поки кодом, колір і висота — свої
+  const CROPLOOK = { corn: ['#6FAE3F', '#F2C14E', 1.3], sun: ['#5E9A3A', '#FFC93C', 1.4], beet: ['#3F8A3A', '#8E2A4E', 0.7], pump: ['#4F8F3A', '#F08A24', 0.55] };
+  function drawField(cx, cy, z, grow, ripe, cr) {
+    if (cr && cr !== 'wheat') {
+      sprite('soil', cx, cy, z);
+      const [leaf, fruit, tall] = CROPLOOK[cr], hgt = (3 + 12 * grow) * tall * z;
+      g.lineCap = 'round';
+      for (let i = 0; i < 9; i++) {
+        const u = (i % 3) - 1, v = Math.floor(i / 3) - 1, px = cx + (u - v) * 9 * z, py = cy + (u + v) * 4.5 * z + 2 * z;
+        g.strokeStyle = leaf; g.lineWidth = 2 * z; g.beginPath(); g.moveTo(px, py); g.lineTo(px, py - hgt); g.moveTo(px, py - hgt * 0.5); g.lineTo(px - 3 * z, py - hgt * 0.8); g.moveTo(px, py - hgt * 0.5); g.lineTo(px + 3 * z, py - hgt * 0.8); g.stroke();
+        if (ripe || grow > 0.75) { g.fillStyle = fruit; g.beginPath(); g.arc(px, py - hgt, (cr === 'pump' ? 3.6 : 2.6) * z, 0, 7); g.fill(); }
+      }
+      return;
+    }
     // мальовані стадії: паростки → зелена → жовтіє → стигла
     const st = ripe ? 'wheat3' : grow < 0.34 ? 'wheat0' : grow < 0.67 ? 'wheat1' : 'wheat2';
     if (sprite(st, cx, cy, z, st === 'wheat0' ? 0 : wind(cx / 40, cy / 40, performance.now(), 0.05))) return;
@@ -614,7 +725,7 @@
     g.fillStyle = warn ? 'rgba(40,36,48,.9)' : '#FFFFFF'; g.beginPath(); g.arc(cx, by, r, 0, 7); g.fill();
     g.beginPath(); g.moveTo(cx - 4 * z, by + r - 2 * z); g.lineTo(cx, by + r + 5 * z); g.lineTo(cx + 4 * z, by + r - 2 * z); g.fill();
     emoji(ic, cx, by + 1 * z, Math.round(14 * z));
-    if (warn) { g.strokeStyle = '#FF6B6B'; g.lineWidth = 2 * z; g.beginPath(); g.moveTo(cx - 8 * z, by + 8 * z); g.lineTo(cx + 8 * z, by - 8 * z); g.stroke(); }
+    if (warn === true) { g.strokeStyle = '#FF6B6B'; g.lineWidth = 2 * z; g.beginPath(); g.moveTo(cx - 8 * z, by + 8 * z); g.lineTo(cx + 8 * z, by - 8 * z); g.stroke(); }
   }
 
   // селянин — піксельний: кадр малюється на маленькій сітці, контур додається сам, як у спрайтів світу
@@ -767,7 +878,9 @@
         g.fillStyle = own ? (hv < 0.5 ? '#7DBE5A' : '#78B955') : buyable.has(c) ? (hv < 0.5 ? '#4F7A45' : '#4B7542') : (hv < 0.5 ? '#3C5C37' : '#395833');
         diamond(X, Y, tw + 0.6, th + 0.6); g.fill();
       }
-      if (!bmap.has(K.idx(x, y)) && !s.ob[K.idx(x, y)] && decor(x, y) === 'pebbles') { g.globalAlpha = 0.85; sprite('pebbles', X, Y, z * 0.55); g.globalAlpha = 1; }
+      const dk0 = s.d[K.idx(x, y)];
+      if (dk0 === 'path' || dk0 === 'stone') drawRoad(x, y, X, Y, z, dk0);
+      if (!dk0 && !bmap.has(K.idx(x, y)) && !s.ob[K.idx(x, y)] && decor(x, y) === 'pebbles') { g.globalAlpha = 0.85; sprite('pebbles', X, Y, z * 0.55); g.globalAlpha = 1; }
       if (placing && free(s, x, y)) { g.fillStyle = 'rgba(255,255,255,.22)'; diamond(X, Y, tw * 0.86, th * 0.86); g.fill(); }
     }
     // межа своєї землі
@@ -788,6 +901,7 @@
       else if (s.ob[i] === 'r' && sprite(h01(x + 3, y + 11) < 0.5 ? 'rock' : 'rocks', X, Y + 6 * z, z * 0.8)) {}
       else if (s.ob[i] === 't') drawTree(X, Y, z, ownedSet.has(K.chunkOf(x, y)), 0);
       else if (s.ob[i] === 'r') drawRock(X, Y, z);
+      else if (s.d[i]) drawDecor(s, x, y, X, Y, z, t);
       else if (!s.ob[i]) { const dk = decor(x, y); if (dk && dk !== 'pebbles') sprite(dk, X + (h01(x, y + 5) - 0.5) * 18 * z, Y + (h01(x + 5, y) - 0.5) * 8 * z, z, wind(x, y, t, 0.05)); }
       // селяни, що стоять на цій «діагоналі», — після неї, щоб не ховалися за будинками
       if (x === Math.min(N - 1, d) && vByTile.has(d)) for (const p of vByTile.get(d)) drawVill(p, s, z, t);
@@ -832,22 +946,23 @@
       if (busy && SPR[b.k].ch) smoke(b.k, X, Y, z, t, b.id);
       if (busy && b.k === 'apiary') bees(X, Y, z, t, b.id);
     }
-    else if (d.kind === 'field') drawField(X, Y, z, b.buf ? 1 : prog, b.buf > 0);
+    else if (d.kind === 'field') { if (b.p < 0 && !b.buf) sprite('soil', X, Y, z); else drawField(X, Y, z, b.buf ? 1 : prog, b.buf > 0, b.cr); }
     else if (d.kind === 'orchard' && sprite(b.buf ? 'apple3' : 'apple2', X, Y, z, wind(b.x, b.y, t, 0.02))) {}
     else if (d.kind === 'orchard') { g.fillStyle = '#6DAF4E'; diamond(X, Y, TW * 0.9 * z, TH * 0.9 * z); g.fill(); drawTree(X - 12 * z, Y - 2 * z, z * 0.75, 1, b.buf ? 3 : Math.floor(prog * 3)); drawTree(X + 12 * z, Y - 2 * z, z * 0.75, 1, b.buf ? 3 : Math.floor(prog * 2)); drawTree(X, Y + 6 * z, z * 0.8, 1, b.buf ? 4 : Math.floor(prog * 3)); }
     else if (d.kind === 'well') drawWell(X, Y, z);
     else if (d.kind === 'home') { if (!sprite('home', X, Y, z)) drawHouse(X, Y, z, '#F4EFE4', '#C9A24A', '', true); else smoke('home', X, Y, z, t, b.id); lights.push([X - 10 * z, Y - 10 * z, 1]); }
     else if (d.kind === 'apiary') { g.fillStyle = '#88C463'; diamond(X, Y, TW * 0.9 * z, TH * 0.9 * z); g.fill(); drawHives(X, Y, z, t); }
     else { drawHouse(X, Y, z, d.wall, d.roof, d.ic); lights.push([X + 9 * z, Y - 8 * z, 0.7]); }
+    if (d.kind === 'market') { const m = K.market(s, t); if (m && m.here) { drawWagon(X + 26 * z, Y + 10 * z, z); bubbles.push([X, Y, z, '🛒', false]); } }
     if (!d.d) return;
     // рівень, наймит і прогрес — у спільний прохід поверх усіх спрайтів, інакше їх ховає сусідня будівля
     if (b.lv > 1) marks.push(() => { g.fillStyle = 'rgba(12,10,16,.75)'; g.beginPath(); g.arc(X + 20 * z, Y + 4 * z, 7 * z, 0, 7); g.fill(); g.fillStyle = '#FFC93C'; g.font = '800 ' + Math.round(10 * z) + 'px "Baloo 2",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(b.lv, X + 20 * z, Y + 4.5 * z); });
     if (b.h) marks.push(() => emoji('🧑‍🌾', X - 20 * z, Y + 2 * z, Math.round(11 * z)));
-    const out = RES[d.out[0]].ic;
+    const out = RES[K.outOf(b)[0]].ic;
     if (b.buf && !b.h) bubbles.push([X, Y, z, out, false]);
-    else if (b.p >= 0 && d.kind !== 'field') {
+    else if (b.p >= 0 && (d.kind !== 'field' || K.CROP[b.cr].d > 600)) {
       const w = 28 * z; marks.push(() => { g.fillStyle = 'rgba(12,10,16,.6)'; g.fillRect(X - w / 2, Y + 11 * z, w, 4 * z); g.fillStyle = '#7BD389'; g.fillRect(X - w / 2, Y + 11 * z, w * prog, 4 * z); });
-    } else if (b.p < 0) { const w = K.why(s, b); if (w && w !== 'full') bubbles.push([X, Y, z * 0.8, RES[w].ic, true]); }
+    } else if (b.p < 0) { const w = K.why(s, b); if (w === 'sow') bubbles.push([X, Y, z * 0.8, '🌱', 1]); else if (w === 'queue') bubbles.push([X, Y, z * 0.8, out, 1]); }
   }
   // заставка меню: трохи полів
   function drawMenuBg(t) {
@@ -884,7 +999,10 @@
       cam.x = wx0 - (mx - W / 2) / cam.z; cam.y = wy0 - (my - H / 2) / cam.z; clampCam();
     } else if (!gest.pinch) {
       if (Math.hypot(p.x - p.x0, p.y - p.y0) > 8) gest.moved = true;
-      if (gest.moved) { cam.x = gest.cx - (p.x - p.x0) / cam.z; cam.y = gest.cy - (p.y - p.y0) / cam.z; clampCam(); }
+      if (gest.moved && ptr.size === 1 && placing && placing.startsWith('deco:')) {
+        const [x, y] = pick(p.x, p.y), key = x + ':' + y;
+        if (gest.tile !== key) { gest.tile = key; painting = true; tapTile(x, y); painting = false; }
+      } else if (gest.moved) { cam.x = gest.cx - (p.x - p.x0) / cam.z; cam.y = gest.cy - (p.y - p.y0) / cam.z; clampCam(); }
     }
   });
   const up = (e) => {
@@ -922,7 +1040,7 @@
   window.KHUTIR = {
     get S() { return S; }, get view() { return view; }, get mode() { return mode; }, get code() { return code; }, get cam() { return cam; },
     commit, tapTile, warp(ms) { warp += ms; refreshView(true); }, refresh() { refreshView(true); }, startSolo, openShared, showMenu, go, closeSheet,
-    pxFrame, screenOf(x, y) { return [sx(x, y), sy(x, y)]; }, get vpos() { return vpos; }, darkness, DAY, focus(x, y) { cam.x = wx(x, y); cam.y = wy(x, y); }, get sheetOpen() { return !!sheetFn; }, get placing() { return placing; }, me,
+    pxFrame, K, screenOf(x, y) { return [sx(x, y), sy(x, y)]; }, get vpos() { return vpos; }, darkness, DAY, focus(x, y) { cam.x = wx(x, y); cam.y = wy(x, y); }, get sheetOpen() { return !!sheetFn; }, get placing() { return placing; }, me,
   };
 
   showMenu();
