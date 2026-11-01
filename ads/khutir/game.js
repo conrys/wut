@@ -827,19 +827,6 @@
     q.fillStyle = '#2A1C14'; for (const [x, y] of e) q.fillRect(x, y, 1, 1);
     return (decoCache[k] = c);
   }
-  // гойдалка: мотузки й сидіння малюються кодом, щоб рухатись разом із селянином
-  const SW = {"t1": [-2.8, -34.0], "t2": [3.0, -35.7], "s1": [-4.8, -12.3], "s2": [3.3, -15.8], "s3": [6.1, -14.3], "s4": [-1.6, -9.0]};
-  const swingOff = (t) => { const a = Math.sin(t / 420); return [9 * a, 4.5 * a - Math.abs(a) * 1.5]; };
-  function drawSwing(X, Y, z, flip, a) {
-    g.save(); g.translate(X, Y); g.scale((flip ? -1 : 1) * z, z); const [dx, dy] = a, sp = (p) => [p[0] + dx, p[1] + dy];
-    g.lineCap = 'butt'; g.strokeStyle = '#8A6A3F'; g.lineWidth = 1;
-    const lineTo = (t0, q) => { g.beginPath(); g.moveTo(t0[0], t0[1]); g.lineTo(q[0], q[1]); g.stroke(); };
-    lineTo(SW.t2, sp([(SW.s2[0] + SW.s3[0]) / 2, (SW.s2[1] + SW.s3[1]) / 2]));
-    lineTo(SW.t1, sp([(SW.s1[0] + SW.s4[0]) / 2, (SW.s1[1] + SW.s4[1]) / 2]));
-    const c = [SW.s1, SW.s2, SW.s3, SW.s4].map(sp);
-    g.fillStyle = '#B98A5A'; g.strokeStyle = '#5E3C1E'; g.lineWidth = 0.7; g.beginPath(); c.forEach((q, i) => (i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]))); g.closePath(); g.fill(); g.stroke();
-    g.restore();
-  }
   function drawDecor(s, x, y, X, Y, z, t) {
     const k = s.d[K.idx(x, y)];
     if (k === 'path' || k === 'stone') return;
@@ -849,7 +836,6 @@
     if (SPR['d_' + k] || k === 'bench') {
       const dr = (s.dr && s.dr[K.idx(x, y)]) || 0, key = k === 'bench' ? 'd_bench' + (dr >= 2 ? 1 : 0) : 'd_' + k;
       if (dr % 2) { g.save(); g.translate(X, Y); g.scale(-1, 1); sprite(key, 0, 2 * z, z); g.restore(); } else sprite(key, X, Y + 2 * z, z);
-      if (k === 'swing') { const on = sitting.has(K.idx(x, y)); let o = on ? swingOff(t) : [0, 0]; if (dr % 2) o = [-o[0], o[1]]; drawSwing(X, Y + 2 * z, z, dr % 2, o); }
       return;
     }
     const im = pxDeco(k), c = 0.75 * z; g.imageSmoothingEnabled = false; g.drawImage(im, X - 16 * c, Y - 36 * c, 32 * c, 40 * c); g.imageSmoothingEnabled = true;
@@ -1050,11 +1036,10 @@
     }
     return [pts[0][0], pts[0][1], 1, 0];
   }
-  let vpos = [], lights = [], bubbles = [], marks = []; const sitting = new Set();
+  let vpos = [], lights = [], bubbles = [], marks = [];
   function drawVill(p, s, z, t) {
     const X = sx(p.x, p.y), Y = sy(p.x, p.y), v = s.vl[p.uid];
-    const so = p.swing ? swingOff(t) : [0, 0], flipS = p.swing && p.dir < 0 ? -1 : 1;
-    drawVillager(g, X + so[0] * flipS * z, Y + so[1] * z - (p.sit ? (p.swing ? 10 : 6) * z : 0), 1.25 * z, v.c, t, p.walk, p.dir, p.basket, p.back, p.sit);
+    drawVillager(g, X, Y - (p.sit ? (p.swing ? 10 : 6) * z : 0), 1.25 * z, v.c, t, p.walk, p.dir, p.basket, p.back, p.sit);
     if (p.sit) bubbles.push([X, Y - 8 * z, z * 0.7, '💤', 1]);
     vpos.push({ uid: p.uid, sx: X, sy: Y });
     const nt = darkness(t); if (nt.dark > 0.2) lights.push([X + 7 * z * p.dir, Y - 14 * z, 0.45]);
@@ -1081,8 +1066,8 @@
     const s = view, z = cam.z, t = now(), dt = t - viewAt;
     const bmap = new Map(); for (const b of s.b) bmap.set(K.idx(b.x, b.y), b);
     const bon = K.bonuses(s), rts = K.routes(s), vByTile = new Map();
-    lights = []; vpos = []; bubbles = []; marks = []; sitting.clear();
-    for (const uid of s.vo || []) { const p = villPos(s, uid, rts, t, dt); if (!p) continue; p.uid = uid; if (p.sit) sitting.add(K.idx(p.x, p.y)); const key = Math.floor(p.x + 0.5) + Math.floor(p.y + 0.5); if (!vByTile.has(key)) vByTile.set(key, []); vByTile.get(key).push(p); }
+    lights = []; vpos = []; bubbles = []; marks = [];
+    for (const uid of s.vo || []) { const p = villPos(s, uid, rts, t, dt); if (!p) continue; p.uid = uid; const key = Math.floor(p.x + 0.5) + Math.floor(p.y + 0.5); if (!vByTile.has(key)) vByTile.set(key, []); vByTile.get(key).push(p); }
     const ownedSet = new Set(s.ch);
     const buyable = new Set();
     for (const c of s.ch) { const x = c % K.NC, y = Math.floor(c / K.NC); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy; if (X >= 0 && Y >= 0 && X < K.NC && Y < K.NC && !ownedSet.has(Y * K.NC + X)) buyable.add(Y * K.NC + X); } }
