@@ -324,6 +324,7 @@
       } else h += '<div class="row"><span class="ic">' + RES[outR].ic + '</span><span class="tx"><b>' + RES[outR].n + '</b><small>' + (b.buf ? 'Дозріло: ' + b.buf : '⏳ ще ' + secs(dur - b.p)) + '</small></span></div>';
     }
     if (d.in) {
+      h += '<button class="row" data-a="' + A({ t: 'noq', id: b.id, on: !!b.noq }) + '"><span class="tx"><b>Селянин веде чергу</b><small>' + (who ? esc(who) + ' сам ставить сюди роботу зі своєї комори' : 'Діє, коли будівля на маршруті селянина') + '</small></span><span class="sw' + (b.noq ? '' : ' on') + '"><i></i></span></button>';
       const busyN = (b.qn || 0) + (b.p >= 0 ? 1 : 0), qm = K.qMax(b), can = busyN < qm && d.in.every(([r, n]) => (s.st[r] || 0) >= n);
       h += '<div class="btns"><button class="btn" data-a="' + A({ t: 'queue', id: b.id }) + '"' + (can ? '' : ' disabled') + '>▶ Зробити ' + RES[outR].ic + '<small>черга ' + busyN + ' / ' + qm + (busyN >= qm ? '' : ' · ' + d.in.map(([r, n]) => n + ' ' + RES[r].ic).join(' + ')) + '</small></button></div>';
     }
@@ -354,7 +355,9 @@
     if (!lookDraft || lookDraft.u !== villFor) lookDraft = { u: villFor, c: { ...v.c } };
     const c = lookDraft.c, r = (K.routes(s)[villFor] || []);
     let h = '<div class="row" style="justify-content:center;background:linear-gradient(#9FD07A,#6DAF4E)"><canvas id="villPv" width="120" height="140" style="width:120px;height:140px" aria-label="Вигляд селянина"></canvas></div>';
-    h += '<div class="row"><span class="ic">🧺</span><span class="tx"><b>Обходить ' + r.length + ' з ' + K.route(v) + ' будівель · кошик ' + K.basket(v) + '</b><small>обхід за ' + secs(K.tripMs(v)) + ' · усього приніс ' + fmt(v.got || 0) + '. Працює й тоді, коли нікого нема.</small></span></div>';
+    h += '<div class="row"><span class="ic">🧺</span><span class="tx"><b>Обходить ' + r.length + ' з ' + K.route(v) + ' будівель · кошик ' + K.basket(v) + '</b><small>обхід за ' + secs(K.tripMs(v)) + ' · усього приніс ' + fmt(v.got || 0) + '. Носить урожай у комору й ставить роботу в черги цих будівель.</small></span></div>';
+    const md = K.mood(v), restS = K.restSpot(s, v);
+    h += '<div class="row"><span class="ic">' + (v.rt ? '💤' : md >= 60 ? '😊' : md >= 30 ? '😐' : '😩') + '</span><span class="tx"><b>' + (v.rt ? 'Відпочиває' : 'Настрій: ' + Math.round(md)) + '</b><small>' + (md >= 60 ? 'Працює на 20% швидше' : md >= 30 ? 'Працює звичайно' : 'Втомився: працює на 30% повільніше') + (restS ? '. Коли втомиться, піде відпочити.' : '. Постав лавку, гойдалку чи копицю: без них він не відпочиває.') + '</small><span class="cap"><i style="width:' + md + '%"></i></span></span></div>';
     if (!mine) return h;
     const names = { st: L.style, h: L.hat, b: L.body, f: L.face };
     const pick = (k, list, label) => '<div class="row"><span class="tx"><b>' + label + '</b><small>' + (names[k] ? names[k][c[k] || 0] : '') + '</small></span><button class="sell" data-look="' + k + ':-1" aria-label="' + label + ': попередній">◀</button>' +
@@ -923,13 +926,16 @@
     const boot = '#4A2E1C', bootL = '#6B4428', red = '#C62828', hair = '#5A3A22', navy = '#1E2A44';
     const coat = c.st === 3, body = coat ? '#8A6239' : shirt, seam = pxShade(coat ? '#8A6239' : shirt, 0.84), low = coat ? 31 : 28;
     // дальня нога й рука темніші
+    const sitF = fr === 4;
     const far = fem ? (fr === 1 ? 10 : fr === 3 ? 15 : 11) : fr === 1 ? 9 : fr === 3 ? 17 : 11, near = fem ? (fr === 1 ? 15 : fr === 3 ? 10 : 14) : fr === 1 ? 17 : fr === 3 ? 9 : 15;
-    R(pxShade(pants, 0.72), far, 28, 4, 7 - up); R(pxShade(boot, 0.8), far, 34 - up, 5, 3);
+    if (sitF) { R(pxShade(pants, 0.72), 12, 27, 11, 3); R(pxShade(boot, 0.8), 21, 28, 4, 6); }
+    else { R(pxShade(pants, 0.72), far, 28, 4, 7 - up); R(pxShade(boot, 0.8), far, 34 - up, 5, 3); }
     R(pxShade(body, 0.72), 7 + sw, 18 + dy, 3, 8); R(pxShade(skin, 0.85), 7 + sw, 26 + dy, 3, 2);
     // ближня нога
-    R(pants, near, 28, 4, 7); R(pxShade(pants, 0.84), near, 28, 1, 6); R(boot, near, 34, 5, 3); R(bootL, near + 1, 34, 3, 1);
+    if (sitF) { R(pants, 12, 28, 12, 3); R(boot, 22, 30, 4, 6); R(bootL, 23, 30, 2, 1); }
+    else { R(pants, near, 28, 4, 7); R(pxShade(pants, 0.84), near, 28, 1, 6); R(boot, near, 34, 5, 3); R(bootL, near + 1, 34, 3, 1); }
     // спідниця з вишитим подолом
-    if (fem) { R(pants, 9, 27, 12, 3); R(pants, 8, 30, 14, 4); R(pxShade(pants, 0.84), 9, 27, 2, 3); R(pxShade(pants, 0.84), 8, 30, 2, 4); R(pxShade(pants, 1.15), 16, 28, 2, 5); R('#FFF6D5', 8, 33, 14, 1); R(red, 10, 33, 1, 1); R(red, 14, 33, 1, 1); R(red, 18, 33, 1, 1); }
+    if (fem && !sitF) { R(pants, 9, 27, 12, 3); R(pants, 8, 30, 14, 4); R(pxShade(pants, 0.84), 9, 27, 2, 3); R(pxShade(pants, 0.84), 8, 30, 2, 4); R(pxShade(pants, 1.15), 16, 28, 2, 5); R('#FFF6D5', 8, 33, 14, 1); R(red, 10, 33, 1, 1); R(red, 14, 33, 1, 1); R(red, 18, 33, 1, 1); }
     // тулуб
     R(body, 9, 17 + dy, 11, low - 17); R(seam, 9, 17 + dy, 2, low - 17);
     if (!back) R(pxShade(body, 1.08), 16, 18 + dy, 2, 7);
@@ -988,9 +994,9 @@
     pxCache.set(key, cv2); return cv2;
   }
   // q — контекст, (x,y) — точка під ногами, k — масштаб, c — вигляд, walk — чи йде, dir — ±1 куди дивиться, back — іде від нас
-  function drawVillager(q, x, y, k, c, t, walk, dir, basket, back) {
-    const fr = walk ? Math.floor(t / 130) % 4 : 0, cell = 0.6 * k, im = pxFrame(c, fr, basket, back);
-    q.save(); q.translate(x, y); q.fillStyle = 'rgba(0,0,0,.25)'; q.beginPath(); q.ellipse(0, 0, 6 * k, 2.2 * k, 0, 0, 7); q.fill();
+  function drawVillager(q, x, y, k, c, t, walk, dir, basket, back, sit) {
+    const fr = sit ? 4 : walk ? Math.floor(t / 130) % 4 : 0, cell = 0.6 * k, im = pxFrame(c, fr, basket, back);
+    q.save(); q.translate(x, y); if (!sit) { q.fillStyle = 'rgba(0,0,0,.25)'; q.beginPath(); q.ellipse(0, 0, 6 * k, 2.2 * k, 0, 0, 7); q.fill(); }
     q.scale(dir < 0 ? -1 : 1, 1); q.imageSmoothingEnabled = false;
     q.drawImage(im, -14 * cell, -37.5 * cell, PXW * cell, PXH * cell);
     q.imageSmoothingEnabled = true; q.restore();
@@ -1000,6 +1006,14 @@
     const v = s.vl[uid], h = v && s.b.find((b) => b.id === v.home); if (!h) return null;
     const r = rts[uid] || [], trip = K.tripMs(v);
     if (!r.length) { const a = t / 2600 + uid.length; return { x: h.x + 0.45 + Math.cos(a) * 0.25, y: h.y + 0.35 + Math.sin(a) * 0.25, walk: true, dir: Math.cos(a + 1.57) > 0 ? 1 : -1, basket: false, back: Math.cos(a) - Math.sin(a) < 0 }; }
+    if (v.rt) {
+      const sp = K.restSpot(s, v), rl = sp && restLegs(s, h, sp);
+      if (rl) {
+        const ph = ((v.vp + dt) % trip) / trip;
+        if (ph < 0.2 || ph >= 0.8) { const out = ph < 0.2, q = alongLeg(out ? rl : rl.slice().reverse(), out ? ph / 0.2 : (ph - 0.8) / 0.2); return { x: q[0], y: q[1], walk: true, dir: q[2] - q[3] >= 0 ? 1 : -1, basket: false, back: q[2] + q[3] < 0 }; }
+        const dr = (s.dr && s.dr[sp.i]) || 0; return { x: sp.x, y: sp.y, walk: false, sit: true, swing: sp.k === 'swing', dir: dr % 2 ? -1 : 1, basket: false, back: sp.k === 'bench' && dr >= 2 };
+      }
+    }
     const legs = villLegs(s, h, r), segs = legs.length;
     const f = (((v.vp + dt) % trip) / trip) * segs, i = Math.min(segs - 1, Math.floor(f)), fr = f - i;
     const w = Math.min(1, fr / 0.75), pos = alongLeg(legs[i], w);
@@ -1053,6 +1067,11 @@
     }
     legs = legs || straight(); legCache.set(h.id, { key, legs }); return legs;
   }
+  function restLegs(s, h, sp) {
+    const blocked = blockedSet(s), door = around(h, blocked)[0], goals = around(sp, blocked); if (!door || !goals.length) return null;
+    const tiles = findTiles(s, blocked, door, goals); if (!tiles) return null;
+    return [[(door[0] + h.x) / 2, (door[1] + h.y) / 2]].concat(tiles, [[sp.x, sp.y]]);
+  }
   // точка на ламаній за часткою шляху; два останні числа — напрямок кроку
   function alongLeg(pts, w) {
     let tot = 0; const len = []; for (let i = 0; i + 1 < pts.length; i++) { const l = Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]); len.push(l); tot += l; }
@@ -1066,7 +1085,9 @@
   let vpos = [], lights = [], bubbles = [], marks = [];
   function drawVill(p, s, z, t) {
     const X = sx(p.x, p.y), Y = sy(p.x, p.y), v = s.vl[p.uid];
-    drawVillager(g, X, Y, 1.25 * z, v.c, t, p.walk, p.dir, p.basket, p.back);
+    const lift = p.sit ? (p.swing ? Math.sin(t / 420) * 3 * z : 0) : 0;
+    drawVillager(g, X + lift, Y - (p.sit ? 6 * z : 0), 1.25 * z, v.c, t, p.walk, p.dir, p.basket, p.back, p.sit);
+    if (p.sit) bubbles.push([X, Y - 8 * z, z * 0.7, '💤', 1]);
     vpos.push({ uid: p.uid, sx: X, sy: Y });
     const nt = darkness(t); if (nt.dark > 0.2) lights.push([X + 7 * z * p.dir, Y - 14 * z, 0.45]);
     if (mode === 'shared' || p.uid !== 'me') {

@@ -28,7 +28,7 @@ const tapTile = async (p, x, y) => { await p.evaluate(([x, y]) => { KHUTIR.focus
   await (await p.$("#shB button.row:has-text('Гарбуз')")).tap(); await p.waitForTimeout(500);
   check("посіяв гарбуз", await p.evaluate(() => KHUTIR.view.b[0].cr === "pump" && KHUTIR.view.b[0].p >= 0));
   // будівля: сировина береться лише чергою
-  const r1 = await p.evaluate(() => { const c = KHUTIR.commit({ t: "build", k: "mill", x: 25, y: 25 }); return c.ok; });
+  const r1 = await p.evaluate(() => { const v = KHUTIR.view; let t = null; for (let y = 27; y > 16 && !t; y--) for (let x = 27; x > 16 && !t; x--) if (!KHUTIR.K.at(v, x, y) && !v.ob[KHUTIR.K.idx(x, y)] && !v.d[KHUTIR.K.idx(x, y)]) t = [x, y]; const c = KHUTIR.commit({ t: "build", k: "mill", x: t[0], y: t[1] }); KHUTIR.commit({ t: "noq", id: KHUTIR.view.b.find((b) => b.k === "mill").id, on: false }); return c.ok; });
   const m0 = await p.evaluate(() => ({ w: KHUTIR.view.st.wheat, m: KHUTIR.view.b.find((b) => b.k === "mill") }));
   check("млин не бере пшеницю сам", r1 && m0.w === 20 && m0.m.p < 0, JSON.stringify(m0));
   const q = await p.evaluate(() => { const id = KHUTIR.view.b.find((b) => b.k === "mill").id, o = []; for (let i = 0; i < 3; i++) o.push(KHUTIR.commit({ t: "queue", id }).ok); return o; });
@@ -112,6 +112,12 @@ const tapTile = async (p, x, y) => { await p.evaluate(([x, y]) => { KHUTIR.focus
   await p.tap("#mUndo"); await p.waitForTimeout(300);
   check("Назад повернув усі гроші за тин", await p.evaluate((c) => KHUTIR.view.coins === c, c1));
   await p.tap("#mDone"); await p.waitForTimeout(300);
+  // селянин веде чергу й відпочиває
+  const vq = await p.evaluate(() => { const K = KHUTIR.K, s = K.create(5, "t"); s.lv = 5; let t = 1.8e12; K.advance(s, t); K.addVillager(s, "me", "V"); s.coins = 5000; s.st = { wheat: 50 };
+    K.act(s, { t: "build", k: "mill", x: 21, y: 23 }, t, "V"); const m = s.b.find((b) => b.k === "mill"); t += 60e3; K.advance(s, t); const q1 = (m.qn || 0) + (m.p >= 0 ? 1 : 0);
+    const spot = [20, 23]; K.act(s, { t: "deco", k: "hay", x: spot[0], y: spot[1] }, t, "V"); const v = s.vl.me; v.m = 31; t += 3600e3; K.advance(s, t); return [q1, s.st.wheat < 50, v.m]; });
+  check("селянин сам поставив млин у чергу", vq[0] > 0 && vq[1], JSON.stringify(vq));
+  check("настрій відновлюється відпочинком", vq[2] > 31, String(vq[2]));
   // торговець
   await p.evaluate(() => { KHUTIR.commit({ t: "build", k: "market", x: 24, y: 24 }); const t = Date.now() + 0, every = 3 * 3600e3, ph = t % every; if (ph >= 80 * 60e3) KHUTIR.warp(every - ph + 60e3); KHUTIR.S.st.wheat = 60; KHUTIR.refresh(); });
   const m = await p.evaluate(() => KHUTIR.K.market(KHUTIR.view, KHUTIR.view.t));

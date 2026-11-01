@@ -95,7 +95,19 @@
   const VUP = { rt: { n: 'Маршрут', d: '+2 будівлі в обході' }, bk: { n: 'Кошик', d: '+4 місця в кошику' }, sp: { n: 'Чоботи', d: 'обхід на 20% швидший' } };
   const route = (v) => 3 + 2 * (v.u.rt || 0);
   const basket = (v) => 6 + 4 * (v.u.bk || 0);
-  const tripMs = (v) => (8000 + 3000 * route(v)) / (1 + 0.2 * (v.u.sp || 0));
+  // настрій: обходи втомлюють, а лавка, гойдалка чи копиця біля хати повертають сили
+  const mood = (v) => (v.m === undefined ? 80 : v.m);
+  const moodF = (v) => (mood(v) >= 60 ? 1.2 : mood(v) >= 30 ? 1 : 0.7);
+  const REST = ['bench', 'swing', 'hay'];
+  const tripMs = (v) => ((8000 + 3000 * route(v)) / (1 + 0.2 * (v.u.sp || 0)) / moodF(v)) * (v.rt ? 3 : 1);
+  function restSpots(s) { const o = []; for (const i in s.d || {}) if (REST.indexOf(s.d[i]) >= 0) o.push({ x: i % N, y: Math.floor(i / N), k: s.d[i], i: +i }); return o; }
+  // найближче до хати місце відпочинку
+  function restSpot(s, v) {
+    const h = s.b.find((b) => b.id === v.home); let best = null, bd = 1e9;
+    if (h) for (const q of restSpots(s)) { const d = Math.abs(q.x - h.x) + Math.abs(q.y - h.y); if (d < bd) { bd = d; best = q; } }
+    return best;
+  }
+  function restDone(s, v) { const kinds = new Set(restSpots(s).map((q) => q.k)).size; v.m = Math.min(100, mood(v) + 40 + 20 * kinds); v.rt = 0; }
   const vupCost = (v, k) => { const L = v.u[k] || 0; return { c: Math.round(80 * Math.pow(1.9, L)), pl: L >= 1 ? 3 * L : 0 }; };
   // хто що обходить: по черзі приходу, найближчі вільні будівлі до хати
   function routes(s) {
@@ -124,6 +136,13 @@
       b.buf -= fit; s.st[r] = (s.st[r] || 0) + fit; s.made += fit; room -= fit; got += fit;
     }
     v.got = (v.got || 0) + got;
+    // ставить у чергу будівлі свого маршруту зі своєї комори
+    for (const b of list) {
+      const d = B[b.k]; if (!d.in || b.noq) continue;
+      while ((b.qn || 0) + (b.p >= 0 ? 1 : 0) < qMax(b) && d.in.every(([r, n]) => (s.st[r] || 0) >= n)) { for (const [r, n] of d.in) s.st[r] -= n; b.qn = (b.qn || 0) + 1; }
+    }
+    v.m = Math.max(15, mood(v) - 2);
+    if (mood(v) <= 30 && restSpot(s, v)) v.rt = 1;
     return got;
   }
   function freeTileNear(s, cx, cy) {
@@ -256,7 +275,7 @@
       for (const [v] of vs) v.vp += step;
       t += step;
       for (const b of prod) if (b.p >= 0 && b.p >= dur.get(b.id) - 1e-6) { b.buf += outOf(b)[1]; b.p = -1; }
-      for (const [v, r] of vs) if (v.vp >= tripMs(v) - 1e-6) { v.vp = 0; trip(s, v, r); }
+      for (const [v, r] of vs) if (v.vp >= tripMs(v) - 1e-6) { v.vp = 0; if (v.rt) restDone(s, v); else trip(s, v, r); }
     }
     // поки нічого не росте й нічого не чекає — селянин удома, але годинник обходу йде далі для показу
     if (t < now) for (const [v] of vs) v.vp = (v.vp + (now - t)) % tripMs(v);
@@ -372,6 +391,10 @@
         const b = s.b.find((q) => q.id === a.id); if (!b || b.k !== 'field') return fail('Нема');
         for (const q of a.all ? s.b.filter((f) => f.k === 'field') : [b]) q.auto = a.on ? 1 : 0;
         kick(s); return res;
+      }
+      case 'noq': {
+        const b = s.b.find((q) => q.id === a.id); if (!b || !B[b.k].in) return fail('Нема');
+        b.noq = a.on ? 0 : 1; kick(s); return res;
       }
       case 'queue': {
         const b = s.b.find((q) => q.id === a.id), d = b && B[b.k]; if (!b || !d.in) return fail('Нема');
@@ -548,6 +571,6 @@
     return '';
   }
 
-  const api = { fenceKey, VER, MID, CROP, DECOR, outOf, qMax, beauty, tier, tierNeed, beautyBonus, market, LOOK, VUP, routes, route, basket, tripMs, vupCost, addVillager, kick, N, CH, NC, RES, B, ORDER, create, advance, act, why, storeCap, xpNeed, buildCost, upCost, hireCost, storeCost, chunkCost, capOf, durOf, bonuses, slots, owned, chunkOf, idx, at, count, ROCK, fmtCost, canAfford, MAX_AWAY };
+  const api = { mood, moodF, restSpot, fenceKey, VER, MID, CROP, DECOR, outOf, qMax, beauty, tier, tierNeed, beautyBonus, market, LOOK, VUP, routes, route, basket, tripMs, vupCost, addVillager, kick, N, CH, NC, RES, B, ORDER, create, advance, act, why, storeCap, xpNeed, buildCost, upCost, hireCost, storeCost, chunkCost, capOf, durOf, bonuses, slots, owned, chunkOf, idx, at, count, ROCK, fmtCost, canAfford, MAX_AWAY };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.KhutirSim = api;
 })(typeof window !== 'undefined' ? window : globalThis);
