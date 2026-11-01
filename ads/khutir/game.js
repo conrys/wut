@@ -586,7 +586,7 @@
       return;
     }
     const dk = s.d[K.idx(x, y)];
-    if (dk) { const d = K.DECOR[dk]; openSheet(d.ic + ' ' + d.n, () => '<p class="note">+' + d.b + ' краси.</p><div class="btns"><button class="btn red" data-a="' + A({ t: 'undeco', x, y }) + '">🗑 Прибрати<small>' + (d.shop === false ? 'повернеться в запас' : 'повернеться ' + Math.floor(d.c / 2) + ' 💰') + '</small></button></div>'); return; }
+    if (dk) { const d = K.DECOR[dk]; openSheet(d.ic + ' ' + d.n, () => '<p class="note">+' + d.b + ' краси.</p><div class="btns">' + (d.turn ? '<button class="btn sec" data-a="' + A({ t: 'turn', x, y }) + '">🔄 Повернути</button>' : '') + '<button class="btn red" data-a="' + A({ t: 'undeco', x, y }) + '">🗑 Прибрати<small>' + (d.shop === false ? 'повернеться в запас' : 'повернеться ' + Math.floor(d.c / 2) + ' 💰') + '</small></button></div>'); return; }
     const ob = s.ob[K.idx(x, y)];
     if (ob === 't') { closeSheet(); commit({ t: 'clear', x, y }); return; }
     if (ob === 'r') { openSheet('🪨 Камінь', () => '<p class="note">Заважає будувати. Прибрати коштує ' + K.ROCK + ' 💰.</p><div class="btns"><button class="btn" data-a="' + A({ t: 'clear', x, y }) + '"' + (view.coins >= K.ROCK ? '' : ' disabled') + '>Прибрати · ' + K.ROCK + ' 💰</button></div>'); return; }
@@ -671,6 +671,13 @@
     pastry: { src: 'img/pastry.webp', ax: 128, ay: 193, fit: 1.1, ch: [142, 43] },
     meadery: { src: 'img/meadery.webp', ax: 128, ay: 175, fit: 1.1, ch: [148, 41] },
     market: { src: 'img/market.webp', ax: 139, ay: 192, fit: 1.15 },
+    d_bench0: { src: 'img/d_bench0.webp', ax: 108, ay: 212, fit: 0.5 },
+    d_bench1: { src: 'img/d_bench1.webp', ax: 112, ay: 197, fit: 0.5 },
+    d_swing: { src: 'img/d_swing.webp', ax: 104, ay: 251, fit: 0.667 },
+    d_hay: { src: 'img/d_hay.webp', ax: 98, ay: 241, fit: 0.667 },
+    d_crane: { src: 'img/d_crane.webp', ax: 141, ay: 243, fit: 0.667 },
+    d_stork: { src: 'img/d_stork.webp', ax: 73, ay: 306, fit: 0.667 },
+    barn2: { src: 'img/barn2.webp', ax: 139, ay: 192, fit: 1.15 },
     barn0: { src: 'img/barn0.webp', ax: 139, ay: 192, fit: 1.15 },
     barn1: { src: 'img/barn1.webp', ax: 139, ay: 192, fit: 1.15 },
     well: { src: 'img/well.webp', ax: 128, ay: 162, fit: 1.1 },
@@ -809,7 +816,6 @@
     if (decoCache[k]) return decoCache[k];
     const c = document.createElement('canvas'), W0 = 32, H0 = 40; c.width = W0; c.height = H0;
     const q = c.getContext('2d'), R = (col, x, y, w, h) => { q.fillStyle = col; q.fillRect(x, y, w, h); };
-    if (k === 'bench') { R('#8A5A2B', 5, 25, 22, 3); R('#B98A5A', 5, 25, 22, 1); R('#8A5A2B', 5, 18, 22, 3); R('#B98A5A', 5, 18, 22, 1); R('#5E3C1E', 7, 21, 2, 11); R('#5E3C1E', 23, 21, 2, 11); }
     if (k === 'lantern') { R('#3A3030', 15, 12, 2, 24); R('#3A3030', 12, 35, 8, 2); R('#3A3030', 11, 5, 10, 2); R('#FFD36B', 12, 7, 8, 7); R('#FFF0B8', 14, 8, 3, 4); R('#3A3030', 11, 14, 10, 1); R('#3A3030', 15, 2, 2, 3); }
     if (k === 'pot') { R('#B5592E', 12, 8, 8, 2); R('#C96B3A', 13, 10, 6, 3); R('#C96B3A', 9, 13, 14, 16); R('#C96B3A', 11, 29, 10, 4); R('#8E4522', 9, 13, 3, 16); R('#F3E3C3', 9, 18, 14, 2); R('#3B6E8F', 12, 21, 2, 3); R('#3B6E8F', 17, 21, 2, 3); R('#F3E3C3', 9, 26, 14, 1); }
     if (k === 'baba') { R('#8D8A80', 11, 3, 10, 9); R('#8D8A80', 9, 12, 14, 22); R('#6E6B62', 9, 12, 3, 22); R('#A5A296', 17, 13, 3, 17); R('#55524A', 13, 6, 2, 2); R('#55524A', 17, 6, 2, 2); R('#55524A', 14, 10, 4, 1); R('#6E6B62', 12, 21, 8, 2); R('#6E6B62', 11, 34, 10, 3); }
@@ -823,6 +829,12 @@
     if (k === 'path' || k === 'stone') return;
     if (k === 'flower') { sprite(BUSHES[Math.floor(h01(x + 3, y + 9) * BUSHES.length)], X, Y + 3 * z, z, wind(x, y, t, 0.05)); return; }
     if (k === 'oak' || k === 'spruce') { sprite(k, X, Y + 4 * z, z * 0.6, wind(x, y, t, 0.025)); return; }
+    // намальовані прикраси; поворот: парний — як є, непарний — дзеркально; лавка 2–3 — вид зі спини
+    if (SPR['d_' + k] || k === 'bench') {
+      const dr = (s.dr && s.dr[K.idx(x, y)]) || 0, key = k === 'bench' ? 'd_bench' + (dr >= 2 ? 1 : 0) : 'd_' + k;
+      if (dr % 2) { g.save(); g.translate(X, Y); g.scale(-1, 1); sprite(key, 0, 2 * z, z); g.restore(); } else sprite(key, X, Y + 2 * z, z);
+      return;
+    }
     const im = pxDeco(k), c = 0.75 * z; g.imageSmoothingEnabled = false; g.drawImage(im, X - 16 * c, Y - 36 * c, 32 * c, 40 * c); g.imageSmoothingEnabled = true;
     if (k === 'lantern') lights.push([X, Y - 24 * z, 1.5]);
   }
@@ -1172,7 +1184,7 @@
       if (busy && SPR[b.k].ch) smoke(b.k, X, Y, z, t, b.id);
       if (busy && b.k === 'apiary') bees(X, Y, z, t, b.id);
     }
-    else if (d.kind === 'barn') sprite(s.sl >= 1 ? 'barn1' : 'barn0', X, Y, z);
+    else if (d.kind === 'barn') sprite(s.sl >= 3 ? 'barn2' : s.sl >= 1 ? 'barn1' : 'barn0', X, Y, z);
     else if (d.kind === 'field') { if (b.p < 0 && !b.buf) sprite('soil', X, Y, z); else drawField(X, Y, z, b.buf ? 1 : prog, b.buf > 0, b.cr); }
     else if (d.kind === 'orchard' && sprite(b.buf ? 'apple3' : 'apple2', X, Y, z, wind(b.x, b.y, t, 0.02))) {}
     else if (d.kind === 'orchard') { g.fillStyle = '#6DAF4E'; diamond(X, Y, TW * 0.9 * z, TH * 0.9 * z); g.fill(); drawTree(X - 12 * z, Y - 2 * z, z * 0.75, 1, b.buf ? 3 : Math.floor(prog * 3)); drawTree(X + 12 * z, Y - 2 * z, z * 0.75, 1, b.buf ? 3 : Math.floor(prog * 2)); drawTree(X, Y + 6 * z, z * 0.8, 1, b.buf ? 4 : Math.floor(prog * 3)); }

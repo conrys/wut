@@ -66,7 +66,11 @@
     fence: { n: 'Тин', ic: '🪵', lv: 1, c: 8, b: 1, hint: 'Стоїть на межі клітинок, ставиться вздовж їхніх країв' },
     flower: { n: 'Квітник', ic: '🌸', lv: 1, c: 15, b: 3 },
     spruce: { n: 'Ялинка', ic: '🌲', lv: 2, c: 40, b: 4 },
-    bench: { n: 'Лавка', ic: '🪑', lv: 3, c: 60, b: 5 },
+    hay: { n: 'Копиця', ic: '🌾', lv: 2, c: 30, b: 3, turn: 2 },
+    bench: { n: 'Лавка', ic: '🪑', lv: 3, c: 60, b: 5, turn: 4 },
+    swing: { n: 'Гойдалка', ic: '🛝', lv: 3, c: 80, b: 6, turn: 2 },
+    crane: { n: 'Журавель', ic: '🪣', lv: 5, c: 120, b: 8, turn: 2 },
+    stork: { n: 'Гніздо лелеки', ic: '🪺', lv: 6, c: 150, b: 10, turn: 2 },
     oak: { n: 'Дуб', ic: '🌳', lv: 4, c: 90, b: 7 },
     lantern: { n: 'Ліхтар', ic: '🏮', lv: 4, c: 100, b: 7, hint: 'Світить уночі' },
     pot: { n: 'Опішнянський глечик', ic: '🏺', c: 150, b: 12, shop: false },
@@ -408,7 +412,7 @@
         if (a.id ? !fr : !s.d[i0]) return fail('Нема');
         if (!owned(s, a.x, a.y) || at(s, a.x, a.y) || s.ob[to] || s.d[to]) return fail('Тут зайнято');
         if (fr) { fr.x = a.x; fr.y = a.y; if (fr.k === 'home') for (const u in s.vl || {}) if (s.vl[u].home === fr.id) s.vl[u].vp = 0; }
-        else { s.d[to] = s.d[i0]; delete s.d[i0]; }
+        else { s.d[to] = s.d[i0]; delete s.d[i0]; if (s.dr && s.dr[i0] !== undefined) { s.dr[to] = s.dr[i0]; delete s.dr[i0]; } }
         return res;
       }
       case 'unbuild': {
@@ -424,6 +428,10 @@
         if (!list.length) return fail('Нема що ставити');
         const c = list.length * DECOR.fence.c; if (s.coins < c) return fail('Треба ' + c + ' 💰');
         s.coins -= c; for (const [x, y, e] of list) s.f[fenceKey(x, y, e)] = 1; return res;
+      }
+      case 'turn': {
+        const i = idx(a.x, a.y), d = DECOR[s.d[i]]; if (!d || !d.turn) return fail('Нема');
+        if (!s.dr) s.dr = {}; s.dr[i] = ((s.dr[i] || 0) + 1) % d.turn; return res;
       }
       case 'undeco': {
         const i = idx(a.x, a.y), k = s.d[i]; if (!k) return fail('Нема');
