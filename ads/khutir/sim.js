@@ -173,7 +173,7 @@
   const storeCap = (s) => Math.round(100 * Math.pow(1.5, s.sl));
   const xpNeed = (L) => Math.round(25 * Math.pow(L, 1.55));
   const slots = (s) => 3 + (s.lv >= 6) + (s.lv >= 12);
-  function buildCost(s, k) { const m = Math.pow(B[k].m || 1.15, B[k].step ? Math.floor(count(s, k) / B[k].step) : count(s, k));   // step: ціна росте сходинками, раз на стільки штук return { c: Math.round(B[k].c * m), pl: B[k].pl ? Math.ceil(B[k].pl * m) : 0 }; }
+  function buildCost(s, k) { const m = Math.pow(B[k].m || 1.15, B[k].step ? Math.floor(count(s, k) / B[k].step) : count(s, k)); return { c: Math.round(B[k].c * m), pl: B[k].pl ? Math.ceil(B[k].pl * m) : 0 }; }
   function upCost(b) { const d = B[b.k], L = b.lv; return { c: Math.round(d.c * 0.8 * Math.pow(1.7, L)) + 20, pl: L >= 2 ? 3 * L : 0 }; }
   const hireCost = (b) => ({ c: 100 + B[b.k].c * 2, pl: 0 });
   const storeCost = (s) => ({ c: Math.round(150 * Math.pow(1.9, s.sl)), pl: s.sl >= 1 ? 4 * s.sl : 0 });
