@@ -89,7 +89,7 @@ const tapTile = async (p, x, y) => { await p.evaluate(([x, y]) => { KHUTIR.focus
   check("«Назад» закрив шторку й лишив у грі", await p.evaluate(() => !!window.KHUTIR && !KHUTIR.sheetOpen && KHUTIR.mode === "solo"));
   // тин лежить на межі: клітинка під ним вільна, а селянин його обходить
   check("тин не займає клітинку", await p.evaluate(() => { const v = KHUTIR.view; return Object.keys(v.f).length > 0 && !Object.values(v.d).includes("fence"); }));
-  const walk = await p.evaluate(() => { const uid = Object.keys(KHUTIR.view.vl)[0], s = KHUTIR.view, busy = new Set(s.b.map((b) => b.x + ":" + b.y)), legs = KHUTIR.villLegs(uid); let bad = 0, n = 0; for (const l of legs) for (const q of l.slice(1, -1)) { n++; if (busy.has(q[0] + ":" + q[1])) bad++; } return [n, bad]; });
+  const walk = await p.evaluate(() => { const uid = Object.keys(KHUTIR.view.vl)[0], s = KHUTIR.view, busy = new Set(s.b.filter((b) => b.k !== "field").map((b) => b.x + ":" + b.y)), legs = KHUTIR.villLegs(uid); let bad = 0, n = 0; for (const l of legs) for (const q of l.slice(1, -1)) { n++; if (busy.has(q[0] + ":" + q[1])) bad++; } return [n, bad]; });
   check("селянин не йде крізь будівлі", walk[0] > 0 && walk[1] === 0, JSON.stringify(walk));
   // тин прибирається дотиком по самому тину
   const fp = await p.evaluate(() => { const k = +Object.keys(KHUTIR.view.f)[3], e = k % 2, i = (k - e) / 2, x = i % 48, y = Math.floor(i / 48); KHUTIR.focus(x, y); const a = KHUTIR.screenOf(x + 0.5, y + 0.5), b = KHUTIR.screenOf(x - 0.5, y + 0.5); return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2 - 8 * KHUTIR.cam.z, Object.keys(KHUTIR.view.f).length, x, y, e]; });
@@ -118,6 +118,9 @@ const tapTile = async (p, x, y) => { await p.evaluate(([x, y]) => { KHUTIR.focus
     const spot = [20, 23]; K.act(s, { t: "deco", k: "hay", x: spot[0], y: spot[1] }, t, "V"); const v = s.vl.me; v.m = 31; t += 3600e3; K.advance(s, t); return [q1, s.st.wheat < 50, v.m]; });
   check("селянин сам поставив млин у чергу", vq[0] > 0 && vq[1], JSON.stringify(vq));
   check("настрій відновлюється відпочинком", vq[2] > 31, String(vq[2]));
+  // швидкість стала: час обходу пропорційний довжині шляху
+  const sp = await p.evaluate(() => { const K = KHUTIR.K, s = KHUTIR.view, u = Object.keys(s.vl)[0], r = K.routes(s)[u], pl = K.walkPlan(s, u, r), len = pl.legs.reduce((a, l) => a + l.len, 0); return [pl.ms, (len / K.WALK) * 1000 + K.PAUSE * pl.legs.length]; });
+  check("час обходу = довжина шляху / швидкість", Math.abs(sp[0] - sp[1]) < 1, JSON.stringify(sp));
   // торговець
   await p.evaluate(() => { KHUTIR.commit({ t: "build", k: "market", x: 24, y: 24 }); const t = Date.now() + 0, every = 3 * 3600e3, ph = t % every; if (ph >= 80 * 60e3) KHUTIR.warp(every - ph + 60e3); KHUTIR.S.st.wheat = 60; KHUTIR.refresh(); });
   const m = await p.evaluate(() => KHUTIR.K.market(KHUTIR.view, KHUTIR.view.t));

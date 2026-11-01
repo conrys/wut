@@ -355,7 +355,7 @@
     if (!lookDraft || lookDraft.u !== villFor) lookDraft = { u: villFor, c: { ...v.c } };
     const c = lookDraft.c, r = (K.routes(s)[villFor] || []);
     let h = '<div class="row" style="justify-content:center;background:linear-gradient(#9FD07A,#6DAF4E)"><canvas id="villPv" width="120" height="140" style="width:120px;height:140px" aria-label="Вигляд селянина"></canvas></div>';
-    h += '<div class="row"><span class="ic">🧺</span><span class="tx"><b>Обходить ' + r.length + ' з ' + K.route(v) + ' будівель · кошик ' + K.basket(v) + '</b><small>обхід за ' + secs(K.tripMs(v)) + ' · усього приніс ' + fmt(v.got || 0) + '. Носить урожай у комору й ставить роботу в черги цих будівель.</small></span></div>';
+    h += '<div class="row"><span class="ic">🧺</span><span class="tx"><b>Обходить ' + r.length + ' з ' + K.route(v) + ' будівель · кошик ' + K.basket(v) + '</b><small>обхід за ' + secs(K.tripOf(s, villFor, r)) + ' · усього приніс ' + fmt(v.got || 0) + '. Носить урожай у комору й ставить роботу в черги цих будівель.</small></span></div>';
     const md = K.mood(v), restS = K.restSpot(s, v);
     h += '<div class="row"><span class="ic">' + (v.rt ? '💤' : md >= 60 ? '😊' : md >= 30 ? '😐' : '😩') + '</span><span class="tx"><b>' + (v.rt ? 'Відпочиває' : 'Настрій: ' + Math.round(md)) + '</b><small>' + (md >= 60 ? 'Працює на 20% швидше' : md >= 30 ? 'Працює звичайно' : 'Втомився: працює на 30% повільніше') + (restS ? '. Коли втомиться, піде відпочити.' : '. Постав лавку, гойдалку чи копицю: без них він не відпочиває.') + '</small><span class="cap"><i style="width:' + md + '%"></i></span></span></div>';
     if (!mine) return h;
@@ -827,6 +827,19 @@
     q.fillStyle = '#2A1C14'; for (const [x, y] of e) q.fillRect(x, y, 1, 1);
     return (decoCache[k] = c);
   }
+  // гойдалка: мотузки й сидіння малюються кодом, щоб рухатись разом із селянином
+  const SW = {"t1": [-2.8, -34.0], "t2": [3.0, -35.7], "s1": [-4.8, -12.3], "s2": [3.3, -15.8], "s3": [6.1, -14.3], "s4": [-1.6, -9.0]};
+  const swingOff = (t) => { const a = Math.sin(t / 420); return [9 * a, 4.5 * a - Math.abs(a) * 1.5]; };
+  function drawSwing(X, Y, z, flip, a) {
+    g.save(); g.translate(X, Y); g.scale((flip ? -1 : 1) * z, z); const [dx, dy] = a, sp = (p) => [p[0] + dx, p[1] + dy];
+    g.lineCap = 'butt'; g.strokeStyle = '#8A6A3F'; g.lineWidth = 1;
+    const lineTo = (t0, q) => { g.beginPath(); g.moveTo(t0[0], t0[1]); g.lineTo(q[0], q[1]); g.stroke(); };
+    lineTo(SW.t2, sp([(SW.s2[0] + SW.s3[0]) / 2, (SW.s2[1] + SW.s3[1]) / 2]));
+    lineTo(SW.t1, sp([(SW.s1[0] + SW.s4[0]) / 2, (SW.s1[1] + SW.s4[1]) / 2]));
+    const c = [SW.s1, SW.s2, SW.s3, SW.s4].map(sp);
+    g.fillStyle = '#B98A5A'; g.strokeStyle = '#5E3C1E'; g.lineWidth = 0.7; g.beginPath(); c.forEach((q, i) => (i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]))); g.closePath(); g.fill(); g.stroke();
+    g.restore();
+  }
   function drawDecor(s, x, y, X, Y, z, t) {
     const k = s.d[K.idx(x, y)];
     if (k === 'path' || k === 'stone') return;
@@ -836,6 +849,7 @@
     if (SPR['d_' + k] || k === 'bench') {
       const dr = (s.dr && s.dr[K.idx(x, y)]) || 0, key = k === 'bench' ? 'd_bench' + (dr >= 2 ? 1 : 0) : 'd_' + k;
       if (dr % 2) { g.save(); g.translate(X, Y); g.scale(-1, 1); sprite(key, 0, 2 * z, z); g.restore(); } else sprite(key, X, Y + 2 * z, z);
+      if (k === 'swing') { const on = sitting.has(K.idx(x, y)); let o = on ? swingOff(t) : [0, 0]; if (dr % 2) o = [-o[0], o[1]]; drawSwing(X, Y + 2 * z, z, dr % 2, o); }
       return;
     }
     const im = pxDeco(k), c = 0.75 * z; g.imageSmoothingEnabled = false; g.drawImage(im, X - 16 * c, Y - 36 * c, 32 * c, 40 * c); g.imageSmoothingEnabled = true;
@@ -1004,73 +1018,27 @@
   // де селянин зараз: хата → будівлі маршруту → хата; на кожній будівлі трохи стоїть
   function villPos(s, uid, rts, t, dt) {
     const v = s.vl[uid], h = v && s.b.find((b) => b.id === v.home); if (!h) return null;
-    const r = rts[uid] || [], trip = K.tripMs(v);
-    if (!r.length) { const a = t / 2600 + uid.length; return { x: h.x + 0.45 + Math.cos(a) * 0.25, y: h.y + 0.35 + Math.sin(a) * 0.25, walk: true, dir: Math.cos(a + 1.57) > 0 ? 1 : -1, basket: false, back: Math.cos(a) - Math.sin(a) < 0 }; }
+    const r = rts[uid] || [], F = K.speedOf(v);
     if (v.rt) {
-      const sp = K.restSpot(s, v), rl = sp && restLegs(s, h, sp);
-      if (rl) {
-        const ph = ((v.vp + dt) % trip) / trip;
-        if (ph < 0.2 || ph >= 0.8) { const out = ph < 0.2, q = alongLeg(out ? rl : rl.slice().reverse(), out ? ph / 0.2 : (ph - 0.8) / 0.2); return { x: q[0], y: q[1], walk: true, dir: q[2] - q[3] >= 0 ? 1 : -1, basket: false, back: q[2] + q[3] < 0 }; }
-        const dr = (s.dr && s.dr[sp.i]) || 0; return { x: sp.x, y: sp.y, walk: false, sit: true, swing: sp.k === 'swing', dir: dr % 2 ? -1 : 1, basket: false, back: sp.k === 'bench' && dr >= 2 };
+      const q = K.restPlan(s, v), T = K.tripOf(s, uid, r);
+      if (q) {
+        const ms = (q.len * 1000) / K.WALK / F, tt = (v.vp + dt) % T, out = tt < ms, ret = tt > T - ms;
+        if (out || ret) { const c = alongLeg(out ? q.pts : q.pts.slice().reverse(), out ? tt / ms : (tt - (T - ms)) / ms); return { x: c[0], y: c[1], walk: true, dir: c[2] - c[3] >= 0 ? 1 : -1, basket: false, back: c[2] + c[3] < 0 }; }
+        const dr = (s.dr && s.dr[q.sp.i]) || 0; return { x: q.sp.x, y: q.sp.y, walk: false, sit: true, swing: q.sp.k === 'swing', dir: dr % 2 ? -1 : 1, basket: false, back: q.sp.k === 'bench' && dr >= 2 };
       }
     }
-    const legs = villLegs(s, h, r), segs = legs.length;
-    const f = (((v.vp + dt) % trip) / trip) * segs, i = Math.min(segs - 1, Math.floor(f)), fr = f - i;
-    const w = Math.min(1, fr / 0.75), pos = alongLeg(legs[i], w);
-    return { x: pos[0], y: pos[1], walk: fr < 0.75, dir: pos[2] - pos[3] >= 0 ? 1 : -1, basket: i > 0 && i <= r.length, back: fr < 0.75 && pos[2] + pos[3] < 0 };
-  }
-  // ---------- стежки селянина: обходить будівлі, дерева й тин, любить дороги ----------
-  // Клітинка зайнята, якщо там будівля, дерево, камінь або прикраса (крім доріг).
-  function blockedSet(s) {
-    const o = new Set(); for (const b of s.b) o.add(K.idx(b.x, b.y));
-    for (const i in s.ob) o.add(+i);
-    for (const i in s.d) if (s.d[i] !== 'path' && s.d[i] !== 'stone') o.add(+i);
-    return o;
-  }
-  const edgeShut = (s, x, y, dx, dy) => (dx ? s.f[K.fenceKey(dx > 0 ? x : x - 1, y, 0)] : s.f[K.fenceKey(x, dy > 0 ? y : y - 1, 1)]);
-  // пошук від клітинки до будь-якої з goals; повертає список клітинок або null
-  function findTiles(s, blocked, from, goals) {
-    const start = K.idx(from[0], from[1]), gs = new Set(goals.map((g2) => K.idx(g2[0], g2[1])));
-    if (gs.has(start)) return [from];
-    const cost = new Map([[start, 0]]), prev = new Map(), open = [[0, start]];
-    while (open.length) {
-      let m = 0; for (let i = 1; i < open.length; i++) if (open[i][0] < open[m][0]) m = i;
-      const [c, cur] = open.splice(m, 1)[0]; if (c > cost.get(cur)) continue;
-      if (gs.has(cur)) { const out = []; for (let q = cur; q !== undefined; q = prev.get(q)) out.unshift([q % N, Math.floor(q / N)]); return out; }
-      const x = cur % N, y = Math.floor(cur / N);
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-        const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= N || Y >= N) continue;
-        const n = K.idx(X, Y); if (blocked.has(n) || edgeShut(s, x, y, dx, dy)) continue;
-        const nc = c + (s.d[n] === 'path' || s.d[n] === 'stone' ? 0.55 : 1);
-        if (nc < (cost.has(n) ? cost.get(n) : 1e9)) { cost.set(n, nc); prev.set(n, cur); open.push([nc, n]); }
-      }
+    const plan = K.walkPlan(s, uid, r), T = plan.ms / F;
+    if (!r.length || !plan.legs.length) { const a = t / 2600 + uid.length; return { x: h.x + 0.45 + Math.cos(a) * 0.25, y: h.y + 0.35 + Math.sin(a) * 0.25, walk: true, dir: Math.cos(a + 1.57) > 0 ? 1 : -1, basket: false, back: Math.cos(a) - Math.sin(a) < 0 }; }
+    // ідемо за часом: кожна ділянка триває стільки, скільки її довжина за сталої швидкості
+    let tt = (v.vp + dt) % T;
+    for (const l of plan.legs) {
+      const w = (l.len * 1000) / K.WALK / F, pz = K.PAUSE / F;
+      if (tt < w) { const c = alongLeg(l.pts, w ? tt / w : 1); return { x: c[0], y: c[1], walk: true, dir: c[2] - c[3] >= 0 ? 1 : -1, basket: l.bk, back: c[2] + c[3] < 0 }; }
+      tt -= w;
+      if (tt < pz) { const e = l.pts[l.pts.length - 1], c0 = l.pts[l.pts.length - 2]; return { x: e[0], y: e[1], walk: false, dir: e[0] - c0[0] - (e[1] - c0[1]) >= 0 ? 1 : -1, basket: l.bk, back: false }; }
+      tt -= pz;
     }
-    return null;
-  }
-  const around = (t, blocked) => [[1, 0], [0, 1], [-1, 0], [0, -1]].map(([a, b]) => [t.x + a, t.y + b]).filter(([x, y]) => x >= 0 && y >= 0 && x < N && y < N && !blocked.has(K.idx(x, y)));
-  const legCache = new Map();
-  function villLegs(s, h, r) {
-    const key = h.id + '|' + r.map((b) => b.id).join() + '|' + s.b.map((b) => b.x + '.' + b.y).join() + '|' + Object.keys(s.ob).length + '|' + Object.keys(s.d).length + '|' + Object.keys(s.f).length;
-    const hit = legCache.get(h.id); if (hit && hit.key === key) return hit.legs;
-    const barn = s.b.find((b) => b.k === 'barn'), stops = r.length && barn ? r.concat([barn]) : r;   // із кошиком — у комору, потім додому
-    const blocked = blockedSet(s), straight = () => { const pts = [h].concat(stops, [h]), o = []; for (let i = 0; i + 1 < pts.length; i++) o.push([[pts[i].x + 0.42, pts[i].y + 0.42], [pts[i + 1].x + 0.42, pts[i + 1].y + 0.42]]); return o; };
-    // виходить із того боку хати, звідки весь обхід найкоротший, і туди ж повертається
-    let legs = null, best = 1e9;
-    for (const door of around(h, blocked)) {
-      const mid = (a, t) => [(a[0] + t.x) / 2, (a[1] + t.y) / 2], o = []; let cur = door, p = mid(door, h), ok = true, total = 0;
-      for (const t of stops.concat([h])) {
-        const goals = t === h ? [door] : around(t, blocked), tiles = goals.length ? findTiles(s, blocked, cur, goals) : null;
-        if (!tiles) { ok = false; break; }
-        total += tiles.length; cur = tiles[tiles.length - 1]; const e = mid(cur, t); o.push([p].concat(tiles, [e])); p = e;
-      }
-      if (ok && total < best) { best = total; legs = o; }
-    }
-    legs = legs || straight(); legCache.set(h.id, { key, legs }); return legs;
-  }
-  function restLegs(s, h, sp) {
-    const blocked = blockedSet(s), door = around(h, blocked)[0], goals = around(sp, blocked); if (!door || !goals.length) return null;
-    const tiles = findTiles(s, blocked, door, goals); if (!tiles) return null;
-    return [[(door[0] + h.x) / 2, (door[1] + h.y) / 2]].concat(tiles, [[sp.x, sp.y]]);
+    const e = plan.legs[0].pts[0]; return { x: e[0], y: e[1], walk: false, dir: 1, basket: false, back: false };
   }
   // точка на ламаній за часткою шляху; два останні числа — напрямок кроку
   function alongLeg(pts, w) {
@@ -1082,11 +1050,11 @@
     }
     return [pts[0][0], pts[0][1], 1, 0];
   }
-  let vpos = [], lights = [], bubbles = [], marks = [];
+  let vpos = [], lights = [], bubbles = [], marks = []; const sitting = new Set();
   function drawVill(p, s, z, t) {
     const X = sx(p.x, p.y), Y = sy(p.x, p.y), v = s.vl[p.uid];
-    const lift = p.sit ? (p.swing ? Math.sin(t / 420) * 3 * z : 0) : 0;
-    drawVillager(g, X + lift, Y - (p.sit ? 6 * z : 0), 1.25 * z, v.c, t, p.walk, p.dir, p.basket, p.back, p.sit);
+    const so = p.swing ? swingOff(t) : [0, 0], flipS = p.swing && p.dir < 0 ? -1 : 1;
+    drawVillager(g, X + so[0] * flipS * z, Y + so[1] * z - (p.sit ? (p.swing ? 10 : 6) * z : 0), 1.25 * z, v.c, t, p.walk, p.dir, p.basket, p.back, p.sit);
     if (p.sit) bubbles.push([X, Y - 8 * z, z * 0.7, '💤', 1]);
     vpos.push({ uid: p.uid, sx: X, sy: Y });
     const nt = darkness(t); if (nt.dark > 0.2) lights.push([X + 7 * z * p.dir, Y - 14 * z, 0.45]);
@@ -1113,8 +1081,8 @@
     const s = view, z = cam.z, t = now(), dt = t - viewAt;
     const bmap = new Map(); for (const b of s.b) bmap.set(K.idx(b.x, b.y), b);
     const bon = K.bonuses(s), rts = K.routes(s), vByTile = new Map();
-    lights = []; vpos = []; bubbles = []; marks = [];
-    for (const uid of s.vo || []) { const p = villPos(s, uid, rts, t, dt); if (!p) continue; p.uid = uid; const key = Math.floor(p.x + 0.5) + Math.floor(p.y + 0.5); if (!vByTile.has(key)) vByTile.set(key, []); vByTile.get(key).push(p); }
+    lights = []; vpos = []; bubbles = []; marks = []; sitting.clear();
+    for (const uid of s.vo || []) { const p = villPos(s, uid, rts, t, dt); if (!p) continue; p.uid = uid; if (p.sit) sitting.add(K.idx(p.x, p.y)); const key = Math.floor(p.x + 0.5) + Math.floor(p.y + 0.5); if (!vByTile.has(key)) vByTile.set(key, []); vByTile.get(key).push(p); }
     const ownedSet = new Set(s.ch);
     const buyable = new Set();
     for (const c of s.ch) { const x = c % K.NC, y = Math.floor(c / K.NC); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy; if (X >= 0 && Y >= 0 && X < K.NC && Y < K.NC && !ownedSet.has(Y * K.NC + X)) buyable.add(Y * K.NC + X); } }
@@ -1320,7 +1288,7 @@
   // ================= тест-хук =================
   window.KHUTIR = {
     get S() { return S; }, get view() { return view; }, get mode() { return mode; }, get code() { return code; }, get cam() { return cam; },
-    villLegs(uid) { const s = view, v = s.vl[uid], h = s.b.find((b) => b.id === v.home); return villLegs(s, h, K.routes(s)[uid] || []); }, fenceAtPoint, fenceLine, get draftN() { return draft.size; }, get buildOn() { return buildOn; }, get histN() { return hist.length; }, get redoN() { return redo.length; }, commit, tapTile, warp(ms) { warp += ms; refreshView(true); }, refresh() { refreshView(true); }, startSolo, openShared, showMenu, go, closeSheet,
+    villLegs(uid) { return K.walkPlan(view, uid, K.routes(view)[uid] || []).legs.map((l) => l.pts); }, fenceAtPoint, fenceLine, get draftN() { return draft.size; }, get buildOn() { return buildOn; }, get histN() { return hist.length; }, get redoN() { return redo.length; }, commit, tapTile, warp(ms) { warp += ms; refreshView(true); }, refresh() { refreshView(true); }, startSolo, openShared, showMenu, go, closeSheet,
     pxFrame, K, screenOf(x, y) { return [sx(x, y), sy(x, y)]; }, get vpos() { return vpos; }, darkness, DAY, focus(x, y) { cam.x = wx(x, y); cam.y = wy(x, y); }, get sheetOpen() { return !!sheetFn; }, get placing() { return placing; }, me,
   };
 

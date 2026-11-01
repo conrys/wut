@@ -99,7 +99,9 @@
   const mood = (v) => (v.m === undefined ? 80 : v.m);
   const moodF = (v) => (mood(v) >= 60 ? 1.2 : mood(v) >= 30 ? 1 : 0.7);
   const REST = ['bench', 'swing', 'hay'];
-  const tripMs = (v) => ((8000 + 3000 * route(v)) / (1 + 0.2 * (v.u.sp || 0)) / moodF(v)) * (v.rt ? 3 : 1);
+  // Швидкість стала: час обходу — це довжина справжнього шляху, а не навпаки
+  const WALK = 1.6, PAUSE = 800, SIT = 20000;           // клітинок за секунду, зупинка біля будівлі (мс), відпочинок (мс)
+  const speedOf = (v) => (1 + 0.2 * (v.u.sp || 0)) * moodF(v);
   function restSpots(s) { const o = []; for (const i in s.d || {}) if (REST.indexOf(s.d[i]) >= 0) o.push({ x: i % N, y: Math.floor(i / N), k: s.d[i], i: +i }); return o; }
   // найближче до хати місце відпочинку
   function restSpot(s, v) {
@@ -107,6 +109,69 @@
     if (h) for (const q of restSpots(s)) { const d = Math.abs(q.x - h.x) + Math.abs(q.y - h.y); if (d < bd) { bd = d; best = q; } }
     return best;
   }
+  // ---------- стежки: обходить будівлі, дерева й тин, любить дороги, поля переходить неохоче ----------
+  function blockedSet(s) {
+    const o = new Set(), soft = new Set();
+    for (const b of s.b) (b.k === 'field' ? soft : o).add(idx(b.x, b.y));
+    for (const i in s.ob) o.add(+i);
+    for (const i in s.d) if (s.d[i] !== 'path' && s.d[i] !== 'stone') o.add(+i);
+    return { o, soft };
+  }
+  const edgeShut = (s, x, y, dx, dy) => (dx ? (s.f || {})[fenceKey(dx > 0 ? x : x - 1, y, 0)] : (s.f || {})[fenceKey(x, dy > 0 ? y : y - 1, 1)]);
+  function findTiles(s, bl, from, goals) {
+    const start = idx(from[0], from[1]), gs = new Set(goals.map((q) => idx(q[0], q[1])));
+    if (gs.has(start)) return [from];
+    const cost = new Map([[start, 0]]), prev = new Map(), open = [[0, start]];
+    while (open.length) {
+      let m = 0; for (let i = 1; i < open.length; i++) if (open[i][0] < open[m][0]) m = i;
+      const [c, cur] = open.splice(m, 1)[0]; if (c > cost.get(cur)) continue;
+      if (gs.has(cur)) { const out = []; for (let q = cur; q !== undefined; q = prev.get(q)) out.unshift([q % N, Math.floor(q / N)]); return out; }
+      const x = cur % N, y = Math.floor(cur / N);
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= N || Y >= N) continue;
+        const n = idx(X, Y); if (bl.o.has(n) || edgeShut(s, x, y, dx, dy)) continue;
+        const nc = c + (s.d[n] === 'path' || s.d[n] === 'stone' ? 0.55 : bl.soft.has(n) ? 3 : 1);
+        if (nc < (cost.has(n) ? cost.get(n) : 1e9)) { cost.set(n, nc); prev.set(n, cur); open.push([nc, n]); }
+      }
+    }
+    return null;
+  }
+  const around = (t, bl) => [[1, 0], [0, 1], [-1, 0], [0, -1]].map(([a, b]) => [t.x + a, t.y + b]).filter(([x, y]) => x >= 0 && y >= 0 && x < N && y < N && !bl.o.has(idx(x, y)));
+  const near = (a, t) => [a[0] + (t.x - a[0]) * 0.22, a[1] + (t.y - a[1]) * 0.22];
+  const lenOf = (pts) => { let l = 0; for (let i = 0; i + 1 < pts.length; i++) l += Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]); return l; };
+  const planCache = new Map();
+  // обхід: хата → будівлі → комора → хата. Недосяжну зупинку пропускає, решта маршруту лишається.
+  function walkPlan(s, uid, r) {
+    const v = s.vl[uid], h = v && s.b.find((b) => b.id === v.home); if (!h) return { legs: [], ms: 8000 };
+    const key = s.seed + '|' + r.map((b) => b.id).join() + '|' + s.b.map((b) => b.x + '.' + b.y).join() + '|' + Object.keys(s.ob).length + '|' + Object.keys(s.d).length + '|' + Object.keys(s.f || {}).length;
+    const hit = planCache.get(uid); if (hit && hit.key === key) return hit;
+    const barn = s.b.find((b) => b.k === 'barn'), stops = r.length && barn ? r.concat([barn]) : r, bl = blockedSet(s);
+    let legs = [], best = 1e9;
+    for (const door of around(h, bl)) {
+      const o = []; let cur = door, p = near(door, h), total = 0, carry = false;
+      for (const t of stops) {
+        const goals = around(t, bl), tiles = goals.length ? findTiles(s, bl, cur, goals) : null;
+        if (!tiles) continue;
+        cur = tiles[tiles.length - 1]; const e = near(cur, t), pts = [p].concat(tiles, [e]);
+        o.push({ pts, len: lenOf(pts), bk: carry && t !== barn }); total += lenOf(pts); p = e; carry = t === barn ? false : true;
+      }
+      const back = findTiles(s, bl, cur, [door]);
+      if (!back) continue;
+      const end = near(door, h), pts = [p].concat(back, [end]); o.push({ pts, len: lenOf(pts), bk: false }); total += lenOf(pts);
+      if (total < best) { best = total; legs = o; }
+    }
+    const ms = legs.reduce((a, l) => a + (l.len / WALK) * 1000 + PAUSE, 0) || 8000, plan = { key, legs, ms };
+    planCache.set(uid, plan); return plan;
+  }
+  function restPlan(s, v) {
+    const h = s.b.find((b) => b.id === v.home), sp = restSpot(s, v); if (!h || !sp) return null;
+    const bl = blockedSet(s), door = around(h, bl)[0], goals = around(sp, bl); if (!door || !goals.length) return null;
+    const tiles = findTiles(s, bl, door, goals); if (!tiles) return null;
+    const pts = [near(door, h)].concat(tiles, [[sp.x, sp.y]]); return { sp, pts, len: lenOf(pts) };
+  }
+  const restMs = (s, v) => { const q = restPlan(s, v); return q ? (2 * q.len * 1000) / WALK / speedOf(v) + SIT : SIT; };
+  // час обходу за стану зараз
+  function tripOf(s, uid, r) { const v = s.vl[uid]; return v.rt ? restMs(s, v) : walkPlan(s, uid, r).ms / speedOf(v); }
   function restDone(s, v) { const kinds = new Set(restSpots(s).map((q) => q.k)).size; v.m = Math.min(100, mood(v) + 40 + 20 * kinds); v.rt = 0; }
   const vupCost = (v, k) => { const L = v.u[k] || 0; return { c: Math.round(80 * Math.pow(1.9, L)), pl: L >= 1 ? 3 * L : 0 }; };
   // хто що обходить: по черзі приходу, найближчі вільні будівлі до хати
@@ -260,7 +325,8 @@
     let t = Math.max(s.t, now - MAX_AWAY);
     const bon = bonuses(s), dur = new Map(), prod = s.b.filter((b) => B[b.k].d);
     for (const b of prod) dur.set(b.id, durOf(b, bon));
-    const rts = routes(s), vs = (s.vo || []).map((u) => [s.vl[u], rts[u]]).filter(([v, r]) => v && v.home && r.length);
+    const rts = routes(s), vs = (s.vo || []).map((u) => [s.vl[u], rts[u], u]).filter(([v, r]) => v && v.home && r.length);
+    const T = (v, r, u) => tripOf(s, u, r);
     for (let guard = 0; guard < 3e6; guard++) {
       kick(s);
       if (t >= now) break;
@@ -268,17 +334,17 @@
       for (const b of prod) if (b.p >= 0) m = Math.min(m, dur.get(b.id) - b.p);
       // селянину є сенс іти, лише якщо щось росте або щось чекає в будівлях маршруту
       const busy = m !== Infinity;
-      for (const [v, r] of vs) if (busy || r.some((b) => b.buf)) m = Math.min(m, tripMs(v) - v.vp);
+      for (const [v, r, u] of vs) if (busy || v.rt || r.some((b) => b.buf)) m = Math.min(m, T(v, r, u) - v.vp);
       if (m === Infinity) break;
       const step = Math.min(Math.max(m, 0), now - t);
       for (const b of prod) if (b.p >= 0) b.p += step;
       for (const [v] of vs) v.vp += step;
       t += step;
       for (const b of prod) if (b.p >= 0 && b.p >= dur.get(b.id) - 1e-6) { b.buf += outOf(b)[1]; b.p = -1; }
-      for (const [v, r] of vs) if (v.vp >= tripMs(v) - 1e-6) { v.vp = 0; if (v.rt) restDone(s, v); else trip(s, v, r); }
+      for (const [v, r, u] of vs) if (v.vp >= T(v, r, u) - 1e-6) { v.vp = 0; if (v.rt) restDone(s, v); else trip(s, v, r); }
     }
     // поки нічого не росте й нічого не чекає — селянин удома, але годинник обходу йде далі для показу
-    if (t < now) for (const [v] of vs) v.vp = (v.vp + (now - t)) % tripMs(v);
+    if (t < now) for (const [v, r, u] of vs) v.vp = (v.vp + (now - t)) % T(v, r, u);
     s.t = now;
     return s;
   }
@@ -544,7 +610,7 @@
       case 'vup': {
         const v = s.vl && s.vl[a.uid]; if (!v || !VUP[a.k]) return fail('Нема');
         const cost = vupCost(v, a.k); if (!canAfford(s, cost)) return fail('Треба ' + fmtCost(cost));
-        pay(s, cost); v.u[a.k] = (v.u[a.k] || 0) + 1; v.vp = Math.min(v.vp, tripMs(v)); log(s, v.n, 'отримав(ла) ' + VUP[a.k].n.toLowerCase() + ' ' + v.u[a.k] + '-го рівня');
+        pay(s, cost); v.u[a.k] = (v.u[a.k] || 0) + 1; log(s, v.n, 'отримав(ла) ' + VUP[a.k].n.toLowerCase() + ' ' + v.u[a.k] + '-го рівня');
         return res;
       }
       case 'movehome': {
@@ -571,6 +637,6 @@
     return '';
   }
 
-  const api = { mood, moodF, restSpot, fenceKey, VER, MID, CROP, DECOR, outOf, qMax, beauty, tier, tierNeed, beautyBonus, market, LOOK, VUP, routes, route, basket, tripMs, vupCost, addVillager, kick, N, CH, NC, RES, B, ORDER, create, advance, act, why, storeCap, xpNeed, buildCost, upCost, hireCost, storeCost, chunkCost, capOf, durOf, bonuses, slots, owned, chunkOf, idx, at, count, ROCK, fmtCost, canAfford, MAX_AWAY };
+  const api = { mood, moodF, restSpot, restPlan, walkPlan, tripOf, speedOf, WALK, PAUSE, SIT, fenceKey, VER, MID, CROP, DECOR, outOf, qMax, beauty, tier, tierNeed, beautyBonus, market, LOOK, VUP, routes, route, basket, vupCost, addVillager, kick, N, CH, NC, RES, B, ORDER, create, advance, act, why, storeCap, xpNeed, buildCost, upCost, hireCost, storeCost, chunkCost, capOf, durOf, bonuses, slots, owned, chunkOf, idx, at, count, ROCK, fmtCost, canAfford, MAX_AWAY };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.KhutirSim = api;
 })(typeof window !== 'undefined' ? window : globalThis);
