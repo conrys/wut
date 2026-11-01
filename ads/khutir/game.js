@@ -235,7 +235,7 @@
       const r = commit(a);
       if (r && r.ok && (a.t === 'demolish' || a.t === 'build')) closeSheet();
       if (r && r.ok && a.t === 'chunk') closeSheet();
-      if (r && r.ok && (a.t === 'clear' || a.t === 'undeco' || a.t === 'sow')) closeSheet();
+      if (r && r.ok && (a.t === 'clear' || a.t === 'undeco' || a.t === 'sow' || a.t === 'fence')) closeSheet();
     }));
     $('shB').querySelectorAll('[data-place]').forEach((el) => el.addEventListener('click', () => { if (fresh()) return; au(); startPlace(el.dataset.place); }));
     bindVill();
@@ -527,6 +527,29 @@
     const e = lock !== undefined ? lock : Math.abs(dx) > Math.abs(dy) ? 0 : 1;
     return e ? [tx, dy >= 0 ? ty : ty - 1, 1] : [dx >= 0 ? tx : tx - 1, ty, 0];
   }
+  // секція тину під пальцем: міряємо до намальованої висоти тину, а не до землі
+  function fenceAtPoint(px, py) {
+    const s = view; let best = null, bd = 16 * Math.max(0.8, cam.z);
+    for (const k in s.f) {
+      const e = k % 2, i = (k - e) / 2, x = i % N, y = Math.floor(i / N);
+      const ax = x + 0.5, ay = e ? y + 0.5 : y - 0.5, bx = e ? x - 0.5 : x + 0.5, by = y + 0.5;
+      const X0 = sx(ax, ay), Y0 = sy(ax, ay) - 8 * cam.z, X1 = sx(bx, by), Y1 = sy(bx, by) - 8 * cam.z;
+      const L = (X1 - X0) ** 2 + (Y1 - Y0) ** 2, t = Math.max(0, Math.min(1, ((px - X0) * (X1 - X0) + (py - Y0) * (Y1 - Y0)) / L));
+      const d = Math.hypot(px - (X0 + (X1 - X0) * t), py - (Y0 + (Y1 - Y0) * t));
+      if (d < bd) { bd = d; best = { x, y, e, d }; }
+    }
+    return best;
+  }
+  // уся пряма лінія тину, що проходить через цю секцію
+  function fenceLine(s, f) {
+    const out = [f], walk = (dir) => { for (let n = 1; n < N; n++) { const x = f.x + (f.e ? dir * n : 0), y = f.y + (f.e ? 0 : dir * n); if (x < 0 || y < 0 || x >= N || y >= N || !s.f[K.fenceKey(x, y, f.e)]) break; out.push({ x, y, e: f.e }); } };
+    walk(1); walk(-1); return out;
+  }
+  function fenceSheet(f) {
+    const n = fenceLine(view, f).length, back = Math.floor(K.DECOR.fence.c / 2);
+    openSheet('🪵 Тин', () => '<div class="btns"><button class="btn red" data-a="' + A({ t: 'fence', x: f.x, y: f.y, e: f.e, off: 1 }) + '">🗑 Прибрати цю секцію<small>повернеться ' + back + ' 💰</small></button>' + (n > 1 ? '<button class="btn red" id="fenceAll">🗑 Прибрати всю лінію (' + n + ')<small>повернеться ' + n * back + ' 💰</small></button>' : '') + '</div>');
+    const all = $('fenceAll'); if (all) all.onclick = () => { if (fresh()) return; for (const q of fenceLine(view, f)) commit({ t: 'fence', x: q.x, y: q.y, e: q.e, off: 1 }); closeSheet(); };
+  }
   function centerCam() {
     const s = view; if (!s) return;
     let ax = 0, ay = 0, n = 0;
@@ -672,20 +695,23 @@
   function decor(x, y) { const h = h01(x + 31, y + 17); if (h < 0.07) return BUSHES[Math.floor(h01(x, y + 99) * BUSHES.length)]; if (h < 0.09) return 'pebbles'; return ''; }
   // стежка: вузька смуга через центр клітинки, тягнеться до сусідніх доріг
   const isRoad = (s, x, y) => { const k = s.d[K.idx(x, y)]; return k === 'path' || k === 'stone'; };
-  function drawRoad(s, x, y, z, k) {
+  function drawRoad(s, x, y, z, k, bmap) {
     const dirt = k === 'path', w = dirt ? 0.13 : 0.19, base = dirt ? '#A98354' : '#9A958A', dk = dirt ? '#8E6B42' : '#7C776D', lt = dirt ? '#BE9A69' : '#B7B2A6', edge = dirt ? 'rgba(70,50,25,.35)' : 'rgba(50,48,44,.4)';
     const quad = (pts) => { g.beginPath(); pts.forEach(([a, b], i) => (i ? g.lineTo(sx(a, b), sy(a, b)) : g.moveTo(sx(a, b), sy(a, b)))); g.closePath(); };
     const hub = [[x - w, y - w], [x + w, y - w], [x + w, y + w], [x - w, y + w]], arms = [];
-    if (isRoad(s, x + 1, y)) arms.push([[x, y - w], [x + 0.5, y - w], [x + 0.5, y + w], [x, y + w]]);
-    if (isRoad(s, x - 1, y)) arms.push([[x, y - w], [x - 0.5, y - w], [x - 0.5, y + w], [x, y + w]]);
-    if (isRoad(s, x, y + 1)) arms.push([[x - w, y], [x - w, y + 0.5], [x + w, y + 0.5], [x + w, y]]);
-    if (isRoad(s, x, y - 1)) arms.push([[x - w, y], [x - w, y - 0.5], [x + w, y - 0.5], [x + w, y]]);
+    // до сусідньої дороги — рівно до краю клітинки; до будівлі — трохи під неї, щоб стежка впиралась у стіну
+    const reach = (a, b) => { if (isRoad(s, a, b)) return 0.5; const q = bmap.get(K.idx(a, b)); return q && q.k !== 'field' ? 0.72 : 0; };
+    const px = reach(x + 1, y), nx = reach(x - 1, y), py = reach(x, y + 1), ny = reach(x, y - 1);
+    if (px) arms.push([[x, y - w], [x + px, y - w], [x + px, y + w], [x, y + w]]);
+    if (nx) arms.push([[x, y - w], [x - nx, y - w], [x - nx, y + w], [x, y + w]]);
+    if (py) arms.push([[x - w, y], [x - w, y + py], [x + w, y + py], [x + w, y]]);
+    if (ny) arms.push([[x - w, y], [x - w, y - ny], [x + w, y - ny], [x + w, y]]);
     g.strokeStyle = edge; g.lineWidth = 2.5 * z; g.lineJoin = 'round';
     for (const q of arms.concat([hub])) { quad(q); g.stroke(); }
     g.fillStyle = base; for (const q of arms.concat([hub])) { quad(q); g.fill(); }
     const specks = (a0, b0, a1, b1, seed) => { for (let i = 0; i < 3; i++) { const f = h01(seed + i, x * 7 + y), o = (h01(y * 3 + i, seed + x) - 0.5) * w * 1.5, a = a0 + (a1 - a0) * f + (b1 !== b0 ? o : 0), b = b0 + (b1 - b0) * f + (a1 !== a0 ? o : 0); g.fillStyle = i % 2 ? dk : lt; g.fillRect(sx(a, b) - 1.5 * z, sy(a, b) - 0.6 * z, 3 * z, 1.2 * z); } };
-    if (isRoad(s, x + 1, y)) specks(x, y, x + 0.5, y, 1); if (isRoad(s, x - 1, y)) specks(x, y, x - 0.5, y, 2);
-    if (isRoad(s, x, y + 1)) specks(x, y, x, y + 0.5, 3); if (isRoad(s, x, y - 1)) specks(x, y, x, y - 0.5, 4);
+    if (px) specks(x, y, x + 0.5, y, 1); if (nx) specks(x, y, x - 0.5, y, 2);
+    if (py) specks(x, y, x, y + 0.5, 3); if (ny) specks(x, y, x, y - 0.5, 4);
   }
   // дрібні прикраси — піксельні, як селянин; їх можна замінити спрайтами img/<назва>.webp у SPR
   const decoCache = {};
@@ -985,7 +1011,7 @@
         diamond(X, Y, tw + 0.6, th + 0.6); g.fill();
       }
       const dk0 = s.d[K.idx(x, y)];
-      if (dk0 === 'path' || dk0 === 'stone') drawRoad(s, x, y, z, dk0);
+      if (dk0 === 'path' || dk0 === 'stone') drawRoad(s, x, y, z, dk0, bmap);
       if (!dk0 && !bmap.has(K.idx(x, y)) && !s.ob[K.idx(x, y)] && decor(x, y) === 'pebbles') { g.globalAlpha = 0.85; sprite('pebbles', X, Y, z * 0.55); g.globalAlpha = 1; }
       if (placing && free(s, x, y)) { g.fillStyle = 'rgba(255,255,255,.22)'; diamond(X, Y, tw * 0.86, th * 0.86); g.fill(); }
     }
@@ -1121,8 +1147,11 @@
     const p = ptr.get(e.pointerId); ptr.delete(e.pointerId);
     if (!p || !gest) return;
     if (!gest.moved && !gest.pinch && ptr.size === 0 && performance.now() - p.t0 < 600) {
-      if (placing === 'deco:fence') { const [x, y, e] = edgeAt(p.x, p.y); commit({ t: 'fence', x, y, e, off: view.f[K.fenceKey(x, y, e)] ? 1 : 0 }); ptr.size || (gest = null); return; }
-      if (!placing && view && tapVillager(p.x, p.y)) return; const [x, y] = pick(p.x, p.y); tapTile(x, y);
+      const hit = view ? fenceAtPoint(p.x, p.y) : null;
+      if (placing === 'deco:fence') { if (hit) commit({ t: 'fence', x: hit.x, y: hit.y, e: hit.e, off: 1 }); else { const [x, y, e] = edgeAt(p.x, p.y); commit({ t: 'fence', x, y, e }); } ptr.size || (gest = null); return; }
+      if (!placing && view && tapVillager(p.x, p.y)) return; const [x, y] = pick(p.x, p.y);
+      if (!placing && hit && (hit.d < 7 * cam.z || !K.at(view, x, y))) { fenceSheet({ x: hit.x, y: hit.y, e: hit.e }); ptr.size || (gest = null); return; }
+      tapTile(x, y);
     }
     if (ptr.size === 0) gest = null;
     else if (gest.pinch && ptr.size === 1) { const q = [...ptr.values()][0]; q.x0 = q.x; q.y0 = q.y; gest = { moved: true, cx: cam.x, cy: cam.y }; }
@@ -1154,7 +1183,7 @@
   // ================= тест-хук =================
   window.KHUTIR = {
     get S() { return S; }, get view() { return view; }, get mode() { return mode; }, get code() { return code; }, get cam() { return cam; },
-    villLegs(uid) { const s = view, v = s.vl[uid], h = s.b.find((b) => b.id === v.home); return villLegs(s, h, K.routes(s)[uid] || []); }, get undoN() { return undoList.length; }, commit, tapTile, warp(ms) { warp += ms; refreshView(true); }, refresh() { refreshView(true); }, startSolo, openShared, showMenu, go, closeSheet,
+    villLegs(uid) { const s = view, v = s.vl[uid], h = s.b.find((b) => b.id === v.home); return villLegs(s, h, K.routes(s)[uid] || []); }, fenceAtPoint, fenceLine, get undoN() { return undoList.length; }, commit, tapTile, warp(ms) { warp += ms; refreshView(true); }, refresh() { refreshView(true); }, startSolo, openShared, showMenu, go, closeSheet,
     pxFrame, K, screenOf(x, y) { return [sx(x, y), sy(x, y)]; }, get vpos() { return vpos; }, darkness, DAY, focus(x, y) { cam.x = wx(x, y); cam.y = wy(x, y); }, get sheetOpen() { return !!sheetFn; }, get placing() { return placing; }, me,
   };
 

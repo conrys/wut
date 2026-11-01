@@ -63,6 +63,13 @@ const tapTile = async (p, x, y) => { await p.evaluate(([x, y]) => { KHUTIR.focus
   check("тин не займає клітинку", await p.evaluate(() => { const v = KHUTIR.view; return Object.keys(v.f).length > 0 && !Object.values(v.d).includes("fence"); }));
   const walk = await p.evaluate(() => { const uid = Object.keys(KHUTIR.view.vl)[0], s = KHUTIR.view, busy = new Set(s.b.map((b) => b.x + ":" + b.y)), legs = KHUTIR.villLegs(uid); let bad = 0, n = 0; for (const l of legs) for (const q of l.slice(1, -1)) { n++; if (busy.has(q[0] + ":" + q[1])) bad++; } return [n, bad]; });
   check("селянин не йде крізь будівлі", walk[0] > 0 && walk[1] === 0, JSON.stringify(walk));
+  // тин прибирається дотиком по самому тину
+  const fp = await p.evaluate(() => { const k = +Object.keys(KHUTIR.view.f)[3], e = k % 2, i = (k - e) / 2, x = i % 48, y = Math.floor(i / 48); KHUTIR.focus(x, y); const a = KHUTIR.screenOf(x + 0.5, y + 0.5), b = KHUTIR.screenOf(x - 0.5, y + 0.5); return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2 - 8 * KHUTIR.cam.z, Object.keys(KHUTIR.view.f).length, x, y, e]; });
+  await p.waitForTimeout(200); await p.touchscreen.tap(fp[0], fp[1]); await p.waitForTimeout(500);
+  check("дотик по тину відкрив вікно прибирання", await p.isVisible("#fenceAll"), JSON.stringify(fp));
+  await p.waitForTimeout(300); await p.tap("#fenceAll"); await p.waitForTimeout(500);
+  check("уся лінія тину прибрана", await p.evaluate(() => Object.keys(KHUTIR.view.f).length === 0));
+  await p.evaluate(() => { KHUTIR.commit({ t: "fence", x: 20, y: 18, e: 1 }); KHUTIR.closeSheet(); });
   // торговець
   await p.evaluate(() => { KHUTIR.commit({ t: "build", k: "market", x: 24, y: 24 }); const t = Date.now() + 0, every = 3 * 3600e3, ph = t % every; if (ph >= 80 * 60e3) KHUTIR.warp(every - ph + 60e3); KHUTIR.S.st.wheat = 60; KHUTIR.refresh(); });
   const m = await p.evaluate(() => KHUTIR.K.market(KHUTIR.view, KHUTIR.view.t));
