@@ -48,6 +48,9 @@ const tapTile = async (p, x, y) => { await p.evaluate(([x, y]) => { KHUTIR.focus
   const b1 = await p.evaluate(() => [KHUTIR.K.beauty(KHUTIR.view), KHUTIR.K.tier(KHUTIR.view)]);
   check("прикраси дають красу й ступінь", b1[0] > b0 && b1[1] >= 1, JSON.stringify(b1));
   check("на дорозі не можна будувати", await p.evaluate(() => { const d = Object.keys(KHUTIR.view.d)[0], x = d % 48, y = Math.floor(d / 48); return !KHUTIR.commit({ t: "build", k: "well", x, y }).ok; }));
+  // «Постійно»: поле сіється само
+  const au = await p.evaluate(() => { const c = KHUTIR.S, f = c.b.find((b) => b.k === "field"); KHUTIR.commit({ t: "auto", id: f.id, on: true }); const q = KHUTIR.S.b.find((b) => b.k === "field"); q.cr = "wheat"; q.p = -1; q.buf = 3; KHUTIR.refresh(); KHUTIR.commit({ t: "collect", id: q.id }); return KHUTIR.view.b.find((b) => b.id === q.id).p >= 0; });
+  check("«Постійно» пересіяло поле після збору", au);
   // скасування: будівля повертає всі гроші
   const un = await p.evaluate(() => { const v = KHUTIR.view; let t = null; for (let y = 16; y < 28 && !t; y++) for (let x = 16; x < 28 && !t; x++) if (!KHUTIR.K.at(v, x, y) && !v.ob[KHUTIR.K.idx(x, y)] && !v.d[KHUTIR.K.idx(x, y)]) t = [x, y]; const c0 = v.coins; KHUTIR.commit({ t: "build", k: "well", x: t[0], y: t[1] }); return [c0, t]; });
   await p.tap("#placeU"); await p.waitForTimeout(300);

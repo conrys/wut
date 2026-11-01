@@ -299,6 +299,9 @@
     const st = b.p >= 0 ? '⏳ ще ' + secs(dur - b.p) + ((b.qn || 0) ? ' · далі в черзі ' + b.qn : '') : w === 'full' ? '✋ повно — збери' : w === 'queue' ? '💤 чекає на твою чергу' : '';
     const outR = K.outOf(b)[0];
     if (d.kind === 'field') {
+      const fields = s.b.filter((f) => f.k === 'field'), allOn = fields.every((f) => f.auto);
+      h += '<button class="row" data-a="' + A({ t: 'auto', id: b.id, on: !b.auto }) + '"><span class="ic">' + (b.auto ? '☑️' : '⬜') + '</span><span class="tx"><b>Постійно</b><small>Сіяти те саме щоразу, як заберуть урожай</small></span></button>';
+      if (fields.length > 1) h += '<div class="btns"><button class="btn sec" data-a="' + A({ t: 'auto', id: b.id, on: !allOn, all: 1 }) + '">' + (allOn ? 'Вимкнути на всіх полях' : 'Постійно на всіх полях') + '</button></div>';
       if (b.p < 0 && !b.buf) {
         h += '<p class="note">Що сіємо?</p>';
         for (const c in K.CROP) { const q = K.CROP[c], lock = s.lv < q.lv, dd = secs((q.d * dur) / K.CROP[b.cr || 'wheat'].d); h += '<button class="row' + (lock ? ' off' : '') + '" ' + (lock ? 'disabled' : 'data-a="' + A({ t: 'sow', id: b.id, c }) + '"') + '><span class="ic">' + RES[c].ic + '</span><span class="tx"><b>' + RES[c].n + '</b><small>' + (lock ? '🔒 з ' + q.lv + ' рівня' : dd + ' · врожай ' + q.y + ' · за цикл ' + q.y * RES[c].p + ' 💰') + '</small></span></button>'; }

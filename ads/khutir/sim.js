@@ -223,6 +223,7 @@
     for (const b of s.b) {
       if (!B[b.k].d) continue;
       if (b.h) flush(s, b);
+      if (b.auto && b.k === 'field' && b.cr && !b.buf && b.p < 0) b.p = 0;   // «Постійно»: сіє те саме, щойно врожай забрали
       if (b.p < 0 && canStart(s, b)) { if (B[b.k].in) b.qn--; b.p = 0; }
     }
   }
@@ -359,6 +360,11 @@
         if (s.lv < c.lv) return fail('Відкриється на ' + c.lv + ' рівні');
         if (b.p >= 0 || b.buf) return fail('Поле зайняте');
         b.cr = a.c; b.p = 0; res.fx.push([b.x, b.y, RES[a.c].ic]); return res;
+      }
+      case 'auto': {
+        const b = s.b.find((q) => q.id === a.id); if (!b || b.k !== 'field') return fail('Нема');
+        for (const q of a.all ? s.b.filter((f) => f.k === 'field') : [b]) q.auto = a.on ? 1 : 0;
+        kick(s); return res;
       }
       case 'queue': {
         const b = s.b.find((q) => q.id === a.id), d = b && B[b.k]; if (!b || !d.in) return fail('Нема');
