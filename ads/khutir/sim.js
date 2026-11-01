@@ -50,6 +50,8 @@
     pants: ['#3B4A6B', '#5D4037', '#263238', '#6D8B3A', '#8C2F39'],
     style: ['Сорочка', 'Вишиванка', 'Жилетка', 'Свитка'],
     hat: ['Без шапки', 'Бриль', 'Кашкет', 'Хустка', 'Вінок', 'Смушкова шапка'],
+    body: ['Чоловік', 'Жінка'],
+    face: ['Вуса', 'Борода', 'Без вусів'],   // старі селяни без b і f — чоловік із вусами
   };
   const VUP = { rt: { n: 'Маршрут', d: '+2 будівлі в обході' }, bk: { n: 'Кошик', d: '+4 місця в кошику' }, sp: { n: 'Чоботи', d: 'обхід на 20% швидший' } };
   const route = (v) => 3 + 2 * (v.u.rt || 0);
@@ -345,8 +347,8 @@
       case 'look': {
         const v = s.vl && s.vl[a.uid]; if (!v) return fail('Нема селянина');
         const c = a.c || {}, ok = (k, L) => Number.isInteger(c[k]) && c[k] >= 0 && c[k] < L;
-        if (!(ok('s', LOOK.skin.length) && ok('sh', LOOK.shirt.length) && ok('p', LOOK.pants.length) && ok('st', LOOK.style.length) && ok('h', LOOK.hat.length))) return fail('Не той вигляд');
-        v.c = { s: c.s, sh: c.sh, p: c.p, st: c.st, h: c.h }; return res;
+        if (!(ok('s', LOOK.skin.length) && ok('sh', LOOK.shirt.length) && ok('p', LOOK.pants.length) && ok('st', LOOK.style.length) && ok('h', LOOK.hat.length) && (c.b === undefined || ok('b', LOOK.body.length)) && (c.f === undefined || ok('f', LOOK.face.length)))) return fail('Не той вигляд');
+        v.c = { s: c.s, sh: c.sh, p: c.p, st: c.st, h: c.h, b: c.b || 0, f: c.f || 0 }; return res;
       }
       case 'vup': {
         const v = s.vl && s.vl[a.uid]; if (!v || !VUP[a.k]) return fail('Нема');

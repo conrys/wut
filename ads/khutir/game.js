@@ -296,9 +296,10 @@
     let h = '<div class="row" style="justify-content:center;background:linear-gradient(#9FD07A,#6DAF4E)"><canvas id="villPv" width="120" height="140" style="width:120px;height:140px" aria-label="Вигляд селянина"></canvas></div>';
     h += '<div class="row"><span class="ic">🧺</span><span class="tx"><b>Обходить ' + r.length + ' з ' + K.route(v) + ' будівель · кошик ' + K.basket(v) + '</b><small>обхід за ' + secs(K.tripMs(v)) + ' · усього приніс ' + fmt(v.got || 0) + '. Працює й тоді, коли нікого нема.</small></span></div>';
     if (!mine) return h;
-    const pick = (k, list, label) => '<div class="row"><span class="tx"><b>' + label + '</b><small>' + (k === 'st' || k === 'h' ? L[k === 'st' ? 'style' : 'hat'][c[k]] : '') + '</small></span><button class="sell" data-look="' + k + ':-1" aria-label="' + label + ': попередній">◀</button>' +
+    const names = { st: L.style, h: L.hat, b: L.body, f: L.face };
+    const pick = (k, list, label) => '<div class="row"><span class="tx"><b>' + label + '</b><small>' + (names[k] ? names[k][c[k] || 0] : '') + '</small></span><button class="sell" data-look="' + k + ':-1" aria-label="' + label + ': попередній">◀</button>' +
       (list ? '<span style="width:22px;height:22px;border-radius:50%;background:' + list[c[k]] + ';border:2px solid #fff;flex:none"></span>' : '') + '<button class="sell" data-look="' + k + ':1" aria-label="' + label + ': наступний">▶</button></div>';
-    h += pick('sh', L.shirt, 'Сорочка') + pick('st', null, 'Одяг') + pick('p', L.pants, 'Штани') + pick('h', null, 'Шапка') + pick('s', L.skin, 'Обличчя');
+    h += pick('b', null, 'Селянин') + (c.b === 1 ? '' : pick('f', null, 'Обличчя')) + pick('sh', L.shirt, 'Сорочка') + pick('st', null, 'Одяг') + pick('p', L.pants, c.b === 1 ? 'Спідниця' : 'Штани') + pick('h', null, 'Шапка') + pick('s', L.skin, 'Шкіра');
     const changed = JSON.stringify(c) !== JSON.stringify(v.c);
     h += '<div class="btns"><button class="btn" data-a="' + A({ t: 'look', uid: villFor, c }) + '"' + (changed ? '' : ' disabled') + '>Вдягнути</button><button class="btn sec" id="moveHome">🏠 Перенести хату</button></div>';
     for (const k in K.VUP) { const cost = K.vupCost(v, k); h += '<button class="row' + (K.canAfford(s, cost) ? '' : ' off') + '" data-a="' + A({ t: 'vup', uid: villFor, k }) + '"><span class="ic">' + (k === 'rt' ? '🗺' : k === 'bk' ? '🧺' : '👢') + '</span><span class="tx"><b>' + K.VUP[k].n + ' · рів. ' + ((v.u[k] || 0) + 1) + '</b><small>' + K.VUP[k].d + '</small></span><span class="pr">' + costTxt(cost) + '</span></button>'; }
@@ -308,8 +309,8 @@
     const pv = $('villPv'); if (pv && lookDraft) { const q = pv.getContext('2d'); q.clearRect(0, 0, 120, 140); drawVillager(q, 60, 124, 3.2, lookDraft.c, performance.now(), false, 1); }
     $('shB').querySelectorAll('[data-look]').forEach((el) => el.addEventListener('click', () => {
       if (fresh()) return;
-      const [k, d] = el.dataset.look.split(':'), n = { s: K.LOOK.skin, sh: K.LOOK.shirt, p: K.LOOK.pants, st: K.LOOK.style, h: K.LOOK.hat }[k].length;
-      lookDraft.c[k] = (lookDraft.c[k] + +d + n) % n; sfx('pick'); sheetFn();
+      const [k, d] = el.dataset.look.split(':'), n = { s: K.LOOK.skin, sh: K.LOOK.shirt, p: K.LOOK.pants, st: K.LOOK.style, h: K.LOOK.hat, b: K.LOOK.body, f: K.LOOK.face }[k].length;
+      lookDraft.c[k] = ((lookDraft.c[k] || 0) + +d + n) % n; sfx('pick'); sheetFn();
     }));
     const mh = $('moveHome'); if (mh) mh.onclick = () => { if (fresh()) return; closeSheet(); placing = '@home'; $('place').hidden = false; $('placeT').textContent = 'Куди перенести хату?'; };
   }
@@ -622,7 +623,7 @@
   // кадри ходи: 0 стоїть, 1 крок, 2 стоїть, 3 другий крок; back — вид зі спини
   function pxFrame(c, fr, basket, back) {
     const L = K.LOOK, skin = L.skin[c.s] || L.skin[0], shirt = L.shirt[c.sh] || L.shirt[0], pants = L.pants[c.p] || L.pants[0];
-    const key = [c.s, c.sh, c.p, c.st, c.h, fr, basket ? 1 : 0, back ? 1 : 0].join();
+    const fem = c.b === 1, key = [c.s, c.sh, c.p, c.st, c.h, c.b | 0, c.f | 0, fr, basket ? 1 : 0, back ? 1 : 0].join();
     if (pxCache.has(key)) return pxCache.get(key);
     const cv2 = document.createElement('canvas'); cv2.width = PXW; cv2.height = PXH;
     const q = cv2.getContext('2d'), R = (col, x, y, w, h) => { q.fillStyle = col; q.fillRect(x, y, w, h); };
@@ -630,11 +631,13 @@
     const boot = '#4A2E1C', bootL = '#6B4428', red = '#C62828', hair = '#5A3A22', navy = '#1E2A44';
     const coat = c.st === 3, body = coat ? '#8A6239' : shirt, seam = pxShade(coat ? '#8A6239' : shirt, 0.84), low = coat ? 31 : 28;
     // дальня нога й рука темніші
-    const far = fr === 1 ? 9 : fr === 3 ? 17 : 11, near = fr === 1 ? 17 : fr === 3 ? 9 : 15;
+    const far = fem ? (fr === 1 ? 10 : fr === 3 ? 15 : 11) : fr === 1 ? 9 : fr === 3 ? 17 : 11, near = fem ? (fr === 1 ? 15 : fr === 3 ? 10 : 14) : fr === 1 ? 17 : fr === 3 ? 9 : 15;
     R(pxShade(pants, 0.72), far, 28, 4, 7 - up); R(pxShade(boot, 0.8), far, 34 - up, 5, 3);
     R(pxShade(body, 0.72), 7 + sw, 18 + dy, 3, 8); R(pxShade(skin, 0.85), 7 + sw, 26 + dy, 3, 2);
     // ближня нога
     R(pants, near, 28, 4, 7); R(pxShade(pants, 0.84), near, 28, 1, 6); R(boot, near, 34, 5, 3); R(bootL, near + 1, 34, 3, 1);
+    // спідниця з вишитим подолом
+    if (fem) { R(pants, 9, 27, 12, 3); R(pants, 8, 30, 14, 4); R(pxShade(pants, 0.84), 9, 27, 2, 3); R(pxShade(pants, 0.84), 8, 30, 2, 4); R(pxShade(pants, 1.15), 16, 28, 2, 5); R('#FFF6D5', 8, 33, 14, 1); R(red, 10, 33, 1, 1); R(red, 14, 33, 1, 1); R(red, 18, 33, 1, 1); }
     // тулуб
     R(body, 9, 17 + dy, 11, low - 17); R(seam, 9, 17 + dy, 2, low - 17);
     if (!back) R(pxShade(body, 1.08), 16, 18 + dy, 2, 7);
@@ -658,8 +661,13 @@
     if (back) { R(hair, 10, 8 + dy, 10, 7); R(pxShade('#5A3A22', 0.8), 10, 8 + dy, 2, 7); }
     else {
       R('#2B1D14', 17, 11 + dy, 1, 2); R(pxShade(skin, 0.8), 19, 12 + dy, 2, 2); R('#E28B7A', 16, 14 + dy, 1, 1);
-      R(hair, 15, 14 + dy, 6, 1); R(hair, 20, 15 + dy, 1, 1); R(hair, 10, 9 + dy, 3, 3);
+      R(hair, 10, 9 + dy, 3, 3);
+      if (fem) R('#B5473F', 17, 15 + dy, 2, 1);
+      else if ((c.f | 0) === 0) { R(hair, 15, 14 + dy, 6, 1); R(hair, 20, 15 + dy, 1, 1); }
+      else if (c.f === 1) { R(hair, 12, 14 + dy, 9, 2); R(hair, 13, 16 + dy, 8, 2); R(hair, 15, 18 + dy, 5, 1); R(skin, 17, 14 + dy, 3, 1); }
     }
+    // коса: збоку або по центру спини, зі стрічкою
+    if (fem) { const bx = back ? 14 : 9; R(hair, 10, 8 + dy, 3, 5); if (back) R(hair, 10, 8 + dy, 10, 8); R(hair, bx, 13 + dy, 3, 11); R('#47301C', bx, 15 + dy, 3, 1); R('#47301C', bx, 18 + dy, 3, 1); R('#47301C', bx, 21 + dy, 3, 1); R(red, bx, 24 + dy, 3, 2); }
     // шапка
     if (c.h === 0) { R(hair, 10, 6 + dy, 10, 3); R(hair, 9, 7 + dy, 2, 4); if (!back) R(pxShade('#5A3A22', 1.25), 15, 6 + dy, 3, 1); }
     if (c.h === 1) { R('#E3C16F', 5, 7 + dy, 20, 2); R('#B5913F', 5, 8 + dy, 20, 1); R('#E3C16F', 9, 2 + dy, 12, 5); R('#F0D68F', 15, 3 + dy, 4, 1); R('#C9A24A', 9, 2 + dy, 2, 5); R('#B23A2E', 9, 5 + dy, 12, 2); }
