@@ -70,6 +70,19 @@ const tapTile = async (p, x, y) => { await p.evaluate(([x, y]) => { KHUTIR.focus
   await p.waitForTimeout(300); await p.tap("#fenceAll"); await p.waitForTimeout(500);
   check("уся лінія тину прибрана", await p.evaluate(() => Object.keys(KHUTIR.view.f).length === 0));
   await p.evaluate(() => { KHUTIR.commit({ t: "fence", x: 20, y: 18, e: 1 }); KHUTIR.closeSheet(); });
+  // тин: чернетка з кутом, гроші лише після підтвердження
+  await p.evaluate(() => { KHUTIR.closeSheet(); KHUTIR.focus(22, 20); KHUTIR.cam.z = 1.4; }); await p.tap("#bBuild"); await p.waitForTimeout(400);
+  await (await p.$("#shB button.row:has(b:text-is('Тин'))")).tap(); await p.waitForTimeout(400);
+  const c1 = await p.evaluate(() => KHUTIR.view.coins);
+  const pt = await p.evaluate(() => [[21.5, 21.5], [24.5, 21.5], [24.5, 24.5]].map(([x, y]) => KHUTIR.screenOf(x, y)));
+  await p.mouse.move(pt[0][0], pt[0][1]); await p.mouse.down(); await p.mouse.move(pt[1][0], pt[1][1], { steps: 8 }); await p.mouse.move(pt[2][0], pt[2][1], { steps: 8 }); await p.mouse.up(); await p.waitForTimeout(300);
+  await p.screenshot({ path: OUT + "/5-fence.png" });
+  check("кут за один рух: 6 секцій, гроші не списані", await p.evaluate((c) => KHUTIR.draftN === 6 && KHUTIR.view.coins === c, c1), String(await p.evaluate(() => KHUTIR.draftN)));
+  await p.tap("#placeU"); await p.waitForTimeout(200);
+  check("«Назад» прибрав рух", (await p.evaluate(() => KHUTIR.draftN)) === 0);
+  await p.mouse.move(pt[0][0], pt[0][1]); await p.mouse.down(); await p.mouse.move(pt[1][0], pt[1][1], { steps: 8 }); await p.mouse.up(); await p.waitForTimeout(200);
+  await p.tap("#placeOk"); await p.waitForTimeout(400);
+  check("«Поставити» списало за 3 секції", await p.evaluate((c) => KHUTIR.view.coins === c - 24 && !KHUTIR.placing, c1));
   // торговець
   await p.evaluate(() => { KHUTIR.commit({ t: "build", k: "market", x: 24, y: 24 }); const t = Date.now() + 0, every = 3 * 3600e3, ph = t % every; if (ph >= 80 * 60e3) KHUTIR.warp(every - ph + 60e3); KHUTIR.S.st.wheat = 60; KHUTIR.refresh(); });
   const m = await p.evaluate(() => KHUTIR.K.market(KHUTIR.view, KHUTIR.view.t));

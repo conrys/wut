@@ -397,6 +397,13 @@
         for (const [r, n] of B[b.k].in || []) s.st[r] = (s.st[r] || 0) + n * ((b.qn || 0) + (b.p >= 0 ? 1 : 0));
         s.b.splice(i, 1); kick(s); return res;
       }
+      case 'fences': {
+        // весь намальований тин однією дією: гроші списуються разом або ніяк
+        const list = (a.l || []).filter(([x, y, e]) => !s.f[fenceKey(x, y, e)] && (owned(s, x, y) || owned(s, x + (e ? 0 : 1), y + (e ? 1 : 0))));
+        if (!list.length) return fail('Нема що ставити');
+        const c = list.length * DECOR.fence.c; if (s.coins < c) return fail('Треба ' + c + ' 💰');
+        s.coins -= c; for (const [x, y, e] of list) s.f[fenceKey(x, y, e)] = 1; return res;
+      }
       case 'undeco': {
         const i = idx(a.x, a.y), k = s.d[i]; if (!k) return fail('Нема');
         delete s.d[i]; if (DECOR[k].shop === false) s.inv[k] = (s.inv[k] || 0) + 1; else s.coins += a.full ? DECOR[k].c : Math.floor(DECOR[k].c / 2); return res;

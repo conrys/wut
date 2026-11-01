@@ -426,11 +426,42 @@
   let placing = null, painting = false;
   function startPlace(k) {
     closeSheet(); placing = k; $('place').hidden = false; $('tip').hidden = true;
-    if (k.startsWith('deco:')) { const d = K.DECOR[k.slice(5)]; $('placeT').textContent = k === 'deco:fence' ? '🪵 Тин: веди пальцем уздовж краю клітинок, дотик по тину прибере його' : d.ic + ' ' + d.n + ': торкайся або веди пальцем'; $('placeX').textContent = 'Готово'; }
+    if (k.startsWith('deco:')) { const d = K.DECOR[k.slice(5)]; $('placeT').textContent = d.ic + ' ' + d.n + ': торкайся або веди пальцем'; $('placeX').textContent = 'Готово'; if (k === 'deco:fence') fenceBar(); }
     else { $('placeT').textContent = 'Куди поставити ' + B[k].ic + ' ' + B[k].n + '?'; $('placeX').textContent = 'Скасувати'; }
   }
-  function cancelPlace() { placing = null; undoList = []; undoB = 0; clearTimeout(undoT); $('placeU').hidden = true; $('place').hidden = true; }
+  function cancelPlace() { placing = null; undoList = []; undoB = 0; draft.clear(); clearTimeout(undoT); $('placeU').hidden = true; $('placeOk').hidden = true; $('place').hidden = true; }
   $('placeX').addEventListener('click', cancelPlace);
+  // Тин спершу малюється чернеткою: гроші списуються лише кнопкою «Поставити», тож мисклік нічого не коштує.
+  // Палець іде по кутах клітинок, тому повороти виходять самі.
+  const draft = new Map();
+  function fenceBar() {
+    const n = draft.size, c = n * K.DECOR.fence.c, ok = view && view.coins >= c;
+    $('placeT').textContent = n ? '🪵 Секцій: ' + n + ' · ' + c + ' 💰' + (ok ? '' : ' (бракує)') : '🪵 Веди пальцем по краях клітинок. Двома пальцями — рухати карту';
+    $('placeX').textContent = 'Скасувати'; $('placeOk').hidden = !n; $('placeOk').disabled = !ok; $('placeU').hidden = !n;
+  }
+  function draftEdge(x, y, e) {
+    const s = view, key = K.fenceKey(x, y, e), own = K.owned(s, x, y) || K.owned(s, x + (e ? 0 : 1), y + (e ? 1 : 0));
+    if (s.f[key] || !own) return;
+    if (draft.has(key)) { const keys = [...draft.keys()]; if (keys[keys.length - 1] === key || !gest || !gest.vtx) draft.delete(key); }
+    else draft.set(key, { x, y, e, st: stroke });
+    fenceBar();
+  }
+  const vertexAt = (px, py) => { const X = (px - W / 2) / cam.z + cam.x, Y = (py - H / 2) / cam.z + cam.y, a = (2 * X) / TW, b = (2 * Y) / TH; return [Math.round((a + b) / 2 + 0.5), Math.round((b - a) / 2 + 0.5)]; };
+  // крок між сусідніми кутами клітинок = одна секція; швидкий рух розкладається на кроки
+  function fenceDrag(px, py, g0) {
+    const v = vertexAt(px, py);
+    if (!g0.vtx) { g0.vtx = vertexAt(g0.sx, g0.sy); }
+    let [a, b] = g0.vtx;
+    while (a !== v[0] || b !== v[1]) {
+      if (Math.abs(v[0] - a) >= Math.abs(v[1] - b)) { const d = Math.sign(v[0] - a), na = a + d; draftEdge(Math.min(a, na), b - 1, 1); a = na; }
+      else { const d = Math.sign(v[1] - b), nb = b + d; draftEdge(a - 1, Math.min(b, nb), 0); b = nb; }
+      g0.vtx = [a, b];
+    }
+  }
+  $('placeOk').addEventListener('click', () => {
+    au(); const l = [...draft.values()].map((q) => [q.x, q.y, q.e]), r = commit({ t: 'fences', l });
+    if (r && r.ok) cancelPlace();
+  });
   // скасування: штрих прикрас цілком або щойно поставлена будівля — із поверненням усього сплаченого
   let undoList = [], undoB = 0, undoT = 0, stroke = 0, undoing = false;
   function noteUndo(a) {
@@ -439,10 +470,12 @@
       undoB = S.b.reduce((m, b) => Math.max(m, b.id), 0); undoList = [];
       $('placeT').textContent = '✓ ' + B[a.k].n + ' на місці'; $('placeX').textContent = 'Гаразд'; $('placeU').hidden = false; $('place').hidden = false;
       clearTimeout(undoT); undoT = setTimeout(() => { if (!placing) cancelPlace(); }, 10000);
-    } else if ((a.t === 'deco' || (a.t === 'fence' && !a.off)) && placing) { undoList.push([stroke, a]); $('placeU').hidden = false; }
+    } else if (a.t === 'deco' && placing) { undoList.push([stroke, a]); $('placeU').hidden = false; }
   }
   $('placeU').addEventListener('click', () => {
-    au(); undoing = true;
+    au();
+    if (placing === 'deco:fence') { const v = [...draft.values()], last = v.length ? v[v.length - 1].st : -1; for (const [k, q] of [...draft]) if (q.st === last) draft.delete(k); fenceBar(); return; }
+    undoing = true;
     if (undoB) { commit({ t: 'unbuild', id: undoB }); undoing = false; cancelPlace(); return; }
     const last = undoList.length ? undoList[undoList.length - 1][0] : -1;
     while (undoList.length && undoList[undoList.length - 1][0] === last) {
@@ -1050,6 +1083,7 @@
       g.globalCompositeOperation = 'source-over';
     }
     for (const m of marks) m();
+    if (draft.size) { g.globalAlpha = 0.75; for (const q of draft.values()) drawFence(q.x, q.y, q.e, z); g.globalAlpha = 1; for (const q of draft.values()) { const a = q.e ? [q.x + 0.5, q.y + 0.5, q.x - 0.5, q.y + 0.5] : [q.x + 0.5, q.y - 0.5, q.x + 0.5, q.y + 0.5]; g.strokeStyle = '#FFC93C'; g.lineWidth = 2.5 * z; g.beginPath(); g.moveTo(sx(a[0], a[1]), sy(a[0], a[1])); g.lineTo(sx(a[2], a[3]), sy(a[2], a[3])); g.stroke(); } }
     for (const [bx, by, bz, ic, warn] of bubbles) bubble(bx, by, bz, t, ic, warn);
     // таблички на землі, яку можна купити
     for (const c of buyable) {
@@ -1134,9 +1168,7 @@
     } else if (!gest.pinch) {
       if (Math.hypot(p.x - p.x0, p.y - p.y0) > 8) gest.moved = true;
       if (gest.moved && ptr.size === 1 && placing === 'deco:fence') {
-        const [x, y, e] = edgeAt(p.x, p.y, gest.fe), key = x + ':' + y + ':' + e;
-        if (gest.fe === undefined) gest.fe = e;
-        if (gest.tile !== key) { gest.tile = key; if (!view.f[K.fenceKey(x, y, e)]) { const c = clone(S); if (K.act(c, { t: 'fence', x, y, e }, now(), me.name || 'Гість').ok) commit({ t: 'fence', x, y, e }); } }
+        gest.sx = p.x0; gest.sy = p.y0; fenceDrag(p.x, p.y, gest);
       } else if (gest.moved && ptr.size === 1 && placing && placing.startsWith('deco:')) {
         const [x, y] = pick(p.x, p.y), key = x + ':' + y;
         if (gest.tile !== key) { gest.tile = key; painting = true; tapTile(x, y); painting = false; }
@@ -1148,7 +1180,7 @@
     if (!p || !gest) return;
     if (!gest.moved && !gest.pinch && ptr.size === 0 && performance.now() - p.t0 < 600) {
       const hit = view ? fenceAtPoint(p.x, p.y) : null;
-      if (placing === 'deco:fence') { if (hit) commit({ t: 'fence', x: hit.x, y: hit.y, e: hit.e, off: 1 }); else { const [x, y, e] = edgeAt(p.x, p.y); commit({ t: 'fence', x, y, e }); } ptr.size || (gest = null); return; }
+      if (placing === 'deco:fence') { const [x, y, e] = edgeAt(p.x, p.y); gest = null; draftEdge(x, y, e); return; }
       if (!placing && view && tapVillager(p.x, p.y)) return; const [x, y] = pick(p.x, p.y);
       if (!placing && hit && (hit.d < 7 * cam.z || !K.at(view, x, y))) { fenceSheet({ x: hit.x, y: hit.y, e: hit.e }); ptr.size || (gest = null); return; }
       tapTile(x, y);
@@ -1183,7 +1215,7 @@
   // ================= тест-хук =================
   window.KHUTIR = {
     get S() { return S; }, get view() { return view; }, get mode() { return mode; }, get code() { return code; }, get cam() { return cam; },
-    villLegs(uid) { const s = view, v = s.vl[uid], h = s.b.find((b) => b.id === v.home); return villLegs(s, h, K.routes(s)[uid] || []); }, fenceAtPoint, fenceLine, get undoN() { return undoList.length; }, commit, tapTile, warp(ms) { warp += ms; refreshView(true); }, refresh() { refreshView(true); }, startSolo, openShared, showMenu, go, closeSheet,
+    villLegs(uid) { const s = view, v = s.vl[uid], h = s.b.find((b) => b.id === v.home); return villLegs(s, h, K.routes(s)[uid] || []); }, fenceAtPoint, fenceLine, get draftN() { return draft.size; }, get undoN() { return undoList.length; }, commit, tapTile, warp(ms) { warp += ms; refreshView(true); }, refresh() { refreshView(true); }, startSolo, openShared, showMenu, go, closeSheet,
     pxFrame, K, screenOf(x, y) { return [sx(x, y), sy(x, y)]; }, get vpos() { return vpos; }, darkness, DAY, focus(x, y) { cam.x = wx(x, y); cam.y = wy(x, y); }, get sheetOpen() { return !!sheetFn; }, get placing() { return placing; }, me,
   };
 
