@@ -616,92 +616,90 @@
     if (warn) { g.strokeStyle = '#FF6B6B'; g.lineWidth = 2 * z; g.beginPath(); g.moveTo(cx - 8 * z, by + 8 * z); g.lineTo(cx + 8 * z, by - 8 * z); g.stroke(); }
   }
 
-  // тестовий піксельний селянин: поки лише для dev-акаунтів (?px=1 — увімкнути будь-де)
-  const PIXEL_VILL = (() => { try { const u = String((JSON.parse(localStorage.getItem('games41_session')) || {}).username || '').toLowerCase(); return /[?&]px=1/.test(location.search) || ['conrys', 'test', '1111'].includes(u); } catch (e) { return /[?&]px=1/.test(location.search); } })();
+  // селянин — піксельний: кадр малюється на маленькій сітці, контур додається сам, як у спрайтів світу
   const PXW = 28, PXH = 40, pxCache = new Map();
   const pxShade = (hex, f) => { const n = parseInt(hex.slice(1), 16), m = (v) => Math.max(0, Math.min(255, Math.round(v * f))); return 'rgb(' + m(n >> 16) + ',' + m((n >> 8) & 255) + ',' + m(n & 255) + ')'; };
-  // кадр малюється на маленькій сітці; контур додається сам, як у спрайтів світу
-  function pxFrame(c, fr, basket) {
+  // кадри ходи: 0 стоїть, 1 крок, 2 стоїть, 3 другий крок; back — вид зі спини
+  function pxFrame(c, fr, basket, back) {
     const L = K.LOOK, skin = L.skin[c.s] || L.skin[0], shirt = L.shirt[c.sh] || L.shirt[0], pants = L.pants[c.p] || L.pants[0];
-    const key = [c.s, c.sh, c.p, fr, basket ? 1 : 0].join();
+    const key = [c.s, c.sh, c.p, c.st, c.h, fr, basket ? 1 : 0, back ? 1 : 0].join();
     if (pxCache.has(key)) return pxCache.get(key);
     const cv2 = document.createElement('canvas'); cv2.width = PXW; cv2.height = PXH;
     const q = cv2.getContext('2d'), R = (col, x, y, w, h) => { q.fillStyle = col; q.fillRect(x, y, w, h); };
-    const up = fr === 1 || fr === 3 ? 1 : 0, sw = fr === 1 ? 2 : fr === 3 ? -2 : 0, dy = -up;   // кадри ходи: 0 стоїть, 1 крок, 2 стоїть, 3 другий крок
-    const boot = '#4A2E1C', bootL = '#6B4428', red = '#C62828';
+    const up = fr === 1 || fr === 3 ? 1 : 0, sw = fr === 1 ? 2 : fr === 3 ? -2 : 0, dy = -up;
+    const boot = '#4A2E1C', bootL = '#6B4428', red = '#C62828', hair = '#5A3A22', navy = '#1E2A44';
+    const coat = c.st === 3, body = coat ? '#8A6239' : shirt, seam = pxShade(coat ? '#8A6239' : shirt, 0.84), low = coat ? 31 : 28;
     // дальня нога й рука темніші
     const far = fr === 1 ? 9 : fr === 3 ? 17 : 11, near = fr === 1 ? 17 : fr === 3 ? 9 : 15;
     R(pxShade(pants, 0.72), far, 28, 4, 7 - up); R(pxShade(boot, 0.8), far, 34 - up, 5, 3);
-    R(pxShade(shirt, 0.72), 7 + sw, 18 + dy, 3, 8); R(pxShade(skin, 0.85), 7 + sw, 26 + dy, 3, 2);
+    R(pxShade(body, 0.72), 7 + sw, 18 + dy, 3, 8); R(pxShade(skin, 0.85), 7 + sw, 26 + dy, 3, 2);
     // ближня нога
     R(pants, near, 28, 4, 7); R(pxShade(pants, 0.84), near, 28, 1, 6); R(boot, near, 34, 5, 3); R(bootL, near + 1, 34, 3, 1);
-    // тулуб: вишита сорочка навипуск і червоний пояс
-    R(shirt, 9, 17 + dy, 11, 11); R(pxShade(shirt, 0.84), 9, 17 + dy, 2, 11); R(pxShade(shirt, 1.08), 16, 18 + dy, 2, 7);
-    R(red, 14, 17 + dy, 2, 7); R('#1E2A44', 14, 18 + dy, 1, 1); R('#1E2A44', 15, 20 + dy, 1, 1); R('#1E2A44', 14, 22 + dy, 1, 1);
-    R(red, 9, 25 + dy, 11, 2); R('#8E1B1B', 9, 26 + dy, 11, 1);
-    // голова, вуса, око
+    // тулуб
+    R(body, 9, 17 + dy, 11, low - 17); R(seam, 9, 17 + dy, 2, low - 17);
+    if (!back) R(pxShade(body, 1.08), 16, 18 + dy, 2, 7);
+    if (c.st === 0) { R(seam, 14, 17 + dy, 1, 8); R('#6B4428', 9, 25 + dy, 11, 2); R('#4A2E1C', 9, 26 + dy, 11, 1); }
+    if (c.st === 1) {
+      if (!back) { R(red, 14, 17 + dy, 2, 7); R(navy, 14, 18 + dy, 1, 1); R(navy, 15, 20 + dy, 1, 1); R(navy, 14, 22 + dy, 1, 1); }
+      else { R(red, 9, 18 + dy, 11, 1); R(navy, 11, 18 + dy, 1, 1); R(navy, 14, 18 + dy, 1, 1); R(navy, 17, 18 + dy, 1, 1); }
+      R(red, 9, 25 + dy, 11, 2); R('#8E1B1B', 9, 26 + dy, 11, 1);
+    }
+    if (c.st === 2) {
+      const vest = '#2E2A24'; if (back) R(vest, 9, 17 + dy, 11, 10); else { R(vest, 9, 17 + dy, 4, 10); R(vest, 17, 17 + dy, 3, 10); R('#57504A', 13, 19 + dy, 1, 7); R('#E3C16F', 17, 20 + dy, 1, 1); R('#E3C16F', 17, 23 + dy, 1, 1); }
+    }
+    if (coat) {
+      R('#6B4A28', 9, 29 + dy, 11, 1);
+      if (back) R('#6B4A28', 14, 17 + dy, 1, 13);
+      else { R(shirt, 13, 17 + dy, 3, 4); R('#6B4A28', 14, 21 + dy, 1, 9); R('#E3C16F', 15, 23 + dy, 1, 1); R('#E3C16F', 15, 26 + dy, 1, 1); }
+      R(red, 9, 24 + dy, 11, 1);
+    }
+    // голова
     R(skin, 10, 8 + dy, 10, 9); R(pxShade(skin, 0.86), 10, 8 + dy, 2, 9); R(pxShade(skin, 0.86), 12, 16 + dy, 7, 1);
-    R('#2B1D14', 17, 11 + dy, 1, 2); R(pxShade(skin, 0.8), 19, 12 + dy, 2, 2); R('#E28B7A', 16, 14 + dy, 1, 1);
-    R('#5A3A22', 15, 14 + dy, 6, 1); R('#5A3A22', 20, 15 + dy, 1, 1); R('#5A3A22', 10, 9 + dy, 3, 3);
-    // бриль
-    R('#E3C16F', 5, 7 + dy, 20, 2); R('#B5913F', 5, 8 + dy, 20, 1); R('#E3C16F', 9, 2 + dy, 12, 5); R('#F0D68F', 15, 3 + dy, 4, 1); R('#C9A24A', 9, 2 + dy, 2, 5); R('#B23A2E', 9, 5 + dy, 12, 2);
+    if (back) { R(hair, 10, 8 + dy, 10, 7); R(pxShade('#5A3A22', 0.8), 10, 8 + dy, 2, 7); }
+    else {
+      R('#2B1D14', 17, 11 + dy, 1, 2); R(pxShade(skin, 0.8), 19, 12 + dy, 2, 2); R('#E28B7A', 16, 14 + dy, 1, 1);
+      R(hair, 15, 14 + dy, 6, 1); R(hair, 20, 15 + dy, 1, 1); R(hair, 10, 9 + dy, 3, 3);
+    }
+    // шапка
+    if (c.h === 0) { R(hair, 10, 6 + dy, 10, 3); R(hair, 9, 7 + dy, 2, 4); if (!back) R(pxShade('#5A3A22', 1.25), 15, 6 + dy, 3, 1); }
+    if (c.h === 1) { R('#E3C16F', 5, 7 + dy, 20, 2); R('#B5913F', 5, 8 + dy, 20, 1); R('#E3C16F', 9, 2 + dy, 12, 5); R('#F0D68F', 15, 3 + dy, 4, 1); R('#C9A24A', 9, 2 + dy, 2, 5); R('#B23A2E', 9, 5 + dy, 12, 2); }
+    if (c.h === 2) { R('#37474F', 9, 4 + dy, 12, 4); R('#263238', 9, 4 + dy, 2, 4); R('#546E7A', 14, 4 + dy, 4, 1); R('#263238', 9, 7 + dy, 12, 1); if (!back) R('#1B2428', 19, 7 + dy, 6, 2); }
+    if (c.h === 3) {
+      R('#D32F2F', 9, 5 + dy, 12, 5); R('#D32F2F', 9, 10 + dy, 3, 7); R('#A32020', 9, 5 + dy, 2, 12);
+      if (back) { R('#D32F2F', 10, 10 + dy, 10, 6); R('#A32020', 13, 16 + dy, 4, 2); }
+      R('#FDD835', 13, 6 + dy, 1, 1); R('#FDD835', 17, 7 + dy, 1, 1); R('#FDD835', 15, 8 + dy, 1, 1); R('#FDD835', 10, 12 + dy, 1, 1);
+    }
+    if (c.h === 4) {
+      R(hair, 10, 6 + dy, 10, 3); R(hair, 9, 7 + dy, 2, 9); if (back) R(hair, 10, 8 + dy, 10, 11);
+      [['#E53935', 9], ['#FDD835', 12], ['#1E88E5', 15], ['#E53935', 18], ['#8E24AA', 21]].forEach(([col, x], n) => { R(col, x - 1, 5 + dy + (n % 2), 3, 3); R('#FFF6D5', x, 6 + dy + (n % 2), 1, 1); });
+      R('#E53935', 8, 9 + dy, 1, 13); R('#1E88E5', 9, 11 + dy, 1, 12); R('#FDD835', 7, 10 + dy, 1, 9);
+    }
+    if (c.h === 5) { R('#1F1A17', 8, 1 + dy, 14, 8); R('#3A2F28', 8, 1 + dy, 14, 1); R('#3A2F28', 11, 3 + dy, 2, 1); R('#3A2F28', 16, 5 + dy, 2, 1); R('#3A2F28', 13, 7 + dy, 2, 1); }
     // ближня рука або кошик
+    const sleeve = body, cuff = c.st === 1 ? red : pxShade(body, 0.84);
     if (basket) {
-      R(shirt, 19, 18 + dy, 3, 6); R(shirt, 21, 22 + dy, 3, 3); R(skin, 23, 22 + dy, 2, 3);
+      R(sleeve, 19, 18 + dy, 3, 6); R(sleeve, 21, 22 + dy, 3, 3); R(skin, 23, 22 + dy, 2, 3);
       R('#B5823C', 19, 26 + dy, 8, 6); R('#8A5A2B', 19, 26 + dy, 8, 1); R('#8A5A2B', 20, 28 + dy, 6, 1); R('#8A5A2B', 20, 30 + dy, 6, 1); R('#E3C16F', 21, 25 + dy, 4, 1);
-    } else { R(shirt, 19 - sw, 18 + dy, 3, 8); R(pxShade(shirt, 0.84), 19 - sw, 18 + dy, 1, 8); R(skin, 19 - sw, 26 + dy, 3, 2); }
+    } else { R(sleeve, 19 - sw, 18 + dy, 3, 8); R(pxShade(body, 0.84), 19 - sw, 18 + dy, 1, 8); R(cuff, 19 - sw, 25 + dy, 3, 1); R(skin, 19 - sw, 26 + dy, 3, 2); }
     // контур
     const im = q.getImageData(0, 0, PXW, PXH), d = im.data, on = (x, y) => x >= 0 && y >= 0 && x < PXW && y < PXH && d[(y * PXW + x) * 4 + 3] > 200;
     const edge = []; for (let y = 0; y < PXH; y++) for (let x = 0; x < PXW; x++) if (!on(x, y) && (on(x - 1, y) || on(x + 1, y) || on(x, y - 1) || on(x, y + 1))) edge.push([x, y]);
     q.fillStyle = '#2A1C14'; for (const [x, y] of edge) q.fillRect(x, y, 1, 1);
     pxCache.set(key, cv2); return cv2;
   }
-  function drawPixelVillager(q, x, y, k, c, t, walk, dir, basket) {
-    const fr = walk ? Math.floor(t / 130) % 4 : 0, cell = 0.6 * k, im = pxFrame(c, fr, basket);
+  // q — контекст, (x,y) — точка під ногами, k — масштаб, c — вигляд, walk — чи йде, dir — ±1 куди дивиться, back — іде від нас
+  function drawVillager(q, x, y, k, c, t, walk, dir, basket, back) {
+    const fr = walk ? Math.floor(t / 130) % 4 : 0, cell = 0.6 * k, im = pxFrame(c, fr, basket, back);
     q.save(); q.translate(x, y); q.fillStyle = 'rgba(0,0,0,.25)'; q.beginPath(); q.ellipse(0, 0, 6 * k, 2.2 * k, 0, 0, 7); q.fill();
     q.scale(dir < 0 ? -1 : 1, 1); q.imageSmoothingEnabled = false;
     q.drawImage(im, -14 * cell, -37.5 * cell, PXW * cell, PXH * cell);
     q.imageSmoothingEnabled = true; q.restore();
   }
-  // селянин: q — контекст, (x,y) — точка під ногами, k — масштаб, c — вигляд, walk — чи йде, dir — ±1 куди дивиться
-  function drawVillager(q, x, y, k, c, t, walk, dir, basket) {
-    if (PIXEL_VILL) { drawPixelVillager(q, x, y, k, c, t, walk, dir, basket); return; }
-    const L = K.LOOK, skin = L.skin[c.s] || L.skin[0], shirt = L.shirt[c.sh] || L.shirt[0], pants = L.pants[c.p] || L.pants[0];
-    const ph = walk ? Math.sin(t / 110) : 0, bob = walk ? Math.abs(Math.sin(t / 110)) * 0.8 * k : 0;
-    q.save(); q.translate(x, y - bob); q.scale(dir < 0 ? -1 : 1, 1);
-    q.fillStyle = 'rgba(0,0,0,.22)'; q.beginPath(); q.ellipse(0, bob, 4.5 * k, 1.8 * k, 0, 0, 7); q.fill();
-    // ноги
-    q.fillStyle = pants; q.fillRect(-2.6 * k + ph * 0.8 * k, -6 * k, 2.2 * k, 6 * k); q.fillRect(0.4 * k - ph * 0.8 * k, -6 * k, 2.2 * k, 6 * k);
-    q.fillStyle = '#3B2A1E'; q.fillRect(-2.8 * k + ph * 0.8 * k, -1 * k, 2.6 * k, 1.2 * k); q.fillRect(0.3 * k - ph * 0.8 * k, -1 * k, 2.6 * k, 1.2 * k);
-    // тулуб
-    const coat = c.st === 3, len = coat ? 9.5 : 7;
-    q.fillStyle = coat ? '#7A5532' : shirt; q.beginPath(); q.moveTo(-3.6 * k, -5.2 * k + (coat ? 2.5 * k : 0)); q.lineTo(3.6 * k, -5.2 * k + (coat ? 2.5 * k : 0)); q.lineTo(3 * k, -5.5 * k - len * k + 2 * k); q.lineTo(-3 * k, -5.5 * k - len * k + 2 * k); q.closePath(); q.fill();
-    if (coat) { q.fillStyle = shirt; q.fillRect(-1 * k, -12 * k, 2 * k, 5 * k); }
-    if (c.st === 1) { q.fillStyle = '#C62828'; q.fillRect(-0.6 * k, -12 * k, 1.2 * k, 4 * k); q.fillRect(-3 * k, -7.2 * k, 6 * k, 0.9 * k); q.fillRect(-3.3 * k, -10.5 * k, 1 * k, 1 * k); q.fillRect(2.3 * k, -10.5 * k, 1 * k, 1 * k); }
-    if (c.st === 2) { q.fillStyle = '#2E2A24'; q.fillRect(-3.3 * k, -12 * k, 2 * k, 6.6 * k); q.fillRect(1.3 * k, -12 * k, 2 * k, 6.6 * k); }
-    // руки
-    q.fillStyle = coat ? '#7A5532' : shirt; q.fillRect(-4.6 * k, -11.5 * k - ph * 0.5 * k, 1.6 * k, 5 * k); q.fillRect(3 * k, -11.5 * k + ph * 0.5 * k, 1.6 * k, 5 * k);
-    q.fillStyle = skin; q.fillRect(-4.6 * k, -6.7 * k - ph * 0.5 * k, 1.6 * k, 1.4 * k);
-    if (basket) { q.fillStyle = '#B5823C'; q.beginPath(); q.moveTo(3 * k, -7 * k); q.lineTo(8 * k, -7 * k); q.lineTo(7.2 * k, -3.5 * k); q.lineTo(3.8 * k, -3.5 * k); q.closePath(); q.fill(); q.strokeStyle = '#8A5A2B'; q.lineWidth = 0.7 * k; q.beginPath(); q.arc(5.5 * k, -7 * k, 2.4 * k, Math.PI, 0); q.stroke(); q.fillStyle = '#F2C14E'; q.beginPath(); q.arc(5.5 * k, -7.3 * k, 1.6 * k, Math.PI, 0); q.fill(); }
-    else { q.fillStyle = skin; q.fillRect(3 * k, -6.7 * k + ph * 0.5 * k, 1.6 * k, 1.4 * k); }
-    // голова
-    q.fillStyle = skin; q.beginPath(); q.arc(0, -15 * k, 3.2 * k, 0, 7); q.fill();
-    q.fillStyle = '#2B1D14'; q.fillRect(1.2 * k, -15.6 * k, 0.9 * k, 0.9 * k);
-    // шапка
-    const hat = c.h;
-    if (hat === 1) { q.fillStyle = '#E3C16F'; q.beginPath(); q.ellipse(0, -17 * k, 6 * k, 1.6 * k, 0, 0, 7); q.fill(); q.fillRect(-2.8 * k, -20.5 * k, 5.6 * k, 3.6 * k); q.fillStyle = '#B23A2E'; q.fillRect(-2.8 * k, -18.2 * k, 5.6 * k, 0.9 * k); }
-    else if (hat === 2) { q.fillStyle = '#37474F'; q.beginPath(); q.arc(0, -16.5 * k, 3.4 * k, Math.PI, 0); q.fill(); q.fillRect(0, -17 * k, 5 * k, 1.2 * k); }
-    else if (hat === 3) { q.fillStyle = '#D32F2F'; q.beginPath(); q.arc(0, -15.5 * k, 3.7 * k, Math.PI * 0.95, Math.PI * 2.05); q.lineTo(-1 * k, -11 * k); q.closePath(); q.fill(); q.fillStyle = '#FFEB3B'; q.beginPath(); q.arc(-1.5 * k, -17.5 * k, 0.7 * k, 0, 7); q.arc(1.5 * k, -17.8 * k, 0.7 * k, 0, 7); q.fill(); }
-    else if (hat === 4) { const fl = ['#E53935', '#FDD835', '#1E88E5', '#E53935', '#8E24AA']; fl.forEach((f, i) => { q.fillStyle = f; q.beginPath(); q.arc(-3.4 * k + i * 1.7 * k, -18 * k - Math.sin(i / 4 * Math.PI) * 1.2 * k, 1.1 * k, 0, 7); q.fill(); }); q.strokeStyle = '#E53935'; q.lineWidth = 0.7 * k; q.beginPath(); q.moveTo(-3 * k, -16 * k); q.lineTo(-4.5 * k, -9 * k); q.stroke(); q.strokeStyle = '#1E88E5'; q.beginPath(); q.moveTo(-2.4 * k, -16 * k); q.lineTo(-3.3 * k, -9.5 * k); q.stroke(); }
-    else if (hat === 5) { q.fillStyle = '#1F1A17'; q.fillRect(-3.4 * k, -22 * k, 6.8 * k, 6.4 * k); q.fillStyle = '#3A2F28'; q.fillRect(-3.4 * k, -22 * k, 6.8 * k, 1.2 * k); }
-    else { q.fillStyle = '#4E342E'; q.beginPath(); q.arc(0, -16 * k, 3.3 * k, Math.PI, 0); q.fill(); }
-    q.restore();
-  }
   // де селянин зараз: хата → будівлі маршруту → хата; на кожній будівлі трохи стоїть
   function villPos(s, uid, rts, t, dt) {
     const v = s.vl[uid], h = v && s.b.find((b) => b.id === v.home); if (!h) return null;
     const r = rts[uid] || [], trip = K.tripMs(v);
-    if (!r.length) { const a = t / 2600 + uid.length; return { x: h.x + 0.45 + Math.cos(a) * 0.25, y: h.y + 0.35 + Math.sin(a) * 0.25, walk: true, dir: Math.cos(a + 1.57) > 0 ? 1 : -1, basket: false }; }
+    if (!r.length) { const a = t / 2600 + uid.length; return { x: h.x + 0.45 + Math.cos(a) * 0.25, y: h.y + 0.35 + Math.sin(a) * 0.25, walk: true, dir: Math.cos(a + 1.57) > 0 ? 1 : -1, basket: false, back: Math.cos(a) - Math.sin(a) < 0 }; }
     const pts = [h].concat(r, [h]), segs = pts.length - 1;
     const f = (((v.vp + dt) % trip) / trip) * segs, i = Math.min(segs - 1, Math.floor(f)), fr = f - i;
     const a = pts[i], b = pts[i + 1], w = Math.min(1, fr / 0.75);
@@ -709,12 +707,12 @@
     const ox = 0.42, oy = 0.42;
     const x = a.x + ox + (b.x - a.x) * w, y = a.y + oy + (b.y - a.y) * w;
     const sxd = (b.x - a.x) - (b.y - a.y);
-    return { x, y, walk: fr < 0.75, dir: sxd >= 0 ? 1 : -1, basket: i > 0 };
+    return { x, y, walk: fr < 0.75, dir: sxd >= 0 ? 1 : -1, basket: i > 0, back: fr < 0.75 && (b.x - a.x) + (b.y - a.y) < 0 };
   }
   let vpos = [], lights = [], bubbles = [], marks = [];
   function drawVill(p, s, z, t) {
     const X = sx(p.x, p.y), Y = sy(p.x, p.y), v = s.vl[p.uid];
-    drawVillager(g, X, Y, 1.25 * z, v.c, t, p.walk, p.dir, p.basket);
+    drawVillager(g, X, Y, 1.25 * z, v.c, t, p.walk, p.dir, p.basket, p.back);
     vpos.push({ uid: p.uid, sx: X, sy: Y });
     const nt = darkness(t); if (nt.dark > 0.2) lights.push([X + 7 * z * p.dir, Y - 14 * z, 0.45]);
     if (mode === 'shared' || p.uid !== 'me') {
