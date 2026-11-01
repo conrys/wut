@@ -495,13 +495,24 @@
   };
   const BUSHES = ["bush0", "bush1", "bush2", "bush3", "bush5", "bush6", "bush7", "bush8", "bush10", "bush11", "bush12", "bush13", "bush14", "bush15"];
   for (const k in SPR) { const im = new Image(); im.src = SPR[k].src; SPR[k].im = im; }
-  function sprite(k, X, Y, z, sw, sq) {
+  // покадрова анімація: кадри й налаштування — у anim.js
+  const ANIM = window.KHUTIR_ANIM || {};
+  for (const k in ANIM) {
+    const a = ANIM[k]; if (!SPR[k]) continue; a.fr = []; a.bad = false;
+    for (let i = 0; i < a.n; i++) { const im = new Image(); im.onerror = () => { a.bad = true; }; im.src = 'img/anim/' + k + '/' + i + '.' + (a.ext || 'webp'); a.fr.push(im); }
+  }
+  function frameOf(k, sp, busy, seed) {
+    const a = ANIM[k]; if (!a || !a.fr || a.bad || (a.busy && !busy)) return sp.im;
+    const im = a.fr[Math.floor(performance.now() / a.ms + (seed || 0) * 0.37) % a.n];
+    return im && im.complete && im.naturalWidth ? im : sp.im;
+  }
+  function sprite(k, X, Y, z, sw, busy, seed) {
     const sp = SPR[k]; if (!sp || !sp.im.complete || !sp.im.naturalWidth) return false;
-    const sc = (TW * z * sp.fit) / 256;
+    const sc = (TW * z * sp.fit) / 256, im = frameOf(k, sp, busy, seed);
     g.imageSmoothingQuality = 'high';
-    if (!sw && !sq) { g.drawImage(sp.im, X - sp.ax * sc, Y - sp.ay * sc, sp.im.naturalWidth * sc, sp.im.naturalHeight * sc); return true; }
-    g.save(); g.translate(X, Y); g.transform(1 - (sq || 0) * 0.5, 0, -(sw || 0), 1 + (sq || 0), 0, 0);
-    g.drawImage(sp.im, -sp.ax * sc, -sp.ay * sc, sp.im.naturalWidth * sc, sp.im.naturalHeight * sc);
+    if (!sw || im !== sp.im) { g.drawImage(im, X - sp.ax * sc, Y - sp.ay * sc, sp.im.naturalWidth * sc, sp.im.naturalHeight * sc); return true; }
+    g.save(); g.translate(X, Y); g.transform(1, 0, -sw, 1, 0, 0);
+    g.drawImage(im, -sp.ax * sc, -sp.ay * sc, sp.im.naturalWidth * sc, sp.im.naturalHeight * sc);
     g.restore(); return true;
   }
   // вітер: повільні пориви, що біжать по карті
@@ -605,8 +616,56 @@
     if (warn) { g.strokeStyle = '#FF6B6B'; g.lineWidth = 2 * z; g.beginPath(); g.moveTo(cx - 8 * z, by + 8 * z); g.lineTo(cx + 8 * z, by - 8 * z); g.stroke(); }
   }
 
+  // тестовий піксельний селянин: поки лише для dev-акаунтів (?px=1 — увімкнути будь-де)
+  const PIXEL_VILL = (() => { try { const u = String((JSON.parse(localStorage.getItem('games41_session')) || {}).username || '').toLowerCase(); return /[?&]px=1/.test(location.search) || ['conrys', 'test', '1111'].includes(u); } catch (e) { return /[?&]px=1/.test(location.search); } })();
+  const PXW = 28, PXH = 40, pxCache = new Map();
+  const pxShade = (hex, f) => { const n = parseInt(hex.slice(1), 16), m = (v) => Math.max(0, Math.min(255, Math.round(v * f))); return 'rgb(' + m(n >> 16) + ',' + m((n >> 8) & 255) + ',' + m(n & 255) + ')'; };
+  // кадр малюється на маленькій сітці; контур додається сам, як у спрайтів світу
+  function pxFrame(c, fr, basket) {
+    const L = K.LOOK, skin = L.skin[c.s] || L.skin[0], shirt = L.shirt[c.sh] || L.shirt[0], pants = L.pants[c.p] || L.pants[0];
+    const key = [c.s, c.sh, c.p, fr, basket ? 1 : 0].join();
+    if (pxCache.has(key)) return pxCache.get(key);
+    const cv2 = document.createElement('canvas'); cv2.width = PXW; cv2.height = PXH;
+    const q = cv2.getContext('2d'), R = (col, x, y, w, h) => { q.fillStyle = col; q.fillRect(x, y, w, h); };
+    const up = fr === 1 || fr === 3 ? 1 : 0, sw = fr === 1 ? 2 : fr === 3 ? -2 : 0, dy = -up;   // кадри ходи: 0 стоїть, 1 крок, 2 стоїть, 3 другий крок
+    const boot = '#4A2E1C', bootL = '#6B4428', red = '#C62828';
+    // дальня нога й рука темніші
+    const far = fr === 1 ? 9 : fr === 3 ? 17 : 11, near = fr === 1 ? 17 : fr === 3 ? 9 : 15;
+    R(pxShade(pants, 0.72), far, 28, 4, 7 - up); R(pxShade(boot, 0.8), far, 34 - up, 5, 3);
+    R(pxShade(shirt, 0.72), 7 + sw, 18 + dy, 3, 8); R(pxShade(skin, 0.85), 7 + sw, 26 + dy, 3, 2);
+    // ближня нога
+    R(pants, near, 28, 4, 7); R(pxShade(pants, 0.84), near, 28, 1, 6); R(boot, near, 34, 5, 3); R(bootL, near + 1, 34, 3, 1);
+    // тулуб: вишита сорочка навипуск і червоний пояс
+    R(shirt, 9, 17 + dy, 11, 11); R(pxShade(shirt, 0.84), 9, 17 + dy, 2, 11); R(pxShade(shirt, 1.08), 16, 18 + dy, 2, 7);
+    R(red, 14, 17 + dy, 2, 7); R('#1E2A44', 14, 18 + dy, 1, 1); R('#1E2A44', 15, 20 + dy, 1, 1); R('#1E2A44', 14, 22 + dy, 1, 1);
+    R(red, 9, 25 + dy, 11, 2); R('#8E1B1B', 9, 26 + dy, 11, 1);
+    // голова, вуса, око
+    R(skin, 10, 8 + dy, 10, 9); R(pxShade(skin, 0.86), 10, 8 + dy, 2, 9); R(pxShade(skin, 0.86), 12, 16 + dy, 7, 1);
+    R('#2B1D14', 17, 11 + dy, 1, 2); R(pxShade(skin, 0.8), 19, 12 + dy, 2, 2); R('#E28B7A', 16, 14 + dy, 1, 1);
+    R('#5A3A22', 15, 14 + dy, 6, 1); R('#5A3A22', 20, 15 + dy, 1, 1); R('#5A3A22', 10, 9 + dy, 3, 3);
+    // бриль
+    R('#E3C16F', 5, 7 + dy, 20, 2); R('#B5913F', 5, 8 + dy, 20, 1); R('#E3C16F', 9, 2 + dy, 12, 5); R('#F0D68F', 15, 3 + dy, 4, 1); R('#C9A24A', 9, 2 + dy, 2, 5); R('#B23A2E', 9, 5 + dy, 12, 2);
+    // ближня рука або кошик
+    if (basket) {
+      R(shirt, 19, 18 + dy, 3, 6); R(shirt, 21, 22 + dy, 3, 3); R(skin, 23, 22 + dy, 2, 3);
+      R('#B5823C', 19, 26 + dy, 8, 6); R('#8A5A2B', 19, 26 + dy, 8, 1); R('#8A5A2B', 20, 28 + dy, 6, 1); R('#8A5A2B', 20, 30 + dy, 6, 1); R('#E3C16F', 21, 25 + dy, 4, 1);
+    } else { R(shirt, 19 - sw, 18 + dy, 3, 8); R(pxShade(shirt, 0.84), 19 - sw, 18 + dy, 1, 8); R(skin, 19 - sw, 26 + dy, 3, 2); }
+    // контур
+    const im = q.getImageData(0, 0, PXW, PXH), d = im.data, on = (x, y) => x >= 0 && y >= 0 && x < PXW && y < PXH && d[(y * PXW + x) * 4 + 3] > 200;
+    const edge = []; for (let y = 0; y < PXH; y++) for (let x = 0; x < PXW; x++) if (!on(x, y) && (on(x - 1, y) || on(x + 1, y) || on(x, y - 1) || on(x, y + 1))) edge.push([x, y]);
+    q.fillStyle = '#2A1C14'; for (const [x, y] of edge) q.fillRect(x, y, 1, 1);
+    pxCache.set(key, cv2); return cv2;
+  }
+  function drawPixelVillager(q, x, y, k, c, t, walk, dir, basket) {
+    const fr = walk ? Math.floor(t / 130) % 4 : 0, cell = 0.6 * k, im = pxFrame(c, fr, basket);
+    q.save(); q.translate(x, y); q.fillStyle = 'rgba(0,0,0,.25)'; q.beginPath(); q.ellipse(0, 0, 6 * k, 2.2 * k, 0, 0, 7); q.fill();
+    q.scale(dir < 0 ? -1 : 1, 1); q.imageSmoothingEnabled = false;
+    q.drawImage(im, -14 * cell, -37.5 * cell, PXW * cell, PXH * cell);
+    q.imageSmoothingEnabled = true; q.restore();
+  }
   // селянин: q — контекст, (x,y) — точка під ногами, k — масштаб, c — вигляд, walk — чи йде, dir — ±1 куди дивиться
   function drawVillager(q, x, y, k, c, t, walk, dir, basket) {
+    if (PIXEL_VILL) { drawPixelVillager(q, x, y, k, c, t, walk, dir, basket); return; }
     const L = K.LOOK, skin = L.skin[c.s] || L.skin[0], shirt = L.shirt[c.sh] || L.shirt[0], pants = L.pants[c.p] || L.pants[0];
     const ph = walk ? Math.sin(t / 110) : 0, bob = walk ? Math.abs(Math.sin(t / 110)) * 0.8 * k : 0;
     q.save(); q.translate(x, y - bob); q.scale(dir < 0 ? -1 : 1, 1);
@@ -652,7 +711,7 @@
     const sxd = (b.x - a.x) - (b.y - a.y);
     return { x, y, walk: fr < 0.75, dir: sxd >= 0 ? 1 : -1, basket: i > 0 };
   }
-  let vpos = [], lights = [], bubbles = [];
+  let vpos = [], lights = [], bubbles = [], marks = [];
   function drawVill(p, s, z, t) {
     const X = sx(p.x, p.y), Y = sy(p.x, p.y), v = s.vl[p.uid];
     drawVillager(g, X, Y, 1.25 * z, v.c, t, p.walk, p.dir, p.basket);
@@ -681,7 +740,7 @@
     const s = view, z = cam.z, t = now(), dt = t - viewAt;
     const bmap = new Map(); for (const b of s.b) bmap.set(K.idx(b.x, b.y), b);
     const bon = K.bonuses(s), rts = K.routes(s), vByTile = new Map();
-    lights = []; vpos = []; bubbles = [];
+    lights = []; vpos = []; bubbles = []; marks = [];
     for (const uid of s.vo || []) { const p = villPos(s, uid, rts, t, dt); if (!p) continue; p.uid = uid; const key = Math.floor(p.x + 0.5) + Math.floor(p.y + 0.5); if (!vByTile.has(key)) vByTile.set(key, []); vByTile.get(key).push(p); }
     const ownedSet = new Set(s.ch);
     const buyable = new Set();
@@ -736,6 +795,7 @@
       for (const [lx, ly, k] of lights) { const r = 26 * z * k, gr = g.createRadialGradient(lx, ly, 0, lx, ly, r); gr.addColorStop(0, 'rgba(255,190,90,' + (0.75 * nt.dark) + ')'); gr.addColorStop(1, 'rgba(255,150,60,0)'); g.fillStyle = gr; g.fillRect(lx - r, ly - r, 2 * r, 2 * r); }
       g.globalCompositeOperation = 'source-over';
     }
+    for (const m of marks) m();
     for (const [bx, by, bz, ic, warn] of bubbles) bubble(bx, by, bz, t, ic, warn);
     // таблички на землі, яку можна купити
     for (const c of buyable) {
@@ -760,8 +820,8 @@
   function drawBuilding(b, X, Y, z, t, dt, bon, s) {
     const d = B[b.k], dur = d.d ? K.durOf(b, bon) : 1;
     const prog = b.p >= 0 ? Math.min(1, (b.p + dt) / dur) : b.buf ? 1 : 0;
-    const busy = b.p >= 0, sq = busy && d.kind !== 'well' ? 0.012 * Math.sin(t / 240 + b.id * 1.7) : 0;
-    if (d.kind !== 'home' && d.kind !== 'orchard' && sprite(b.k, X, Y, z, 0, sq)) {
+    const busy = b.p >= 0;
+    if (d.kind !== 'home' && d.kind !== 'orchard' && sprite(b.k, X, Y, z, 0, busy, b.id)) {
       if (d.wall) lights.push([X + 9 * z, Y - 8 * z, 0.7]);
       if (busy && SPR[b.k].ch) smoke(b.k, X, Y, z, t, b.id);
       if (busy && b.k === 'apiary') bees(X, Y, z, t, b.id);
@@ -774,12 +834,13 @@
     else if (d.kind === 'apiary') { g.fillStyle = '#88C463'; diamond(X, Y, TW * 0.9 * z, TH * 0.9 * z); g.fill(); drawHives(X, Y, z, t); }
     else { drawHouse(X, Y, z, d.wall, d.roof, d.ic); lights.push([X + 9 * z, Y - 8 * z, 0.7]); }
     if (!d.d) return;
-    if (b.lv > 1) { g.fillStyle = 'rgba(12,10,16,.75)'; g.beginPath(); g.arc(X + 20 * z, Y + 4 * z, 7 * z, 0, 7); g.fill(); g.fillStyle = '#FFC93C'; g.font = '800 ' + Math.round(10 * z) + 'px "Baloo 2",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(b.lv, X + 20 * z, Y + 4.5 * z); }
-    if (b.h) emoji('🧑‍🌾', X - 20 * z, Y + 2 * z, Math.round(11 * z));
+    // рівень, наймит і прогрес — у спільний прохід поверх усіх спрайтів, інакше їх ховає сусідня будівля
+    if (b.lv > 1) marks.push(() => { g.fillStyle = 'rgba(12,10,16,.75)'; g.beginPath(); g.arc(X + 20 * z, Y + 4 * z, 7 * z, 0, 7); g.fill(); g.fillStyle = '#FFC93C'; g.font = '800 ' + Math.round(10 * z) + 'px "Baloo 2",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(b.lv, X + 20 * z, Y + 4.5 * z); });
+    if (b.h) marks.push(() => emoji('🧑‍🌾', X - 20 * z, Y + 2 * z, Math.round(11 * z)));
     const out = RES[d.out[0]].ic;
     if (b.buf && !b.h) bubbles.push([X, Y, z, out, false]);
     else if (b.p >= 0 && d.kind !== 'field') {
-      const w = 28 * z; g.fillStyle = 'rgba(12,10,16,.6)'; g.fillRect(X - w / 2, Y + 11 * z, w, 4 * z); g.fillStyle = '#7BD389'; g.fillRect(X - w / 2, Y + 11 * z, w * prog, 4 * z);
+      const w = 28 * z; marks.push(() => { g.fillStyle = 'rgba(12,10,16,.6)'; g.fillRect(X - w / 2, Y + 11 * z, w, 4 * z); g.fillStyle = '#7BD389'; g.fillRect(X - w / 2, Y + 11 * z, w * prog, 4 * z); });
     } else if (b.p < 0) { const w = K.why(s, b); if (w && w !== 'full') bubbles.push([X, Y, z * 0.8, RES[w].ic, true]); }
   }
   // заставка меню: трохи полів
@@ -855,7 +916,7 @@
   window.KHUTIR = {
     get S() { return S; }, get view() { return view; }, get mode() { return mode; }, get code() { return code; }, get cam() { return cam; },
     commit, tapTile, warp(ms) { warp += ms; refreshView(true); }, refresh() { refreshView(true); }, startSolo, openShared, showMenu, go, closeSheet,
-    screenOf(x, y) { return [sx(x, y), sy(x, y)]; }, get vpos() { return vpos; }, darkness, DAY, focus(x, y) { cam.x = wx(x, y); cam.y = wy(x, y); }, get sheetOpen() { return !!sheetFn; }, get placing() { return placing; }, me,
+    pxFrame, screenOf(x, y) { return [sx(x, y), sy(x, y)]; }, get vpos() { return vpos; }, darkness, DAY, focus(x, y) { cam.x = wx(x, y); cam.y = wy(x, y); }, get sheetOpen() { return !!sheetFn; }, get placing() { return placing; }, me,
   };
 
   showMenu();
