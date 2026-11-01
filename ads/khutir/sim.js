@@ -62,7 +62,7 @@
   const DECOR = {
     path: { n: 'Стежка', ic: '🟫', lv: 1, c: 2, b: 0.3, hint: 'Малюй пальцем' },
     stone: { n: 'Бруківка', ic: '🪨', lv: 3, c: 6, b: 0.6, hint: 'Малюй пальцем' },
-    fence: { n: 'Тин', ic: '🪵', lv: 1, c: 8, b: 1, hint: 'Сам зʼєднується з сусіднім' },
+    fence: { n: 'Тин', ic: '🪵', lv: 1, c: 8, b: 1, hint: 'Стоїть на межі клітинок, ставиться вздовж їхніх країв' },
     flower: { n: 'Квітник', ic: '🌸', lv: 1, c: 15, b: 3 },
     spruce: { n: 'Ялинка', ic: '🌲', lv: 2, c: 40, b: 4 },
     bench: { n: 'Лавка', ic: '🪑', lv: 3, c: 60, b: 5 },
@@ -145,6 +145,7 @@
   function hash(seed, x, y) { let h = (seed ^ Math.imul(x, 374761393) ^ Math.imul(y, 668265263)) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
 
   const idx = (x, y) => y * N + x;
+  const fenceKey = (x, y, e) => idx(x, y) * 2 + (e ? 1 : 0);
   const chunkOf = (x, y) => Math.floor(y / CH) * NC + Math.floor(x / CH);
   const owned = (s, x, y) => x >= 0 && y >= 0 && x < N && y < N && s.ch.indexOf(chunkOf(x, y)) >= 0;
   const count = (s, k) => s.b.reduce((n, b) => n + (b.k === k), 0);
@@ -160,7 +161,7 @@
   }
 
   function create(seed, name) {
-    const s = { v: VER, nm: name || 'Хутір', seed: seed | 0, r: seed | 0, t: 0, coins: 100, xp: 0, lv: 1, sl: 0, st: {}, b: [], nid: 1, ch: [], ob: {}, d: {}, inv: {}, o: [], lg: [], pc: {}, made: 0 };
+    const s = { v: VER, nm: name || 'Хутір', seed: seed | 0, r: seed | 0, t: 0, coins: 100, xp: 0, lv: 1, sl: 0, st: {}, b: [], nid: 1, ch: [], ob: {}, d: {}, f: {}, inv: {}, o: [], lg: [], pc: {}, made: 0 };
     for (let y = 4; y <= 6; y++) for (let x = 4; x <= 6; x++) { const c = y * NC + x; s.ch.push(c); genChunk(s, c, true); }
     for (let y = MID - 3; y <= MID + 2; y++) for (let x = MID - 3; x <= MID + 2; x++) delete s.ob[idx(x, y)];
     s.b.push({ id: s.nid++, k: 'field', x: MID - 1, y: MID - 1, lv: 1, buf: 0, p: 0, h: 0, cr: 'wheat' });
@@ -226,6 +227,7 @@
     }
   }
   function advance(s, now) {
+    if (!s.f) { s.f = {}; for (const i in s.d || {}) if (s.d[i] === 'fence') delete s.d[i]; }   // тин тепер на межах, а не на клітинках
     if (!s.t) { s.t = now; kick(s); return s; }
     if (now <= s.t) return s;
     let t = Math.max(s.t, now - MAX_AWAY);
@@ -277,7 +279,8 @@
   // ---------- краса ----------
   // після 12 однакових прикрас кожна наступна важить утричі менше: красиво — це різноманітно
   function beauty(s) {
-    const n = {}; let sum = 0;
+    const n = {}; let sum = 0, fc = Object.keys(s.f || {}).length;
+    sum += Math.min(fc, 40) * DECOR.fence.b + Math.max(0, fc - 40) * DECOR.fence.b * 0.33;
     for (const i in s.d || {}) { const k = s.d[i], c = (n[k] = (n[k] || 0) + 1); sum += DECOR[k].b * (c > 12 ? 0.33 : 1); }
     return Math.round(sum);
   }
@@ -371,6 +374,15 @@
         if (d.shop === false) { if (!s.inv[a.k]) return fail('Привозить лише торговець'); s.inv[a.k]--; }
         else { if (s.lv < d.lv) return fail('Відкриється на ' + d.lv + ' рівні'); if (s.coins < d.c) return fail('Треба ' + d.c + ' 💰'); s.coins -= d.c; }
         s.d[i] = a.k; return res;
+      }
+      case 'fence': {
+        // межа: e = 0 — між (x,y) і (x+1,y), e = 1 — між (x,y) і (x,y+1)
+        const e = a.e ? 1 : 0, key = fenceKey(a.x, a.y, e), x2 = a.x + (e ? 0 : 1), y2 = a.y + (e ? 1 : 0);
+        if (!owned(s, a.x, a.y) && !owned(s, x2, y2)) return fail('Це не твоя земля');
+        if (a.off) { if (!s.f[key]) return fail('Нема'); delete s.f[key]; s.coins += Math.floor(DECOR.fence.c / 2); return res; }
+        if (s.f[key]) return fail('Тут уже є');
+        if (s.coins < DECOR.fence.c) return fail('Треба ' + DECOR.fence.c + ' 💰');
+        s.coins -= DECOR.fence.c; s.f[key] = 1; return res;
       }
       case 'undeco': {
         const i = idx(a.x, a.y), k = s.d[i]; if (!k) return fail('Нема');
@@ -487,6 +499,6 @@
     return '';
   }
 
-  const api = { VER, MID, CROP, DECOR, outOf, qMax, beauty, tier, tierNeed, beautyBonus, market, LOOK, VUP, routes, route, basket, tripMs, vupCost, addVillager, kick, N, CH, NC, RES, B, ORDER, create, advance, act, why, storeCap, xpNeed, buildCost, upCost, hireCost, storeCost, chunkCost, capOf, durOf, bonuses, slots, owned, chunkOf, idx, at, count, ROCK, fmtCost, canAfford, MAX_AWAY };
+  const api = { fenceKey, VER, MID, CROP, DECOR, outOf, qMax, beauty, tier, tierNeed, beautyBonus, market, LOOK, VUP, routes, route, basket, tripMs, vupCost, addVillager, kick, N, CH, NC, RES, B, ORDER, create, advance, act, why, storeCap, xpNeed, buildCost, upCost, hireCost, storeCost, chunkCost, capOf, durOf, bonuses, slots, owned, chunkOf, idx, at, count, ROCK, fmtCost, canAfford, MAX_AWAY };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.KhutirSim = api;
 })(typeof window !== 'undefined' ? window : globalThis);

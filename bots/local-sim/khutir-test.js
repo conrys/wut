@@ -44,10 +44,14 @@ const tapTile = async (p, x, y) => { await p.evaluate(([x, y]) => { KHUTIR.focus
   const n1 = await p.evaluate(() => { let n = 0; for (let x = 18; x < 26; x++) if (KHUTIR.commit({ t: "deco", k: "path", x, y: 19 }).ok) n++; return n; });
   check("стежка намальована", n1 >= 6, String(n1));
   const b0 = await p.evaluate(() => KHUTIR.K.beauty(KHUTIR.view));
-  await p.evaluate(() => { for (let x = 17; x < 24; x++) KHUTIR.commit({ t: "deco", k: "fence", x, y: 18 }); for (let i = 0; i < 4; i++) KHUTIR.commit({ t: "deco", k: ["flower", "bench", "lantern", "oak"][i], x: 18 + i * 2, y: 20 }); KHUTIR.closeSheet(); });
+  await p.evaluate(() => { for (let x = 17; x < 24; x++) KHUTIR.commit({ t: "fence", x, y: 18, e: 1 }); for (let i = 0; i < 4; i++) KHUTIR.commit({ t: "deco", k: ["flower", "bench", "lantern", "oak"][i], x: 18 + i * 2, y: 20 }); KHUTIR.closeSheet(); });
   const b1 = await p.evaluate(() => [KHUTIR.K.beauty(KHUTIR.view), KHUTIR.K.tier(KHUTIR.view)]);
   check("прикраси дають красу й ступінь", b1[0] > b0 && b1[1] >= 1, JSON.stringify(b1));
   check("на дорозі не можна будувати", await p.evaluate(() => { const d = Object.keys(KHUTIR.view.d)[0], x = d % 48, y = Math.floor(d / 48); return !KHUTIR.commit({ t: "build", k: "well", x, y }).ok; }));
+  // тин лежить на межі: клітинка під ним вільна, а селянин його обходить
+  check("під тином можна будувати", await p.evaluate(() => KHUTIR.commit({ t: "build", k: "well", x: 18, y: 18 }).ok));
+  const walk = await p.evaluate(() => { const uid = Object.keys(KHUTIR.view.vl)[0], s = KHUTIR.view, busy = new Set(s.b.map((b) => b.x + ":" + b.y)), legs = KHUTIR.villLegs(uid); let bad = 0, n = 0; for (const l of legs) for (const q of l.slice(1, -1)) { n++; if (busy.has(q[0] + ":" + q[1])) bad++; } return [n, bad]; });
+  check("селянин не йде крізь будівлі", walk[0] > 0 && walk[1] === 0, JSON.stringify(walk));
   // торговець
   await p.tap("#placeX");
   await p.evaluate(() => { KHUTIR.commit({ t: "build", k: "market", x: 24, y: 24 }); const t = Date.now() + 0, every = 3 * 3600e3, ph = t % every; if (ph >= 80 * 60e3) KHUTIR.warp(every - ph + 60e3); KHUTIR.S.st.wheat = 60; KHUTIR.refresh(); });
