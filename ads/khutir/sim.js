@@ -390,9 +390,27 @@
         if (s.coins < DECOR.fence.c) return fail('Треба ' + DECOR.fence.c + ' 💰');
         s.coins -= DECOR.fence.c; s.f[key] = 1; return res;
       }
+      case 'fenceoff': {
+        let n = 0; for (const [x, y, e] of a.l || []) if (s.f[fenceKey(x, y, e)]) { delete s.f[fenceKey(x, y, e)]; n++; }
+        s.coins += n * DECOR.fence.c; return res;
+      }
+      case 'restore': {
+        // кувалда назад: будівля повертається такою, як була
+        if (!a.b || at(s, a.b.x, a.b.y) || s.ob[idx(a.b.x, a.b.y)] || s.d[idx(a.b.x, a.b.y)]) return fail('Місце зайняте');
+        if (s.coins < (a.pay || 0)) return fail('Треба ' + a.pay + ' 💰');
+        s.coins -= a.pay || 0; s.b.push(a.b); kick(s); return res;
+      }
+      case 'move': {
+        const fr = a.id ? s.b.find((q) => q.id === a.id) : null, i0 = a.id ? -1 : idx(a.x0, a.y0), to = idx(a.x, a.y);
+        if (a.id ? !fr : !s.d[i0]) return fail('Нема');
+        if (!owned(s, a.x, a.y) || at(s, a.x, a.y) || s.ob[to] || s.d[to]) return fail('Тут зайнято');
+        if (fr) { fr.x = a.x; fr.y = a.y; if (fr.k === 'home') for (const u in s.vl || {}) if (s.vl[u].home === fr.id) s.vl[u].vp = 0; }
+        else { s.d[to] = s.d[i0]; delete s.d[i0]; }
+        return res;
+      }
       case 'unbuild': {
         // скасування щойно поставленої будівлі: повертає все сплачене
-        const i = s.b.findIndex((q) => q.id === a.id), b = s.b[i]; if (!b || !b.pd || s.t - b.at > 60e3) return fail('Уже не скасувати');
+        const i = s.b.findIndex((q) => q.id === a.id), b = s.b[i]; if (!b || !b.pd) return fail('Уже не скасувати');
         s.coins += b.pd.c; s.st.plank = (s.st.plank || 0) + (b.pd.pl || 0); if (!s.st.plank) delete s.st.plank;
         for (const [r, n] of B[b.k].in || []) s.st[r] = (s.st[r] || 0) + n * ((b.qn || 0) + (b.p >= 0 ? 1 : 0));
         s.b.splice(i, 1); kick(s); return res;

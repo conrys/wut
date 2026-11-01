@@ -51,10 +51,36 @@ const tapTile = async (p, x, y) => { await p.evaluate(([x, y]) => { KHUTIR.focus
   // «Постійно»: поле сіється само
   const au = await p.evaluate(() => { const c = KHUTIR.S, f = c.b.find((b) => b.k === "field"); KHUTIR.commit({ t: "auto", id: f.id, on: true }); const q = KHUTIR.S.b.find((b) => b.k === "field"); q.cr = "wheat"; q.p = -1; q.buf = 3; KHUTIR.refresh(); KHUTIR.commit({ t: "collect", id: q.id }); return KHUTIR.view.b.find((b) => b.id === q.id).p >= 0; });
   check("«Постійно» пересіяло поле після збору", au);
-  // скасування: будівля повертає всі гроші
-  const un = await p.evaluate(() => { const v = KHUTIR.view; let t = null; for (let y = 16; y < 28 && !t; y++) for (let x = 16; x < 28 && !t; x++) if (!KHUTIR.K.at(v, x, y) && !v.ob[KHUTIR.K.idx(x, y)] && !v.d[KHUTIR.K.idx(x, y)]) t = [x, y]; const c0 = v.coins; KHUTIR.commit({ t: "build", k: "well", x: t[0], y: t[1] }); return [c0, t]; });
-  await p.tap("#placeU"); await p.waitForTimeout(300);
-  check("скасування будівлі повернуло все", await p.evaluate(([c0, t]) => KHUTIR.view.coins === c0 && !KHUTIR.K.at(KHUTIR.view, t[0], t[1]), un));
+  // режим будування: Назад / Вперед
+  const free1 = await p.evaluate(() => { const v = KHUTIR.view, o = []; for (let y = 16; y < 28; y++) for (let x = 16; x < 28; x++) if (!KHUTIR.K.at(v, x, y) && !v.ob[KHUTIR.K.idx(x, y)] && !v.d[KHUTIR.K.idx(x, y)]) o.push([x, y]); return [o[0], o[5], v.coins]; });
+  await p.evaluate(() => document.getElementById("placeX").click());
+  await p.tap("#mBuild"); await p.waitForTimeout(400);
+  await (await p.$("#shB button.row:has(b:text-is('Криниця'))")).tap(); await p.waitForTimeout(450);
+  await p.evaluate((t) => KHUTIR.tapTile(t[0], t[1]), free1[0]); await p.waitForTimeout(250);
+  check("будівля стоїть, режим лишається", await p.evaluate((t) => !!KHUTIR.K.at(KHUTIR.view, t[0], t[1]) && KHUTIR.buildOn && KHUTIR.placing === "well", free1[0]));
+  await p.tap("#mUndo"); await p.waitForTimeout(250);
+  check("Назад: будівлі нема, гроші повернуто", await p.evaluate(([t, , c]) => !KHUTIR.K.at(KHUTIR.view, t[0], t[1]) && KHUTIR.view.coins === c, free1));
+  await p.tap("#mRedo"); await p.waitForTimeout(250);
+  check("Вперед: будівля знову стоїть", await p.evaluate((t) => !!KHUTIR.K.at(KHUTIR.view, t[0], t[1]), free1[0]));
+  await p.tap("#mUndo"); await p.waitForTimeout(200); await p.tap("#mRedo"); await p.waitForTimeout(200);
+  // кувалда й Назад повертають будівлю з рівнем
+  await p.evaluate((t) => { KHUTIR.S.b.find((b) => b.x === t[0] && b.y === t[1]).lv = 3; KHUTIR.refresh(); }, free1[0]);
+  await p.tap("#mHammer"); await p.waitForTimeout(200);
+  const hs = await p.evaluate((t) => { KHUTIR.focus(t[0], t[1]); return KHUTIR.screenOf(t[0], t[1]); }, free1[0]); await p.waitForTimeout(150);
+  await p.mouse.click(hs[0], hs[1]); await p.waitForTimeout(350);
+  check("кувалда прибрала будівлю", await p.evaluate((t) => !KHUTIR.K.at(KHUTIR.view, t[0], t[1]), free1[0]));
+  await p.tap("#mUndo"); await p.waitForTimeout(300);
+  check("Назад повернув будівлю з її рівнем", await p.evaluate((t) => (KHUTIR.K.at(KHUTIR.view, t[0], t[1]) || {}).lv === 3, free1[0]));
+  // рух: перетягування будівлі
+  await p.tap("#mMove"); await p.waitForTimeout(200);
+  const ms = await p.evaluate(([a, b]) => { KHUTIR.focus(a[0], a[1]); KHUTIR.cam.z = 1; return [KHUTIR.screenOf(a[0], a[1]), KHUTIR.screenOf(b[0], b[1])]; }, free1); await p.waitForTimeout(150);
+  const mt = await p.evaluate(([a]) => KHUTIR.screenOf(a[0], a[1]), free1);
+  await p.mouse.move(mt[0], mt[1]); await p.mouse.down(); await p.mouse.move(ms[1][0], ms[1][1], { steps: 6 }); await p.mouse.up(); await p.waitForTimeout(350);
+  check("будівля перетягнута", await p.evaluate(([a, b]) => !KHUTIR.K.at(KHUTIR.view, a[0], a[1]) && !!KHUTIR.K.at(KHUTIR.view, b[0], b[1]), free1));
+  await p.tap("#mUndo"); await p.waitForTimeout(250);
+  check("Назад повернув на місце", await p.evaluate(([a]) => !!KHUTIR.K.at(KHUTIR.view, a[0], a[1]), free1));
+  await p.tap("#mDone"); await p.waitForTimeout(250);
+  check("Готово: звичайна панель", await p.evaluate(() => !KHUTIR.buildOn) && await p.isVisible("#bBuild"));
   // «Назад»: шторка закривається, гра лишається
   await p.evaluate(() => KHUTIR.go("store")); await p.waitForTimeout(300);
   await p.touchscreen.tap(195, 140); await p.goBack({ waitUntil: "commit" }).catch(() => {}); await p.waitForTimeout(500);
@@ -78,11 +104,11 @@ const tapTile = async (p, x, y) => { await p.evaluate(([x, y]) => { KHUTIR.focus
   await p.mouse.move(pt[0][0], pt[0][1]); await p.mouse.down(); await p.mouse.move(pt[1][0], pt[1][1], { steps: 8 }); await p.mouse.move(pt[2][0], pt[2][1], { steps: 8 }); await p.mouse.up(); await p.waitForTimeout(300);
   await p.screenshot({ path: OUT + "/5-fence.png" });
   check("кут за один рух: 6 секцій, гроші не списані", await p.evaluate((c) => KHUTIR.draftN === 6 && KHUTIR.view.coins === c, c1), String(await p.evaluate(() => KHUTIR.draftN)));
-  await p.tap("#placeU"); await p.waitForTimeout(200);
-  check("«Назад» прибрав рух", (await p.evaluate(() => KHUTIR.draftN)) === 0);
-  await p.mouse.move(pt[0][0], pt[0][1]); await p.mouse.down(); await p.mouse.move(pt[1][0], pt[1][1], { steps: 8 }); await p.mouse.up(); await p.waitForTimeout(200);
   await p.tap("#placeOk"); await p.waitForTimeout(400);
-  check("«Поставити» списало за 3 секції", await p.evaluate((c) => KHUTIR.view.coins === c - 24 && !KHUTIR.placing, c1));
+  check("«Поставити» списало за 6 секцій", await p.evaluate((c) => KHUTIR.view.coins === c - 48, c1));
+  await p.tap("#mUndo"); await p.waitForTimeout(300);
+  check("Назад повернув усі гроші за тин", await p.evaluate((c) => KHUTIR.view.coins === c, c1));
+  await p.tap("#mDone"); await p.waitForTimeout(300);
   // торговець
   await p.evaluate(() => { KHUTIR.commit({ t: "build", k: "market", x: 24, y: 24 }); const t = Date.now() + 0, every = 3 * 3600e3, ph = t % every; if (ph >= 80 * 60e3) KHUTIR.warp(every - ph + 60e3); KHUTIR.S.st.wheat = 60; KHUTIR.refresh(); });
   const m = await p.evaluate(() => KHUTIR.K.market(KHUTIR.view, KHUTIR.view.t));

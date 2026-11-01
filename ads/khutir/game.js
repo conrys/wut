@@ -60,7 +60,7 @@
     else if (a.t === 'build' || a.t === 'upgrade' || a.t === 'chunk' || a.t === 'store') sfx('build');
     else if (a.t === 'clear') sfx('chop');
     else if (a.t === 'deco' || a.t === 'fence') sfx('pick');
-    noteUndo(a);
+
     if (r.lvUp) {
       const opened = K.ORDER.filter((k) => B[k].lv === r.lvUp).map((k) => B[k].ic + ' ' + B[k].n).concat(Object.keys(K.CROP).filter((c) => K.CROP[c].lv === r.lvUp).map((c) => RES[c].ic + ' ' + RES[c].n));
       say('Рівень ' + r.lvUp + '!', opened.length ? 'Відкрито: ' + opened.join(', ') : 'Нові замовлення стали більшими');
@@ -170,7 +170,7 @@
   function showMenu() {
     if (net) { net.leave(); net = null; }
     if (mode === 'solo') saveSolo();
-    mode = null; S = null; view = null; closeSheet(); cancelPlace();
+    mode = null; S = null; view = null; buildOn = false; hist.length = 0; redo.length = 0; closeSheet(); cancelPlace(); $('mbar').hidden = true;
     $('menu').hidden = false; ['hud', 'bar', 'tip'].forEach((id) => ($(id).hidden = true));
     const s = soloInfo();
     $('mSoloI').textContent = s ? 'рівень ' + s.lv + ' · ' + s.b.length + ' будівель' : 'почати з одного поля';
@@ -201,6 +201,7 @@
   const fmt = (n) => (n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e4 ? Math.round(n / 1e3) + 'k' : String(Math.round(n)));
   function tipLine() {
     const s = view, el = $('tip');
+    if (buildOn) { el.hidden = true; return; }
     let t = '';
     if (placing) t = '';
     else if (s.lv <= 2) {
@@ -224,7 +225,7 @@
     $('shT').textContent = title; sheetFn = () => { if (view) $('shB').innerHTML = render(); bindSheet(); };
     refreshView(true); sheetFn(); $('sheet').classList.add('open'); sheetAt = performance.now();
   }
-  function closeSheet() { $('sheet').classList.remove('open'); sheetFn = null; sel = null; buildAt = null; villFor = null; }
+  function closeSheet() { $('sheet').classList.remove('open'); sheetFn = null; sel = null; villFor = null; }
   $('shX').addEventListener('click', closeSheet);
   // кнопки в шторці: data-a='{"t":"…"}' — дія; data-go — перехід
   function bindSheet() {
@@ -233,7 +234,7 @@
       au(); const a = JSON.parse(el.dataset.a);
       if (a.t === 'demolish' && el.dataset.sure !== '1') { el.dataset.sure = '1'; el.innerHTML = 'Точно знести?<small>повернеться половина ціни</small>'; return; }
       const r = commit(a);
-      if (r && r.ok && (a.t === 'demolish' || a.t === 'build')) closeSheet();
+      if (r && r.ok && a.t === 'demolish') closeSheet();
       if (r && r.ok && a.t === 'chunk') closeSheet();
       if (r && r.ok && (a.t === 'clear' || a.t === 'undeco' || a.t === 'sow' || a.t === 'fence')) closeSheet();
     }));
@@ -255,7 +256,7 @@
     else if (what === 'level') openSheet('⭐ Рівень ' + view.lv, levelSheet);
     else if (what === 'vill') { const v = myV(); if (v) { villFor = myUid(); openSheet('🧑‍🌾 ' + v.n, villSheet); } }
   }
-  $('bBuild').addEventListener('click', () => { au(); cancelPlace(); buildAt = null; sel = null; go('build'); });
+  $('bBuild').addEventListener('click', () => { au(); enterBuild(); go('build'); });
   $('bStore').addEventListener('click', () => { au(); go('store'); });
   $('bVill').addEventListener('click', () => { au(); go('vill'); });
   $('bOrders').addEventListener('click', () => { au(); go('orders'); });
@@ -264,14 +265,13 @@
   $('hOn').addEventListener('click', () => { au(); go('farm'); });
   $('hLvl').addEventListener('click', () => { au(); go('level'); });
 
-  let buildAt = null; // клітинка, на яку торкнулися перед «Будувати»
   function buildSheet() {
     const s = view;
-    let h = buildAt ? '<p class="note">Будуємо на вибраній клітинці.</p>' : '<p class="note">Обери будівлю, потім — вільну клітинку на своїй землі.</p>';
+    let h = '<p class="note">Обери, що ставити, потім торкайся вільних клітинок.</p>';
     for (const k of K.ORDER) {
       const d = B[k], lock = s.lv < d.lv, c = K.buildCost(s, k), ok = !lock && K.canAfford(s, c);
       const info = d.kind === 'field' ? esc(d.hint) : d.d ? recipe(d) + ' · ' + secs(d.d * 1000) : esc(d.hint || '');
-      h += '<button class="row' + (ok ? '' : ' off') + '" ' + (lock ? 'disabled' : buildAt ? 'data-a="' + A({ t: 'build', k, x: buildAt[0], y: buildAt[1] }) + '"' : 'data-place="' + k + '"') + '><span class="ic">' + d.ic + '</span><span class="tx"><b>' + d.n + '</b><small>' + (lock ? '🔒 з ' + d.lv + ' рівня' : info) + '</small></span><span class="pr">' + (lock ? '' : costTxt(c)) + '</span></button>';
+      h += '<button class="row' + (ok ? '' : ' off') + '" ' + (lock ? 'disabled' : 'data-place="' + k + '"') + '><span class="ic">' + d.ic + '</span><span class="tx"><b>' + d.n + '</b><small>' + (lock ? '🔒 з ' + d.lv + ' рівня' : info) + '</small></span><span class="pr">' + (lock ? '' : costTxt(c)) + '</span></button>';
     }
     const bt = K.tier(s), bv = K.beauty(s), nextB = bt < 10 ? K.tierNeed(bt + 1) : 0;
     h += '<div class="row"><span class="ic">🌸</span><span class="tx"><b>Краса: ' + bv + ' · ступінь ' + bt + '</b><small>Замовники платять +' + bt * 4 + '%' + (bt >= 2 ? ', торговець купує дорожче й більше' : ', з вищою красою торговець купує дорожче') + (nextB ? '. До наступного ступеня: ' + (nextB - bv) : '') + '. Різні прикраси дають більше, ніж багато однакових.</small></span></div>';
@@ -356,7 +356,7 @@
       const [k, d] = el.dataset.look.split(':'), n = { s: K.LOOK.skin, sh: K.LOOK.shirt, p: K.LOOK.pants, st: K.LOOK.style, h: K.LOOK.hat, b: K.LOOK.body, f: K.LOOK.face }[k].length;
       lookDraft.c[k] = ((lookDraft.c[k] || 0) + +d + n) % n; sfx('pick'); sheetFn();
     }));
-    const mh = $('moveHome'); if (mh) mh.onclick = () => { if (fresh()) return; closeSheet(); placing = '@home'; $('place').hidden = false; $('placeT').textContent = 'Куди перенести хату?'; };
+    const mh = $('moveHome'); if (mh) mh.onclick = () => { if (fresh()) return; closeSheet(); enterBuild(); setTool('move'); };
   }
   function storeSheet() {
     const s = view, cap = K.storeCap(s), sc = K.storeCost(s);
@@ -425,19 +425,19 @@
   // ================= розміщення будівлі =================
   let placing = null, painting = false;
   function startPlace(k) {
-    closeSheet(); placing = k; $('place').hidden = false; $('tip').hidden = true;
-    if (k.startsWith('deco:')) { const d = K.DECOR[k.slice(5)]; $('placeT').textContent = d.ic + ' ' + d.n + ': торкайся або веди пальцем'; $('placeX').textContent = 'Готово'; if (k === 'deco:fence') fenceBar(); }
-    else { $('placeT').textContent = 'Куди поставити ' + B[k].ic + ' ' + B[k].n + '?'; $('placeX').textContent = 'Скасувати'; }
+    closeSheet(); applyDraft(); tool = null; placing = k; toolUI(); $('place').hidden = false; $('tip').hidden = true;
+    if (k.startsWith('deco:')) { const d = K.DECOR[k.slice(5)]; $('placeT').textContent = d.ic + ' ' + d.n + ': торкайся або веди пальцем'; $('placeX').textContent = '✕'; if (k === 'deco:fence') fenceBar(); }
+    else { $('placeT').textContent = 'Куди поставити ' + B[k].ic + ' ' + B[k].n + '?'; $('placeX').textContent = '✕'; }
   }
-  function cancelPlace() { placing = null; undoList = []; undoB = 0; draft.clear(); clearTimeout(undoT); $('placeU').hidden = true; $('placeOk').hidden = true; $('place').hidden = true; }
-  $('placeX').addEventListener('click', cancelPlace);
+  function cancelPlace() { placing = null; draft.clear(); $('placeOk').hidden = true; $('place').hidden = true; if (tool) toolUI(); }
+  $('placeX').addEventListener('click', () => { tool = null; cancelPlace(); toolUI(); });
   // Тин спершу малюється чернеткою: гроші списуються лише кнопкою «Поставити», тож мисклік нічого не коштує.
   // Палець іде по кутах клітинок, тому повороти виходять самі.
   const draft = new Map();
   function fenceBar() {
     const n = draft.size, c = n * K.DECOR.fence.c, ok = view && view.coins >= c;
     $('placeT').textContent = n ? '🪵 Секцій: ' + n + ' · ' + c + ' 💰' + (ok ? '' : ' (бракує)') : '🪵 Веди пальцем по краях клітинок. Двома пальцями — рухати карту';
-    $('placeX').textContent = 'Скасувати'; $('placeOk').hidden = !n; $('placeOk').disabled = !ok; $('placeU').hidden = !n;
+    $('placeOk').hidden = !n; $('placeOk').disabled = !ok;
   }
   function draftEdge(x, y, e) {
     const s = view, key = K.fenceKey(x, y, e), own = K.owned(s, x, y) || K.owned(s, x + (e ? 0 : 1), y + (e ? 1 : 0));
@@ -459,35 +459,74 @@
     }
   }
   $('placeOk').addEventListener('click', () => {
-    au(); const l = [...draft.values()].map((q) => [q.x, q.y, q.e]), r = commit({ t: 'fences', l });
-    if (r && r.ok) cancelPlace();
+    au(); stroke++; applyDraft(); if (placing === 'deco:fence') fenceBar();
   });
-  // скасування: штрих прикрас цілком або щойно поставлена будівля — із поверненням усього сплаченого
-  let undoList = [], undoB = 0, undoT = 0, stroke = 0, undoing = false;
-  function noteUndo(a) {
-    if (undoing) return;
-    if (a.t === 'build') {
-      undoB = S.b.reduce((m, b) => Math.max(m, b.id), 0); undoList = [];
-      $('placeT').textContent = '✓ ' + B[a.k].n + ' на місці'; $('placeX').textContent = 'Гаразд'; $('placeU').hidden = false; $('place').hidden = false;
-      clearTimeout(undoT); undoT = setTimeout(() => { if (!placing) cancelPlace(); }, 10000);
-    } else if (a.t === 'deco' && placing) { undoList.push([stroke, a]); $('placeU').hidden = false; }
+  function applyDraft() { if (!draft.size) return; const l = [...draft.values()].map((q) => [q.x, q.y, q.e]), r = doAct({ t: 'fences', l }); if (r && r.ok) draft.clear(); else draft.clear(); }
+  // ================= режим будування, як у The Sims =================
+  // Кожна дія записується разом зі зворотною. Один рух пальця — одна сходинка «Назад».
+  // Прикраси й тин повертають повну ціну, щойно поставлену будівлю «Назад» теж повертає повністю.
+  let buildOn = false, tool = null; const hist = [], redo = [];
+  function toolUI() {
+    $('bar').hidden = buildOn || !view; $('mbar').hidden = !buildOn;
+    $('mHammer').classList.toggle('on', tool === 'hammer'); $('mMove').classList.toggle('on', tool === 'move'); $('mBuild').classList.toggle('on', !!placing);
+    $('mUndo').disabled = !hist.length; $('mRedo').disabled = !redo.length;
+    if (tool) { placing = null; $('placeOk').hidden = true; $('place').hidden = false; $('placeX').textContent = '✕'; $('placeT').textContent = tool === 'hammer' ? '🔨 Торкнись або проведи по тому, що прибрати' : '✋ Тягни будівлю чи прикрасу на нове місце'; }
+    else if (!placing) $('place').hidden = true;
   }
-  $('placeU').addEventListener('click', () => {
-    au();
-    if (placing === 'deco:fence') { const v = [...draft.values()], last = v.length ? v[v.length - 1].st : -1; for (const [k, q] of [...draft]) if (q.st === last) draft.delete(k); fenceBar(); return; }
-    undoing = true;
-    if (undoB) { commit({ t: 'unbuild', id: undoB }); undoing = false; cancelPlace(); return; }
-    const last = undoList.length ? undoList[undoList.length - 1][0] : -1;
-    while (undoList.length && undoList[undoList.length - 1][0] === last) {
-      const a = undoList.pop()[1];
-      commit(a.t === 'fence' ? { t: 'fence', x: a.x, y: a.y, e: a.e, off: 1, full: 1 } : { t: 'undeco', x: a.x, y: a.y, full: 1 });
+  function enterBuild() { buildOn = true; hist.length = 0; redo.length = 0; toolUI(); }
+  function exitBuild() { applyDraft(); buildOn = false; tool = null; cancelPlace(); hist.length = 0; redo.length = 0; closeSheet(); toolUI(); hud(); }
+  function setTool(t) { closeSheet(); applyDraft(); cancelPlace(); tool = tool === t ? null : t; toolUI(); }
+  function inverseOf(a, before) {
+    if (a.t === 'build') return { t: 'unbuild', id: S.b.reduce((m, b) => Math.max(m, b.id), 0) };
+    if (a.t === 'deco') return { t: 'undeco', x: a.x, y: a.y, full: 1 };
+    if (a.t === 'undeco') return { t: 'deco', k: before.d[K.idx(a.x, a.y)], x: a.x, y: a.y };
+    if (a.t === 'fence') return a.off ? { t: 'fence', x: a.x, y: a.y, e: a.e } : { t: 'fence', x: a.x, y: a.y, e: a.e, off: 1, full: 1 };
+    if (a.t === 'fences') return { t: 'fenceoff', l: a.l.filter(([x, y, e]) => !before.f[K.fenceKey(x, y, e)]) };
+    if (a.t === 'fenceoff') return { t: 'fences', l: a.l };
+    if (a.t === 'demolish') return { t: 'restore', b: before.b.find((q) => q.id === a.id), pay: S.coins - before.coins };
+    if (a.t === 'restore') return { t: 'demolish', id: a.b.id };
+    if (a.t === 'unbuild') { const b = before.b.find((q) => q.id === a.id); return { t: 'build', k: b.k, x: b.x, y: b.y }; }
+    if (a.t === 'move') { if (a.id) { const b = before.b.find((q) => q.id === a.id); return { t: 'move', id: a.id, x: b.x, y: b.y }; } return { t: 'move', x0: a.x, y0: a.y, x: a.x0, y: a.y0 }; }
+    return null;
+  }
+  // дія з записом в історію
+  function doAct(a) {
+    const before = clone(S), r = commit(a);
+    if (r && r.ok && buildOn) {
+      const un = inverseOf(a, before); redo.length = 0;
+      if (un) { const top = hist[hist.length - 1]; if (top && top.st === stroke) top.ops.push({ a, un }); else hist.push({ st: stroke, ops: [{ a, un }] }); if (hist.length > 60) hist.shift(); }
+      toolUI();
     }
-    undoing = false; $('placeU').hidden = !undoList.length;
-  });
+    return r;
+  }
+  // після скасування «будувати» будівля має новий номер, тому зворотну дію рахуємо заново
+  function replay(group, back) {
+    const ops = back ? group.ops.slice().reverse() : group.ops;
+    for (const op of ops) {
+      const a = back ? op.un : op.a, before = clone(S), r = commit(a);
+      if (!r || !r.ok) break;
+      if (back) op.a = inverseOf(a, before) || op.a; else op.un = inverseOf(a, before) || op.un;
+    }
+  }
+  function hammerAt(px, py, dragging) {
+    const s = view, hit = fenceAtPoint(px, py), [x, y] = pick(px, py), b = K.at(s, x, y), key = hit ? 'f' + hit.x + ':' + hit.y + ':' + hit.e : x + ':' + y;
+    if (gest && gest.tile === key) return; if (gest) gest.tile = key;
+    if (hit && (hit.d < 7 * cam.z || !b)) { doAct({ t: 'fence', x: hit.x, y: hit.y, e: hit.e, off: 1, full: 1 }); return; }
+    if (s.d[K.idx(x, y)]) { doAct({ t: 'undeco', x, y, full: 1 }); return; }
+    if (b && !dragging) { if (b.k === 'home') toast('Хату не знести, її можна пересунути', true); else doAct({ t: 'demolish', id: b.id }); }
+  }
+  $('mBuild').addEventListener('click', () => { au(); applyDraft(); tool = null; cancelPlace(); toolUI(); go('build'); });
+  $('mHammer').addEventListener('click', () => { au(); setTool('hammer'); });
+  $('mMove').addEventListener('click', () => { au(); setTool('move'); });
+  $('mDone').addEventListener('click', () => { au(); exitBuild(); });
+  $('mUndo').addEventListener('click', () => { au(); applyDraft(); const g0 = hist.pop(); if (g0) { replay(g0, true); redo.push(g0); } toolUI(); });
+  $('mRedo').addEventListener('click', () => { au(); const g0 = redo.pop(); if (g0) { replay(g0, false); hist.push(g0); } toolUI(); });
+  let stroke = 0;
   // «Назад» (жест від краю екрана, кнопка телефона): вікно → режим розміщення → меню хутора → вихід на головну
   window.gameBack = () => {
     if (sheetFn) { closeSheet(); return true; }
-    if (placing || !$('place').hidden) { cancelPlace(); return true; }
+    if (placing || tool) { tool = null; cancelPlace(); toolUI(); return true; }
+    if (buildOn) { exitBuild(); return true; }
     if (mode) { showMenu(); return true; }
     return false;
   };
@@ -511,20 +550,19 @@
       if (placing.startsWith('deco:')) {
         const k = placing.slice(5); if (k === 'fence') return;
         if (!free(s, x, y)) { if (!painting) toast(K.owned(s, x, y) ? 'Тут зайнято' : 'Це не твоя земля', true); return; }
-        const r = commit({ t: 'deco', k, x, y });
-        if (r && r.ok && K.DECOR[k].shop === false && !view.inv[k]) cancelPlace();
+        const r = doAct({ t: 'deco', k, x, y });
+        if (r && r.ok && K.DECOR[k].shop === false && !view.inv[k]) { cancelPlace(); toolUI(); }
         return;
       }
       if (!free(s, x, y)) { toast(K.owned(s, x, y) ? 'Тут зайнято' : 'Це не твоя земля', true); return; }
-      if (placing === '@home') { const r = commit({ t: 'movehome', uid: myUid(), x, y }); if (r && r.ok) cancelPlace(); return; }
-      const r = commit({ t: 'build', k: placing, x, y });
-      if (r && r.ok) { const k = placing; cancelPlace(); if (K.canAfford(view, K.buildCost(view, k)) && B[k].kind === 'field') toast('Ще поле? 🏗 → Поле'); }
+      const r = doAct({ t: 'build', k: placing, x, y });
+      if (r && r.ok && (B[placing].one || !K.canAfford(view, K.buildCost(view, placing)))) { cancelPlace(); toolUI(); }
       return;
     }
     const b = K.at(s, x, y);
     if (b) {
       if (b.buf && !b.h && !sheetFn) { const r = commit({ t: 'collect', id: b.id }); if (r && r.ok) return; }
-      buildAt = null; sel = b.id; openSheet(B[b.k].ic + ' ' + B[b.k].n + (B[b.k].d ? ' · рів. ' + b.lv : b.k === 'home' && s.vl && s.vl[b.o] ? ' · ' + s.vl[b.o].n : ''), bSheet); return;
+      sel = b.id; openSheet(B[b.k].ic + ' ' + B[b.k].n + (B[b.k].d ? ' · рів. ' + b.lv : b.k === 'home' && s.vl && s.vl[b.o] ? ' · ' + s.vl[b.o].n : ''), bSheet); return;
     }
     if (!K.owned(s, x, y)) {
       const c = K.chunkOf(x, y), cost = K.chunkCost(s);
@@ -536,7 +574,7 @@
     const ob = s.ob[K.idx(x, y)];
     if (ob === 't') { closeSheet(); commit({ t: 'clear', x, y }); return; }
     if (ob === 'r') { openSheet('🪨 Камінь', () => '<p class="note">Заважає будувати. Прибрати коштує ' + K.ROCK + ' 💰.</p><div class="btns"><button class="btn" data-a="' + A({ t: 'clear', x, y }) + '"' + (view.coins >= K.ROCK ? '' : ' disabled') + '>Прибрати · ' + K.ROCK + ' 💰</button></div>'); return; }
-    buildAt = [x, y]; sel = null; openSheet('🏗 Будувати тут', buildSheet);
+    if (!buildOn) enterBuild(); sel = null; go('build');
   }
 
   // ================= малювання (ізометрія) =================
@@ -967,7 +1005,7 @@
   const around = (t, blocked) => [[1, 0], [0, 1], [-1, 0], [0, -1]].map(([a, b]) => [t.x + a, t.y + b]).filter(([x, y]) => x >= 0 && y >= 0 && x < N && y < N && !blocked.has(K.idx(x, y)));
   const legCache = new Map();
   function villLegs(s, h, r) {
-    const key = h.id + '|' + r.map((b) => b.id).join() + '|' + s.b.length + h.x + h.y + '|' + Object.keys(s.ob).length + '|' + Object.keys(s.d).length + '|' + Object.keys(s.f).length;
+    const key = h.id + '|' + r.map((b) => b.id).join() + '|' + s.b.map((b) => b.x + '.' + b.y).join() + '|' + Object.keys(s.ob).length + '|' + Object.keys(s.d).length + '|' + Object.keys(s.f).length;
     const hit = legCache.get(h.id); if (hit && hit.key === key) return hit.legs;
     const blocked = blockedSet(s), straight = () => { const pts = [h].concat(r, [h]), o = []; for (let i = 0; i + 1 < pts.length; i++) o.push([[pts[i].x + 0.42, pts[i].y + 0.42], [pts[i + 1].x + 0.42, pts[i + 1].y + 0.42]]); return o; };
     // виходить із того боку хати, звідки весь обхід найкоротший, і туди ж повертається
@@ -1083,6 +1121,7 @@
       g.globalCompositeOperation = 'source-over';
     }
     for (const m of marks) m();
+    if (gest && gest.drag) { const m = gest.drag, X = sx(m.x, m.y), Y = sy(m.x, m.y), ok = free(s, m.x, m.y) || (m.x === m.x0 && m.y === m.y0); g.fillStyle = ok ? 'rgba(120,230,120,.4)' : 'rgba(255,90,90,.45)'; diamond(X, Y, tw, th); g.fill(); g.globalAlpha = 0.7; if (m.b) { if (!sprite(m.b.k, X, Y, z)) emoji(B[m.b.k].ic, X, Y - 10 * z, Math.round(22 * z)); } else emoji(K.DECOR[m.dk].ic, X, Y - 8 * z, Math.round(20 * z)); g.globalAlpha = 1; }
     if (draft.size) { g.globalAlpha = 0.75; for (const q of draft.values()) drawFence(q.x, q.y, q.e, z); g.globalAlpha = 1; for (const q of draft.values()) { const a = q.e ? [q.x + 0.5, q.y + 0.5, q.x - 0.5, q.y + 0.5] : [q.x + 0.5, q.y - 0.5, q.x + 0.5, q.y + 0.5]; g.strokeStyle = '#FFC93C'; g.lineWidth = 2.5 * z; g.beginPath(); g.moveTo(sx(a[0], a[1]), sy(a[0], a[1])); g.lineTo(sx(a[2], a[3]), sy(a[2], a[3])); g.stroke(); } }
     for (const [bx, by, bz, ic, warn] of bubbles) bubble(bx, by, bz, t, ic, warn);
     // таблички на землі, яку можна купити
@@ -1095,7 +1134,6 @@
     if (sheetFn && villFor && rts[villFor]) { g.strokeStyle = 'rgba(255,201,60,.8)'; g.setLineDash([4 * z, 4 * z]); g.lineWidth = 2 * z; for (const b of rts[villFor]) { diamond(sx(b.x, b.y), sy(b.x, b.y), tw * 0.9, th * 0.9); g.stroke(); } g.setLineDash([]); }
     // вибрана будівля
     if (sel && sheetFn) { const b = s.b.find((q) => q.id === sel); if (b) { g.strokeStyle = '#FFC93C'; g.lineWidth = 2.5 * z; diamond(sx(b.x, b.y), sy(b.x, b.y), tw * 0.96, th * 0.96); g.stroke(); } }
-    if (buildAt && sheetFn) { g.strokeStyle = '#FFFFFF'; g.lineWidth = 2.5 * z; diamond(sx(buildAt[0], buildAt[1]), sy(buildAt[0], buildAt[1]), tw * 0.96, th * 0.96); g.stroke(); }
     // злітні написи
     const pt = performance.now();
     for (let k = floats.length - 1; k >= 0; k--) {
@@ -1155,6 +1193,10 @@
     au(); cv.setPointerCapture && cv.setPointerCapture(e.pointerId); if (!ptr.size) stroke++;
     ptr.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t0: performance.now() });
     if (ptr.size === 1) gest = { moved: false, cx: cam.x, cy: cam.y };
+    if (ptr.size === 1 && tool === 'move' && view) {
+      const [x, y] = pick(e.clientX, e.clientY), b = K.at(view, x, y), dk = view.d[K.idx(x, y)];
+      if (b || dk) gest.drag = { b, dk, x0: x, y0: y, x, y };
+    }
     if (ptr.size === 2) { const [a, b] = [...ptr.values()]; gest = { moved: true, pinch: true, d0: Math.hypot(a.x - b.x, a.y - b.y), z0: cam.z, cx: cam.x, cy: cam.y, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 }; }
   });
   cv.addEventListener('pointermove', (e) => {
@@ -1165,8 +1207,12 @@
       const wx0 = (gest.mx - W / 2) / gest.z0 + gest.cx, wy0 = (gest.my - H / 2) / gest.z0 + gest.cy;
       cam.z = gest.z0 * (d / Math.max(10, gest.d0)); clampCam();
       cam.x = wx0 - (mx - W / 2) / cam.z; cam.y = wy0 - (my - H / 2) / cam.z; clampCam();
+    } else if (!gest.pinch && gest.drag) {
+      if (Math.hypot(p.x - p.x0, p.y - p.y0) > 8) gest.moved = true;
+      const [x, y] = pick(p.x, p.y); gest.drag.x = x; gest.drag.y = y;
     } else if (!gest.pinch) {
       if (Math.hypot(p.x - p.x0, p.y - p.y0) > 8) gest.moved = true;
+      if (gest.moved && ptr.size === 1 && tool === 'hammer') { hammerAt(p.x, p.y, true); return; }
       if (gest.moved && ptr.size === 1 && placing === 'deco:fence') {
         gest.sx = p.x0; gest.sy = p.y0; fenceDrag(p.x, p.y, gest);
       } else if (gest.moved && ptr.size === 1 && placing && placing.startsWith('deco:')) {
@@ -1178,6 +1224,11 @@
   const up = (e) => {
     const p = ptr.get(e.pointerId); ptr.delete(e.pointerId);
     if (!p || !gest) return;
+    if (gest.drag && ptr.size === 0) {
+      const m = gest.drag; gest = null; if (m.x === m.x0 && m.y === m.y0) return;
+      doAct(m.b ? { t: 'move', id: m.b.id, x: m.x, y: m.y } : { t: 'move', x0: m.x0, y0: m.y0, x: m.x, y: m.y }); return;
+    }
+    if (!gest.moved && tool === 'hammer' && ptr.size === 0) { hammerAt(p.x, p.y, false); gest = null; return; }
     if (!gest.moved && !gest.pinch && ptr.size === 0 && performance.now() - p.t0 < 600) {
       const hit = view ? fenceAtPoint(p.x, p.y) : null;
       if (placing === 'deco:fence') { const [x, y, e] = edgeAt(p.x, p.y); gest = null; draftEdge(x, y, e); return; }
@@ -1215,7 +1266,7 @@
   // ================= тест-хук =================
   window.KHUTIR = {
     get S() { return S; }, get view() { return view; }, get mode() { return mode; }, get code() { return code; }, get cam() { return cam; },
-    villLegs(uid) { const s = view, v = s.vl[uid], h = s.b.find((b) => b.id === v.home); return villLegs(s, h, K.routes(s)[uid] || []); }, fenceAtPoint, fenceLine, get draftN() { return draft.size; }, get undoN() { return undoList.length; }, commit, tapTile, warp(ms) { warp += ms; refreshView(true); }, refresh() { refreshView(true); }, startSolo, openShared, showMenu, go, closeSheet,
+    villLegs(uid) { const s = view, v = s.vl[uid], h = s.b.find((b) => b.id === v.home); return villLegs(s, h, K.routes(s)[uid] || []); }, fenceAtPoint, fenceLine, get draftN() { return draft.size; }, get buildOn() { return buildOn; }, get histN() { return hist.length; }, get redoN() { return redo.length; }, commit, tapTile, warp(ms) { warp += ms; refreshView(true); }, refresh() { refreshView(true); }, startSolo, openShared, showMenu, go, closeSheet,
     pxFrame, K, screenOf(x, y) { return [sx(x, y), sy(x, y)]; }, get vpos() { return vpos; }, darkness, DAY, focus(x, y) { cam.x = wx(x, y); cam.y = wy(x, y); }, get sheetOpen() { return !!sheetFn; }, get placing() { return placing; }, me,
   };
 
