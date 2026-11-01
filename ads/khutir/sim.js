@@ -39,7 +39,7 @@
   };
   // in — що бере за цикл, out — що дає, d — тривалість циклу (с), cap — місце в будівлі, q — черга, lv — з якого рівня хутора, m — у скільки дорожчає кожна наступна
   const B = {
-    field: { n: 'Поле', ic: '🌾', lv: 1, c: 10, m: 1.35, d: 120, out: ['wheat', 3], cap: 6, kind: 'field', hint: 'Сам обираєш, що сіяти.' },
+    field: { n: 'Поле', ic: '🌾', lv: 1, c: 10, step: 5, m: 1.5, d: 120, out: ['wheat', 3], cap: 6, kind: 'field', hint: 'Сам обираєш, що сіяти.' },
     mill: { n: 'Млин', ic: '🌬', lv: 1, c: 60, d: 600, in: [['wheat', 2]], out: ['flour', 1], cap: 6, q: 2, wall: '#EFE6D2', roof: '#7A5C3E' },
     market: { n: 'Ринок', ic: '🏪', lv: 2, c: 100, kind: 'market', one: 1, wall: '#E7CFA0', roof: '#B5452E', hint: 'Сюди часто приїздять торговці з інших сіл.' },
     coop: { n: 'Курник', ic: '🐔', lv: 2, c: 80, d: 1200, in: [['corn', 1]], out: ['egg', 1], cap: 6, q: 2, wall: '#E9D9B8', roof: '#C8553D' },
@@ -173,7 +173,7 @@
   const storeCap = (s) => Math.round(100 * Math.pow(1.5, s.sl));
   const xpNeed = (L) => Math.round(25 * Math.pow(L, 1.55));
   const slots = (s) => 3 + (s.lv >= 6) + (s.lv >= 12);
-  function buildCost(s, k) { const m = Math.pow(B[k].m || 1.15, count(s, k)); return { c: Math.round(B[k].c * m), pl: B[k].pl ? Math.ceil(B[k].pl * m) : 0 }; }
+  function buildCost(s, k) { const m = Math.pow(B[k].m || 1.15, B[k].step ? Math.floor(count(s, k) / B[k].step) : count(s, k));   // step: ціна росте сходинками, раз на стільки штук return { c: Math.round(B[k].c * m), pl: B[k].pl ? Math.ceil(B[k].pl * m) : 0 }; }
   function upCost(b) { const d = B[b.k], L = b.lv; return { c: Math.round(d.c * 0.8 * Math.pow(1.7, L)) + 20, pl: L >= 2 ? 3 * L : 0 }; }
   const hireCost = (b) => ({ c: 100 + B[b.k].c * 2, pl: 0 });
   const storeCost = (s) => ({ c: Math.round(150 * Math.pow(1.9, s.sl)), pl: s.sl >= 1 ? 4 * s.sl : 0 });
