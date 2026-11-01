@@ -100,7 +100,7 @@
   const moodF = (v) => (mood(v) >= 60 ? 1.2 : mood(v) >= 30 ? 1 : 0.7);
   const REST = ['bench', 'swing', 'hay'];
   // Швидкість стала: час обходу — це довжина справжнього шляху, а не навпаки
-  const WALK = 1.6, PAUSE = 800, SIT = 20000;           // клітинок за секунду, зупинка біля будівлі (мс), відпочинок (мс)
+  const WALK = 0.6, PAUSE = 1500, SIT = 20000;           // клітинок за секунду, зупинка біля будівлі (мс), відпочинок (мс)
   const speedOf = (v) => (1 + 0.2 * (v.u.sp || 0)) * moodF(v);
   function restSpots(s) { const o = []; for (const i in s.d || {}) if (REST.indexOf(s.d[i]) >= 0) o.push({ x: i % N, y: Math.floor(i / N), k: s.d[i], i: +i }); return o; }
   // найближче до хати місце відпочинку
