@@ -1,5 +1,5 @@
 // Редактор карт: відкриття, перевірка вбудованих карт, стіна в дверях → недосяжно, скасування, меблі, 3D-тест аватаром,
-// публікація нової карти й виправленої вбудованої → їх бачать Хованки / Агенти, повернення вбудованої.
+// публікація нової карти й виправленої вбудованої → їх бачать Хованки, повернення вбудованої.
 // node mapedit-test.js   (симулятор: node server.js)
 const { launch, phone, BASE } = require("./harness");
 const results = [];
@@ -62,7 +62,7 @@ const until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Da
   await p.waitForTimeout(700);
   check("нова карта: стіна з проходом — усе досяжно", await p.evaluate(() => !MapEdit.check.issues.some((i) => i.e)));
   await p.click("#saveBtn"); await p.waitForTimeout(300);
-  await p.evaluate(() => { for (const c of document.querySelectorAll("[data-g]")) c.checked = ["khovanky", "agents"].includes(c.dataset.g); });
+  await p.evaluate(() => { for (const c of document.querySelectorAll("[data-g]")) c.checked = ["khovanky"].includes(c.dataset.g); });
   await p.click("#pOk");
   const saved = await until(() => p.evaluate(() => Object.keys(MapEdit.remote).length === 1 && /Збережено/.test(document.getElementById("toast").textContent)), 15000);
   const nid = await p.evaluate(() => MapEdit.D.id);
@@ -76,9 +76,6 @@ const until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Da
   const kh = await k.evaluate((nid) => { const M = HNSWorld.MAPS; const n = M.find((m) => m.id === nid), s = M.find((m) => m.id === "school"); return { n: !!n && n.name, nw: n && n.rows[0].length, school: s.name, opt: [...document.querySelectorAll("#mapSel option")].map((o) => o.textContent).filter((t) => /✎/.test(t)).join() }; }, nid);
   check("Хованки: нова карта є і в списку карт", kh.n === "Тест-карта" && /Тест-карта/.test(kh.opt), JSON.stringify(kh));
   check("Хованки: виправлена «Школа» замінила вбудовану", kh.school === "Школа (нова)");
-  const ag = await phone(b, "conrys");
-  await ag.goto(BASE + "/ads/agents/play.html"); await ag.waitForTimeout(3000);
-  check("Агенти теж бачать нову карту", await ag.evaluate((nid) => AGTGame.MAPIDS.some((i) => HNSWorld.MAPS[i].id === nid) && [...document.querySelectorAll("#mapSel option")].some((o) => /Тест-карта/.test(o.textContent)), nid));
   const ph = await phone(b, "conrys");
   await ph.goto(BASE + "/ads/perevtilennia/play.html"); await ph.waitForTimeout(3000);
   check("Перевтілення не чіпає (інший світ, гра не вибрана)", await ph.evaluate((nid) => !HNSWorld.MAPS.some((m) => m.id === nid) && HNSWorld.MAPS.find((m) => m.id === "school").name === "Школа", nid));

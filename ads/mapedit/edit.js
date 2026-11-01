@@ -1,10 +1,10 @@
 /* Редактор карт: малюєш зверху (стіни, кімнати, меблі, старт), перевірка прохідності тим самим кодом, що в іграх,
    і «▶ Тест» — аватар у 3D на тій самій карті з тією самою колізією. Публікація — у RTDB /maps/{світ}_{id},
-   ігри підтягують через ../maps-remote.js. Світ «hns» — Хованки, Монстр, Агенти; «ph» — Перевтілення. */
+   ігри підтягують через ../maps-remote.js. Світ «hns» — Хованки, Монстр, Цар гори; «ph» — Перевтілення. */
 (function(){
 const $=id=>document.getElementById(id),T3=THREE;
 const WORLDS={
-  hns:{HW:window.HW_HNS,label:'Хованки · Монстр · Агенти · Цар гори',games:{khovanky:'Хованки',monster:'Монстр',agents:'Агенти',hill:'Цар гори'}},
+  hns:{HW:window.HW_HNS,label:'Хованки · Монстр · Цар гори',games:{khovanky:'Хованки',monster:'Монстр',hill:'Цар гори'}},
   ph:{HW:window.HW_PH,label:'Перевтілення',games:{perevtilennia:'Перевтілення'}}};
 const SLOT='__edit';
 const NAMES={counter:'Прилавок',fridge:'Холодильник',table:'Стіл',chair:'Стілець',sofa:'Диван',armchair:'Крісло',coffee:'Журнальний столик',tvstand:'Тумба з ТВ',bookshelf:'Книжкова шафа',
@@ -401,7 +401,7 @@ function initTest(){
   $('tCam').onclick=()=>{far=!far};
   return t;
 }
-/* та сама колізія, що в Хованках і Агентах (радіус 0.28) */
+/* та сама колізія, що у Хованках (радіус 0.28) */
 function collide(ch,boxes){const r=0.28;for(const b of boxes){if(ch.x<b[0]-r||ch.x>b[2]+r||ch.z<b[1]-r||ch.z>b[3]+r)continue;
   const cx=Math.max(b[0],Math.min(ch.x,b[2])),cz=Math.max(b[1],Math.min(ch.z,b[3]));let dx=ch.x-cx,dz=ch.z-cz,d=Math.hypot(dx,dz);
   if(d<r){if(d<1e-5){const l=ch.x-b[0],rr=b[2]-ch.x,t=ch.z-b[1],bb=b[3]-ch.z,m=Math.min(l,rr,t,bb);if(m===l)ch.x=b[0]-r;else if(m===rr)ch.x=b[2]+r;else if(m===t)ch.z=b[1]-r;else ch.z=b[3]+r;continue}

@@ -349,7 +349,6 @@
     "khovanky": "Хованки",
     "perevtilennia": "Перевтілення",
     "monster": "Монстр",
-    "agents": "Агенти",
     "hill": "Цар гори",
     "redlight": "Тихо-голосно",
     "khutir": "Хутір",

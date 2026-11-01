@@ -523,8 +523,9 @@ async function mpJoin(code,create){
   location.hash=code;$('roomCode').textContent=code.toUpperCase();$('mpA').hidden=true;$('mpB').hidden=false;
   phase='lobby';mpLobbyRender();   // G лишається заставочним, поки хост не почне
 }
-function mpLeave(){if(MP.net)MP.net.leave();MP.net=null;MP.on=false;MP.host=false;MP.g=null;MP.lastG=null;MP.me=null;G=null;location.hash='';
+function mpLeave(){RoomLobby.reset(MP);if(MP.net)MP.net.leave();MP.net=null;MP.on=false;MP.host=false;MP.g=null;MP.lastG=null;MP.me=null;G=null;location.hash='';
   $('mp').hidden=true;resetMenu();bootScene()}
+function mpBackToLobby(){joy=null;RoomLobby.back(MP);bootScene();phase='lobby';mpLobbyRender()}
 function mpLobbyRender(){
   const list=$('plist');list.innerHTML='';const hid=hostId();
   humans().forEach(p=>{const li=document.createElement('li');const d=document.createElement('span');d.className='pdot';d.style.background=PAL[(p.presence.c|0)%PAL.length];
@@ -545,12 +546,13 @@ function hostStartRound(fresh){
   MP.hostEnd=performance.now()+4000;
 }
 function hostTick(dt){
-  const g=MP.g;if(!g)return;G=g;
+  const g=MP.g;if(!g||g.ph==='room')return;G=g;
   const left=MP.hostEnd-performance.now(),at=ms=>{MP.hostEnd=performance.now()+ms};
   if(g.ph==='intro'&&left<=0){g.ph='play';g.k++;at(ROUND_T*1000);g.rem=ROUND_T*1000;setDl('g',rand(2200,3600))}
   else if(g.ph==='play'){hostEvents();g.rem=Math.max(0,left);dollTick(dt);
     for(const id of g.pl)if(!presOf(id)&&!done(id)){const c=chr(id);if(c)c.gone=true}checkEnd();if(g.ph==='play'&&left<=0)endRound('time')}
   else if(g.ph==='end'&&left<=0)hostStartRound(false);
+  else if(g.ph==='over'&&left<=0){RoomLobby.close(MP);return}
   if(MP.g&&MP.g.ph!=='play')MP.g.rem=Math.max(0,MP.hostEnd-performance.now());
 }
 function mpTick(dt){
@@ -560,10 +562,12 @@ function mpTick(dt){
   {const myp=presOf(MP.me);if(myp){if(MP.host&&!myp.h&&performance.now()-MP.joinedAt>1500)MP.net.presence({h:Date.now()});else if(!MP.host&&myp.h&&humans().some(p=>p.id!==MP.me&&p.presence.h&&+p.presence.h<+myp.h))MP.net.presence({h:null})}}
   if(MP.host){if(!MP.g&&MP.lastG){MP.g=JSON.parse(JSON.stringify(MP.lastG));MP.g.k++;MP.hostEnd=performance.now()+Math.max(1000,MP.lastG.rem);MP.lastR=MP.g.r;
       auth.last={};for(const p of peersNow()){const ev=(p.presence||{}).ev;if(Array.isArray(ev)&&ev.length)auth.last[p.id]=ev[ev.length-1][0]}}
-    hostTick(dt)}
+    if(MP.host&&MP.g&&phase==='lobby'&&!MP.watch&&!(MP.g.pl||[]).includes(MP.me))RoomLobby.close(MP);hostTick(dt)}
   const g=MP.host?MP.g:(presOf(hid)||{}).g;
   if(!MP.host&&g)MP.lastG=g;
   if(phase==='lobby'&&Math.floor(T*4)!==MP.lr){MP.lr=Math.floor(T*4);mpLobbyRender()}
+  if(RoomLobby.gate(g,MP,phase,mpBackToLobby))return;
+  RoomLobby.bar(g,MP,humans(),()=>RoomLobby.close(MP));
   if(!g||!g.pl)return;
   if(g.r!==MP.round){MP.round=g.r;REQ.ev=[];G=g;setupRound(g);lastKey='';camInit=false}
   G=g;for(const k of['out','fin','fx','pl','bots'])if(!G[k])G[k]=[];if(!G.sc)G.sc={};if(!G.rs)G.rs={};

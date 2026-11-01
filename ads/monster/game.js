@@ -561,7 +561,7 @@ function showEnd(){
   if(MP.on){const monName=G.mm?(presOf(G.mm)||{}).n||'Монстр':'Монстр';
     title=me?(win?'Утекли '+e+' з '+n:'Ніхто не втік!'):(win?(e===n?'Утекли всі!':'Утекли '+e+' з '+n):monName+' переміг');
     const names=chars.filter(c=>G.esc.includes(c.id)).map(c=>c.isPlayer?'ти':c.nick).filter(Boolean);
-    text=(win?'Вибрались: '+names.join(', ')+'.':'Ніхто не вибрався.')+' Наступний раунд за кілька секунд'+(G.mm?', монстром буде інший.':'.')}
+    text=(win?'Вибрались: '+names.join(', ')+'.':'Ніхто не вибрався.')+' Зараз повернемось у лобі'+(G.mm?', монстром буде інший.':'.')}
   else{title=win?'Ти втік!':'Монстр тебе дістав';
     stars=win?1+(stats.downs===0?1:0)+(playT<180?1:0):0;
     text=win?'За '+Math.floor(playT/60)+':'+String(Math.floor(playT%60)).padStart(2,'0')+(stats.downs?', падав '+stats.downs+' раз.':' і жодного разу не впав.')+' Далі монстр буде швидшим.':'У щитку '+G.ins.length+' з '+G.nf+'. Ховайся в шафах і вимикай ліхтар, коли монстр поруч. А якщо наздоганяє — посвіти йому в очі.'}
@@ -828,7 +828,7 @@ $('mpCreate').addEventListener('click',()=>mpJoin(rcode(),true));
 $('mpJoinBtn').addEventListener('click',()=>{const c=($('codeIn').value||'').trim().toLowerCase();if(!/^[a-z]{4}$/.test(c)){$('mpErr').textContent='Код має 4 літери, наприклад KQRT.';$('mpErr').hidden=false;return}mpJoin(c)});
 $('codeIn').addEventListener('keydown',e=>{if(e.key==='Enter')$('mpJoinBtn').click()});
 $('colorBtn').addEventListener('click',()=>{MP.color=(MP.color+1)%PCOL.length;$('colorBtn').style.background=PCOL[MP.color];if(MP.net)MP.net.presence({c:MP.color})});
-$('mpStart').addEventListener('click',()=>{if(MP.host){MP.mapSel=$('mapSel').value;MP.lvlSel=+$('lvlSel').value;MP.monSel=$('monSel').value;MP.g=null;MP.monTurn=0;hostStartRound()}});
+$('mpStart').addEventListener('click',()=>{if(MP.host){MP.mapSel=$('mapSel').value;MP.lvlSel=+$('lvlSel').value;MP.monSel=$('monSel').value;if(!MP.g||String(MP.lvlSel)!==String(MP.lvlShown))MP.lvlOver=MP.lvlSel;MP.lvlShown=MP.lvlSel;hostStartRound()}});
 $('mpQuit').addEventListener('click',mpLeave);$('ovLeave').addEventListener('click',mpLeave);
 $('copyCode').addEventListener('click',()=>{const t=MP.code.toUpperCase();try{navigator.clipboard.writeText(t).then(()=>{$('copyCode').textContent='Скопійовано'},()=>{})}catch(e){}});
 async function mpJoin(code,create){
@@ -840,9 +840,10 @@ async function mpJoin(code,create){
   location.hash=code;$('roomCode').textContent=code.toUpperCase();$('mpA').hidden=true;$('mpB').hidden=false;
   phase='lobby';mpLobbyRender();
 }
-function mpLeave(){if(MP.net)MP.net.leave();MP.net=null;MP.on=false;MP.host=false;MP.g=null;MP.lastG=null;MP.me=null;G=null;droneSet(0);location.hash='';$('blind').style.opacity=0;
+function mpLeave(){RoomLobby.reset(MP);if(MP.net)MP.net.leave();MP.net=null;MP.on=false;MP.host=false;MP.g=null;MP.lastG=null;MP.me=null;G=null;droneSet(0);location.hash='';$('blind').style.opacity=0;
   $('mp').hidden=true;$('ov').hidden=false;$('ovTitle').textContent='Монстр';$('ovTitle').className='';$('ovText').textContent=MENU_TEXT;
   $('ovLegend').hidden=false;$('ovHint').hidden=false;$('stars').hidden=true;$('ovBtn').hidden=false;$('ovBtn').textContent='Грати';$('mpOpen').hidden=false;$('ovLeave').hidden=true;bootScene()}
+function mpBackToLobby(){joy=null;droneSet(0);RoomLobby.back(MP);bootScene();phase='lobby';mpLobbyRender()}
 function mpLobbyRender(){
   const list=$('plist');list.innerHTML='';const hid=hostId();
   humans().forEach((p,i)=>{const li=document.createElement('li');const d=document.createElement('span');d.className='pdot';d.style.background=PCOL[(p.presence.c|0)%PCOL.length];
@@ -857,11 +858,11 @@ function hostStartRound(){
   const pl=[MP.me].concat(all.filter(i=>i!==MP.me)).slice(0,MAXP+(MP.monSel==='player'?1:0));
   // гравець-монстр — по черзі
   let mm='';if(MP.monSel==='player'&&pl.length>=2){const order=pl.slice().sort();mm=order[(MP.monTurn=(MP.monTurn||0)+1)%order.length]}
-  const lvl=prev?prev.lvl+(prev.res==='win'&&!prev.mm?1:0):MP.lvlSel;
+  const lvl=MP.lvlOver||(prev?prev.lvl+(prev.res==='win'&&!prev.mm?1:0):MP.lvlSel);MP.lvlOver=0;
   MP.g=newG(r,map,Math.random()<0.5?1:0,Math.random()<0.5?1:0,lvl,pl,mm);MP.hostEnd=performance.now()+6000;
 }
 function hostTick(){
-  const g=MP.g;if(!g)return;
+  const g=MP.g;if(!g||g.ph==='room')return;
   const left=MP.hostEnd-performance.now(),at=ms=>{MP.hostEnd=performance.now()+ms;return ms};
   if(g.ph==='intro'&&left<=0){g.ph='play';g.k++;g.rem=at(30*60000)}
   else if(g.ph==='play'){
@@ -869,7 +870,7 @@ function hostTick(){
     // гравець-монстр вийшов — далі монстром керує бот
     if(g.mm&&!peersNow().some(p=>p.id===g.mm)){g.mm='';if(mon){mon.state='patrol';mon.path=null}}
     const e=checkEnd();if(e){g.ph='end';g.k++;g.res=e.res;g.rem=at(9000)}}
-  else if(g.ph==='end'&&left<=0)hostStartRound();
+  else if(g.ph==='end'&&left<=0)RoomLobby.close(MP);
   g.rem=Math.max(0,MP.hostEnd-performance.now());
 }
 function mpTick(dt){
@@ -878,10 +879,12 @@ function mpTick(dt){
   {const myp=presOf(MP.me);if(myp){if(MP.host&&!myp.h&&performance.now()-MP.joinedAt>1500)MP.net.presence({h:Date.now()});else if(!MP.host&&myp.h&&humans().some(p=>p.id!==MP.me&&p.presence.h&&+p.presence.h<+myp.h))MP.net.presence({h:null})}}
   if(MP.host){if(!MP.g&&MP.lastG){MP.g=JSON.parse(JSON.stringify(MP.lastG));MP.g.k++;MP.hostEnd=performance.now()+Math.max(1000,MP.lastG.rem);G=MP.g;
     // новий хост не повторює старі події гравців
-    auth.last={};for(const p of peersNow()){const ev=(p.presence||{}).ev;if(Array.isArray(ev)&&ev.length)auth.last[p.id]=ev[ev.length-1][0]}if(mon&&!MP.g.mm){mon.state=MP.g.ph==='play'?'patrol':'sleep';mon.path=null}}hostTick()}
+    auth.last={};for(const p of peersNow()){const ev=(p.presence||{}).ev;if(Array.isArray(ev)&&ev.length)auth.last[p.id]=ev[ev.length-1][0]}if(mon&&!MP.g.mm){mon.state=MP.g.ph==='play'?'patrol':'sleep';mon.path=null}}if(MP.host&&MP.g&&phase==='lobby'&&!MP.watch&&!(MP.g.pl||[]).includes(MP.me))RoomLobby.close(MP);hostTick()}
   const g=MP.host?MP.g:(presOf(hid)||{}).g;
   if(!MP.host&&g)MP.lastG=g;
   if(phase==='lobby'&&Math.floor(T*4)!==MP.lr){MP.lr=Math.floor(T*4);mpLobbyRender()}
+  if(RoomLobby.gate(g,MP,phase,mpBackToLobby))return;
+  RoomLobby.bar(g,MP,humans(),()=>RoomLobby.close(MP));
   if(!g)return;
   if(g.r!==MP.round){MP.round=g.r;MP.spectator=!g.pl.includes(MP.me);REQ.ev=[];G=g;setupRound(g);lastKey='';if(mon&&MP.host)mon.state='sleep'}
   G=g;

@@ -7,7 +7,7 @@
 <title>Редактор карт</title>
 <link rel="stylesheet" href="../../vendor/fonts/baloo-2.css"><link rel="stylesheet" href="../../vendor/fonts/rubik.css">
 <style>
-/* Редактор карт для Хованок, Перевтілення, Монстра й Агентів: вид зверху + 3D-тест аватаром. */
+/* Редактор карт для Хованок, Перевтілення, Монстра й Цар гори: вид зверху + 3D-тест аватаром. */
 :root{--ink:#EEF3F8;--bg:#0E1218;--card:#161C25;--line:#2A3442;--acc:#3DD6C3;--acc-ink:#04201C;--warn:#FFB547;--bad:#FF5C5C;--ok:#4CC97A;
   --display:'Baloo 2','Arial Rounded MT Bold',sans-serif;--body:'Rubik',system-ui,-apple-system,sans-serif;color-scheme:dark}
 html,body{height:100%;margin:0}
@@ -102,9 +102,8 @@ input[type=text],select{font:inherit;font-size:16px;padding:9px 12px;border-radi
 <script src="../../vendor/firebase/10.13.0/firebase-database-compat.js"></script>
 <script src="../../js/core/firebase-config.js"></script>
 <script src="../vendor/three.min.js"></script>
-<!-- обидва світи: Хованки (+ «Вокзал» Агентів) і Перевтілення; кожен файл перезаписує window.HNSWorld, тож запамʼятовуємо по черзі -->
+<!-- обидва світи: Хованки і Перевтілення; кожен файл перезаписує window.HNSWorld, тож запамʼятовуємо по черзі -->
 <script src="../khovanky/world.js" charset="utf-8"></script>
-<script src="../agents/maps.js" charset="utf-8"></script>
 <script>window.HW_HNS=window.HNSWorld</script>
 <script src="../perevtilennia/world.js" charset="utf-8"></script>
 <script>window.HW_PH=window.HNSWorld</script>

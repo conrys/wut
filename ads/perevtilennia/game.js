@@ -741,8 +741,9 @@ async function mpJoin(code,create){
   $('roomCode').textContent=code.toUpperCase();$('mpA').hidden=true;$('mpB').hidden=false;
   phase='lobby';mpLobbyRender();
 }
-function mpLeave(){if(MP.net)MP.net.leave();MP.net=null;MP.on=false;MP.host=false;MP.g=null;MP.lastG=null;MP.me=null;phase='menu';$('ovBtn').hidden=false;$('ovBtn').textContent='Грати';$('ovLeave').hidden=true;$('ovTitle').textContent='Перевтілення';$('ovTitle').classList.remove('lose');$('ovHint').hidden=false;document.querySelector('.card .hint').hidden=false;clearChars();$('mp').hidden=true;$('ov').hidden=false;$('crouch').hidden=true;$('timer').hidden=true;
+function mpLeave(){RoomLobby.reset(MP);if(MP.net)MP.net.leave();MP.net=null;MP.on=false;MP.host=false;MP.g=null;MP.lastG=null;MP.me=null;phase='menu';$('ovBtn').hidden=false;$('ovBtn').textContent='Грати';$('ovLeave').hidden=true;$('ovTitle').textContent='Перевтілення';$('ovTitle').classList.remove('lose');$('ovHint').hidden=false;document.querySelector('.card .hint').hidden=false;clearChars();$('mp').hidden=true;$('ov').hidden=false;$('crouch').hidden=true;$('timer').hidden=true;
   location.hash='';buildWorld(0,false,false);player=seeker=newChar('seeker',false,'#FF5A5F',TX(11),TZ(8.6));seeker.range=5;seeker.fov=1.25;seeker.state='idle';seeker.cover=0}
+function mpBackToLobby(){joy=null;RoomLobby.back(MP);phase='lobby';clearChars();$('crouch').hidden=true;$('timer').hidden=true;$('blind').hidden=true;$('spec').hidden=true;buildWorld(0,false,false);player=seeker=newChar('seeker',false,'#FF5A5F',TX(11),TZ(8.6));seeker.range=5;seeker.fov=1.25;seeker.state='idle';seeker.cover=0;mpLobbyRender()}
 function mpLobbyRender(){
   const list=$('plist');list.innerHTML='';const hid=hostId();
   for(const p of humans()){const li=document.createElement('li');const d=document.createElement('span');d.className='pdot';d.style.background=PCOL[(p.presence.c|0)%PCOL.length];
@@ -761,7 +762,7 @@ function hostStartRound(){
   MP.hostEnd=performance.now()+15000;
 }
 function hostTick(dt){
-  const G=MP.g;if(!G||G.ph==='lobby')return;
+  const G=MP.g;if(!G||G.ph==='lobby'||G.ph==='room')return;
   const left=MP.hostEnd-performance.now(),at=ms=>{MP.hostEnd=performance.now()+ms;return ms};
   if(G.ph==='intro'&&left<=0){G.ph='play';G.k++;G.rem=at(G.dur*1000)}
   else if(G.ph==='play'){
@@ -774,7 +775,7 @@ function hostTick(dt){
     if(!alive.includes(G.sk)){G.ph='end';G.k++;G.res='left';G.rem=at(6000)}
     else if(ids.length&&ids.every(i=>cg.has(i)||(!i.startsWith('b')&&!alive.includes(i)))){G.ph='end';G.k++;G.res='seek';G.rem=at(6000)}
     else if(left<=0){G.ph='end';G.k++;G.res='hide';G.rem=at(6000)}
-  }else if(G.ph==='end'&&left<=0)hostStartRound();
+  }else if(G.ph==='end'&&left<=0)RoomLobby.close(MP);
 }
 
 /* everyone: follow the host's game state */
@@ -784,10 +785,12 @@ function mpTick(dt){
   {const myp=presOf(MP.me);if(myp){if(MP.host&&!myp.h&&performance.now()-MP.joinedAt>1500)MP.net.presence({h:Date.now()});else if(!MP.host&&myp.h&&humans().some(p=>p.id!==MP.me&&p.presence.h&&+p.presence.h<+myp.h))MP.net.presence({h:null})}}
   if(MP.host){
     if(!MP.g&&MP.lastG){MP.g=JSON.parse(JSON.stringify(MP.lastG));MP.g.k++;MP.g.rem=Math.max(1000,timer*1000);MP.hostEnd=performance.now()+MP.g.rem}
-    hostTick(dt)}
+    if(MP.host&&MP.g&&phase==='lobby'&&!MP.watch&&!(MP.g.pl||[]).includes(MP.me))RoomLobby.close(MP);hostTick(dt)}
   const G=MP.host?MP.g:(presOf(hid)||{}).g;
   if(!MP.host&&G)MP.lastG=G;
   if(phase==='lobby'&&Math.floor(T*4)!==MP.lr){MP.lr=Math.floor(T*4);mpLobbyRender()}
+  if(RoomLobby.gate(G,MP,phase,mpBackToLobby))return;
+  RoomLobby.bar(G,MP,humans(),()=>RoomLobby.close(MP));
   if(!G||G.ph==='lobby'){return}
   if(G.r!==MP.round){mpSetupRound(G);MP.round=G.r}
   const key=G.r+':'+G.k;
@@ -828,10 +831,10 @@ function mpPhase(G){
   if(G.ph==='play'){phase='play';seeker.state='idle';seeker.cover=0;blind(false);say(mode==='seek'?'Шукай!':'Шукає!','big go');SFX.go()}
   if(G.ph==='end'){phase='end';joy=null;blind(false);$('crouch').hidden=true;
     const seekWon=G.res==='seek',iWon=MP.spectator?null:(mode==='seek')===seekWon;
-    if(G.res==='left'){$('ovTitle').textContent='Шукач вийшов';$('ovText').textContent='Раунд скасовано. Наступний почнеться за кілька секунд.'}
+    if(G.res==='left'){$('ovTitle').textContent='Шукач вийшов';$('ovText').textContent='Раунд скасовано. Зараз повернемось у лобі.'}
     else{$('ovTitle').textContent=seekWon?(seeker.nick||'Шукач')+' облив усіх!':'Предмети перемогли!';
       const free=chars.filter(c=>c.role==='hider'&&!c.caught).map(c=>c.nick).filter(Boolean);
-      $('ovText').textContent=seekWon?'Нікого не впізнали. Наступний раунд за кілька секунд, шукач зміниться.':'Не впізнали: '+(free.join(', ')||'боти')+'. Наступний раунд за кілька секунд.'}
+      $('ovText').textContent=seekWon?'Нікого не впізнали. Зараз повернемось у лобі, шукач зміниться.':'Не впізнали: '+(free.join(', ')||'боти')+'. Зараз повернемось у лобі.'}
     if(iWon){SFX.win();(mode==='hide'?player:seeker).cheer=1;if(player.prop)setDisguise(player,-1);for(let i=0;i<90;i++)confetti.push({x:W/2+(Math.random()-.5)*W*0.8,y:H*0.3,vx:(Math.random()-.5)*420,vy:-150-Math.random()*380,l:2.6,c:COLORS[i%COLORS.length],r:Math.random()*6})}else if(iWon===false)SFX.lose();
     $('ovTitle').classList.toggle('lose',iWon===false);$('stars').hidden=true;$('ovHint').hidden=true;document.querySelector('.card .hint').hidden=true;
     $('ovBtn').hidden=!MP.host;$('ovBtn').textContent='Наступний раунд';$('ovLeave').hidden=false;$('ov').hidden=false}
@@ -881,7 +884,7 @@ if(level>1)$('ovText').textContent='Продовжуємо з рівня '+level
 let last=performance.now();
 function frame(now){const dt=Math.min(0.1,(now-last)/1000);last=now;
   if(phase==='lobby'){T+=dt;mpTick(dt)}
-  if(phase==='menu'||(phase==='lobby'&&seeker&&!MP.g)){if(phase==='menu')T+=dt;seeker.look=seeker.yaw=Math.PI+Math.sin(T*0.8)*0.9;updateCone(seeker);cone.visible=true;for(const c of chars)animate(c,dt);
+  if(phase==='menu'||(phase==='lobby'&&seeker)){if(phase==='menu')T+=dt;seeker.look=seeker.yaw=Math.PI+Math.sin(T*0.8)*0.9;updateCone(seeker);cone.visible=true;for(const c of chars)animate(c,dt);
     const a=W/H,far=1;camera.position.set(TX(11)+Math.sin(T*0.15)*1.5,9.5*far,TZ(8.6)+7.5*far);camera.lookAt(TX(11),0,TZ(8.6)-0.6)}
   else if(phase!=='lobby')update(dt);
   music(dt);

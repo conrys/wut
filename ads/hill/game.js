@@ -393,7 +393,7 @@ function showEnd(){
   if(myWin){SFX.win();for(let i=0;i<110;i++)confetti.push({x:W/2+(Math.random()-.5)*W*0.8,y:H*0.3,vx:(Math.random()-.5)*420,vy:-150-Math.random()*380,l:2.6,c:['#FFC93C','#FF5C5C','#4C8DFF','#4CC97A'][i%4],r:Math.random()*6})}else if(me)SFX.lose();
   const title=myWin?'Ти — цар гори!':G.res?nameOf(G.res)+' — цар гори':'Нічия';
   const why=G.why==='goal'?'Перший набрав '+GOAL+' очок.':'Час вийшов — перемагає лідер.';
-  setTimeout(()=>{if(phase!=='end')return;$('ovTitle').textContent=title;$('ovTitle').className=myWin?'':'lose';$('ovText').textContent=why+(MP.on?' Наступний раунд за кілька секунд.':'');
+  setTimeout(()=>{if(phase!=='end')return;$('ovTitle').textContent=title;$('ovTitle').className=myWin?'':'lose';$('ovText').textContent=why+(MP.on?' Зараз повернемось у лобі.':'');
     const sl=$('scoreList');sl.innerHTML='';
     const ids=G.pl.concat(G.bots).sort((a,b)=>(G.sc[b]||0)-(G.sc[a]||0));
     for(const id of ids){const li=document.createElement('li');if(id===myId())li.className='me';const d=document.createElement('span');d.className='pdot';d.style.background=PAL[(G.col[id]|0)%PAL.length];
@@ -544,7 +544,7 @@ $('mpCreate').addEventListener('click',()=>mpJoin(rcode(),true));
 $('mpJoinBtn').addEventListener('click',()=>{const c=($('codeIn').value||'').trim().toLowerCase();if(!/^[a-z]{4}$/.test(c)){$('mpErr').textContent='Код має 4 літери, наприклад KQRT.';$('mpErr').hidden=false;return}mpJoin(c)});
 $('codeIn').addEventListener('keydown',e=>{if(e.key==='Enter')$('mpJoinBtn').click()});
 $('colorBtn').addEventListener('click',()=>{MP.color=(MP.color+1)%PAL.length;$('colorBtn').style.background=PAL[MP.color];try{localStorage.setItem('hill_color',MP.color)}catch(e){}if(MP.net)MP.net.presence({c:MP.color})});
-$('mpStart').addEventListener('click',()=>{if(!MP.host)return;MP.mapSel=$('mapSel').value;MP.bots=+$('botSel').value;MP.g=null;MP.win={};hostStartRound()});
+$('mpStart').addEventListener('click',()=>{if(!MP.host)return;MP.mapSel=$('mapSel').value;MP.bots=+$('botSel').value;hostStartRound()});
 $('mpQuit').addEventListener('click',mpLeave);$('ovLeave').addEventListener('click',mpLeave);
 $('copyCode').addEventListener('click',()=>{const t=MP.code.toUpperCase();try{navigator.clipboard.writeText(t).then(()=>{$('copyCode').textContent='Скопійовано'},()=>{})}catch(e){}});
 async function mpJoin(code,create){
@@ -556,8 +556,9 @@ async function mpJoin(code,create){
   location.hash=code;$('roomCode').textContent=code.toUpperCase();$('mpA').hidden=true;$('mpB').hidden=false;
   phase='lobby';mpLobbyRender();   // G лишається заставочним, поки хост не почне раунд
 }
-function mpLeave(){if(MP.net)MP.net.leave();MP.net=null;MP.on=false;MP.host=false;MP.g=null;MP.lastG=null;MP.me=null;G=null;location.hash='';
+function mpLeave(){RoomLobby.reset(MP);if(MP.net)MP.net.leave();MP.net=null;MP.on=false;MP.host=false;MP.g=null;MP.lastG=null;MP.me=null;G=null;location.hash='';
   $('mp').hidden=true;resetMenu();bootScene()}
+function mpBackToLobby(){joy=null;RoomLobby.back(MP);bootScene();phase='lobby';mpLobbyRender()}
 function mpLobbyRender(){
   const list=$('plist');list.innerHTML='';const hid=hostId();
   humans().forEach(p=>{const li=document.createElement('li');const d=document.createElement('span');d.className='pdot';d.style.background=PAL[(p.presence.c|0)%PAL.length];
@@ -578,11 +579,11 @@ function hostStartRound(){
   MP.hostEnd=performance.now()+5000;
 }
 function hostTick(dt){
-  const g=MP.g;if(!g)return;G=g;
+  const g=MP.g;if(!g||g.ph==='room')return;G=g;
   const left=MP.hostEnd-performance.now(),at=ms=>{MP.hostEnd=performance.now()+ms;return ms};
   if(g.ph==='intro'&&left<=0){g.ph='play';g.k++;at(ROUND*1000)}
   else if(g.ph==='play'){hostEvents();zoneTick(dt);if(g.ph==='play'&&left<=0)endRound(leaderOf(),'time')}
-  else if(g.ph==='end'&&left<=0)hostStartRound();
+  else if(g.ph==='end'&&left<=0){RoomLobby.close(MP);return}
   if(MP.g)MP.g.rem=Math.max(0,MP.hostEnd-performance.now());
 }
 function mpTick(dt){
@@ -592,10 +593,12 @@ function mpTick(dt){
   {const myp=presOf(MP.me);if(myp){if(MP.host&&!myp.h&&performance.now()-MP.joinedAt>1500)MP.net.presence({h:Date.now()});else if(!MP.host&&myp.h&&humans().some(p=>p.id!==MP.me&&p.presence.h&&+p.presence.h<+myp.h))MP.net.presence({h:null})}}
   if(MP.host){if(!MP.g&&MP.lastG){MP.g=JSON.parse(JSON.stringify(MP.lastG));MP.g.k++;MP.hostEnd=performance.now()+Math.max(1000,MP.lastG.rem);MP.win=MP.g.win;
       auth.last={};for(const p of peersNow()){const ev=(p.presence||{}).ev;if(Array.isArray(ev)&&ev.length)auth.last[p.id]=ev[ev.length-1][0]}}
-    hostTick(dt)}
+    if(MP.host&&MP.g&&phase==='lobby'&&!MP.watch&&!(MP.g.pl||[]).includes(MP.me))RoomLobby.close(MP);hostTick(dt)}
   const g=MP.host?MP.g:(presOf(hid)||{}).g;
   if(!MP.host&&g)MP.lastG=g;
   if(phase==='lobby'&&Math.floor(T*4)!==MP.lr){MP.lr=Math.floor(T*4);mpLobbyRender()}
+  if(RoomLobby.gate(g,MP,phase,mpBackToLobby))return;
+  RoomLobby.bar(g,MP,humans(),()=>RoomLobby.close(MP));
   if(!g||!g.pl)return;
   if(g.r!==MP.round){MP.round=g.r;REQ.ev=[];G=g;setupRound(g);lastKey='';camInit=false;lastPt=-1}
   G=g;if(!G.shd)G.shd={};if(!G.pd)G.pd=[];if(!G.fx)G.fx=[];if(!G.sc)G.sc={};if(!G.win)G.win={};
