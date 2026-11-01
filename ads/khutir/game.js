@@ -670,6 +670,7 @@
     press: { src: 'img/press.webp', ax: 128, ay: 162, fit: 1.1 },
     pastry: { src: 'img/pastry.webp', ax: 128, ay: 193, fit: 1.1, ch: [142, 43] },
     meadery: { src: 'img/meadery.webp', ax: 128, ay: 175, fit: 1.1, ch: [148, 41] },
+    market: { src: 'img/market.webp', ax: 139, ay: 192, fit: 1.15 },
     barn0: { src: 'img/barn0.webp', ax: 139, ay: 192, fit: 1.15 },
     barn1: { src: 'img/barn1.webp', ax: 139, ay: 192, fit: 1.15 },
     well: { src: 'img/well.webp', ax: 128, ay: 162, fit: 1.1 },
