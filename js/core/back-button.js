@@ -12,6 +12,8 @@
     if (!CapApp) return;
 
     CapApp.addListener("backButton", () => {
+      // гра може сама обробити «Назад» (закрити вікно, вийти в своє меню)
+      if (window.gameBack && window.gameBack()) return;
       if (isIndex) {
         CapApp.exitApp();
       } else {

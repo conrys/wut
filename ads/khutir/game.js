@@ -60,6 +60,7 @@
     else if (a.t === 'build' || a.t === 'upgrade' || a.t === 'chunk' || a.t === 'store') sfx('build');
     else if (a.t === 'clear') sfx('chop');
     else if (a.t === 'deco' || a.t === 'fence') sfx('pick');
+    noteUndo(a);
     if (r.lvUp) {
       const opened = K.ORDER.filter((k) => B[k].lv === r.lvUp).map((k) => B[k].ic + ' ' + B[k].n).concat(Object.keys(K.CROP).filter((c) => K.CROP[c].lv === r.lvUp).map((c) => RES[c].ic + ' ' + RES[c].n));
       say('Рівень ' + r.lvUp + '!', opened.length ? 'Відкрито: ' + opened.join(', ') : 'Нові замовлення стали більшими');
@@ -425,8 +426,39 @@
     if (k.startsWith('deco:')) { const d = K.DECOR[k.slice(5)]; $('placeT').textContent = k === 'deco:fence' ? '🪵 Тин: веди пальцем уздовж краю клітинок, дотик по тину прибере його' : d.ic + ' ' + d.n + ': торкайся або веди пальцем'; $('placeX').textContent = 'Готово'; }
     else { $('placeT').textContent = 'Куди поставити ' + B[k].ic + ' ' + B[k].n + '?'; $('placeX').textContent = 'Скасувати'; }
   }
-  function cancelPlace() { placing = null; $('place').hidden = true; }
+  function cancelPlace() { placing = null; undoList = []; undoB = 0; clearTimeout(undoT); $('placeU').hidden = true; $('place').hidden = true; }
   $('placeX').addEventListener('click', cancelPlace);
+  // скасування: штрих прикрас цілком або щойно поставлена будівля — із поверненням усього сплаченого
+  let undoList = [], undoB = 0, undoT = 0, stroke = 0, undoing = false;
+  function noteUndo(a) {
+    if (undoing) return;
+    if (a.t === 'build') {
+      undoB = S.b.reduce((m, b) => Math.max(m, b.id), 0); undoList = [];
+      $('placeT').textContent = '✓ ' + B[a.k].n + ' на місці'; $('placeX').textContent = 'Гаразд'; $('placeU').hidden = false; $('place').hidden = false;
+      clearTimeout(undoT); undoT = setTimeout(() => { if (!placing) cancelPlace(); }, 10000);
+    } else if ((a.t === 'deco' || (a.t === 'fence' && !a.off)) && placing) { undoList.push([stroke, a]); $('placeU').hidden = false; }
+  }
+  $('placeU').addEventListener('click', () => {
+    au(); undoing = true;
+    if (undoB) { commit({ t: 'unbuild', id: undoB }); undoing = false; cancelPlace(); return; }
+    const last = undoList.length ? undoList[undoList.length - 1][0] : -1;
+    while (undoList.length && undoList[undoList.length - 1][0] === last) {
+      const a = undoList.pop()[1];
+      commit(a.t === 'fence' ? { t: 'fence', x: a.x, y: a.y, e: a.e, off: 1, full: 1 } : { t: 'undeco', x: a.x, y: a.y, full: 1 });
+    }
+    undoing = false; $('placeU').hidden = !undoList.length;
+  });
+  // «Назад» (жест від краю екрана, кнопка телефона): вікно → режим розміщення → меню хутора → вихід на головну
+  window.gameBack = () => {
+    if (sheetFn) { closeSheet(); return true; }
+    if (placing || !$('place').hidden) { cancelPlace(); return true; }
+    if (mode) { showMenu(); return true; }
+    return false;
+  };
+  let backArmed = false;
+  function armBack() { if (backArmed || window.Capacitor) return; backArmed = true; try { history.pushState({ khutir: 1 }, ''); } catch (e) {} }
+  addEventListener('pointerdown', armBack, { capture: true });   // браузер пропускає такі записи без дотику користувача
+  addEventListener('popstate', () => { if (window.gameBack()) { backArmed = false; armBack(); } else history.back(); });
   const free = (s, x, y) => K.owned(s, x, y) && !K.at(s, x, y) && !s.ob[K.idx(x, y)] && !s.d[K.idx(x, y)];
 
   // ================= торкання карти =================
@@ -876,15 +908,16 @@
     const key = h.id + '|' + r.map((b) => b.id).join() + '|' + s.b.length + h.x + h.y + '|' + Object.keys(s.ob).length + '|' + Object.keys(s.d).length + '|' + Object.keys(s.f).length;
     const hit = legCache.get(h.id); if (hit && hit.key === key) return hit.legs;
     const blocked = blockedSet(s), straight = () => { const pts = [h].concat(r, [h]), o = []; for (let i = 0; i + 1 < pts.length; i++) o.push([[pts[i].x + 0.42, pts[i].y + 0.42], [pts[i + 1].x + 0.42, pts[i + 1].y + 0.42]]); return o; };
-    const doors = around(h, blocked); let legs = null;
-    if (doors.length) {
-      const door = doors[0], mid = (a, t) => [(a[0] + t.x) / 2, (a[1] + t.y) / 2], o = []; let cur = door, p = mid(door, h), ok = true;
+    // виходить із того боку хати, звідки весь обхід найкоротший, і туди ж повертається
+    let legs = null, best = 1e9;
+    for (const door of around(h, blocked)) {
+      const mid = (a, t) => [(a[0] + t.x) / 2, (a[1] + t.y) / 2], o = []; let cur = door, p = mid(door, h), ok = true, total = 0;
       for (const t of r.concat([h])) {
         const goals = t === h ? [door] : around(t, blocked), tiles = goals.length ? findTiles(s, blocked, cur, goals) : null;
         if (!tiles) { ok = false; break; }
-        cur = tiles[tiles.length - 1]; const e = mid(cur, t); o.push([p].concat(tiles, [e])); p = e;
+        total += tiles.length; cur = tiles[tiles.length - 1]; const e = mid(cur, t); o.push([p].concat(tiles, [e])); p = e;
       }
-      if (ok) legs = o;
+      if (ok && total < best) { best = total; legs = o; }
     }
     legs = legs || straight(); legCache.set(h.id, { key, legs }); return legs;
   }
@@ -1056,7 +1089,7 @@
   // ================= жести: тягнути, щипок, торкання =================
   const ptr = new Map(); let gest = null;
   cv.addEventListener('pointerdown', (e) => {
-    au(); cv.setPointerCapture && cv.setPointerCapture(e.pointerId);
+    au(); cv.setPointerCapture && cv.setPointerCapture(e.pointerId); if (!ptr.size) stroke++;
     ptr.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t0: performance.now() });
     if (ptr.size === 1) gest = { moved: false, cx: cam.x, cy: cam.y };
     if (ptr.size === 2) { const [a, b] = [...ptr.values()]; gest = { moved: true, pinch: true, d0: Math.hypot(a.x - b.x, a.y - b.y), z0: cam.z, cx: cam.x, cy: cam.y, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 }; }
@@ -1118,7 +1151,7 @@
   // ================= тест-хук =================
   window.KHUTIR = {
     get S() { return S; }, get view() { return view; }, get mode() { return mode; }, get code() { return code; }, get cam() { return cam; },
-    villLegs(uid) { const s = view, v = s.vl[uid], h = s.b.find((b) => b.id === v.home); return villLegs(s, h, K.routes(s)[uid] || []); }, commit, tapTile, warp(ms) { warp += ms; refreshView(true); }, refresh() { refreshView(true); }, startSolo, openShared, showMenu, go, closeSheet,
+    villLegs(uid) { const s = view, v = s.vl[uid], h = s.b.find((b) => b.id === v.home); return villLegs(s, h, K.routes(s)[uid] || []); }, get undoN() { return undoList.length; }, commit, tapTile, warp(ms) { warp += ms; refreshView(true); }, refresh() { refreshView(true); }, startSolo, openShared, showMenu, go, closeSheet,
     pxFrame, K, screenOf(x, y) { return [sx(x, y), sy(x, y)]; }, get vpos() { return vpos; }, darkness, DAY, focus(x, y) { cam.x = wx(x, y); cam.y = wy(x, y); }, get sheetOpen() { return !!sheetFn; }, get placing() { return placing; }, me,
   };
 

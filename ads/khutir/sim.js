@@ -334,7 +334,7 @@
         if (d.one && count(s, a.k)) return fail('Такий уже є');
         const cost = buildCost(s, a.k); if (!canAfford(s, cost)) return fail('Треба ' + fmtCost(cost));
         pay(s, cost);
-        const b = { id: s.nid++, k: a.k, x: a.x, y: a.y, lv: 1, buf: 0, p: -1, h: 0 };
+        const b = { id: s.nid++, k: a.k, x: a.x, y: a.y, lv: 1, buf: 0, p: -1, h: 0, at: s.t, pd: cost };
         s.b.push(b); log(s, who, 'збудував(ла) ' + d.n);
         gainXp(s, 3, res); kick(s);
         res.fx.push([a.x, a.y, '-' + cost.c + ' 💰']); return res;
@@ -379,14 +379,21 @@
         // межа: e = 0 — між (x,y) і (x+1,y), e = 1 — між (x,y) і (x,y+1)
         const e = a.e ? 1 : 0, key = fenceKey(a.x, a.y, e), x2 = a.x + (e ? 0 : 1), y2 = a.y + (e ? 1 : 0);
         if (!owned(s, a.x, a.y) && !owned(s, x2, y2)) return fail('Це не твоя земля');
-        if (a.off) { if (!s.f[key]) return fail('Нема'); delete s.f[key]; s.coins += Math.floor(DECOR.fence.c / 2); return res; }
+        if (a.off) { if (!s.f[key]) return fail('Нема'); delete s.f[key]; s.coins += a.full ? DECOR.fence.c : Math.floor(DECOR.fence.c / 2); return res; }
         if (s.f[key]) return fail('Тут уже є');
         if (s.coins < DECOR.fence.c) return fail('Треба ' + DECOR.fence.c + ' 💰');
         s.coins -= DECOR.fence.c; s.f[key] = 1; return res;
       }
+      case 'unbuild': {
+        // скасування щойно поставленої будівлі: повертає все сплачене
+        const i = s.b.findIndex((q) => q.id === a.id), b = s.b[i]; if (!b || !b.pd || s.t - b.at > 60e3) return fail('Уже не скасувати');
+        s.coins += b.pd.c; s.st.plank = (s.st.plank || 0) + (b.pd.pl || 0); if (!s.st.plank) delete s.st.plank;
+        for (const [r, n] of B[b.k].in || []) s.st[r] = (s.st[r] || 0) + n * ((b.qn || 0) + (b.p >= 0 ? 1 : 0));
+        s.b.splice(i, 1); kick(s); return res;
+      }
       case 'undeco': {
         const i = idx(a.x, a.y), k = s.d[i]; if (!k) return fail('Нема');
-        delete s.d[i]; if (DECOR[k].shop === false) s.inv[k] = (s.inv[k] || 0) + 1; else s.coins += Math.floor(DECOR[k].c / 2); return res;
+        delete s.d[i]; if (DECOR[k].shop === false) s.inv[k] = (s.inv[k] || 0) + 1; else s.coins += a.full ? DECOR[k].c : Math.floor(DECOR[k].c / 2); return res;
       }
       case 'mk': {
         const m = market(s, now), o = m && m.here && m.o[a.i]; if (!o || !o.n) return fail('Торговець уже поїхав');

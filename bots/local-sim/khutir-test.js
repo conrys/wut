@@ -48,12 +48,19 @@ const tapTile = async (p, x, y) => { await p.evaluate(([x, y]) => { KHUTIR.focus
   const b1 = await p.evaluate(() => [KHUTIR.K.beauty(KHUTIR.view), KHUTIR.K.tier(KHUTIR.view)]);
   check("прикраси дають красу й ступінь", b1[0] > b0 && b1[1] >= 1, JSON.stringify(b1));
   check("на дорозі не можна будувати", await p.evaluate(() => { const d = Object.keys(KHUTIR.view.d)[0], x = d % 48, y = Math.floor(d / 48); return !KHUTIR.commit({ t: "build", k: "well", x, y }).ok; }));
+  // скасування: будівля повертає всі гроші
+  const un = await p.evaluate(() => { const v = KHUTIR.view; let t = null; for (let y = 16; y < 28 && !t; y++) for (let x = 16; x < 28 && !t; x++) if (!KHUTIR.K.at(v, x, y) && !v.ob[KHUTIR.K.idx(x, y)] && !v.d[KHUTIR.K.idx(x, y)]) t = [x, y]; const c0 = v.coins; KHUTIR.commit({ t: "build", k: "well", x: t[0], y: t[1] }); return [c0, t]; });
+  await p.tap("#placeU"); await p.waitForTimeout(300);
+  check("скасування будівлі повернуло все", await p.evaluate(([c0, t]) => KHUTIR.view.coins === c0 && !KHUTIR.K.at(KHUTIR.view, t[0], t[1]), un));
+  // «Назад»: шторка закривається, гра лишається
+  await p.evaluate(() => KHUTIR.go("store")); await p.waitForTimeout(300);
+  await p.touchscreen.tap(195, 140); await p.goBack({ waitUntil: "commit" }).catch(() => {}); await p.waitForTimeout(500);
+  check("«Назад» закрив шторку й лишив у грі", await p.evaluate(() => !!window.KHUTIR && !KHUTIR.sheetOpen && KHUTIR.mode === "solo"));
   // тин лежить на межі: клітинка під ним вільна, а селянин його обходить
-  check("під тином можна будувати", await p.evaluate(() => KHUTIR.commit({ t: "build", k: "well", x: 18, y: 18 }).ok));
+  check("тин не займає клітинку", await p.evaluate(() => { const v = KHUTIR.view; return Object.keys(v.f).length > 0 && !Object.values(v.d).includes("fence"); }));
   const walk = await p.evaluate(() => { const uid = Object.keys(KHUTIR.view.vl)[0], s = KHUTIR.view, busy = new Set(s.b.map((b) => b.x + ":" + b.y)), legs = KHUTIR.villLegs(uid); let bad = 0, n = 0; for (const l of legs) for (const q of l.slice(1, -1)) { n++; if (busy.has(q[0] + ":" + q[1])) bad++; } return [n, bad]; });
   check("селянин не йде крізь будівлі", walk[0] > 0 && walk[1] === 0, JSON.stringify(walk));
   // торговець
-  await p.tap("#placeX");
   await p.evaluate(() => { KHUTIR.commit({ t: "build", k: "market", x: 24, y: 24 }); const t = Date.now() + 0, every = 3 * 3600e3, ph = t % every; if (ph >= 80 * 60e3) KHUTIR.warp(every - ph + 60e3); KHUTIR.S.st.wheat = 60; KHUTIR.refresh(); });
   const m = await p.evaluate(() => KHUTIR.K.market(KHUTIR.view, KHUTIR.view.t));
   check("торговець приїхав", m && m.here && m.o.length >= 3, JSON.stringify(m).slice(0, 160));
