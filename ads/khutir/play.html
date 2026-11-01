@@ -9,11 +9,11 @@
 <style>
 /* Хутір: нескінченне господарство. Соло — на телефоні, спільний — один хутір на компанію в RTDB (khutir/<код>). */
 :root{
-  --ink:#F4F1EA; --dim:#B9B3A6; --night:#14121A; --card:#1E1B25; --card2:#272330; --line:#36313F;
-  --gold:#FFC93C; --green:#7BD389; --red:#FF6B6B; --sky:#59C3FF;
+  --ink:#3A2517; --dim:#7A5F45; --night:#2A1C14; --card:#F6E9CB; --card2:#FFF6E0; --line:#DCC594; --wood:rgba(58,37,23,.93); --cream:#FFF3D6;
+  --gold:#F2B531; --green:#4E8F3A; --red:#C8402F; --sky:#2F7FBF;
   --display:'Baloo 2','Arial Rounded MT Bold','Trebuchet MS',sans-serif;
   --body:'Rubik',system-ui,-apple-system,sans-serif;
-  color-scheme:dark;
+  color-scheme:light;
 }
 html,body{height:100%;margin:0}
 [hidden]{display:none!important}
@@ -88,6 +88,46 @@ button:focus-visible{outline:3px solid var(--sky);outline-offset:2px}
 .say.show{animation:say 2.6s cubic-bezier(.2,1.4,.4,1) forwards}
 @keyframes say{0%{opacity:0;transform:scale(.4)}10%{opacity:1;transform:scale(1.06)}18%{transform:scale(1)}85%{opacity:1}100%{opacity:0;transform:translateY(-14px)}}
 @media (prefers-reduced-motion:reduce){.sheet{transition:none}.say.show{animation:sayR 2.6s linear forwards}@keyframes sayR{0%,85%{opacity:1}100%{opacity:0}}}
+.chip,.bb,.place,.tipline{color:var(--cream)}
+.chip,.bb{background:var(--wood)}
+.chip.coins{color:#FFD76A}
+.back{color:var(--cream)}
+.lvl i{background:#FFD76A}
+.place,.tipline{background:var(--wood)}
+.place button{background:#5A3A22;color:var(--cream)}
+.place #placeOk{background:var(--gold);color:var(--ink);font-weight:700}
+.bb.on{outline-color:#FFD76A;background:#6B4428}
+.mk{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 86px);border:0;border-radius:14px;background:var(--gold);color:var(--ink);font-family:var(--display);font-weight:800;font-size:15px;line-height:1.1;padding:9px 12px 7px;box-shadow:0 4px 0 #A9781A;text-align:left}
+.mk small{display:block;font-family:var(--body);font-weight:500;font-size:12px}
+.sheet{overflow:hidden}
+.sheet::before,.card::before{content:"";display:block;height:8px;background:repeating-linear-gradient(90deg,#C62828 0 10px,#2A1C14 10px 14px,#F6E9CB 14px 18px,#2A1C14 18px 22px)}
+.card{overflow:hidden;padding-top:0;box-shadow:0 8px 0 rgba(42,28,20,.6);color:var(--ink)}
+.card::before{margin:0 -18px 12px}
+.card .logo{width:150px;height:auto;display:block;margin:0 auto -6px}
+.overlay{background:linear-gradient(180deg,rgba(58,37,23,.55),rgba(42,28,20,.8))}
+.sh-h .x{color:var(--ink);background:var(--line)}
+.row{border:1px solid var(--line);color:var(--ink)}
+.btn{color:var(--ink);box-shadow:0 4px 0 #A9781A}
+.btn.sec{background:#EAD8AE;color:var(--ink);box-shadow:0 4px 0 #BFA26A}
+.btn.red{color:#FFF3D6;box-shadow:0 4px 0 #8E2A1F}
+.it{background:rgba(90,60,30,.12)}
+.sell{background:#EAD8AE;color:var(--ink)}
+.cap{background:rgba(90,60,30,.18)}
+.inp input{background:#FFFBEF;color:var(--ink)}
+.toast{background:var(--wood);color:var(--cream)}
+.tabs{display:flex;gap:6px;position:sticky;top:-4px;z-index:1;background:var(--card);padding:2px 0 6px}
+.tab{flex:1;border:0;border-radius:12px;background:#EAD8AE;color:var(--ink);font-weight:700;font-size:13px;padding:9px 2px}
+.tab.on{background:#5A3A22;color:var(--cream)}
+.cat{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.row.tile2{flex-direction:column;align-items:stretch;gap:4px;padding:10px;text-align:left}
+.tile2 .top{display:flex;align-items:center;gap:6px}
+.tile2 .ic{width:auto;font-size:26px}
+.tile2 b{font-size:15px;line-height:1.15}
+.tile2 small{color:var(--dim);font-size:12px;line-height:1.25}
+.tile2 .pr{margin-top:auto}
+.sw{flex:none;width:46px;height:27px;border-radius:14px;background:#CDB98B;position:relative}
+.sw i{position:absolute;left:3px;top:3px;width:21px;height:21px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3)}
+.sw.on{background:var(--green)}.sw.on i{left:22px}
 </style>
 </head>
 <body>
@@ -98,6 +138,7 @@ button:focus-visible{outline:3px solid var(--sky);outline-offset:2px}
   <button class="chip name" id="hName" aria-label="Меню хутора"><span id="hNameT">Хутір</span></button>
   <button class="chip" id="hOn" hidden aria-label="Хто зараз на хуторі">👥 <span id="hOnN">1</span></button>
   <div class="chip coins" id="hCoins">💰 0</div>
+  <button class="chip" id="hBeauty" aria-label="Краса хутора">🌸 <span id="hBeautyN">0</span></button>
   <button class="chip lvl" id="hLvl" aria-label="Рівень хутора">⭐ <span id="hLvlN">1</span><i id="hLvlBar"></i></button>
 </div>
 <div class="tipline" id="tip" hidden></div>
@@ -120,6 +161,8 @@ button:focus-visible{outline:3px solid var(--sky);outline-offset:2px}
   <button class="bb" id="mDone"><b>✅</b>Готово</button>
 </div>
 
+<button class="mk" id="mkBtn" hidden></button>
+
 <div class="sheet" id="sheet" role="dialog" aria-modal="false" aria-labelledby="shT">
   <div class="sh-h"><h2 id="shT"></h2><button class="x" id="shX" aria-label="Закрити">✕</button></div>
   <div class="sh-b" id="shB"></div>
@@ -130,7 +173,7 @@ button:focus-visible{outline:3px solid var(--sky);outline-offset:2px}
 
 <div class="overlay" id="menu">
   <div class="card">
-    <h1>🏡 Хутір</h1>
+    <img class="logo" src="img/home.webp" alt=""><h1>Хутір</h1>
     <p class="sub">Сій, будуй, вари сир і медовуху. Хутір живе, навіть коли тебе нема: заходь коли хочеш — урожай чекатиме.</p>
     <button class="btn" id="mSolo">Мій хутір<small id="mSoloI">почати з одного поля</small></button>
     <h3>Спільний хутір</h3>

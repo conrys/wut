@@ -189,7 +189,7 @@
   let lastCoins = -1;
   function hud() {
     const s = view; if (!s) return;
-    $('hNameT').textContent = (mode === 'shared' ? '👥 ' : '🏡 ') + s.nm;
+    $('hNameT').textContent = (mode === 'shared' ? '👥 ' : '') + s.nm;
     if (s.coins !== lastCoins) { $('hCoins').textContent = '💰 ' + fmt(s.coins); lastCoins = s.coins; }
     $('hLvlN').textContent = s.lv; $('hLvlBar').style.setProperty('--w', Math.min(100, (100 * s.xp) / K.xpNeed(s.lv)) + '%');
     let ready = 0; for (const b of s.b) if ((b.buf && !b.h) || (b.k === 'field' && b.cr && b.p < 0)) ready++;
@@ -197,6 +197,9 @@
     let can = 0; for (const o of s.o) if (o.w <= now() && o.it.every(([r, n]) => (s.st[r] || 0) >= n)) can++;
     $('dOrders').hidden = !can; $('dOrders').textContent = can;
     tipLine();
+    $('hBeautyN').textContent = K.tier(s);
+    const mk = K.market(s, now()), mb = $('mkBtn'), show = !!(mk && mk.here) && !buildOn;
+    mb.hidden = !show; if (show) { const tx = '🛒 Торговець<small>ще ' + secs(mk.end - now()) + '</small>'; if (mb.innerHTML !== tx) mb.innerHTML = tx; }
   }
   const fmt = (n) => (n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e4 ? Math.round(n / 1e3) + 'k' : String(Math.round(n)));
   function tipLine() {
@@ -213,7 +216,6 @@
       else if (s.lv === 1) t = '📋 Замовлення платять більше, ніж продаж у коморі';
       else if (!K.count(s, 'market')) t = '🏪 Збудуй ринок: сюди приїздять торговці';
     }
-    if (!t && !placing) { const m = K.market(s, now()); if (m && m.here) t = '🛒 На ринку торговець із ' + m.v + ', ще ' + secs(m.end - now()); }
     el.hidden = !t; el.textContent = t;
   }
 
@@ -238,6 +240,7 @@
       if (r && r.ok && a.t === 'chunk') closeSheet();
       if (r && r.ok && (a.t === 'clear' || a.t === 'undeco' || a.t === 'sow' || a.t === 'fence')) closeSheet();
     }));
+    $('shB').querySelectorAll('[data-tab]').forEach((el) => el.addEventListener('click', () => { if (fresh()) return; catTab = el.dataset.tab; sfx('pick'); sheetFn(); }));
     $('shB').querySelectorAll('[data-place]').forEach((el) => el.addEventListener('click', () => { if (fresh()) return; au(); startPlace(el.dataset.place); }));
     bindVill();
     $('shB').querySelectorAll('[data-go]').forEach((el) => el.addEventListener('click', () => { if (fresh()) return; au(); go(el.dataset.go); }));
@@ -253,6 +256,7 @@
     else if (what === 'store') openSheet('📦 Комора', storeSheet);
     else if (what === 'orders') openSheet('📋 Замовлення', ordersSheet);
     else if (what === 'farm') openSheet(mode === 'shared' ? '👥 Спільний хутір' : '🏡 Мій хутір', farmSheet);
+    else if (what === 'beauty') openSheet('🌸 Краса хутора', beautySheet);
     else if (what === 'level') openSheet('⭐ Рівень ' + view.lv, levelSheet);
     else if (what === 'vill') { const v = myV(); if (v) { villFor = myUid(); openSheet('🧑‍🌾 ' + v.n, villSheet); } }
   }
@@ -264,23 +268,34 @@
   $('hName').addEventListener('click', () => { au(); go('farm'); });
   $('hOn').addEventListener('click', () => { au(); go('farm'); });
   $('hLvl').addEventListener('click', () => { au(); go('level'); });
+  $('hBeauty').addEventListener('click', () => { au(); go('beauty'); });
+  $('mkBtn').addEventListener('click', () => { au(); const b = view.b.find((q) => q.k === 'market'); if (b) { cam.x = wx(b.x, b.y); cam.y = wy(b.x, b.y); tapTile(b.x, b.y); } });
 
+  // каталог будування: вкладки замість довгого списку
+  const CATS = { farm: ['Ферма', ['field', 'coop', 'dairy', 'orchard', 'apiary', 'well']], make: ['Виробництво', ['mill', 'lumber', 'saw', 'bakery', 'oilery', 'cheese', 'press', 'kitchen', 'pastry', 'meadery']], town: ['Село', ['market']], deco: ['Прикраси', null] };
+  let catTab = 'farm';
   function buildSheet() {
     const s = view;
-    let h = '<p class="note">Обери, що ставити, потім торкайся вільних клітинок.</p>';
-    for (const k of K.ORDER) {
-      const d = B[k], lock = s.lv < d.lv, c = K.buildCost(s, k), ok = !lock && K.canAfford(s, c);
-      const info = d.kind === 'field' ? esc(d.hint) : d.d ? recipe(d) + ' · ' + secs(d.d * 1000) : esc(d.hint || '');
-      h += '<button class="row' + (ok ? '' : ' off') + '" ' + (lock ? 'disabled' : 'data-place="' + k + '"') + '><span class="ic">' + d.ic + '</span><span class="tx"><b>' + d.n + '</b><small>' + (lock ? '🔒 з ' + d.lv + ' рівня' : info) + '</small></span><span class="pr">' + (lock ? '' : costTxt(c)) + '</span></button>';
-    }
-    const bt = K.tier(s), bv = K.beauty(s), nextB = bt < 10 ? K.tierNeed(bt + 1) : 0;
-    h += '<div class="row"><span class="ic">🌸</span><span class="tx"><b>Краса: ' + bv + ' · ступінь ' + bt + '</b><small>Замовники платять +' + bt * 4 + '%' + (bt >= 2 ? ', торговець купує дорожче й більше' : ', з вищою красою торговець купує дорожче') + (nextB ? '. До наступного ступеня: ' + (nextB - bv) : '') + '. Різні прикраси дають більше, ніж багато однакових.</small></span></div>';
-    for (const k in K.DECOR) {
+    let h = '<div class="tabs">' + Object.keys(CATS).map((k) => '<button class="tab' + (k === catTab ? ' on' : '') + '" data-tab="' + k + '">' + CATS[k][0] + '</button>').join('') + '</div><div class="cat">';
+    if (catTab !== 'deco') for (const k of CATS[catTab][1]) {
+      const d = B[k], lock = s.lv < d.lv, c = K.buildCost(s, k), one = d.one && K.count(s, k), ok = !lock && !one && K.canAfford(s, c);
+      const info = lock ? '🔒 з ' + d.lv + ' рівня' : one ? 'Уже збудовано' : d.kind === 'field' ? esc(d.hint) : d.d ? recipe(d) + ' · ' + secs(d.d * 1000) : esc(d.hint || '');
+      h += '<button class="row tile2' + (ok ? '' : ' off') + '" ' + (lock || one ? 'disabled' : 'data-place="' + k + '"') + '><span class="top"><span class="ic">' + d.ic + '</span><b>' + d.n + '</b></span><small>' + info + '</small><span class="pr">' + costTxt(c) + '</span></button>';
+    } else for (const k in K.DECOR) {
       const d = K.DECOR[k], only = d.shop === false, have = (s.inv && s.inv[k]) || 0;
       if (only && !have) continue;
       const lock = !only && s.lv < d.lv, ok = only || (!lock && s.coins >= d.c);
-      h += '<button class="row' + (ok ? '' : ' off') + '" ' + (lock ? 'disabled' : 'data-place="deco:' + k + '"') + '><span class="ic">' + d.ic + '</span><span class="tx"><b>' + d.n + '</b><small>' + (lock ? '🔒 з ' + d.lv + ' рівня' : '+' + d.b + ' краси' + (d.hint ? ' · ' + d.hint : '')) + '</small></span><span class="pr">' + (only ? 'є ' + have : d.c + ' 💰') + '</span></button>';
+      h += '<button class="row tile2' + (ok ? '' : ' off') + '" ' + (lock ? 'disabled' : 'data-place="deco:' + k + '"') + '><span class="top"><span class="ic">' + d.ic + '</span><b>' + d.n + '</b></span><small>' + (lock ? '🔒 з ' + d.lv + ' рівня' : '+' + d.b + ' 🌸' + (d.hint ? ' · ' + d.hint : '')) + '</small><span class="pr">' + (only ? 'є ' + have : d.c + ' 💰') + '</span></button>';
     }
+    return h + '</div>';
+  }
+  function beautySheet() {
+    const s = view, t = K.tier(s), v = K.beauty(s), a = t ? K.tierNeed(t) : 0, n = t < 10 ? K.tierNeed(t + 1) : a;
+    let h = '<div class="row"><span class="ic">🌸</span><span class="tx"><b>Ступінь ' + t + ' · краса ' + v + '</b><small>' + (t < 10 ? 'До наступного ступеня ще ' + (n - v) : 'Найвищий ступінь') + '</small><span class="cap"><i style="width:' + (t < 10 ? Math.min(100, (100 * (v - a)) / (n - a)) : 100) + '%"></i></span></span></div>';
+    h += '<div class="row"><span class="ic">📋</span><span class="tx"><b>Замовники платять +' + t * 4 + '%</b><small>Кожен ступінь додає 4%</small></span></div>';
+    h += '<div class="row"><span class="ic">🛒</span><span class="tx"><b>Торговець купує в ' + (2 + 0.1 * t).toFixed(1).replace('.', ',') + ' раза дорожче</b><small>З 2 ступеня бере більше товарів, з 3 — привозить ще одну рідкісну прикрасу</small></span></div>';
+    h += '<p class="note">Різні прикраси дають більше: після 12 однакових кожна наступна важить утричі менше.</p><div class="btns"><button class="btn" id="goDeco">🌸 Прикрасити хутір</button></div>';
+    setTimeout(() => { const b = $('goDeco'); if (b) b.onclick = () => { if (fresh()) return; catTab = 'deco'; closeSheet(); enterBuild(); go('build'); }; });
     return h;
   }
   let sel = null; // id вибраної будівлі
@@ -300,7 +315,7 @@
     const outR = K.outOf(b)[0];
     if (d.kind === 'field') {
       const fields = s.b.filter((f) => f.k === 'field'), allOn = fields.every((f) => f.auto);
-      h += '<button class="row" data-a="' + A({ t: 'auto', id: b.id, on: !b.auto }) + '"><span class="ic">' + (b.auto ? '☑️' : '⬜') + '</span><span class="tx"><b>Постійно</b><small>Сіяти те саме щоразу, як заберуть урожай</small></span></button>';
+      h += '<button class="row" data-a="' + A({ t: 'auto', id: b.id, on: !b.auto }) + '"><span class="tx"><b>Постійно</b><small>Сіяти те саме щоразу, як заберуть урожай</small></span><span class="sw' + (b.auto ? ' on' : '') + '"><i></i></span></button>';
       if (fields.length > 1) h += '<div class="btns"><button class="btn sec" data-a="' + A({ t: 'auto', id: b.id, on: !allOn, all: 1 }) + '">' + (allOn ? 'Вимкнути на всіх полях' : 'Постійно на всіх полях') + '</button></div>';
       if (b.p < 0 && !b.buf) {
         h += '<p class="note">Що сіємо?</p>';
@@ -366,7 +381,7 @@
     if (!list.length) h += '<p class="note">Поки порожньо. Збирай урожай із будівель.</p>';
     for (const r of list) {
       const n = s.st[r], p = RES[r].p;
-      h += '<div class="row"><span class="ic">' + RES[r].ic + '</span><span class="tx"><b>' + RES[r].n + ': ' + n + '</b><small>на ярмарку ' + p + ' 💰 за шт.</small><span class="cap"><i class="' + (n >= cap ? 'full' : '') + '" style="width:' + Math.min(100, (100 * n) / cap) + '%"></i></span></span>' +
+      h += '<div class="row"><span class="ic">' + RES[r].ic + '</span><span class="tx"><b>' + RES[r].n + ': ' + n + '</b><small>продаж ' + p + ' 💰 за шт.</small><span class="cap"><i class="' + (n >= cap ? 'full' : '') + '" style="width:' + Math.min(100, (100 * n) / cap) + '%"></i></span></span>' +
         '<button class="sell" data-a="' + A({ t: 'sell', r, n: 1 }) + '">−1 +' + p + '</button><button class="sell" data-a="' + A({ t: 'sell', r, n: Math.ceil(n / 2) }) + '"' + (n > 1 ? '' : ' disabled') + '>½ +' + Math.ceil(n / 2) * p + '</button></div>';
     }
     return h;
@@ -468,7 +483,7 @@
   let buildOn = false, tool = null; const hist = [], redo = [];
   function toolUI() {
     $('bar').hidden = buildOn || !view; $('mbar').hidden = !buildOn;
-    $('mHammer').classList.toggle('on', tool === 'hammer'); $('mMove').classList.toggle('on', tool === 'move'); $('mBuild').classList.toggle('on', !!placing);
+    $('mkBtn').hidden = true; $('mHammer').classList.toggle('on', tool === 'hammer'); $('mMove').classList.toggle('on', tool === 'move'); $('mBuild').classList.toggle('on', !!placing);
     $('mUndo').disabled = !hist.length; $('mRedo').disabled = !redo.length;
     if (tool) { placing = null; $('placeOk').hidden = true; $('place').hidden = false; $('placeX').textContent = '✕'; $('placeT').textContent = tool === 'hammer' ? '🔨 Торкнись або проведи по тому, що прибрати' : '✋ Тягни будівлю чи прикрасу на нове місце'; }
     else if (!placing) $('place').hidden = true;
@@ -872,7 +887,7 @@
   }
   function bubble(cx, cy, z, t, ic, warn) {
     const by = cy - 50 * z + Math.sin(t / 220 + cx) * 2.5 * z, r = 12 * z;
-    g.fillStyle = warn ? 'rgba(40,36,48,.9)' : '#FFFFFF'; g.beginPath(); g.arc(cx, by, r, 0, 7); g.fill();
+    g.fillStyle = warn ? 'rgba(58,37,23,.92)' : '#FFF6E0'; g.beginPath(); g.arc(cx, by, r, 0, 7); g.fill();
     g.beginPath(); g.moveTo(cx - 4 * z, by + r - 2 * z); g.lineTo(cx, by + r + 5 * z); g.lineTo(cx + 4 * z, by + r - 2 * z); g.fill();
     emoji(ic, cx, by + 1 * z, Math.round(14 * z));
     if (warn === true) { g.strokeStyle = '#FF6B6B'; g.lineWidth = 2 * z; g.beginPath(); g.moveTo(cx - 8 * z, by + 8 * z); g.lineTo(cx + 8 * z, by - 8 * z); g.stroke(); }

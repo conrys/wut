@@ -39,6 +39,7 @@ const tapTile = async (p, x, y) => { await p.evaluate(([x, y]) => { KHUTIR.focus
   // прикраси: малювання пальцем
   await p.evaluate(() => KHUTIR.closeSheet()); await p.tap("#bBuild"); await p.waitForTimeout(400);
   await p.screenshot({ path: OUT + "/2-build.png" });
+  await p.waitForTimeout(250); await p.tap("[data-tab=deco]"); await p.waitForTimeout(300);
   await (await p.$("#shB button.row:has-text('Стежка')")).tap(); await p.waitForTimeout(400);
   check("режим малювання", await p.evaluate(() => KHUTIR.placing === "deco:path"));
   const n1 = await p.evaluate(() => { let n = 0; for (let x = 18; x < 26; x++) if (KHUTIR.commit({ t: "deco", k: "path", x, y: 19 }).ok) n++; return n; });
@@ -55,6 +56,7 @@ const tapTile = async (p, x, y) => { await p.evaluate(([x, y]) => { KHUTIR.focus
   const free1 = await p.evaluate(() => { const v = KHUTIR.view, o = []; for (let y = 16; y < 28; y++) for (let x = 16; x < 28; x++) if (!KHUTIR.K.at(v, x, y) && !v.ob[KHUTIR.K.idx(x, y)] && !v.d[KHUTIR.K.idx(x, y)]) o.push([x, y]); return [o[0], o[5], v.coins]; });
   await p.evaluate(() => document.getElementById("placeX").click());
   await p.tap("#mBuild"); await p.waitForTimeout(400);
+  await p.tap("[data-tab=farm]"); await p.waitForTimeout(300);
   await (await p.$("#shB button.row:has(b:text-is('Криниця'))")).tap(); await p.waitForTimeout(450);
   await p.evaluate((t) => KHUTIR.tapTile(t[0], t[1]), free1[0]); await p.waitForTimeout(250);
   check("будівля стоїть, режим лишається", await p.evaluate((t) => !!KHUTIR.K.at(KHUTIR.view, t[0], t[1]) && KHUTIR.buildOn && KHUTIR.placing === "well", free1[0]));
@@ -98,6 +100,7 @@ const tapTile = async (p, x, y) => { await p.evaluate(([x, y]) => { KHUTIR.focus
   await p.evaluate(() => { KHUTIR.commit({ t: "fence", x: 20, y: 18, e: 1 }); KHUTIR.closeSheet(); });
   // тин: чернетка з кутом, гроші лише після підтвердження
   await p.evaluate(() => { KHUTIR.closeSheet(); KHUTIR.focus(22, 20); KHUTIR.cam.z = 1.4; }); await p.tap("#bBuild"); await p.waitForTimeout(400);
+  await p.tap("[data-tab=deco]"); await p.waitForTimeout(300);
   await (await p.$("#shB button.row:has(b:text-is('Тин'))")).tap(); await p.waitForTimeout(400);
   const c1 = await p.evaluate(() => KHUTIR.view.coins);
   const pt = await p.evaluate(() => [[21.5, 21.5], [24.5, 21.5], [24.5, 24.5]].map(([x, y]) => KHUTIR.screenOf(x, y)));
