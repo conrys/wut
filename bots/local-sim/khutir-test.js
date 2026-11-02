@@ -132,6 +132,8 @@ const tapTile = async (p, x, y) => { await p.evaluate(([x, y]) => { KHUTIR.focus
   // ліс: дерева лишаються, селянин приносить колоди
   const fo = await p.evaluate(() => { const K = KHUTIR.K, s = K.create(9, "t"); let t = 1.8e12; K.advance(s, t); K.addVillager(s, "me", "V"); const n0 = Object.values(s.ob).filter((q) => q === "F").length; t += 3 * 3600e3; K.advance(s, t); const n1 = Object.values(s.ob).filter((q) => q === "F").length, c = s.fo[0], bad = K.act(s, { t: "chunk", c }, t, "V").ok; return [n0, n1, s.st.wood || 0, bad]; });
   check("ліс стоїть, селянин приніс колоди, ділянку лісу не купити", fo[0] === 48 && fo[1] === 48 && fo[2] >= 16 && !fo[3], JSON.stringify(fo));
+  // розворот будівлі
+  check("будівлю можна розвернути", await p.evaluate(() => { const b = KHUTIR.view.b.find((q) => q.k === "barn"), r = KHUTIR.commit({ t: "flip", id: b.id }); return r.ok && KHUTIR.view.b.find((q) => q.k === "barn").fl === 1; }));
   // торговець
   await p.evaluate(() => { KHUTIR.commit({ t: "build", k: "market", x: 24, y: 24 }); const t = Date.now() + 0, every = 3 * 3600e3, ph = t % every; if (ph >= 80 * 60e3) KHUTIR.warp(every - ph + 60e3); KHUTIR.S.st.wheat = 60; KHUTIR.refresh(); });
   const m = await p.evaluate(() => KHUTIR.K.market(KHUTIR.view, KHUTIR.view.t));

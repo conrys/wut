@@ -249,7 +249,7 @@
   const items = (list, s, need) => list.map(([r, n]) => '<span class="it' + (need ? ((s.st[r] || 0) >= n ? ' ok' : ' no') : '') + '">' + RES[r].ic + ' ' + (need ? Math.min(s.st[r] || 0, n) + '/' : '') + n + '</span>').join('');
   const secs = (ms) => { const s = Math.ceil(ms / 1000), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return h ? h + ' год' + (m ? ' ' + m + ' хв' : '') : m ? m + ' хв' + (s < 600 && s % 60 ? ' ' + (s % 60) + ' с' : '') : s + ' с'; };
   const costTxt = (c) => (c.c ? fmt(c.c) + ' 💰' : '') + (c.pl ? ' · ' + c.pl + ' 🪚' : '');
-  const recipe = (d) => (d.in ? items(d.in) + ' → ' : '') + (d.out ? '<span class="it">' + RES[d.out[0]].ic + ' ' + d.out[1] + '</span>' : '');
+  const recipe = (d, s) => (d.in ? items(d.in, s, !!s) + ' → ' : '') + (d.out ? '<span class="it">' + RES[d.out[0]].ic + ' ' + d.out[1] + '</span>' : '');
 
   function go(what) {
     if (what === 'build') openSheet('🏗 Будувати', buildSheet);
@@ -279,7 +279,7 @@
     let h = '<div class="tabs">' + Object.keys(CATS).map((k) => '<button class="tab' + (k === catTab ? ' on' : '') + '" data-tab="' + k + '">' + CATS[k][0] + '</button>').join('') + '</div><div class="cat">';
     if (catTab !== 'deco') for (const k of CATS[catTab][1]) {
       const d = B[k], lock = s.lv < d.lv, c = K.buildCost(s, k), one = d.one && K.count(s, k), ok = !lock && !one && K.canAfford(s, c);
-      const info = lock ? '🔒 з ' + d.lv + ' рівня' : one ? 'Уже збудовано' : d.kind === 'field' ? esc(d.hint) : d.d ? recipe(d) + ' · ' + secs(d.d * 1000) : esc(d.hint || '');
+      const info = lock ? '🔒 з ' + d.lv + ' рівня' : one ? 'Уже збудовано' : d.kind === 'field' ? esc(d.hint) : d.d ? recipe(d, s) + ' · ' + secs(d.d * 1000) : esc(d.hint || '');
       h += '<button class="row tile2' + (ok ? '' : ' off') + '" ' + (lock || one ? 'disabled' : 'data-place="' + k + '"') + '><span class="top"><span class="ic">' + d.ic + '</span><b>' + d.n + '</b></span><small>' + info + '</small><span class="pr">' + costTxt(c) + '</span></button>';
     } else for (const k in K.DECOR) {
       const d = K.DECOR[k], only = d.shop === false, have = (s.inv && s.inv[k]) || 0;
@@ -305,6 +305,10 @@
   }
   let sel = null; // id вибраної будівлі
   function bSheet() {
+    const h = bSheet0(), b = view && view.b.find((q) => q.id === sel);
+    return !b || b.k === 'field' ? h : h + '<div class="btns"><button class="btn sec" data-a="' + A({ t: 'flip', id: b.id }) + '">🔄 Розвернути будівлю</button></div>';
+  }
+  function bSheet0() {
     const s = view, b = s.b.find((q) => q.id === sel);
     if (!b) { setTimeout(closeSheet); return ''; }
     const d = B[b.k];
@@ -316,8 +320,8 @@
     const bon = K.bonuses(s).get(b.id) || 0, dur = K.durOf(b, K.bonuses(s)), cap = K.capOf(b), w = K.why(s, b);
     const rt = K.routes(s); let who = '';
     for (const u in rt) if (rt[u].some((q) => q.id === b.id)) who = s.vl[u].n;
-    h += '<div class="row"><span class="ic">' + d.ic + '</span><span class="tx"><b>' + (d.kind === 'field' ? 'Поле' : recipe(d)) + '</b><small>цикл ' + secs(dur) + (bon ? ' · бонус сусідів +' + Math.round(bon * 100) + '%' : '') + (b.h ? ' · 🧑‍🌾 наймит збирає сам' : who ? ' · 🧑‍🌾 збирає ' + esc(who) : ' · далеко від хат — збирай сам') + '</small></span></div>';
-    const st = b.p >= 0 ? '⏳ ще ' + secs(dur - b.p) + ((b.qn || 0) ? ' · далі в черзі ' + b.qn : '') : w === 'full' ? '✋ повно — збери' : w === 'queue' ? '💤 чекає на твою чергу' : '';
+    h += '<div class="row"><span class="ic">' + d.ic + '</span><span class="tx"><b>' + (d.kind === 'field' ? 'Поле' : recipe(d, s)) + '</b><small>цикл ' + secs(dur) + (bon ? ' · бонус сусідів +' + Math.round(bon * 100) + '%' : '') + (b.h ? ' · 🧑‍🌾 наймит збирає сам' : who ? ' · 🧑‍🌾 збирає ' + esc(who) : ' · далеко від хат — збирай сам') + '</small></span></div>';
+    const st = b.p >= 0 ? '⏳ ще ' + secs(dur - b.p) + ((b.qn || 0) ? ' · далі в черзі ' + b.qn : '') : w === 'full' ? '✋ повно — збери' : w === 'queue' ? (d.in.some(([r, n]) => (s.st[r] || 0) < n) ? '💤 бракує: ' + d.in.filter(([r, n]) => (s.st[r] || 0) < n).map(([r]) => RES[r].ic + ' ' + RES[r].n.toLowerCase()).join(', ') : '💤 чекає на чергу') : '';
     const outR = K.outOf(b)[0];
     if (d.kind === 'field') {
       const fields = s.b.filter((f) => f.k === 'field'), allOn = fields.every((f) => f.auto);
@@ -330,8 +334,8 @@
     }
     if (d.in) {
       h += '<button class="row" data-a="' + A({ t: 'noq', id: b.id, on: !!b.noq }) + '"><span class="tx"><b>Селянин веде чергу</b><small>' + (who ? esc(who) + ' сам ставить сюди роботу зі своєї комори' : 'Діє, коли будівля на маршруті селянина') + '</small></span><span class="sw' + (b.noq ? '' : ' on') + '"><i></i></span></button>';
-      const busyN = (b.qn || 0) + (b.p >= 0 ? 1 : 0), qm = K.qMax(b), can = busyN < qm && d.in.every(([r, n]) => (s.st[r] || 0) >= n);
-      h += '<div class="btns"><button class="btn" data-a="' + A({ t: 'queue', id: b.id }) + '"' + (can ? '' : ' disabled') + '>▶ Зробити ' + RES[outR].ic + '<small>черга ' + busyN + ' / ' + qm + (busyN >= qm ? '' : ' · ' + d.in.map(([r, n]) => n + ' ' + RES[r].ic).join(' + ')) + '</small></button></div>';
+      const lack = d.in.filter(([r, n]) => (s.st[r] || 0) < n), busyN = (b.qn || 0) + (b.p >= 0 ? 1 : 0), qm = K.qMax(b), can = busyN < qm && d.in.every(([r, n]) => (s.st[r] || 0) >= n);
+      h += '<div class="btns"><button class="btn" data-a="' + A({ t: 'queue', id: b.id }) + '"' + (can ? '' : ' disabled') + '>▶ Зробити ' + RES[outR].ic + '<small>черга ' + busyN + ' / ' + qm + (busyN >= qm ? '' : lack.length ? ' · бракує ' + lack.map(([r, n]) => (n - (s.st[r] || 0)) + ' ' + RES[r].ic + ' ' + RES[r].n.toLowerCase()).join(', ') : ' · ' + d.in.map(([r, n]) => n + ' ' + RES[r].ic).join(' + ')) + '</small></button></div>';
     }
     if (d.kind !== 'field') h += '<div class="row"><span class="tx"><b>Готово: ' + b.buf + ' / ' + cap + ' ' + RES[outR].ic + '</b><small>' + st + '</small><span class="cap"><i class="' + (b.buf >= cap ? 'full' : '') + '" style="width:' + Math.min(100, (100 * b.buf) / cap) + '%"></i></span></span></div>';
     const uc = K.upCost(b), hc = K.hireCost(b);
@@ -769,9 +773,9 @@
   // вітер: повільні пориви, що біжать по карті
   const wind = (x, y, t, amp) => amp * (Math.sin(t / 900 + x * 0.6 + y * 0.35) * 0.7 + Math.sin(t / 2300 + x * 0.2) * 0.3);
   // дим із комина: клубочки піднімаються, ростуть і тануть
-  function smoke(k, X, Y, z, t, seed) {
+  function smoke(k, X, Y, z, t, seed, fl) {
     const sp = SPR[k]; if (!sp || !sp.ch || !sp.im.naturalWidth) return;
-    const sc = (TW * z * sp.fit) / 256, cx = X + (sp.ch[0] - sp.ax) * sc, cy = Y + (sp.ch[1] - sp.ay) * sc;
+    const sc = (TW * z * sp.fit) / 256, cx = X + (fl ? -1 : 1) * (sp.ch[0] - sp.ax) * sc, cy = Y + (sp.ch[1] - sp.ay) * sc;
     for (let i = 0; i < 6; i++) {
       const ph = ((t / 2600 + i / 6 + seed * 0.37) % 1);
       const x = cx + Math.sin(ph * 5 + seed + i) * 3 * z + ph * 10 * z, y = cy - ph * 34 * z, r = (2 + ph * 6) * z;
@@ -825,14 +829,18 @@
   // декор на порожній траві: кущі й галька, лише для краси (будувати не заважає)
   function decor(x, y) { const h = h01(x + 31, y + 17); if (h < 0.07) return BUSHES[Math.floor(h01(x, y + 99) * BUSHES.length)]; if (h < 0.09) return 'pebbles'; return ''; }
   // стежка: вузька смуга через центр клітинки, тягнеться до сусідніх доріг
+  // на якій стіні двері: x — у бік +x (праворуч униз), y — у бік +y (ліворуч униз); немає — сад, пасіка тощо
+  const DOOR = { home: 'x', mill: 'x', bakery: 'x', pastry: 'x', meadery: 'x', saw: 'x', oilery: 'x', kitchen: 'x', barn: 'y', coop: 'y', dairy: 'y', cheese: 'y', market: 'y', lumber: 'y' };
+  const doorOf = (b) => { const d = DOOR[b.k]; return !d ? '' : b.fl ? (d === 'x' ? 'y' : 'x') : d; };
   const isRoad = (s, x, y) => { const k = s.d[K.idx(x, y)]; return k === 'path' || k === 'stone'; };
   function drawRoad(s, x, y, z, k, bmap) {
     const dirt = k === 'path', w = dirt ? 0.13 : 0.19, base = dirt ? '#A98354' : '#9A958A', dk = dirt ? '#8E6B42' : '#7C776D', lt = dirt ? '#BE9A69' : '#B7B2A6', edge = dirt ? 'rgba(70,50,25,.35)' : 'rgba(50,48,44,.4)';
     const quad = (pts) => { g.beginPath(); pts.forEach(([a, b], i) => (i ? g.lineTo(sx(a, b), sy(a, b)) : g.moveTo(sx(a, b), sy(a, b)))); g.closePath(); };
     const hub = [[x - w, y - w], [x + w, y - w], [x + w, y + w], [x - w, y + w]], arms = [];
     // до сусідньої дороги — рівно до краю клітинки; до будівлі — трохи під неї, щоб стежка впиралась у стіну
-    const reach = (a, b) => { if (isRoad(s, a, b)) return 0.5; const q = bmap.get(K.idx(a, b)); return q && q.k !== 'field' ? 0.72 : 0; };
-    const px = reach(x + 1, y), nx = reach(x - 1, y), py = reach(x, y + 1), ny = reach(x, y - 1);
+    const toDoor = (a, b, side) => { const q = bmap.get(K.idx(a, b)); return q && doorOf(q) === side ? 0.72 : 0; };
+    const px = isRoad(s, x + 1, y) ? 0.5 : 0, py = isRoad(s, x, y + 1) ? 0.5 : 0;
+    const nx = isRoad(s, x - 1, y) ? 0.5 : toDoor(x - 1, y, 'x'), ny = isRoad(s, x, y - 1) ? 0.5 : toDoor(x, y - 1, 'y');
     if (px) arms.push([[x, y - w], [x + px, y - w], [x + px, y + w], [x, y + w]]);
     if (nx) arms.push([[x, y - w], [x - nx, y - w], [x - nx, y + w], [x, y + w]]);
     if (py) arms.push([[x - w, y], [x - w, y + py], [x + w, y + py], [x + w, y]]);
@@ -901,10 +909,36 @@
     const c = K.DECOR.bench.c, base = { t: 'ebench', x: q.ex, y: q.ey, e: q.e };
     openSheet('🪑 Лавка', () => '<div class="btns"><button class="btn sec" data-a="' + A({ ...base, turn: 1 }) + '">🔄 Розвернути</button><button class="btn red" data-a="' + A({ ...base, off: 1 }) + '">🗑 Прибрати<small>повернеться ' + Math.floor(c / 2) + ' 💰</small></button></div>');
   }
+  // кибитка: піксельна, контур додається сам. Замінити спрайтом можна в цій функції.
+  let wagonIm = null;
+  function pxWagon() {
+    if (wagonIm) return wagonIm;
+    const c = document.createElement('canvas'), W0 = 72, H0 = 56; c.width = W0; c.height = H0;
+    const q = c.getContext('2d'), R = (col, x, y, w, h) => { q.fillStyle = col; q.fillRect(x, y, w, h); };
+    // дишло
+    R('#6B4428', 0, 37, 14, 2); R('#4A2E1C', 0, 39, 14, 1);
+    // кузов із дощок
+    R('#9A6A35', 12, 28, 50, 12); R('#B98A5A', 12, 28, 50, 2); R('#6B4428', 12, 33, 50, 1); R('#6B4428', 12, 39, 50, 1);
+    for (let x = 18; x < 62; x += 11) R('#6B4428', x, 28, 1, 12);
+    // намет: дуга з ребрами і червоною стрічкою
+    for (let x = 14; x < 60; x++) { const u = (x - 37) / 23, top = Math.round(26 - 20 * Math.sqrt(Math.max(0, 1 - u * u))); R(x < 20 ? '#D9CDB0' : '#F1E7CF', x, top, 1, 28 - top); R('#FFF8E6', x, top + 1, 1, 1); }
+    for (let x = 22; x < 58; x += 9) { const u = (x - 37) / 23, top = Math.round(26 - 20 * Math.sqrt(Math.max(0, 1 - u * u))); R('#CDBE9C', x, top + 1, 1, 27 - top); }
+    R('#C62828', 14, 23, 46, 2); for (let x = 16; x < 60; x += 5) R('#1E2A44', x, 23, 2, 1);
+    // отвір спереду: темно, видно глечик і мішок
+    R('#3A2517', 15, 12, 8, 16); R('#C96B3A', 17, 20, 4, 8); R('#E3C16F', 17, 20, 4, 1);
+    // товар на задку
+    R('#B5823C', 60, 22, 8, 7); R('#8A5A2B', 60, 24, 8, 1); R('#E06A4A', 61, 19, 3, 3); R('#7BB04A', 64, 19, 3, 3);
+    // колеса зі спицями
+    const wheel = (cx, cy, r) => { for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) { const d = Math.hypot(x, y); if (d <= r + 0.3 && d > r - 1.7) R('#6B4428', cx + x, cy + y, 1, 1); } for (let a = 0; a < 8; a++) { const ang = a * 0.785; for (let k = 1; k < r - 1; k++) R('#8A5A2B', Math.round(cx + Math.cos(ang) * k), Math.round(cy + Math.sin(ang) * k), 1, 1); } R('#3A2517', cx - 1, cy - 1, 3, 3); };
+    wheel(52, 44, 10); wheel(20, 46, 8);
+    const d = q.getImageData(0, 0, W0, H0).data, on = (x, y) => x >= 0 && y >= 0 && x < W0 && y < H0 && d[(y * W0 + x) * 4 + 3] > 200, e = [];
+    for (let y = 0; y < H0; y++) for (let x = 0; x < W0; x++) if (!on(x, y) && (on(x - 1, y) || on(x + 1, y) || on(x, y - 1) || on(x, y + 1))) e.push([x, y]);
+    q.fillStyle = '#2A1C14'; for (const [x, y] of e) q.fillRect(x, y, 1, 1);
+    return (wagonIm = c);
+  }
   // кибитка торговця: стоїть біля ринку, поки він приїхав
   function drawWagon(X, Y, z) {
-    const R = (col, x, y, w, h) => { g.fillStyle = col; g.fillRect(X + x * z, Y + y * z, w * z, h * z); };
-    R('#E9DFC8', -10, -24, 22, 12); R('#CFC3A6', -10, -24, 3, 12); R('#B5452E', -10, -14, 22, 2); R('#8A5A2B', -11, -12, 24, 5); R('#5E3C1E', -8, -7, 6, 6); R('#3A2517', -6, -5, 2, 2); R('#5E3C1E', 6, -7, 6, 6); R('#3A2517', 8, -5, 2, 2);
+    const im = pxWagon(), c = 0.62 * z; g.imageSmoothingEnabled = false; g.drawImage(im, X - 36 * c, Y - 52 * c, 72 * c, 56 * c); g.imageSmoothingEnabled = true;
   }
   // поле: пшениця — намальована; решта культур поки кодом, колір і висота — свої
   const CROPLOOK = { corn: ['#6FAE3F', '#F2C14E', 1.3], sun: ['#5E9A3A', '#FFC93C', 1.4], beet: ['#3F8A3A', '#8E2A4E', 0.7], pump: ['#4F8F3A', '#F08A24', 0.55] };
@@ -1178,7 +1212,7 @@
       if (x === Math.min(N - 1, d) && vByTile.has(d)) for (const p of vByTile.get(d)) drawVill(p, s, z, t);
     }
     // крила млина вищі за сусідів, тож малюються поверх усіх будівель
-    for (const [X, Y, zz, busy, id] of overTop) sprite('millS', X, Y, zz, 0, busy, id);
+    for (const [X, Y, zz, busy, id, fl] of overTop) spr('millS', X, Y, zz, fl, busy, id);
     // ніч
     const nt = darkness(t);
     if (nt.dusk > 0) { g.fillStyle = 'rgba(255,120,40,' + (0.13 * nt.dusk) + ')'; g.fillRect(0, 0, W, H); }
@@ -1212,22 +1246,27 @@
       g.lineWidth = 4; g.strokeStyle = 'rgba(0,0,0,.6)'; g.strokeText(f.t, X, Y); g.fillStyle = '#FFF6D5'; g.fillText(f.t, X, Y); g.globalAlpha = 1;
     }
   }
+  // будівля з урахуванням розвороту: дзеркало міняє стіну з дверима
+  function spr(k, X, Y, z, fl, busy, id) {
+    if (!fl) return sprite(k, X, Y, z, 0, busy, id);
+    g.save(); g.translate(X, Y); g.scale(-1, 1); const r = sprite(k, 0, 0, z, 0, busy, id); g.restore(); return r;
+  }
   function drawBuilding(b, X, Y, z, t, dt, bon, s) {
     const d = B[b.k], dur = d.d ? K.durOf(b, bon) : 1;
     const prog = b.p >= 0 ? Math.min(1, (b.p + dt) / dur) : b.buf ? 1 : 0;
     const busy = b.p >= 0;
-    if (d.kind !== 'home' && d.kind !== 'orchard' && sprite(b.k, X, Y, z, 0, busy, b.id)) {
+    if (d.kind !== 'home' && d.kind !== 'orchard' && spr(b.k, X, Y, z, b.fl, busy, b.id)) {
       if (d.wall) lights.push([X + 9 * z, Y - 8 * z, 0.7]);
-      if (busy && SPR[b.k].ch) smoke(b.k, X, Y, z, t, b.id);
+      if (busy && SPR[b.k].ch) smoke(b.k, X, Y, z, t, b.id, b.fl);
       if (busy && b.k === 'apiary') bees(X, Y, z, t, b.id);
-      if (b.k === 'mill') overTop.push([X, Y, z, busy, b.id]);
+      if (b.k === 'mill') overTop.push([X, Y, z, busy, b.id, b.fl]);
     }
-    else if (d.kind === 'barn') sprite(s.sl >= 3 ? 'barn2' : s.sl >= 1 ? 'barn1' : 'barn0', X, Y, z);
+    else if (d.kind === 'barn') spr(s.sl >= 3 ? 'barn2' : s.sl >= 1 ? 'barn1' : 'barn0', X, Y, z, b.fl);
     else if (d.kind === 'field') { if (b.p < 0 && !b.buf) sprite('soil', X, Y, z); else drawField(X, Y, z, b.buf ? 1 : prog, b.buf > 0, b.cr); }
     else if (d.kind === 'orchard' && sprite(b.buf ? 'apple3' : 'apple2', X, Y, z, wind(b.x, b.y, t, 0.02))) {}
     else if (d.kind === 'orchard') { g.fillStyle = '#6DAF4E'; diamond(X, Y, TW * 0.9 * z, TH * 0.9 * z); g.fill(); drawTree(X - 12 * z, Y - 2 * z, z * 0.75, 1, b.buf ? 3 : Math.floor(prog * 3)); drawTree(X + 12 * z, Y - 2 * z, z * 0.75, 1, b.buf ? 3 : Math.floor(prog * 2)); drawTree(X, Y + 6 * z, z * 0.8, 1, b.buf ? 4 : Math.floor(prog * 3)); }
     else if (d.kind === 'well') drawWell(X, Y, z);
-    else if (d.kind === 'home') { if (!sprite('home', X, Y, z)) drawHouse(X, Y, z, '#F4EFE4', '#C9A24A', '', true); else smoke('home', X, Y, z, t, b.id); lights.push([X - 10 * z, Y - 10 * z, 1]); }
+    else if (d.kind === 'home') { if (!spr('home', X, Y, z, b.fl)) drawHouse(X, Y, z, '#F4EFE4', '#C9A24A', '', true); else smoke('home', X, Y, z, t, b.id, b.fl); lights.push([X - 10 * z, Y - 10 * z, 1]); }
     else if (d.kind === 'apiary') { g.fillStyle = '#88C463'; diamond(X, Y, TW * 0.9 * z, TH * 0.9 * z); g.fill(); drawHives(X, Y, z, t); }
     else { drawHouse(X, Y, z, d.wall, d.roof, d.ic); lights.push([X + 9 * z, Y - 8 * z, 0.7]); }
     if (d.kind === 'market') { const m = K.market(s, t); if (m && m.here) { drawWagon(X + 26 * z, Y + 10 * z, z); bubbles.push([X, Y, z, '🛒', false]); } }

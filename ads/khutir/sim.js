@@ -500,6 +500,10 @@
         for (const q of a.all ? s.b.filter((f) => f.k === 'field') : [b]) q.auto = a.on ? 1 : 0;
         kick(s); return res;
       }
+      case 'flip': {
+        const b = s.b.find((q) => q.id === a.id); if (!b || b.k === 'field') return fail('Нема');
+        b.fl = b.fl ? 0 : 1; return res;
+      }
       case 'cut': { s.cut = a.on ? 1 : 0; return res; }
       case 'noq': {
         const b = s.b.find((q) => q.id === a.id); if (!b || !B[b.k].in) return fail('Нема');
