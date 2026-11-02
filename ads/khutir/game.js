@@ -289,6 +289,11 @@
     }
     return h + '</div>';
   }
+  function forestSheet() {
+    const s = view, on = s.cut !== 0;
+    return '<div class="row"><span class="ic">🪓</span><span class="tx"><b>Дерева тут не зникають</b><small>Раз на ' + Math.round(K.CUT_EVERY / 60000) + ' хв селянин іде сюди із сокирою, рубає й несе ' + K.CUT_WOOD + ' 🪵 у комору.</small></span></div>' +
+      '<button class="row" data-a="' + A({ t: 'cut', on: !on }) + '"><span class="tx"><b>Селянин рубає</b><small>Вимкни, якщо колоди не потрібні</small></span><span class="sw' + (on ? ' on' : '') + '"><i></i></span></button>';
+  }
   function beautySheet() {
     const s = view, t = K.tier(s), v = K.beauty(s), a = t ? K.tierNeed(t) : 0, n = t < 10 ? K.tierNeed(t + 1) : a;
     let h = '<div class="row"><span class="ic">🌸</span><span class="tx"><b>Ступінь ' + t + ' · краса ' + v + '</b><small>' + (t < 10 ? 'До наступного ступеня ще ' + (n - v) : 'Найвищий ступінь') + '</small><span class="cap"><i style="width:' + (t < 10 ? Math.min(100, (100 * (v - a)) / (n - a)) : 100) + '%"></i></span></span></div>';
@@ -570,6 +575,7 @@
   function tapTile(x, y) {
     const s = view; if (!s) return;
     if (x < 0 || y < 0 || x >= N || y >= N) { closeSheet(); return; }
+    if (!placing && s.ob[K.idx(x, y)] === 'F') { openSheet('🌲 Ліс', forestSheet); return; }
     if (placing) {
       if (placing.startsWith('deco:')) {
         const k = placing.slice(5); if (k === 'fence' || k === 'bench' || K.DECOR[k].small) return;
@@ -1031,6 +1037,9 @@
       R(sleeve, 19, 18 + dy, 3, 6); R(sleeve, 21, 22 + dy, 3, 3); R(skin, 23, 22 + dy, 2, 3);
       R('#B5823C', 19, 26 + dy, 8, 6); R('#8A5A2B', 19, 26 + dy, 8, 1); R('#8A5A2B', 20, 28 + dy, 6, 1); R('#8A5A2B', 20, 30 + dy, 6, 1); R('#E3C16F', 21, 25 + dy, 4, 1);
     } else { R(sleeve, 19 - sw, 18 + dy, 3, 8); R(pxShade(body, 0.84), 19 - sw, 18 + dy, 1, 8); R(cuff, 19 - sw, 25 + dy, 3, 1); R(skin, 19 - sw, 26 + dy, 3, 2); }
+    // сокира: замах і удар
+    if (fr === 5) { R('#6B4428', 21, 7, 2, 13); R('#9AA3AD', 20, 4, 6, 4); R('#D5DBE0', 24, 4, 2, 4); }
+    if (fr === 6) { R('#6B4428', 20, 22, 7, 2); R('#9AA3AD', 24, 19, 4, 7); R('#D5DBE0', 26, 19, 2, 7); }
     // контур
     const im = q.getImageData(0, 0, PXW, PXH), d = im.data, on = (x, y) => x >= 0 && y >= 0 && x < PXW && y < PXH && d[(y * PXW + x) * 4 + 3] > 200;
     const edge = []; for (let y = 0; y < PXH; y++) for (let x = 0; x < PXW; x++) if (!on(x, y) && (on(x - 1, y) || on(x + 1, y) || on(x, y - 1) || on(x, y + 1))) edge.push([x, y]);
@@ -1038,8 +1047,8 @@
     pxCache.set(key, cv2); return cv2;
   }
   // q — контекст, (x,y) — точка під ногами, k — масштаб, c — вигляд, walk — чи йде, dir — ±1 куди дивиться, back — іде від нас
-  function drawVillager(q, x, y, k, c, t, walk, dir, basket, back, sit) {
-    const fr = sit ? 4 : walk ? Math.floor(t / 130) % 4 : 0, cell = 0.6 * k, im = pxFrame(c, fr, basket, back);
+  function drawVillager(q, x, y, k, c, t, walk, dir, basket, back, sit, chop) {
+    const fr = chop ? (Math.floor(t / 380) % 2 ? 5 : 6) : sit ? 4 : walk ? Math.floor(t / 130) % 4 : 0, cell = 0.6 * k, im = pxFrame(c, fr, basket, back);
     q.save(); q.translate(x, y); if (!sit) { q.fillStyle = 'rgba(0,0,0,.25)'; q.beginPath(); q.ellipse(0, 0, 6 * k, 2.2 * k, 0, 0, 7); q.fill(); }
     q.scale(dir < 0 ? -1 : 1, 1); q.imageSmoothingEnabled = false;
     q.drawImage(im, -14 * cell, -37.5 * cell, PXW * cell, PXH * cell);
@@ -1057,15 +1066,15 @@
         const dr = q.sp.dr !== undefined ? q.sp.dr : (s.dr && s.dr[q.sp.i]) || 0; return { x: q.sp.px === undefined ? q.sp.x : q.sp.px, y: q.sp.py === undefined ? q.sp.y : q.sp.py, walk: false, sit: true, swing: q.sp.k === 'swing', dir: dr % 2 ? -1 : 1, basket: false, back: q.sp.k === 'bench' && dr >= 2 };
       }
     }
-    const plan = K.walkPlan(s, uid, r), T = plan.ms / F;
-    if (!r.length || !plan.legs.length) { const a = t / 2600 + uid.length; return { x: h.x + 0.45 + Math.cos(a) * 0.25, y: h.y + 0.35 + Math.sin(a) * 0.25, walk: true, dir: Math.cos(a + 1.57) > 0 ? 1 : -1, basket: false, back: Math.cos(a) - Math.sin(a) < 0 }; }
+    const plan = K.walkPlan(s, uid, r, !!v.fx), T = plan.ms / F;
+    if (!plan.legs.length) { const a = t / 2600 + uid.length; return { x: h.x + 0.45 + Math.cos(a) * 0.25, y: h.y + 0.35 + Math.sin(a) * 0.25, walk: true, dir: Math.cos(a + 1.57) > 0 ? 1 : -1, basket: false, back: Math.cos(a) - Math.sin(a) < 0 }; }
     // ідемо за часом: кожна ділянка триває стільки, скільки її довжина за сталої швидкості
     let tt = (v.vp + dt) % T;
     for (const l of plan.legs) {
-      const w = (l.len * 1000) / K.WALK / F, pz = K.PAUSE / F;
+      const w = (l.len * 1000) / K.WALK / F, pz = (l.pause || K.PAUSE) / F;
       if (tt < w) { const c = alongLeg(l.pts, w ? tt / w : 1); return { x: c[0], y: c[1], walk: true, dir: c[2] - c[3] >= 0 ? 1 : -1, basket: l.bk, back: c[2] + c[3] < 0 }; }
       tt -= w;
-      if (tt < pz) { const e = l.pts[l.pts.length - 1], c0 = l.pts[l.pts.length - 2]; return { x: e[0], y: e[1], walk: false, dir: e[0] - c0[0] - (e[1] - c0[1]) >= 0 ? 1 : -1, basket: l.bk, back: false }; }
+      if (tt < pz) { const e = l.pts[l.pts.length - 1], c0 = l.pts[l.pts.length - 2]; return { x: e[0], y: e[1], walk: false, chop: !!l.axe, dir: e[0] - c0[0] - (e[1] - c0[1]) >= 0 ? 1 : -1, basket: l.bk, back: false }; }
       tt -= pz;
     }
     const e = plan.legs[0].pts[0]; return { x: e[0], y: e[1], walk: false, dir: 1, basket: false, back: false };
@@ -1083,7 +1092,7 @@
   let vpos = [], lights = [], bubbles = [], marks = [], overTop = [];
   function drawVill(p, s, z, t) {
     const X = sx(p.x, p.y), Y = sy(p.x, p.y), v = s.vl[p.uid];
-    drawVillager(g, X, Y - (p.sit ? (p.swing ? 10 : 6) * z : 0), 1.25 * z, v.c, t, p.walk, p.dir, p.basket, p.back, p.sit);
+    drawVillager(g, X, Y - (p.sit ? (p.swing ? 10 : 6) * z : 0), 1.25 * z, v.c, t, p.walk, p.dir, p.basket, p.back, p.sit, p.chop);
     if (p.sit) bubbles.push([X, Y - 8 * z, z * 0.7, '💤', 1]);
     vpos.push({ uid: p.uid, sx: X, sy: Y });
     const nt = darkness(t); if (nt.dark > 0.2) lights.push([X + 7 * z * p.dir, Y - 14 * z, 0.45]);
@@ -1112,9 +1121,10 @@
     const bon = K.bonuses(s), rts = K.routes(s), vByTile = new Map();
     lights = []; vpos = []; bubbles = []; marks = []; overTop = []; const benches = new Map(); for (const k in s.e) { const q = K.benchAt(+k, s.e[k]), i = K.idx(q.x, q.y); (benches.get(i) || benches.set(i, []).get(i)).push(q); }
     for (const uid of s.vo || []) { const p = villPos(s, uid, rts, t, dt); if (!p) continue; p.uid = uid; const key = Math.floor(p.x + 0.5) + Math.floor(p.y + 0.5); if (!vByTile.has(key)) vByTile.set(key, []); vByTile.get(key).push(p); }
-    const ownedSet = new Set(s.ch);
+    const ownedSet = new Set(s.ch), fset = new Set(s.fo || []);
     const buyable = new Set();
     for (const c of s.ch) { const x = c % K.NC, y = Math.floor(c / K.NC); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy; if (X >= 0 && Y >= 0 && X < K.NC && Y < K.NC && !ownedSet.has(Y * K.NC + X)) buyable.add(Y * K.NC + X); } }
+    for (const c of fset) buyable.delete(c);
     const tw = TW * z, th = TH * z, pad = 60 * z, smallP = smallPlacing();
     const slotsOf = new Map(); for (const k in s.sd) { const sl = k % 9, i = (k - sl) / 9, q = slotOff(sl); (slotsOf.get(i) || slotsOf.set(i, []).get(i)).push({ sl, k: s.sd[k], back: q[0] + q[1] < 0 }); }
     // земля
@@ -1127,7 +1137,7 @@
         // мальована трава; дзеркалимо через одну, щоб не було видно повторів
         if (hv < 0.5) g.drawImage(gr, X - tw / 2 - 0.5, Y - th / 2 - 0.5, tw + 1, th + 1);
         else { g.save(); g.translate(X, Y); g.scale(-1, 1); g.drawImage(gr, -tw / 2 - 0.5, -th / 2 - 0.5, tw + 1, th + 1); g.restore(); }
-        if (!own) { g.fillStyle = buyable.has(c) ? 'rgba(10,30,10,.38)' : 'rgba(10,25,10,.55)'; diamond(X, Y, tw + 0.6, th + 0.6); g.fill(); }
+        if (!own && !fset.has(c)) { g.fillStyle = buyable.has(c) ? 'rgba(10,30,10,.38)' : 'rgba(10,25,10,.55)'; diamond(X, Y, tw + 0.6, th + 0.6); g.fill(); }
       } else {
         g.fillStyle = own ? (hv < 0.5 ? '#7DBE5A' : '#78B955') : buyable.has(c) ? (hv < 0.5 ? '#4F7A45' : '#4B7542') : (hv < 0.5 ? '#3C5C37' : '#395833');
         diamond(X, Y, tw + 0.6, th + 0.6); g.fill();
@@ -1153,6 +1163,7 @@
       const i = K.idx(x, y), b = bmap.get(i), sls = slotsOf.get(i);
       if (sls) for (const q of sls) if (q.back) drawSmall(x, y, q, z, t);
       if (b) drawBuilding(b, X, Y, z, t, dt, bon, s);
+      else if (s.ob[i] === 'F') sprite(h01(x + 2, y + 7) < 0.6 ? 'spruce' : 'oak', X, Y + 4 * z, z * 0.6);
       else if (s.ob[i] === 't' && sprite(treeKind(x, y), X, Y + 4 * z, z * (treeKind(x, y) === 'apple1' ? 0.8 : 0.6), wind(x, y, t, 0.025))) {}
       else if (s.ob[i] === 'r' && sprite(h01(x + 3, y + 11) < 0.5 ? 'rock' : 'rocks', X, Y + 6 * z, z * 0.8)) {}
       else if (s.ob[i] === 't') drawTree(X, Y, z, ownedSet.has(K.chunkOf(x, y)), 0);

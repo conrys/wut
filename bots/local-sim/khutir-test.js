@@ -129,6 +129,9 @@ const tapTile = async (p, x, y) => { await p.evaluate(([x, y]) => { KHUTIR.focus
   // дрібні прикраси на точках: поруч із будівлею, у межах однієї клітинки
   const sq = await p.evaluate(() => { const K = KHUTIR.K, v = KHUTIR.view, b = v.b.find((q) => q.k === "mill"), r = [0, 2, 6, 8].map((sl) => KHUTIR.commit({ t: "sdeco", k: "flower", x: b.x, y: b.y, sl }).ok), four = KHUTIR.commit({ t: "sdeco", k: "flower", x: b.x, y: b.y, sl: 4 }).ok, dup = KHUTIR.commit({ t: "sdeco", k: "flower", x: b.x, y: b.y, sl: 0 }).ok; return [r.every(Boolean), four, dup, Object.keys(KHUTIR.view.sd).length]; });
   check("4 квітники біля млина, центр і зайнята точка заборонені", sq[0] && !sq[1] && !sq[2] && sq[3] === 4, JSON.stringify(sq));
+  // ліс: дерева лишаються, селянин приносить колоди
+  const fo = await p.evaluate(() => { const K = KHUTIR.K, s = K.create(9, "t"); let t = 1.8e12; K.advance(s, t); K.addVillager(s, "me", "V"); const n0 = Object.values(s.ob).filter((q) => q === "F").length; t += 3 * 3600e3; K.advance(s, t); const n1 = Object.values(s.ob).filter((q) => q === "F").length, c = s.fo[0], bad = K.act(s, { t: "chunk", c }, t, "V").ok; return [n0, n1, s.st.wood || 0, bad]; });
+  check("ліс стоїть, селянин приніс колоди, ділянку лісу не купити", fo[0] === 48 && fo[1] === 48 && fo[2] >= 16 && !fo[3], JSON.stringify(fo));
   // торговець
   await p.evaluate(() => { KHUTIR.commit({ t: "build", k: "market", x: 24, y: 24 }); const t = Date.now() + 0, every = 3 * 3600e3, ph = t % every; if (ph >= 80 * 60e3) KHUTIR.warp(every - ph + 60e3); KHUTIR.S.st.wheat = 60; KHUTIR.refresh(); });
   const m = await p.evaluate(() => KHUTIR.K.market(KHUTIR.view, KHUTIR.view.t));

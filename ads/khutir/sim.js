@@ -100,6 +100,7 @@
   const moodF = (v) => (mood(v) >= 60 ? 1.2 : mood(v) >= 30 ? 1 : 0.7);
   const REST = ['bench', 'swing', 'hay'];
   // Швидкість стала: час обходу — це довжина справжнього шляху, а не навпаки
+  const CHOP = 6000, CUT_EVERY = 30 * 60e3, CUT_WOOD = 4;   // скільки рубає, як часто, скільки приносить
   const WALK = 0.6, PAUSE = 1500, SIT = 20000;           // клітинок за секунду, зупинка біля будівлі (мс), відпочинок (мс)
   const speedOf = (v) => (1 + 0.2 * (v.u.sp || 0)) * moodF(v);
   // лавка: dr 0/2 — на межі e=0 сидінням до +x/−x, dr 1/3 — на межі e=1 сидінням до +y/−y
@@ -150,16 +151,23 @@
   const near = (a, t) => [a[0] + (t.x - a[0]) * 0.22, a[1] + (t.y - a[1]) * 0.22];
   const lenOf = (pts) => { let l = 0; for (let i = 0; i + 1 < pts.length; i++) l += Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]); return l; };
   const planCache = new Map();
-  // обхід: хата → будівлі → комора → хата. Недосяжну зупинку пропускає, решта маршруту лишається.
-  function walkPlan(s, uid, r) {
+  // ліс: клітинки дерев, що не зникають; селянин підходить до найближчого краю
+  function forestGoals(s, bl) { const o = []; for (const i in s.ob) if (s.ob[i] === 'F') for (const q of around({ x: i % N, y: Math.floor(i / N) }, bl)) o.push(q); return o; }
+  // обхід: (ліс →) будівлі → комора → хата. Недосяжну зупинку пропускає, решта маршруту лишається.
+  function walkPlan(s, uid, r, forest) {
     const v = s.vl[uid], h = v && s.b.find((b) => b.id === v.home); if (!h) return { legs: [], ms: 8000 };
-    const key = s.seed + '|' + r.map((b) => b.id).join() + '|' + s.b.map((b) => b.x + '.' + b.y).join() + '|' + Object.keys(s.ob).length + '|' + Object.keys(s.d).length + '|' + Object.keys(s.f || {}).length;
-    const hit = planCache.get(uid); if (hit && hit.key === key) return hit;
-    const barn = s.b.find((b) => b.k === 'barn'), stops = r.length && barn ? r.concat([barn]) : r, bl = blockedSet(s);
+    const key = s.seed + '|' + (forest ? 1 : 0) + '|' + r.map((b) => b.id).join() + '|' + s.b.map((b) => b.x + '.' + b.y).join() + '|' + Object.keys(s.ob).length + '|' + Object.keys(s.d).length + '|' + Object.keys(s.f || {}).length;
+    const ck = uid + (forest ? '|f' : ''), hit = planCache.get(ck); if (hit && hit.key === key) return hit;
+    const barn = s.b.find((b) => b.k === 'barn'), bl = blockedSet(s), FOR = { forest: 1 };
+    const stops = (forest ? [FOR] : []).concat(r, (r.length || forest) && barn ? [barn] : []);
     let legs = [], best = 1e9;
     for (const door of around(h, bl)) {
       const o = []; let cur = door, p = near(door, h), total = 0, carry = false;
       for (const t of stops) {
+        if (t === FOR) {
+          const fg = forestGoals(s, bl), tl = fg.length ? findTiles(s, bl, cur, fg) : null; if (!tl) continue;
+          cur = tl[tl.length - 1]; const pts = [p].concat(tl); o.push({ pts, len: lenOf(pts), bk: false, axe: 1, pause: CHOP }); total += lenOf(pts); p = cur; carry = true; continue;
+        }
         const goals = around(t, bl), tiles = goals.length ? findTiles(s, bl, cur, goals) : null;
         if (!tiles) continue;
         cur = tiles[tiles.length - 1]; const e = near(cur, t), pts = [p].concat(tiles, [e]);
@@ -170,8 +178,8 @@
       const end = near(door, h), pts = [p].concat(back, [end]); o.push({ pts, len: lenOf(pts), bk: false }); total += lenOf(pts);
       if (total < best) { best = total; legs = o; }
     }
-    const ms = legs.reduce((a, l) => a + (l.len / WALK) * 1000 + PAUSE, 0) || 8000, plan = { key, legs, ms };
-    planCache.set(uid, plan); return plan;
+    const ms = legs.reduce((a, l) => a + (l.len / WALK) * 1000 + (l.pause || PAUSE), 0) || 8000, plan = { key, legs, ms };
+    planCache.set(ck, plan); return plan;
   }
   function restPlan(s, v) {
     const h = s.b.find((b) => b.id === v.home), sp = restSpot(s, v); if (!h || !sp) return null;
@@ -181,7 +189,7 @@
   }
   const restMs = (s, v) => { const q = restPlan(s, v); return q ? (2 * q.len * 1000) / WALK / speedOf(v) + SIT : SIT; };
   // час обходу за стану зараз
-  function tripOf(s, uid, r) { const v = s.vl[uid]; return v.rt ? restMs(s, v) : walkPlan(s, uid, r).ms / speedOf(v); }
+  function tripOf(s, uid, r) { const v = s.vl[uid]; return v.rt ? restMs(s, v) : walkPlan(s, uid, r, !!v.fx).ms / speedOf(v); }
   function restDone(s, v) { const kinds = new Set(restSpots(s).map((q) => q.k)).size; v.m = Math.min(100, mood(v) + 40 + 20 * kinds); v.rt = 0; }
   const vupCost = (v, k) => { const L = v.u[k] || 0; return { c: Math.round(80 * Math.pow(1.9, L)), pl: L >= 1 ? 3 * L : 0 }; };
   // хто що обходить: по черзі приходу, найближчі вільні будівлі до хати
@@ -201,8 +209,9 @@
     }
     return out;
   }
-  function trip(s, v, list) {
+  function trip(s, v, list, now) {
     let room = basket(v), got = 0;
+    if (v.fx) { const n = Math.min(CUT_WOOD, Math.max(0, storeCap(s) - (s.st.wood || 0))); if (n) { s.st.wood = (s.st.wood || 0) + n; s.made += n; got += n; } v.fx = 0; v.ax = now; }
     for (const b of list) {
       if (!room) break;
       const take = Math.min(room, b.buf); if (!take) continue;
@@ -250,6 +259,13 @@
   const count = (s, k) => s.b.reduce((n, b) => n + (b.k === k), 0);
   const at = (s, x, y) => s.b.find((b) => b.x === x && b.y === y) || null;
 
+  // ліс стоїть біля стартової землі на ділянках, які не можна купити
+  function ensureForest(s) {
+    if (s.fo) return; s.fo = [];
+    const sides = [[3, 4], [3, 5], [3, 6]].concat([[7, 4], [7, 5], [7, 6]]);
+    const free = (q) => s.ch.indexOf(q[1] * NC + q[0]) < 0, use = sides.slice(0, 3).every(free) ? sides.slice(0, 3) : sides.slice(3).every(free) ? sides.slice(3) : sides.filter(free).slice(0, 3);
+    for (const [cx, cy] of use) { const c = cy * NC + cx; s.fo.push(c); for (let y = cy * CH; y < (cy + 1) * CH; y++) for (let x = cx * CH; x < (cx + 1) * CH; x++) { s.ob[idx(x, y)] = 'F'; delete (s.d || {})[idx(x, y)]; } }
+  }
   function genChunk(s, c, sparse) {
     const cx = (c % NC) * CH, cy = Math.floor(c / NC) * CH;
     for (let y = cy; y < cy + CH; y++) for (let x = cx; x < cx + CH; x++) {
@@ -263,6 +279,7 @@
     const s = { v: VER, nm: name || 'Хутір', seed: seed | 0, r: seed | 0, t: 0, coins: 100, xp: 0, lv: 1, sl: 0, st: {}, b: [], nid: 1, ch: [], ob: {}, d: {}, sd: {}, f: {}, e: {}, inv: {}, o: [], lg: [], pc: {}, made: 0 };
     for (let y = 4; y <= 6; y++) for (let x = 4; x <= 6; x++) { const c = y * NC + x; s.ch.push(c); genChunk(s, c, true); }
     for (let y = MID - 3; y <= MID + 2; y++) for (let x = MID - 3; x <= MID + 2; x++) delete s.ob[idx(x, y)];
+    ensureForest(s);
     s.b.push({ id: s.nid++, k: 'field', x: MID - 1, y: MID - 1, lv: 1, buf: 0, p: 0, h: 0, cr: 'wheat' });
     s.b.push({ id: s.nid++, k: 'barn', x: MID + 1, y: MID - 2, lv: 1, buf: 0, p: -1, h: 0 });
     fillOrders(s, 0);
@@ -330,6 +347,7 @@
   function advance(s, now) {
     if (!s.b.some((b) => b.k === 'barn')) { const t = freeTileNear(s, MID + 1, MID - 2); if (t) s.b.push({ id: s.nid++, k: 'barn', x: t[0], y: t[1], lv: 1, buf: 0, p: -1, h: 0 }); }
     if (!s.sd) s.sd = {};
+    ensureForest(s);
     if (!s.e) {   // лавка тепер стоїть на межі клітинок
       s.e = {};
       for (const i in s.d) if (s.d[i] === 'bench') { const x = i % N, y = Math.floor(i / N), dr = (s.dr && s.dr[i]) || 0, e = dr % 2, X = dr === 0 ? x - 1 : x, Y = dr === 1 ? y - 1 : y; if (X >= 0 && Y >= 0) s.e[fenceKey(X, Y, e)] = dr; delete s.d[i]; }
@@ -340,7 +358,7 @@
     let t = Math.max(s.t, now - MAX_AWAY);
     const bon = bonuses(s), dur = new Map(), prod = s.b.filter((b) => B[b.k].d);
     for (const b of prod) dur.set(b.id, durOf(b, bon));
-    const rts = routes(s), vs = (s.vo || []).map((u) => [s.vl[u], rts[u], u]).filter(([v, r]) => v && v.home && r.length);
+    const rts = routes(s), cut = s.cut !== 0 && s.fo && s.fo.length, vs = (s.vo || []).map((u) => [s.vl[u], rts[u], u]).filter(([v, r]) => v && v.home && (r.length || cut));
     const T = (v, r, u) => tripOf(s, u, r);
     for (let guard = 0; guard < 3e6; guard++) {
       kick(s);
@@ -349,14 +367,21 @@
       for (const b of prod) if (b.p >= 0) m = Math.min(m, dur.get(b.id) - b.p);
       // селянину є сенс іти, лише якщо щось росте або щось чекає в будівлях маршруту
       const busy = m !== Infinity;
-      for (const [v, r, u] of vs) if (busy || v.rt || r.some((b) => b.buf)) m = Math.min(m, T(v, r, u) - v.vp);
+      for (const [v, r, u] of vs) if (busy || v.rt || v.fx || r.some((b) => b.buf)) m = Math.min(m, T(v, r, u) - v.vp);
+      // нічого не робить — чекає, поки настане час іти в ліс
+      if (m === Infinity && cut && vs.length) {
+        const next = Math.max(t, Math.min(...vs.map(([v]) => (v.ax || 0) + CUT_EVERY)));
+        if (next >= now) break;
+        t = next; for (const [v] of vs) if ((v.ax || 0) + CUT_EVERY <= t) { v.fx = 1; v.vp = 0; }
+        continue;
+      }
       if (m === Infinity) break;
       const step = Math.min(Math.max(m, 0), now - t);
       for (const b of prod) if (b.p >= 0) b.p += step;
       for (const [v] of vs) v.vp += step;
       t += step;
       for (const b of prod) if (b.p >= 0 && b.p >= dur.get(b.id) - 1e-6) { b.buf += outOf(b)[1]; b.p = -1; }
-      for (const [v, r, u] of vs) if (v.vp >= T(v, r, u) - 1e-6) { v.vp = 0; if (v.rt) restDone(s, v); else trip(s, v, r); }
+      for (const [v, r, u] of vs) if (v.vp >= T(v, r, u) - 1e-6) { v.vp = 0; if (v.rt) restDone(s, v); else { trip(s, v, r, t); if (cut && t - (v.ax || 0) >= CUT_EVERY) v.fx = 1; } }
     }
     // поки нічого не росте й нічого не чекає — селянин удома, але годинник обходу йде далі для показу
     if (t < now) for (const [v, r, u] of vs) v.vp = (v.vp + (now - t)) % T(v, r, u);
@@ -475,6 +500,7 @@
         for (const q of a.all ? s.b.filter((f) => f.k === 'field') : [b]) q.auto = a.on ? 1 : 0;
         kick(s); return res;
       }
+      case 'cut': { s.cut = a.on ? 1 : 0; return res; }
       case 'noq': {
         const b = s.b.find((q) => q.id === a.id); if (!b || !B[b.k].in) return fail('Нема');
         b.noq = a.on ? 0 : 1; kick(s); return res;
@@ -623,13 +649,13 @@
         s.o[a.i] = newOrder(s, now + 90e3); return res;
       }
       case 'clear': {
-        const k = s.ob[idx(a.x, a.y)]; if (!k || !owned(s, a.x, a.y)) return fail('Нема що прибирати');
+        const k = s.ob[idx(a.x, a.y)]; if (k === 'F') return fail('Ліс не вирубується'); if (!k || !owned(s, a.x, a.y)) return fail('Нема що прибирати');
         if (k === 'r') { if (s.coins < ROCK) return fail('Треба ' + ROCK + ' 💰'); s.coins -= ROCK; res.fx.push([a.x, a.y, '-' + ROCK + ' 💰']); }
         else { const room = Math.max(0, storeCap(s) - (s.st.wood || 0)), n = Math.min(2, room); s.st.wood = (s.st.wood || 0) + n; res.fx.push([a.x, a.y, n ? '+' + n + ' 🪵' : '🪓']); }
         delete s.ob[idx(a.x, a.y)]; gainXp(s, 1, res); return res;
       }
       case 'chunk': {
-        const c = a.c; if (s.ch.indexOf(c) >= 0 || c < 0 || c >= NC * NC) return fail('Не можна');
+        const c = a.c; if (s.ch.indexOf(c) >= 0 || c < 0 || c >= NC * NC || (s.fo || []).indexOf(c) >= 0) return fail('Не можна');
         const cx = c % NC, cy = Math.floor(c / NC);
         const adj = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => { const x = cx + dx, y = cy + dy; return x >= 0 && y >= 0 && x < NC && y < NC && s.ch.indexOf(y * NC + x) >= 0; });
         if (!adj) return fail('Купуй землю поруч зі своєю');
@@ -683,6 +709,6 @@
     return '';
   }
 
-  const api = { benchAt, mood, moodF, restSpot, restPlan, walkPlan, tripOf, speedOf, WALK, PAUSE, SIT, fenceKey, VER, MID, CROP, DECOR, outOf, qMax, beauty, tier, tierNeed, beautyBonus, market, LOOK, VUP, routes, route, basket, vupCost, addVillager, kick, N, CH, NC, RES, B, ORDER, create, advance, act, why, storeCap, xpNeed, buildCost, upCost, hireCost, storeCost, chunkCost, capOf, durOf, bonuses, slots, owned, chunkOf, idx, at, count, ROCK, fmtCost, canAfford, MAX_AWAY };
+  const api = { CUT_WOOD, CUT_EVERY, benchAt, mood, moodF, restSpot, restPlan, walkPlan, tripOf, speedOf, WALK, PAUSE, SIT, fenceKey, VER, MID, CROP, DECOR, outOf, qMax, beauty, tier, tierNeed, beautyBonus, market, LOOK, VUP, routes, route, basket, vupCost, addVillager, kick, N, CH, NC, RES, B, ORDER, create, advance, act, why, storeCap, xpNeed, buildCost, upCost, hireCost, storeCost, chunkCost, capOf, durOf, bonuses, slots, owned, chunkOf, idx, at, count, ROCK, fmtCost, canAfford, MAX_AWAY };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.KhutirSim = api;
 })(typeof window !== 'undefined' ? window : globalThis);
