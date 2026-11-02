@@ -246,7 +246,7 @@
     $('shB').querySelectorAll('[data-go]').forEach((el) => el.addEventListener('click', () => { if (fresh()) return; au(); go(el.dataset.go); }));
   }
   const A = (o) => esc(JSON.stringify(o));
-  const items = (list, s, need) => list.map(([r, n]) => '<span class="it' + (need ? ((s.st[r] || 0) >= n ? ' ok' : ' no') : '') + '">' + RES[r].ic + ' ' + (need ? Math.min(s.st[r] || 0, n) + '/' : '') + n + '</span>').join('');
+  const items = (list, s, need) => list.map(([r, n]) => { const have = s ? s.st[r] || 0 : 0; return '<span class="it">' + RES[r].ic + ' ' + (need ? (have < n ? '<b class="no">' + have + '</b>' : have) + '/' : '') + n + '</span>'; }).join('');
   const secs = (ms) => { const s = Math.ceil(ms / 1000), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return h ? h + ' год' + (m ? ' ' + m + ' хв' : '') : m ? m + ' хв' + (s < 600 && s % 60 ? ' ' + (s % 60) + ' с' : '') : s + ' с'; };
   const costTxt = (c) => (c.c ? fmt(c.c) + ' 💰' : '') + (c.pl ? ' · ' + c.pl + ' 🪚' : '');
   const recipe = (d, s) => (d.in ? items(d.in, s, !!s) + ' → ' : '') + (d.out ? '<span class="it">' + RES[d.out[0]].ic + ' ' + d.out[1] + '</span>' : '');
@@ -321,7 +321,7 @@
     const rt = K.routes(s); let who = '';
     for (const u in rt) if (rt[u].some((q) => q.id === b.id)) who = s.vl[u].n;
     h += '<div class="row"><span class="ic">' + d.ic + '</span><span class="tx"><b>' + (d.kind === 'field' ? 'Поле' : recipe(d, s)) + '</b><small>цикл ' + secs(dur) + (bon ? ' · бонус сусідів +' + Math.round(bon * 100) + '%' : '') + (b.h ? ' · 🧑‍🌾 наймит збирає сам' : who ? ' · 🧑‍🌾 збирає ' + esc(who) : ' · далеко від хат — збирай сам') + '</small></span></div>';
-    const st = b.p >= 0 ? '⏳ ще ' + secs(dur - b.p) + ((b.qn || 0) ? ' · далі в черзі ' + b.qn : '') : w === 'full' ? '✋ повно — збери' : w === 'queue' ? (d.in.some(([r, n]) => (s.st[r] || 0) < n) ? '💤 бракує: ' + d.in.filter(([r, n]) => (s.st[r] || 0) < n).map(([r]) => RES[r].ic + ' ' + RES[r].n.toLowerCase()).join(', ') : '💤 чекає на чергу') : '';
+    const st = b.p >= 0 ? '⏳ ще ' + secs(dur - b.p) + ((b.qn || 0) ? ' · далі в черзі ' + b.qn : '') : w === 'full' ? '✋ повно — збери' : w === 'queue' ? '💤 чекає на чергу' : '';
     const outR = K.outOf(b)[0];
     if (d.kind === 'field') {
       const fields = s.b.filter((f) => f.k === 'field'), allOn = fields.every((f) => f.auto);
@@ -334,8 +334,8 @@
     }
     if (d.in) {
       h += '<button class="row" data-a="' + A({ t: 'noq', id: b.id, on: !!b.noq }) + '"><span class="tx"><b>Селянин веде чергу</b><small>' + (who ? esc(who) + ' сам ставить сюди роботу зі своєї комори' : 'Діє, коли будівля на маршруті селянина') + '</small></span><span class="sw' + (b.noq ? '' : ' on') + '"><i></i></span></button>';
-      const lack = d.in.filter(([r, n]) => (s.st[r] || 0) < n), busyN = (b.qn || 0) + (b.p >= 0 ? 1 : 0), qm = K.qMax(b), can = busyN < qm && d.in.every(([r, n]) => (s.st[r] || 0) >= n);
-      h += '<div class="btns"><button class="btn" data-a="' + A({ t: 'queue', id: b.id }) + '"' + (can ? '' : ' disabled') + '>▶ Зробити ' + RES[outR].ic + '<small>черга ' + busyN + ' / ' + qm + (busyN >= qm ? '' : lack.length ? ' · бракує ' + lack.map(([r, n]) => (n - (s.st[r] || 0)) + ' ' + RES[r].ic + ' ' + RES[r].n.toLowerCase()).join(', ') : ' · ' + d.in.map(([r, n]) => n + ' ' + RES[r].ic).join(' + ')) + '</small></button></div>';
+      const busyN = (b.qn || 0) + (b.p >= 0 ? 1 : 0), qm = K.qMax(b), can = busyN < qm && d.in.every(([r, n]) => (s.st[r] || 0) >= n);
+      h += '<div class="btns"><button class="btn" data-a="' + A({ t: 'queue', id: b.id }) + '"' + (can ? '' : ' disabled') + '>▶ Зробити ' + RES[outR].ic + '<small>черга ' + busyN + ' / ' + qm + '</small></button></div>';
     }
     if (d.kind !== 'field') h += '<div class="row"><span class="tx"><b>Готово: ' + b.buf + ' / ' + cap + ' ' + RES[outR].ic + '</b><small>' + st + '</small><span class="cap"><i class="' + (b.buf >= cap ? 'full' : '') + '" style="width:' + Math.min(100, (100 * b.buf) / cap) + '%"></i></span></span></div>';
     const uc = K.upCost(b), hc = K.hireCost(b);
