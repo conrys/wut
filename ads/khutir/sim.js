@@ -64,7 +64,7 @@
     path: { n: 'Стежка', ic: '🟫', lv: 1, c: 2, b: 0.3, hint: 'Малюй пальцем' },
     stone: { n: 'Бруківка', ic: '🪨', lv: 3, c: 6, b: 0.6, hint: 'Малюй пальцем' },
     fence: { n: 'Тин', ic: '🪵', lv: 1, c: 8, b: 1, hint: 'Стоїть на межі клітинок, ставиться вздовж їхніх країв' },
-    flower: { n: 'Квітник', ic: '🌸', lv: 1, c: 15, b: 3 },
+    flower: { n: 'Квітник', ic: '🌸', lv: 1, c: 8, b: 1.5, small: 1 },
     spruce: { n: 'Ялинка', ic: '🌲', lv: 2, c: 40, b: 4 },
     hay: { n: 'Копиця', ic: '🌾', lv: 2, c: 30, b: 3, turn: 2 },
     bench: { n: 'Лавка', ic: '🪑', lv: 3, c: 60, b: 5, hint: 'Стає на край клітинки' },
@@ -72,9 +72,9 @@
     crane: { n: 'Журавель', ic: '🪣', lv: 5, c: 120, b: 8, turn: 2 },
     stork: { n: 'Гніздо лелеки', ic: '🪺', lv: 6, c: 150, b: 10, turn: 2 },
     oak: { n: 'Дуб', ic: '🌳', lv: 4, c: 90, b: 7 },
-    lantern: { n: 'Ліхтар', ic: '🏮', lv: 4, c: 100, b: 7, hint: 'Світить уночі' },
-    pot: { n: 'Опішнянський глечик', ic: '🏺', c: 150, b: 12, shop: false },
-    baba: { n: 'Кам’яна баба', ic: '🗿', c: 400, b: 30, shop: false },
+    lantern: { n: 'Ліхтар', ic: '🏮', lv: 4, c: 40, b: 3, small: 1, hint: 'Світить уночі' },
+    pot: { n: 'Опішнянський глечик', ic: '🏺', c: 150, b: 6, shop: false, small: 1 },
+    baba: { n: 'Кам’яна баба', ic: '🗿', c: 400, b: 15, shop: false, small: 1 },
   };
   const ORDER = Object.keys(B).filter((k) => B[k].kind !== 'home' && B[k].kind !== 'barn');
   // що й скільки дає будівля зараз (поле — залежно від посіяного)
@@ -260,7 +260,7 @@
   }
 
   function create(seed, name) {
-    const s = { v: VER, nm: name || 'Хутір', seed: seed | 0, r: seed | 0, t: 0, coins: 100, xp: 0, lv: 1, sl: 0, st: {}, b: [], nid: 1, ch: [], ob: {}, d: {}, f: {}, e: {}, inv: {}, o: [], lg: [], pc: {}, made: 0 };
+    const s = { v: VER, nm: name || 'Хутір', seed: seed | 0, r: seed | 0, t: 0, coins: 100, xp: 0, lv: 1, sl: 0, st: {}, b: [], nid: 1, ch: [], ob: {}, d: {}, sd: {}, f: {}, e: {}, inv: {}, o: [], lg: [], pc: {}, made: 0 };
     for (let y = 4; y <= 6; y++) for (let x = 4; x <= 6; x++) { const c = y * NC + x; s.ch.push(c); genChunk(s, c, true); }
     for (let y = MID - 3; y <= MID + 2; y++) for (let x = MID - 3; x <= MID + 2; x++) delete s.ob[idx(x, y)];
     s.b.push({ id: s.nid++, k: 'field', x: MID - 1, y: MID - 1, lv: 1, buf: 0, p: 0, h: 0, cr: 'wheat' });
@@ -329,6 +329,7 @@
   }
   function advance(s, now) {
     if (!s.b.some((b) => b.k === 'barn')) { const t = freeTileNear(s, MID + 1, MID - 2); if (t) s.b.push({ id: s.nid++, k: 'barn', x: t[0], y: t[1], lv: 1, buf: 0, p: -1, h: 0 }); }
+    if (!s.sd) s.sd = {};
     if (!s.e) {   // лавка тепер стоїть на межі клітинок
       s.e = {};
       for (const i in s.d) if (s.d[i] === 'bench') { const x = i % N, y = Math.floor(i / N), dr = (s.dr && s.dr[i]) || 0, e = dr % 2, X = dr === 0 ? x - 1 : x, Y = dr === 1 ? y - 1 : y; if (X >= 0 && Y >= 0) s.e[fenceKey(X, Y, e)] = dr; delete s.d[i]; }
@@ -387,6 +388,7 @@
   // після 12 однакових прикрас кожна наступна важить утричі менше: красиво — це різноманітно
   function beauty(s) {
     const n = {}; let sum = 0, fc = Object.keys(s.f || {}).length;
+    for (const k in s.sd || {}) { const q = s.sd[k], c = (n[q] = (n[q] || 0) + 1); sum += DECOR[q].b * (c > 12 ? 0.33 : 1); }
     for (const k in s.e || {}) { const c = (n.bench = (n.bench || 0) + 1); sum += DECOR.bench.b * (c > 12 ? 0.33 : 1); }
     sum += Math.min(fc, 40) * DECOR.fence.b + Math.max(0, fc - 40) * DECOR.fence.b * 0.33;
     for (const i in s.d || {}) { const k = s.d[i], c = (n[k] = (n[k] || 0) + 1); sum += DECOR[k].b * (c > 12 ? 0.33 : 1); }
@@ -525,6 +527,24 @@
         s.coins += b.pd.c; s.st.plank = (s.st.plank || 0) + (b.pd.pl || 0); if (!s.st.plank) delete s.st.plank;
         for (const [r, n] of B[b.k].in || []) s.st[r] = (s.st[r] || 0) + n * ((b.qn || 0) + (b.p >= 0 ? 1 : 0));
         s.b.splice(i, 1); kick(s); return res;
+      }
+      case 'sdeco': {
+        // дрібна прикраса на одній із 8 точок клітинки: sl 0…8 без центральної 4
+        const sl = a.sl | 0, key = idx(a.x, a.y) * 9 + sl, d = DECOR[a.k || s.sd[key]];
+        if (a.off) {
+          const k = s.sd[key]; if (!k) return fail('Нема'); delete s.sd[key];
+          if (DECOR[k].shop === false) s.inv[k] = (s.inv[k] || 0) + 1; else s.coins += a.full ? DECOR[k].c : Math.floor(DECOR[k].c / 2); return res;
+        }
+        if (!d || !d.small || sl === 4 || sl < 0 || sl > 8) return fail('Нема');
+        if (!owned(s, a.x, a.y)) return fail('Це не твоя земля');
+        if (s.sd[key]) return fail('Тут уже є');
+        if (d.shop === false) { if (!s.inv[a.k]) return fail('Привозить лише торговець'); s.inv[a.k]--; }
+        else { if (s.lv < d.lv) return fail('Відкриється на ' + d.lv + ' рівні'); if (s.coins < d.c) return fail('Треба ' + d.c + ' 💰'); s.coins -= d.c; }
+        s.sd[key] = a.k; return res;
+      }
+      case 'smove': {
+        const to = idx(a.x, a.y) * 9 + (a.sl | 0); if (!s.sd[a.from]) return fail('Нема'); if (s.sd[to] || (a.sl | 0) === 4 || !owned(s, a.x, a.y)) return fail('Тут зайнято');
+        s.sd[to] = s.sd[a.from]; delete s.sd[a.from]; return res;
       }
       case 'ebench': {
         const key = fenceKey(a.x, a.y, a.e ? 1 : 0), c = DECOR.bench.c;

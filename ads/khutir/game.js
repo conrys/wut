@@ -238,7 +238,7 @@
       const r = commit(a);
       if (r && r.ok && a.t === 'demolish') closeSheet();
       if (r && r.ok && a.t === 'chunk') closeSheet();
-      if (r && r.ok && (a.t === 'clear' || a.t === 'undeco' || a.t === 'sow' || a.t === 'fence' || a.t === 'ebench')) closeSheet();
+      if (r && r.ok && (a.t === 'clear' || a.t === 'undeco' || a.t === 'sow' || a.t === 'fence' || a.t === 'ebench' || a.t === 'sdeco')) closeSheet();
     }));
     $('shB').querySelectorAll('[data-tab]').forEach((el) => el.addEventListener('click', () => { if (fresh()) return; catTab = el.dataset.tab; sfx('pick'); sheetFn(); }));
     $('shB').querySelectorAll('[data-place]').forEach((el) => el.addEventListener('click', () => { if (fresh()) return; au(); startPlace(el.dataset.place); }));
@@ -260,7 +260,7 @@
     else if (what === 'level') openSheet('⭐ Рівень ' + view.lv, levelSheet);
     else if (what === 'vill') { const v = myV(); if (v) { villFor = myUid(); openSheet('🧑‍🌾 ' + v.n, villSheet); } }
   }
-  $('bBuild').addEventListener('click', () => { au(); enterBuild(); go('build'); });
+  $('bBuild').addEventListener('click', () => { au(); enterBuild(); });
   $('bStore').addEventListener('click', () => { au(); go('store'); });
   $('bVill').addEventListener('click', () => { au(); go('vill'); });
   $('bOrders').addEventListener('click', () => { au(); go('orders'); });
@@ -445,7 +445,7 @@
   let placing = null, painting = false;
   function startPlace(k) {
     closeSheet(); applyDraft(); tool = null; placing = k; toolUI(); $('place').hidden = false; $('tip').hidden = true;
-    if (k.startsWith('deco:')) { const d = K.DECOR[k.slice(5)]; $('placeT').textContent = d.ic + ' ' + d.n + ': торкайся або веди пальцем'; $('placeX').textContent = '✕'; if (k === 'deco:fence') fenceBar(); }
+    if (k.startsWith('deco:')) { const d = K.DECOR[k.slice(5)]; $('placeT').textContent = d.ic + ' ' + d.n + ': торкайся або веди пальцем'; $('placeX').textContent = '✕'; if (k === 'deco:fence') fenceBar(); if (k === 'deco:bench') $('placeT').textContent = '🪑 Торкнись краю клітинки: лавка стане спинкою до нього'; if (d.small) $('placeT').textContent = d.ic + ' ' + d.n + ': веди до точки й відпусти'; }
     else { $('placeT').textContent = 'Куди поставити ' + B[k].ic + ' ' + B[k].n + '?'; $('placeX').textContent = '✕'; }
   }
   function cancelPlace() { placing = null; draft.clear(); $('placeOk').hidden = true; $('place').hidden = true; if (tool) toolUI(); }
@@ -500,6 +500,8 @@
     if (a.t === 'deco') return { t: 'undeco', x: a.x, y: a.y, full: 1 };
     if (a.t === 'undeco') return { t: 'deco', k: before.d[K.idx(a.x, a.y)], x: a.x, y: a.y };
     if (a.t === 'fence') return a.off ? { t: 'fence', x: a.x, y: a.y, e: a.e } : { t: 'fence', x: a.x, y: a.y, e: a.e, off: 1, full: 1 };
+    if (a.t === 'sdeco') { const key = K.idx(a.x, a.y) * 9 + a.sl; return a.off ? { t: 'sdeco', k: before.sd[key], x: a.x, y: a.y, sl: a.sl } : { t: 'sdeco', x: a.x, y: a.y, sl: a.sl, off: 1, full: 1 }; }
+    if (a.t === 'smove') { const sl = a.from % 9, i = (a.from - sl) / 9; return { t: 'smove', from: K.idx(a.x, a.y) * 9 + a.sl, x: i % N, y: Math.floor(i / N), sl }; }
     if (a.t === 'ebench') { const key = K.fenceKey(a.x, a.y, a.e); if (a.turn) return a; if (a.off) return { t: 'ebench', x: a.x, y: a.y, e: a.e, dr: before.e[key] }; return { t: 'ebench', x: a.x, y: a.y, e: a.e, off: 1, full: 1 }; }
     if (a.t === 'fences') return { t: 'fenceoff', l: a.l.filter(([x, y, e]) => !before.f[K.fenceKey(x, y, e)]) };
     if (a.t === 'fenceoff') return { t: 'fences', l: a.l };
@@ -531,6 +533,7 @@
   function hammerAt(px, py, dragging) {
     const s = view, hit = fenceAtPoint(px, py), [x, y] = pick(px, py), b = K.at(s, x, y), key = hit ? 'f' + hit.x + ':' + hit.y + ':' + hit.e : x + ':' + y;
     if (gest && gest.tile === key) return; if (gest) gest.tile = key;
+    const sh = slotHit(px, py); if (sh) { if (gest && gest.tile === 's' + sh.key) return; if (gest) gest.tile = 's' + sh.key; doAct({ t: 'sdeco', x: sh.x, y: sh.y, sl: sh.sl, off: 1, full: 1 }); return; }
     const bh = benchAtPoint(px, py); if (bh && (!gest || gest.bk !== bh.ex + ':' + bh.ey)) { if (gest) gest.bk = bh.ex + ':' + bh.ey; doAct({ t: 'ebench', x: bh.ex, y: bh.ey, e: bh.e, off: 1, full: 1 }); return; }
     if (hit && (hit.d < 7 * cam.z || !b)) { doAct({ t: 'fence', x: hit.x, y: hit.y, e: hit.e, off: 1, full: 1 }); return; }
     if (s.d[K.idx(x, y)]) { doAct({ t: 'undeco', x, y, full: 1 }); return; }
@@ -569,7 +572,7 @@
     if (x < 0 || y < 0 || x >= N || y >= N) { closeSheet(); return; }
     if (placing) {
       if (placing.startsWith('deco:')) {
-        const k = placing.slice(5); if (k === 'fence' || k === 'bench') return;
+        const k = placing.slice(5); if (k === 'fence' || k === 'bench' || K.DECOR[k].small) return;
         if (!free(s, x, y)) { if (!painting) toast(K.owned(s, x, y) ? 'Тут зайнято' : 'Це не твоя земля', true); return; }
         const r = doAct({ t: 'deco', k, x, y });
         if (r && r.ok && K.DECOR[k].shop === false && !view.inv[k]) { cancelPlace(); toolUI(); }
@@ -595,7 +598,7 @@
     const ob = s.ob[K.idx(x, y)];
     if (ob === 't') { closeSheet(); commit({ t: 'clear', x, y }); return; }
     if (ob === 'r') { openSheet('🪨 Камінь', () => '<p class="note">Заважає будувати. Прибрати коштує ' + K.ROCK + ' 💰.</p><div class="btns"><button class="btn" data-a="' + A({ t: 'clear', x, y }) + '"' + (view.coins >= K.ROCK ? '' : ' disabled') + '>Прибрати · ' + K.ROCK + ' 💰</button></div>'); return; }
-    if (!buildOn) enterBuild(); sel = null; go('build');
+    sel = null; if (!buildOn) enterBuild(); else go('build');
   }
 
   // ================= малювання (ізометрія) =================
@@ -641,6 +644,25 @@
     const n = fenceLine(view, f).length, back = Math.floor(K.DECOR.fence.c / 2);
     openSheet('🪵 Тин', () => '<div class="btns"><button class="btn red" data-a="' + A({ t: 'fence', x: f.x, y: f.y, e: f.e, off: 1 }) + '">🗑 Прибрати цю секцію<small>повернеться ' + back + ' 💰</small></button>' + (n > 1 ? '<button class="btn red" id="fenceAll">🗑 Прибрати всю лінію (' + n + ')<small>повернеться ' + n * back + ' 💰</small></button>' : '') + '</div>');
     const all = $('fenceAll'); if (all) all.onclick = () => { if (fresh()) return; for (const q of fenceLine(view, f)) commit({ t: 'fence', x: q.x, y: q.y, e: q.e, off: 1 }); closeSheet(); };
+  }
+  // ---------- 8 точок на клітинці для дрібних прикрас ----------
+  const SLOT = 0.34, slotOff = (sl) => [sl % 3 - 1, Math.floor(sl / 3) - 1];
+  const smallPlacing = () => !!placing && placing.startsWith('deco:') && !!K.DECOR[placing.slice(5)].small;
+  // найближча точка; lift — точка трохи вище пальця, щоб її було видно, поки ведеш
+  function slotNear(px, py, lift) {
+    const X = (px - W / 2) / cam.z + cam.x, Y = (py - (lift ? 44 : 0) - H / 2) / cam.z + cam.y, a = (2 * X) / TW, b = (2 * Y) / TH, fx = (a + b) / 2, fy = (b - a) / 2;
+    const x = Math.round(fx), y = Math.round(fy); let ox = Math.max(-1, Math.min(1, Math.round((fx - x) / SLOT))), oy = Math.max(-1, Math.min(1, Math.round((fy - y) / SLOT)));
+    if (!ox && !oy) { if (Math.abs(fx - x) > Math.abs(fy - y)) ox = fx >= x ? 1 : -1; else oy = fy >= y ? 1 : -1; }
+    return { x, y, sl: (oy + 1) * 3 + ox + 1 };
+  }
+  function slotPos(x, y, sl) { const [ox, oy] = slotOff(sl); return [sx(x + ox * SLOT, y + oy * SLOT), sy(x + ox * SLOT, y + oy * SLOT)]; }
+  function slotHit(px, py) {
+    const s = view; let best = null, bd = 13 * Math.max(0.8, cam.z);
+    for (const k in s.sd) { const sl = k % 9, i = (k - sl) / 9, x = i % N, y = Math.floor(i / N), [X, Y] = slotPos(x, y, sl), d = Math.hypot(px - X, py - (Y - 5 * cam.z)); if (d < bd) { bd = d; best = { key: +k, x, y, sl, k: s.sd[k] }; } }
+    return best;
+  }
+  function slotSheet(q) {
+    const d = K.DECOR[q.k]; openSheet(d.ic + ' ' + d.n, () => '<p class="note">+' + d.b + ' краси.</p><div class="btns"><button class="btn red" data-a="' + A({ t: 'sdeco', x: q.x, y: q.y, sl: q.sl, off: 1 }) + '">🗑 Прибрати<small>' + (d.shop === false ? 'повернеться в запас' : 'повернеться ' + Math.floor(d.c / 2) + ' 💰') + '</small></button></div>');
   }
   function centerCam() {
     const s = view; if (!s) return;
@@ -853,6 +875,12 @@
     g.strokeStyle = '#9C7346'; g.lineWidth = 0.7 * z; g.beginPath(); g.moveTo(X0, Y0 - 9.5 * z); g.lineTo(X1, Y1 - 9.5 * z); g.stroke();
     const post = (px, py) => { g.fillStyle = '#5E3C1E'; g.fillRect(px - 1.5 * z, py - 16 * z, 3 * z, 17 * z); g.fillStyle = '#8A5A2B'; g.fillRect(px - 0.5 * z, py - 16 * z, 1 * z, 17 * z); };
     post(X0, Y0); post((X0 + X1) / 2, (Y0 + Y1) / 2); post(X1, Y1);
+  }
+  function drawSmall(x, y, q, z, t) {
+    const [X, Y] = slotPos(x, y, q.sl);
+    if (q.k === 'flower') { sprite(BUSHES[Math.floor(h01(x + q.sl * 3, y + 9) * BUSHES.length)], X, Y + z, z * 0.5, wind(x, y, t, 0.05)); return; }
+    const im = pxDeco(q.k), c = 0.42 * z; g.imageSmoothingEnabled = false; g.drawImage(im, X - 16 * c, Y - 36 * c, 32 * c, 40 * c); g.imageSmoothingEnabled = true;
+    if (q.k === 'lantern') lights.push([X, Y - 14 * z, 1]);
   }
   function drawBench(q, z) {
     const X = sx(q.px, q.py), Y = sy(q.px, q.py), key = 'd_bench' + (q.dr >= 2 ? 1 : 0);
@@ -1087,7 +1115,8 @@
     const ownedSet = new Set(s.ch);
     const buyable = new Set();
     for (const c of s.ch) { const x = c % K.NC, y = Math.floor(c / K.NC); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy; if (X >= 0 && Y >= 0 && X < K.NC && Y < K.NC && !ownedSet.has(Y * K.NC + X)) buyable.add(Y * K.NC + X); } }
-    const tw = TW * z, th = TH * z, pad = 60 * z;
+    const tw = TW * z, th = TH * z, pad = 60 * z, smallP = smallPlacing();
+    const slotsOf = new Map(); for (const k in s.sd) { const sl = k % 9, i = (k - sl) / 9, q = slotOff(sl); (slotsOf.get(i) || slotsOf.set(i, []).get(i)).push({ sl, k: s.sd[k], back: q[0] + q[1] < 0 }); }
     // земля
     for (let d = 0; d < 2 * N - 1; d++) for (let x = Math.max(0, d - N + 1); x <= Math.min(N - 1, d); x++) {
       const y = d - x, X = sx(x, y), Y = sy(x, y);
@@ -1105,6 +1134,7 @@
       }
       const dk0 = s.d[K.idx(x, y)];
       if (dk0 === 'path' || dk0 === 'stone') drawRoad(s, x, y, z, dk0, bmap);
+      if (smallP && own) for (let sl = 0; sl < 9; sl++) if (sl !== 4) { const [dx, dy] = slotPos(x, y, sl); g.fillStyle = s.sd[K.idx(x, y) * 9 + sl] ? 'rgba(200,64,47,.55)' : 'rgba(255,255,255,.6)'; g.beginPath(); g.arc(dx, dy, 2.2 * z, 0, 7); g.fill(); }
       if (!dk0 && !bmap.has(K.idx(x, y)) && !s.ob[K.idx(x, y)] && decor(x, y) === 'pebbles') { g.globalAlpha = 0.85; sprite('pebbles', X, Y, z * 0.55); g.globalAlpha = 1; }
       if (placing && free(s, x, y)) { g.fillStyle = 'rgba(255,255,255,.22)'; diamond(X, Y, tw * 0.86, th * 0.86); g.fill(); }
     }
@@ -1120,7 +1150,8 @@
     for (let d = 0; d < 2 * N - 1; d++) for (let x = Math.max(0, d - N + 1); x <= Math.min(N - 1, d); x++) {
       const y = d - x, X = sx(x, y), Y = sy(x, y);
       if (X < -tw || X > W + tw || Y < -pad || Y > H + th + pad * 2) { if (x === Math.min(N - 1, d) && vByTile.has(d)) for (const p of vByTile.get(d)) drawVill(p, s, z, t); continue; }
-      const i = K.idx(x, y), b = bmap.get(i);
+      const i = K.idx(x, y), b = bmap.get(i), sls = slotsOf.get(i);
+      if (sls) for (const q of sls) if (q.back) drawSmall(x, y, q, z, t);
       if (b) drawBuilding(b, X, Y, z, t, dt, bon, s);
       else if (s.ob[i] === 't' && sprite(treeKind(x, y), X, Y + 4 * z, z * (treeKind(x, y) === 'apple1' ? 0.8 : 0.6), wind(x, y, t, 0.025))) {}
       else if (s.ob[i] === 'r' && sprite(h01(x + 3, y + 11) < 0.5 ? 'rock' : 'rocks', X, Y + 6 * z, z * 0.8)) {}
@@ -1128,6 +1159,7 @@
       else if (s.ob[i] === 'r') drawRock(X, Y, z);
       else if (s.d[i]) drawDecor(s, x, y, X, Y, z, t);
       else if (!s.ob[i]) { const dk = decor(x, y); if (dk && dk !== 'pebbles') sprite(dk, X + (h01(x, y + 5) - 0.5) * 18 * z, Y + (h01(x + 5, y) - 0.5) * 8 * z, z, wind(x, y, t, 0.05)); }
+      if (sls) for (const q of sls) if (!q.back) drawSmall(x, y, q, z, t);
       if (benches.has(i)) for (const q of benches.get(i)) drawBench(q, z);
       if (s.f[K.fenceKey(x, y, 0)]) drawFence(x, y, 0, z);
       if (s.f[K.fenceKey(x, y, 1)]) drawFence(x, y, 1, z);
@@ -1146,6 +1178,7 @@
       g.globalCompositeOperation = 'source-over';
     }
     for (const m of marks) m();
+    if (gest && gest.sl) { const q = gest.sl, [X, Y] = slotPos(q.x, q.y, q.sl), busy2 = s.sd[K.idx(q.x, q.y) * 9 + q.sl] || !K.owned(s, q.x, q.y); g.strokeStyle = busy2 ? '#C8402F' : '#FFD76A'; g.lineWidth = 2.5 * z; g.beginPath(); g.arc(X, Y, 6 * z, 0, 7); g.stroke(); }
     if (gest && gest.drag) { const m = gest.drag, X = sx(m.x, m.y), Y = sy(m.x, m.y), ok = free(s, m.x, m.y) || (m.x === m.x0 && m.y === m.y0); g.fillStyle = ok ? 'rgba(120,230,120,.4)' : 'rgba(255,90,90,.45)'; diamond(X, Y, tw, th); g.fill(); g.globalAlpha = 0.7; if (m.b) { if (!sprite(m.b.k, X, Y, z)) emoji(B[m.b.k].ic, X, Y - 10 * z, Math.round(22 * z)); } else emoji(K.DECOR[m.dk].ic, X, Y - 8 * z, Math.round(20 * z)); g.globalAlpha = 1; }
     if (draft.size) { g.globalAlpha = 0.75; for (const q of draft.values()) drawFence(q.x, q.y, q.e, z); g.globalAlpha = 1; for (const q of draft.values()) { const a = q.e ? [q.x + 0.5, q.y + 0.5, q.x - 0.5, q.y + 0.5] : [q.x + 0.5, q.y - 0.5, q.x + 0.5, q.y + 0.5]; g.strokeStyle = '#FFC93C'; g.lineWidth = 2.5 * z; g.beginPath(); g.moveTo(sx(a[0], a[1]), sy(a[0], a[1])); g.lineTo(sx(a[2], a[3]), sy(a[2], a[3])); g.stroke(); } }
     for (const [bx, by, bz, ic, warn] of bubbles) bubble(bx, by, bz, t, ic, warn);
@@ -1220,7 +1253,9 @@
     au(); cv.setPointerCapture && cv.setPointerCapture(e.pointerId); if (!ptr.size) stroke++;
     ptr.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t0: performance.now() });
     if (ptr.size === 1) gest = { moved: false, cx: cam.x, cy: cam.y };
-    if (ptr.size === 1 && tool === 'move' && view) {
+    if (ptr.size === 1 && smallPlacing()) gest.sl = slotNear(e.clientX, e.clientY, false);
+    if (ptr.size === 1 && tool === 'move' && view && slotHit(e.clientX, e.clientY)) { const q = slotHit(e.clientX, e.clientY); gest.slotDrag = q; gest.sl = q; }
+    else if (ptr.size === 1 && tool === 'move' && view) {
       const [x, y] = pick(e.clientX, e.clientY), b = K.at(view, x, y), dk = view.d[K.idx(x, y)];
       if (b || dk) gest.drag = { b, dk, x0: x, y0: y, x, y };
     }
@@ -1234,6 +1269,9 @@
       const wx0 = (gest.mx - W / 2) / gest.z0 + gest.cx, wy0 = (gest.my - H / 2) / gest.z0 + gest.cy;
       cam.z = gest.z0 * (d / Math.max(10, gest.d0)); clampCam();
       cam.x = wx0 - (mx - W / 2) / cam.z; cam.y = wy0 - (my - H / 2) / cam.z; clampCam();
+    } else if (!gest.pinch && (gest.sl || gest.slotDrag) && ptr.size === 1) {
+      if (Math.hypot(p.x - p.x0, p.y - p.y0) > 8) gest.moved = true;
+      if (gest.moved) gest.sl = slotNear(p.x, p.y, true);
     } else if (!gest.pinch && gest.drag) {
       if (Math.hypot(p.x - p.x0, p.y - p.y0) > 8) gest.moved = true;
       const [x, y] = pick(p.x, p.y); gest.drag.x = x; gest.drag.y = y;
@@ -1251,6 +1289,13 @@
   const up = (e) => {
     const p = ptr.get(e.pointerId); ptr.delete(e.pointerId);
     if (!p || !gest) return;
+    if (gest.sl && ptr.size === 0) {
+      const q = gest.sl, m = gest.slotDrag; gest = null;
+      if (m) { if (q.x !== m.x || q.y !== m.y || q.sl !== m.sl) doAct({ t: 'smove', from: m.key, x: q.x, y: q.y, sl: q.sl }); return; }
+      doAct({ t: 'sdeco', k: placing.slice(5), x: q.x, y: q.y, sl: q.sl });
+      if (placing && K.DECOR[placing.slice(5)].shop === false && !view.inv[placing.slice(5)]) { cancelPlace(); toolUI(); }
+      return;
+    }
     if (gest.drag && ptr.size === 0) {
       const m = gest.drag; gest = null; if (m.x === m.x0 && m.y === m.y0) return;
       doAct(m.b ? { t: 'move', id: m.b.id, x: m.x, y: m.y } : { t: 'move', x0: m.x0, y0: m.y0, x: m.x, y: m.y }); return;
@@ -1261,6 +1306,7 @@
       if (placing === 'deco:fence') { const [x, y, e] = edgeAt(p.x, p.y); gest = null; draftEdge(x, y, e); return; }
       if (placing === 'deco:bench') { const [x, y, e] = edgeAt(p.x, p.y), [tx, ty] = pick(p.x, p.y), dr = e ? (ty > y ? 1 : 3) : tx > x ? 0 : 2; gest = null; doAct({ t: 'ebench', x, y, e, dr }); return; }
       if (!placing && view && tapVillager(p.x, p.y)) return; const [x, y] = pick(p.x, p.y);
+      const sh = !placing && view ? slotHit(p.x, p.y) : null; if (sh) { slotSheet(sh); ptr.size || (gest = null); return; }
       const bh = !placing && view ? benchAtPoint(p.x, p.y) : null; if (bh) { benchSheet(bh); ptr.size || (gest = null); return; }
       if (!placing && hit && (hit.d < 7 * cam.z || !K.at(view, x, y))) { fenceSheet({ x: hit.x, y: hit.y, e: hit.e }); ptr.size || (gest = null); return; }
       tapTile(x, y);

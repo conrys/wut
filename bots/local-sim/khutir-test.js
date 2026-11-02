@@ -37,7 +37,9 @@ const tapTile = async (p, x, y) => { await p.evaluate(([x, y]) => { KHUTIR.focus
   await p.evaluate(() => KHUTIR.warp(1205e3)); await p.waitForTimeout(300);
   check("черга відпрацювала: 2 борошна", await p.evaluate(() => { const m = KHUTIR.view.b.find((b) => b.k === "mill"); return m.buf + KHUTIR.view.st.flour >= 7 && m.p < 0; }));
   // прикраси: малювання пальцем
-  await p.evaluate(() => KHUTIR.closeSheet()); await p.tap("#bBuild"); await p.waitForTimeout(400);
+  await p.evaluate(() => KHUTIR.closeSheet()); await p.tap("#bBuild"); await p.waitForTimeout(300);
+  check("«Будувати» вмикає режим без каталогу", await p.evaluate(() => KHUTIR.buildOn && !KHUTIR.sheetOpen));
+  await p.tap("#mBuild"); await p.waitForTimeout(400);
   await p.screenshot({ path: OUT + "/2-build.png" });
   await p.waitForTimeout(250); await p.tap("[data-tab=deco]"); await p.waitForTimeout(300);
   await (await p.$("#shB button.row:has-text('Стежка')")).tap(); await p.waitForTimeout(400);
@@ -99,7 +101,7 @@ const tapTile = async (p, x, y) => { await p.evaluate(([x, y]) => { KHUTIR.focus
   check("уся лінія тину прибрана", await p.evaluate(() => Object.keys(KHUTIR.view.f).length === 0));
   await p.evaluate(() => { KHUTIR.commit({ t: "fence", x: 20, y: 18, e: 1 }); KHUTIR.closeSheet(); });
   // тин: чернетка з кутом, гроші лише після підтвердження
-  await p.evaluate(() => { KHUTIR.closeSheet(); KHUTIR.focus(22, 20); KHUTIR.cam.z = 1.4; }); await p.tap("#bBuild"); await p.waitForTimeout(400);
+  await p.evaluate(() => { KHUTIR.closeSheet(); KHUTIR.focus(22, 20); KHUTIR.cam.z = 1.4; }); await p.tap("#bBuild"); await p.waitForTimeout(300); await p.tap("#mBuild"); await p.waitForTimeout(400);
   await p.tap("[data-tab=deco]"); await p.waitForTimeout(300);
   await (await p.$("#shB button.row:has(b:text-is('Тин'))")).tap(); await p.waitForTimeout(400);
   const c1 = await p.evaluate(() => KHUTIR.view.coins);
@@ -124,6 +126,9 @@ const tapTile = async (p, x, y) => { await p.evaluate(([x, y]) => { KHUTIR.focus
   // лавка стоїть на межі й не займає клітинку
   const be = await p.evaluate(() => { const K = KHUTIR.K, s = KHUTIR.S; s.coins += 100; const r = KHUTIR.commit({ t: "ebench", x: 21, y: 25, e: 0, dr: 0 }), v = KHUTIR.view, q = K.benchAt(K.fenceKey(21, 25, 0), 0); return [r.ok, Object.keys(v.e).length, q.x, q.y, !v.d[K.idx(q.x, q.y)]]; });
   check("лавка на межі клітинок", be[0] && be[1] === 1 && be[4], JSON.stringify(be));
+  // дрібні прикраси на точках: поруч із будівлею, у межах однієї клітинки
+  const sq = await p.evaluate(() => { const K = KHUTIR.K, v = KHUTIR.view, b = v.b.find((q) => q.k === "mill"), r = [0, 2, 6, 8].map((sl) => KHUTIR.commit({ t: "sdeco", k: "flower", x: b.x, y: b.y, sl }).ok), four = KHUTIR.commit({ t: "sdeco", k: "flower", x: b.x, y: b.y, sl: 4 }).ok, dup = KHUTIR.commit({ t: "sdeco", k: "flower", x: b.x, y: b.y, sl: 0 }).ok; return [r.every(Boolean), four, dup, Object.keys(KHUTIR.view.sd).length]; });
+  check("4 квітники біля млина, центр і зайнята точка заборонені", sq[0] && !sq[1] && !sq[2] && sq[3] === 4, JSON.stringify(sq));
   // торговець
   await p.evaluate(() => { KHUTIR.commit({ t: "build", k: "market", x: 24, y: 24 }); const t = Date.now() + 0, every = 3 * 3600e3, ph = t % every; if (ph >= 80 * 60e3) KHUTIR.warp(every - ph + 60e3); KHUTIR.S.st.wheat = 60; KHUTIR.refresh(); });
   const m = await p.evaluate(() => KHUTIR.K.market(KHUTIR.view, KHUTIR.view.t));
