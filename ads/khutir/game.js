@@ -238,7 +238,7 @@
       const r = commit(a);
       if (r && r.ok && a.t === 'demolish') closeSheet();
       if (r && r.ok && a.t === 'chunk') closeSheet();
-      if (r && r.ok && (a.t === 'clear' || a.t === 'undeco' || a.t === 'sow' || a.t === 'fence')) closeSheet();
+      if (r && r.ok && (a.t === 'clear' || a.t === 'undeco' || a.t === 'sow' || a.t === 'fence' || a.t === 'ebench')) closeSheet();
     }));
     $('shB').querySelectorAll('[data-tab]').forEach((el) => el.addEventListener('click', () => { if (fresh()) return; catTab = el.dataset.tab; sfx('pick'); sheetFn(); }));
     $('shB').querySelectorAll('[data-place]').forEach((el) => el.addEventListener('click', () => { if (fresh()) return; au(); startPlace(el.dataset.place); }));
@@ -500,6 +500,7 @@
     if (a.t === 'deco') return { t: 'undeco', x: a.x, y: a.y, full: 1 };
     if (a.t === 'undeco') return { t: 'deco', k: before.d[K.idx(a.x, a.y)], x: a.x, y: a.y };
     if (a.t === 'fence') return a.off ? { t: 'fence', x: a.x, y: a.y, e: a.e } : { t: 'fence', x: a.x, y: a.y, e: a.e, off: 1, full: 1 };
+    if (a.t === 'ebench') { const key = K.fenceKey(a.x, a.y, a.e); if (a.turn) return a; if (a.off) return { t: 'ebench', x: a.x, y: a.y, e: a.e, dr: before.e[key] }; return { t: 'ebench', x: a.x, y: a.y, e: a.e, off: 1, full: 1 }; }
     if (a.t === 'fences') return { t: 'fenceoff', l: a.l.filter(([x, y, e]) => !before.f[K.fenceKey(x, y, e)]) };
     if (a.t === 'fenceoff') return { t: 'fences', l: a.l };
     if (a.t === 'demolish') return { t: 'restore', b: before.b.find((q) => q.id === a.id), pay: S.coins - before.coins };
@@ -530,6 +531,7 @@
   function hammerAt(px, py, dragging) {
     const s = view, hit = fenceAtPoint(px, py), [x, y] = pick(px, py), b = K.at(s, x, y), key = hit ? 'f' + hit.x + ':' + hit.y + ':' + hit.e : x + ':' + y;
     if (gest && gest.tile === key) return; if (gest) gest.tile = key;
+    const bh = benchAtPoint(px, py); if (bh && (!gest || gest.bk !== bh.ex + ':' + bh.ey)) { if (gest) gest.bk = bh.ex + ':' + bh.ey; doAct({ t: 'ebench', x: bh.ex, y: bh.ey, e: bh.e, off: 1, full: 1 }); return; }
     if (hit && (hit.d < 7 * cam.z || !b)) { doAct({ t: 'fence', x: hit.x, y: hit.y, e: hit.e, off: 1, full: 1 }); return; }
     if (s.d[K.idx(x, y)]) { doAct({ t: 'undeco', x, y, full: 1 }); return; }
     if (b && !dragging) { if (b.k === 'home' || b.k === 'barn') toast(B[b.k].n + ': не знести, її можна пересунути', true); else doAct({ t: 'demolish', id: b.id }); }
@@ -567,7 +569,7 @@
     if (x < 0 || y < 0 || x >= N || y >= N) { closeSheet(); return; }
     if (placing) {
       if (placing.startsWith('deco:')) {
-        const k = placing.slice(5); if (k === 'fence') return;
+        const k = placing.slice(5); if (k === 'fence' || k === 'bench') return;
         if (!free(s, x, y)) { if (!painting) toast(K.owned(s, x, y) ? 'Тут зайнято' : 'Це не твоя земля', true); return; }
         const r = doAct({ t: 'deco', k, x, y });
         if (r && r.ok && K.DECOR[k].shop === false && !view.inv[k]) { cancelPlace(); toolUI(); }
@@ -664,6 +666,7 @@
     home: { src: 'img/home.webp', ax: 130, ay: 147, fit: 1.15, ch: [143, 5] },
     coop: { src: 'img/coop.webp', ax: 128, ay: 140, fit: 1.1 },
     mill: { src: 'img/mill.webp', ax: 220, ay: 470, fit: 1.1 },
+    millS: { src: 'img/millS.webp', ax: 220, ay: 470, fit: 1.1 },
     saw: { src: 'img/saw.webp', ax: 128, ay: 151, fit: 1.1 },
     lumber: { src: 'img/lumber.webp', ax: 128, ay: 110, fit: 1.1 },
     bakery: { src: 'img/bakery.webp', ax: 128, ay: 183, fit: 1.1, ch: [142, 43] },
@@ -851,6 +854,19 @@
     const post = (px, py) => { g.fillStyle = '#5E3C1E'; g.fillRect(px - 1.5 * z, py - 16 * z, 3 * z, 17 * z); g.fillStyle = '#8A5A2B'; g.fillRect(px - 0.5 * z, py - 16 * z, 1 * z, 17 * z); };
     post(X0, Y0); post((X0 + X1) / 2, (Y0 + Y1) / 2); post(X1, Y1);
   }
+  function drawBench(q, z) {
+    const X = sx(q.px, q.py), Y = sy(q.px, q.py), key = 'd_bench' + (q.dr >= 2 ? 1 : 0);
+    if (q.dr % 2) { g.save(); g.translate(X, Y); g.scale(-1, 1); sprite(key, 0, 2 * z, z); g.restore(); } else sprite(key, X, Y + 2 * z, z);
+  }
+  function benchAtPoint(px, py) {
+    const s = view; let best = null, bd = 20 * Math.max(0.8, cam.z);
+    for (const k in s.e) { const q = K.benchAt(+k, s.e[k]), d = Math.hypot(px - sx(q.px, q.py), py - (sy(q.px, q.py) - 8 * cam.z)); if (d < bd) { bd = d; best = q; } }
+    return best;
+  }
+  function benchSheet(q) {
+    const c = K.DECOR.bench.c, base = { t: 'ebench', x: q.ex, y: q.ey, e: q.e };
+    openSheet('🪑 Лавка', () => '<div class="btns"><button class="btn sec" data-a="' + A({ ...base, turn: 1 }) + '">🔄 Розвернути</button><button class="btn red" data-a="' + A({ ...base, off: 1 }) + '">🗑 Прибрати<small>повернеться ' + Math.floor(c / 2) + ' 💰</small></button></div>');
+  }
   // кибитка торговця: стоїть біля ринку, поки він приїхав
   function drawWagon(X, Y, z) {
     const R = (col, x, y, w, h) => { g.fillStyle = col; g.fillRect(X + x * z, Y + y * z, w * z, h * z); };
@@ -1010,7 +1026,7 @@
       if (q) {
         const ms = (q.len * 1000) / K.WALK / F, tt = (v.vp + dt) % T, out = tt < ms, ret = tt > T - ms;
         if (out || ret) { const c = alongLeg(out ? q.pts : q.pts.slice().reverse(), out ? tt / ms : (tt - (T - ms)) / ms); return { x: c[0], y: c[1], walk: true, dir: c[2] - c[3] >= 0 ? 1 : -1, basket: false, back: c[2] + c[3] < 0 }; }
-        const dr = (s.dr && s.dr[q.sp.i]) || 0; return { x: q.sp.x, y: q.sp.y, walk: false, sit: true, swing: q.sp.k === 'swing', dir: dr % 2 ? -1 : 1, basket: false, back: q.sp.k === 'bench' && dr >= 2 };
+        const dr = q.sp.dr !== undefined ? q.sp.dr : (s.dr && s.dr[q.sp.i]) || 0; return { x: q.sp.px === undefined ? q.sp.x : q.sp.px, y: q.sp.py === undefined ? q.sp.y : q.sp.py, walk: false, sit: true, swing: q.sp.k === 'swing', dir: dr % 2 ? -1 : 1, basket: false, back: q.sp.k === 'bench' && dr >= 2 };
       }
     }
     const plan = K.walkPlan(s, uid, r), T = plan.ms / F;
@@ -1036,7 +1052,7 @@
     }
     return [pts[0][0], pts[0][1], 1, 0];
   }
-  let vpos = [], lights = [], bubbles = [], marks = [];
+  let vpos = [], lights = [], bubbles = [], marks = [], overTop = [];
   function drawVill(p, s, z, t) {
     const X = sx(p.x, p.y), Y = sy(p.x, p.y), v = s.vl[p.uid];
     drawVillager(g, X, Y - (p.sit ? (p.swing ? 10 : 6) * z : 0), 1.25 * z, v.c, t, p.walk, p.dir, p.basket, p.back, p.sit);
@@ -1066,7 +1082,7 @@
     const s = view, z = cam.z, t = now(), dt = t - viewAt;
     const bmap = new Map(); for (const b of s.b) bmap.set(K.idx(b.x, b.y), b);
     const bon = K.bonuses(s), rts = K.routes(s), vByTile = new Map();
-    lights = []; vpos = []; bubbles = []; marks = [];
+    lights = []; vpos = []; bubbles = []; marks = []; overTop = []; const benches = new Map(); for (const k in s.e) { const q = K.benchAt(+k, s.e[k]), i = K.idx(q.x, q.y); (benches.get(i) || benches.set(i, []).get(i)).push(q); }
     for (const uid of s.vo || []) { const p = villPos(s, uid, rts, t, dt); if (!p) continue; p.uid = uid; const key = Math.floor(p.x + 0.5) + Math.floor(p.y + 0.5); if (!vByTile.has(key)) vByTile.set(key, []); vByTile.get(key).push(p); }
     const ownedSet = new Set(s.ch);
     const buyable = new Set();
@@ -1112,11 +1128,14 @@
       else if (s.ob[i] === 'r') drawRock(X, Y, z);
       else if (s.d[i]) drawDecor(s, x, y, X, Y, z, t);
       else if (!s.ob[i]) { const dk = decor(x, y); if (dk && dk !== 'pebbles') sprite(dk, X + (h01(x, y + 5) - 0.5) * 18 * z, Y + (h01(x + 5, y) - 0.5) * 8 * z, z, wind(x, y, t, 0.05)); }
+      if (benches.has(i)) for (const q of benches.get(i)) drawBench(q, z);
       if (s.f[K.fenceKey(x, y, 0)]) drawFence(x, y, 0, z);
       if (s.f[K.fenceKey(x, y, 1)]) drawFence(x, y, 1, z);
       // селяни, що стоять на цій «діагоналі», — після неї, щоб не ховалися за будинками
       if (x === Math.min(N - 1, d) && vByTile.has(d)) for (const p of vByTile.get(d)) drawVill(p, s, z, t);
     }
+    // крила млина вищі за сусідів, тож малюються поверх усіх будівель
+    for (const [X, Y, zz, busy, id] of overTop) sprite('millS', X, Y, zz, 0, busy, id);
     // ніч
     const nt = darkness(t);
     if (nt.dusk > 0) { g.fillStyle = 'rgba(255,120,40,' + (0.13 * nt.dusk) + ')'; g.fillRect(0, 0, W, H); }
@@ -1157,6 +1176,7 @@
       if (d.wall) lights.push([X + 9 * z, Y - 8 * z, 0.7]);
       if (busy && SPR[b.k].ch) smoke(b.k, X, Y, z, t, b.id);
       if (busy && b.k === 'apiary') bees(X, Y, z, t, b.id);
+      if (b.k === 'mill') overTop.push([X, Y, z, busy, b.id]);
     }
     else if (d.kind === 'barn') sprite(s.sl >= 3 ? 'barn2' : s.sl >= 1 ? 'barn1' : 'barn0', X, Y, z);
     else if (d.kind === 'field') { if (b.p < 0 && !b.buf) sprite('soil', X, Y, z); else drawField(X, Y, z, b.buf ? 1 : prog, b.buf > 0, b.cr); }
@@ -1239,7 +1259,9 @@
     if (!gest.moved && !gest.pinch && ptr.size === 0 && performance.now() - p.t0 < 600) {
       const hit = view ? fenceAtPoint(p.x, p.y) : null;
       if (placing === 'deco:fence') { const [x, y, e] = edgeAt(p.x, p.y); gest = null; draftEdge(x, y, e); return; }
+      if (placing === 'deco:bench') { const [x, y, e] = edgeAt(p.x, p.y), [tx, ty] = pick(p.x, p.y), dr = e ? (ty > y ? 1 : 3) : tx > x ? 0 : 2; gest = null; doAct({ t: 'ebench', x, y, e, dr }); return; }
       if (!placing && view && tapVillager(p.x, p.y)) return; const [x, y] = pick(p.x, p.y);
+      const bh = !placing && view ? benchAtPoint(p.x, p.y) : null; if (bh) { benchSheet(bh); ptr.size || (gest = null); return; }
       if (!placing && hit && (hit.d < 7 * cam.z || !K.at(view, x, y))) { fenceSheet({ x: hit.x, y: hit.y, e: hit.e }); ptr.size || (gest = null); return; }
       tapTile(x, y);
     }

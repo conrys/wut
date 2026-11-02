@@ -45,7 +45,7 @@ const tapTile = async (p, x, y) => { await p.evaluate(([x, y]) => { KHUTIR.focus
   const n1 = await p.evaluate(() => { let n = 0; for (let x = 18; x < 26; x++) if (KHUTIR.commit({ t: "deco", k: "path", x, y: 19 }).ok) n++; return n; });
   check("стежка намальована", n1 >= 6, String(n1));
   const b0 = await p.evaluate(() => KHUTIR.K.beauty(KHUTIR.view));
-  await p.evaluate(() => { for (let x = 17; x < 24; x++) KHUTIR.commit({ t: "fence", x, y: 18, e: 1 }); for (let i = 0; i < 4; i++) KHUTIR.commit({ t: "deco", k: ["flower", "bench", "lantern", "oak"][i], x: 18 + i * 2, y: 20 }); KHUTIR.closeSheet(); });
+  await p.evaluate(() => { for (let x = 17; x < 24; x++) KHUTIR.commit({ t: "fence", x, y: 18, e: 1 }); for (let i = 0; i < 4; i++) KHUTIR.commit({ t: "deco", k: ["flower", "hay", "lantern", "oak"][i], x: 18 + i * 2, y: 20 }); KHUTIR.closeSheet(); });
   const b1 = await p.evaluate(() => [KHUTIR.K.beauty(KHUTIR.view), KHUTIR.K.tier(KHUTIR.view)]);
   check("прикраси дають красу й ступінь", b1[0] > b0 && b1[1] >= 1, JSON.stringify(b1));
   check("на дорозі не можна будувати", await p.evaluate(() => { const d = Object.keys(KHUTIR.view.d)[0], x = d % 48, y = Math.floor(d / 48); return !KHUTIR.commit({ t: "build", k: "well", x, y }).ok; }));
@@ -121,6 +121,9 @@ const tapTile = async (p, x, y) => { await p.evaluate(([x, y]) => { KHUTIR.focus
   // швидкість стала: час обходу пропорційний довжині шляху
   const sp = await p.evaluate(() => { const K = KHUTIR.K, s = KHUTIR.view, u = Object.keys(s.vl)[0], r = K.routes(s)[u], pl = K.walkPlan(s, u, r), len = pl.legs.reduce((a, l) => a + l.len, 0); return [pl.ms, (len / K.WALK) * 1000 + K.PAUSE * pl.legs.length]; });
   check("час обходу = довжина шляху / швидкість", Math.abs(sp[0] - sp[1]) < 1, JSON.stringify(sp));
+  // лавка стоїть на межі й не займає клітинку
+  const be = await p.evaluate(() => { const K = KHUTIR.K, s = KHUTIR.S; s.coins += 100; const r = KHUTIR.commit({ t: "ebench", x: 21, y: 25, e: 0, dr: 0 }), v = KHUTIR.view, q = K.benchAt(K.fenceKey(21, 25, 0), 0); return [r.ok, Object.keys(v.e).length, q.x, q.y, !v.d[K.idx(q.x, q.y)]]; });
+  check("лавка на межі клітинок", be[0] && be[1] === 1 && be[4], JSON.stringify(be));
   // торговець
   await p.evaluate(() => { KHUTIR.commit({ t: "build", k: "market", x: 24, y: 24 }); const t = Date.now() + 0, every = 3 * 3600e3, ph = t % every; if (ph >= 80 * 60e3) KHUTIR.warp(every - ph + 60e3); KHUTIR.S.st.wheat = 60; KHUTIR.refresh(); });
   const m = await p.evaluate(() => KHUTIR.K.market(KHUTIR.view, KHUTIR.view.t));

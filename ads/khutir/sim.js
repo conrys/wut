@@ -67,7 +67,7 @@
     flower: { n: 'Квітник', ic: '🌸', lv: 1, c: 15, b: 3 },
     spruce: { n: 'Ялинка', ic: '🌲', lv: 2, c: 40, b: 4 },
     hay: { n: 'Копиця', ic: '🌾', lv: 2, c: 30, b: 3, turn: 2 },
-    bench: { n: 'Лавка', ic: '🪑', lv: 3, c: 60, b: 5, turn: 4 },
+    bench: { n: 'Лавка', ic: '🪑', lv: 3, c: 60, b: 5, hint: 'Стає на край клітинки' },
     swing: { n: 'Гойдалка', ic: '🛝', lv: 3, c: 80, b: 6, turn: 2 },
     crane: { n: 'Журавель', ic: '🪣', lv: 5, c: 120, b: 8, turn: 2 },
     stork: { n: 'Гніздо лелеки', ic: '🪺', lv: 6, c: 150, b: 10, turn: 2 },
@@ -102,7 +102,17 @@
   // Швидкість стала: час обходу — це довжина справжнього шляху, а не навпаки
   const WALK = 0.6, PAUSE = 1500, SIT = 20000;           // клітинок за секунду, зупинка біля будівлі (мс), відпочинок (мс)
   const speedOf = (v) => (1 + 0.2 * (v.u.sp || 0)) * moodF(v);
-  function restSpots(s) { const o = []; for (const i in s.d || {}) if (REST.indexOf(s.d[i]) >= 0) o.push({ x: i % N, y: Math.floor(i / N), k: s.d[i], i: +i }); return o; }
+  // лавка: dr 0/2 — на межі e=0 сидінням до +x/−x, dr 1/3 — на межі e=1 сидінням до +y/−y
+  function benchAt(k, dr) {
+    const e = k % 2, i = (k - e) / 2, x = i % N, y = Math.floor(i / N), bx = e ? x : dr === 0 ? x + 1 : x, by = e ? (dr === 1 ? y + 1 : y) : y;
+    const mx = e ? x : x + 0.5, my = e ? y + 0.5 : y, d = dr === 0 || dr === 1 ? 0.2 : -0.2;
+    return { x: bx, y: by, ex: x, ey: y, e, dr, px: mx + (e ? 0 : d), py: my + (e ? d : 0), k: 'bench' };
+  }
+  function restSpots(s) {
+    const o = []; for (const i in s.d || {}) if (REST.indexOf(s.d[i]) >= 0) o.push({ x: i % N, y: Math.floor(i / N), k: s.d[i], i: +i });
+    for (const k in s.e || {}) o.push(benchAt(+k, s.e[k]));
+    return o;
+  }
   // найближче до хати місце відпочинку
   function restSpot(s, v) {
     const h = s.b.find((b) => b.id === v.home); let best = null, bd = 1e9;
@@ -167,7 +177,7 @@
     const h = s.b.find((b) => b.id === v.home), sp = restSpot(s, v); if (!h || !sp) return null;
     const bl = blockedSet(s), door = around(h, bl)[0], goals = around(sp, bl); if (!door || !goals.length) return null;
     const tiles = findTiles(s, bl, door, goals); if (!tiles) return null;
-    const pts = [near(door, h)].concat(tiles, [[sp.x, sp.y]]); return { sp, pts, len: lenOf(pts) };
+    const pts = [near(door, h)].concat(tiles, [[sp.px === undefined ? sp.x : sp.px, sp.py === undefined ? sp.y : sp.py]]); return { sp, pts, len: lenOf(pts) };
   }
   const restMs = (s, v) => { const q = restPlan(s, v); return q ? (2 * q.len * 1000) / WALK / speedOf(v) + SIT : SIT; };
   // час обходу за стану зараз
@@ -250,7 +260,7 @@
   }
 
   function create(seed, name) {
-    const s = { v: VER, nm: name || 'Хутір', seed: seed | 0, r: seed | 0, t: 0, coins: 100, xp: 0, lv: 1, sl: 0, st: {}, b: [], nid: 1, ch: [], ob: {}, d: {}, f: {}, inv: {}, o: [], lg: [], pc: {}, made: 0 };
+    const s = { v: VER, nm: name || 'Хутір', seed: seed | 0, r: seed | 0, t: 0, coins: 100, xp: 0, lv: 1, sl: 0, st: {}, b: [], nid: 1, ch: [], ob: {}, d: {}, f: {}, e: {}, inv: {}, o: [], lg: [], pc: {}, made: 0 };
     for (let y = 4; y <= 6; y++) for (let x = 4; x <= 6; x++) { const c = y * NC + x; s.ch.push(c); genChunk(s, c, true); }
     for (let y = MID - 3; y <= MID + 2; y++) for (let x = MID - 3; x <= MID + 2; x++) delete s.ob[idx(x, y)];
     s.b.push({ id: s.nid++, k: 'field', x: MID - 1, y: MID - 1, lv: 1, buf: 0, p: 0, h: 0, cr: 'wheat' });
@@ -319,6 +329,10 @@
   }
   function advance(s, now) {
     if (!s.b.some((b) => b.k === 'barn')) { const t = freeTileNear(s, MID + 1, MID - 2); if (t) s.b.push({ id: s.nid++, k: 'barn', x: t[0], y: t[1], lv: 1, buf: 0, p: -1, h: 0 }); }
+    if (!s.e) {   // лавка тепер стоїть на межі клітинок
+      s.e = {};
+      for (const i in s.d) if (s.d[i] === 'bench') { const x = i % N, y = Math.floor(i / N), dr = (s.dr && s.dr[i]) || 0, e = dr % 2, X = dr === 0 ? x - 1 : x, Y = dr === 1 ? y - 1 : y; if (X >= 0 && Y >= 0) s.e[fenceKey(X, Y, e)] = dr; delete s.d[i]; }
+    }
     if (!s.f) { s.f = {}; for (const i in s.d || {}) if (s.d[i] === 'fence') delete s.d[i]; }   // тин тепер на межах, а не на клітинках
     if (!s.t) { s.t = now; kick(s); return s; }
     if (now <= s.t) return s;
@@ -373,6 +387,7 @@
   // після 12 однакових прикрас кожна наступна важить утричі менше: красиво — це різноманітно
   function beauty(s) {
     const n = {}; let sum = 0, fc = Object.keys(s.f || {}).length;
+    for (const k in s.e || {}) { const c = (n.bench = (n.bench || 0) + 1); sum += DECOR.bench.b * (c > 12 ? 0.33 : 1); }
     sum += Math.min(fc, 40) * DECOR.fence.b + Math.max(0, fc - 40) * DECOR.fence.b * 0.33;
     for (const i in s.d || {}) { const k = s.d[i], c = (n[k] = (n[k] || 0) + 1); sum += DECOR[k].b * (c > 12 ? 0.33 : 1); }
     return Math.round(sum);
@@ -511,6 +526,17 @@
         for (const [r, n] of B[b.k].in || []) s.st[r] = (s.st[r] || 0) + n * ((b.qn || 0) + (b.p >= 0 ? 1 : 0));
         s.b.splice(i, 1); kick(s); return res;
       }
+      case 'ebench': {
+        const key = fenceKey(a.x, a.y, a.e ? 1 : 0), c = DECOR.bench.c;
+        if (a.off) { if (s.e[key] === undefined) return fail('Нема'); delete s.e[key]; s.coins += a.full ? c : Math.floor(c / 2); return res; }
+        if (a.turn) { if (s.e[key] === undefined) return fail('Нема'); s.e[key] = (s.e[key] + 2) % 4; return res; }
+        const q = benchAt(key, a.dr | 0);
+        if (!owned(s, q.x, q.y)) return fail('Це не твоя земля');
+        if (s.e[key] !== undefined) return fail('Тут уже є');
+        if (s.lv < DECOR.bench.lv) return fail('Відкриється на ' + DECOR.bench.lv + ' рівні');
+        if (s.coins < c) return fail('Треба ' + c + ' 💰');
+        s.coins -= c; s.e[key] = a.dr | 0; return res;
+      }
       case 'fences': {
         // весь намальований тин однією дією: гроші списуються разом або ніяк
         const list = (a.l || []).filter(([x, y, e]) => !s.f[fenceKey(x, y, e)] && (owned(s, x, y) || owned(s, x + (e ? 0 : 1), y + (e ? 1 : 0))));
@@ -637,6 +663,6 @@
     return '';
   }
 
-  const api = { mood, moodF, restSpot, restPlan, walkPlan, tripOf, speedOf, WALK, PAUSE, SIT, fenceKey, VER, MID, CROP, DECOR, outOf, qMax, beauty, tier, tierNeed, beautyBonus, market, LOOK, VUP, routes, route, basket, vupCost, addVillager, kick, N, CH, NC, RES, B, ORDER, create, advance, act, why, storeCap, xpNeed, buildCost, upCost, hireCost, storeCost, chunkCost, capOf, durOf, bonuses, slots, owned, chunkOf, idx, at, count, ROCK, fmtCost, canAfford, MAX_AWAY };
+  const api = { benchAt, mood, moodF, restSpot, restPlan, walkPlan, tripOf, speedOf, WALK, PAUSE, SIT, fenceKey, VER, MID, CROP, DECOR, outOf, qMax, beauty, tier, tierNeed, beautyBonus, market, LOOK, VUP, routes, route, basket, vupCost, addVillager, kick, N, CH, NC, RES, B, ORDER, create, advance, act, why, storeCap, xpNeed, buildCost, upCost, hireCost, storeCost, chunkCost, capOf, durOf, bonuses, slots, owned, chunkOf, idx, at, count, ROCK, fmtCost, canAfford, MAX_AWAY };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.KhutirSim = api;
 })(typeof window !== 'undefined' ? window : globalThis);
