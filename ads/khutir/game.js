@@ -663,7 +663,7 @@
     grass: { src: 'img/grass.webp', ax: 128, ay: 64, fit: 1.0 },
     home: { src: 'img/home.webp', ax: 130, ay: 147, fit: 1.15, ch: [143, 5] },
     coop: { src: 'img/coop.webp', ax: 128, ay: 140, fit: 1.1 },
-    mill: { src: 'img/mill.webp', ax: 128, ay: 207, fit: 1.1 },
+    mill: { src: 'img/mill.webp', ax: 220, ay: 470, fit: 1.1 },
     saw: { src: 'img/saw.webp', ax: 128, ay: 151, fit: 1.1 },
     lumber: { src: 'img/lumber.webp', ax: 128, ay: 110, fit: 1.1 },
     bakery: { src: 'img/bakery.webp', ax: 128, ay: 183, fit: 1.1, ch: [142, 43] },
