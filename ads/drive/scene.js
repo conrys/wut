@@ -380,7 +380,7 @@
     }
     /* ефекти швидкості як в Underground: світлові смуги від задніх ліхтарів і радіальне розмиття */
     buildSpeedFx() {
-      const N = this.trailN = 34, M = (N - 1) * 6 * 2, p = new Float32Array(M * 3), c = new Float32Array(M * 3), g = new T.BufferGeometry();
+      const N = this.trailN = 12, M = (N - 1) * 6 * 2, p = new Float32Array(M * 3), c = new Float32Array(M * 3), g = new T.BufferGeometry();
       g.setAttribute('position', new T.BufferAttribute(p, 3)); g.setAttribute('color', new T.BufferAttribute(c, 3));
       this.trail = new T.Mesh(g, new T.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: T.AdditiveBlending, depthWrite: false, fog: false, side: T.DoubleSide })); this.trail.frustumCulled = false; this.trail.visible = false; this.scene.add(this.trail);
       this.trailPts = [[], []]; this.blurScene = new T.Scene(); this.blurCam = new T.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -397,13 +397,13 @@
       m.updateMatrixWorld(); const v3 = new T.Vector3();
       m.tail.forEach((tl, side) => {
         v3.set(tl[0], tl[1], tl[2]).applyMatrix4(m.matrixWorld); const P = this.trailPts[side]; const l = P[0];
-        if (!l || Math.hypot(l[0] - v3.x, l[2] - v3.z) > 0.9) P.unshift([v3.x, v3.y, v3.z]); else { l[0] = v3.x; l[1] = v3.y; l[2] = v3.z; }
+        if (!l || Math.hypot(l[0] - v3.x, l[2] - v3.z) > 0.7) P.unshift([v3.x, v3.y, v3.z]); else { l[0] = v3.x; l[1] = v3.y; l[2] = v3.z; }
         if (P.length > N) P.length = N;
         for (let i = 0; i < N - 1; i++) {
           const o = (side * (N - 1) + i) * 18, p0 = P[i], p1 = P[i + 1], off = !p0 || !p1;
-          const w0 = 0.05 * (1 - i / N), w1 = 0.05 * (1 - (i + 1) / N), q = off ? [0, 0, 0] : p0, r = off ? [0, 0, 0] : p1;
+          const w0 = 0.07 * (1 - i / N), w1 = 0.07 * (1 - (i + 1) / N), q = off ? [0, 0, 0] : p0, r = off ? [0, 0, 0] : p1;
           const vs = [[q[0], q[1] - w0, q[2]], [q[0], q[1] + w0, q[2]], [r[0], r[1] + w1, r[2]], [q[0], q[1] - w0, q[2]], [r[0], r[1] + w1, r[2]], [r[0], r[1] - w1, r[2]]];
-          const f0 = k * (1 - i / N) ** 1.4, f1 = k * (1 - (i + 1) / N) ** 1.4;
+          const kd = k * (1 - c.drift), f0 = kd * (1 - i / N) ** 1.4, f1 = kd * (1 - (i + 1) / N) ** 1.4; /* у заносі смуг немає: вони б тягнулись убік */
           vs.forEach((u, n) => { a.array[o + n * 3] = u[0]; a.array[o + n * 3 + 1] = u[1]; a.array[o + n * 3 + 2] = u[2]; const f = n === 0 || n === 1 || n === 3 ? f0 : f1; col.array[o + n * 3] = f; col.array[o + n * 3 + 1] = f * 0.09; col.array[o + n * 3 + 2] = f * 0.06; });
         }
       });
