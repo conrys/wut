@@ -363,7 +363,7 @@
     /* однаковий масштаб у вертикальному й горизонтальному положенні: фокусна відстань іде від короткої сторони екрана */
     fit() {
       const w = this.w, a = w.W / w.H, f = Math.min(w.W, w.H) * 0.92, fov = Math.min(105, 2 * Math.atan(w.H / 2 / f) * 180 / Math.PI);
-      this.tilt = a > 1 ? 0.22 : 0.1; /* горизонтально кут нижчий, щоб лишались приладова панель і кермо */
+      this.tilt = a > 1 ? (this.seat === 'nav' ? 0.42 : 0.22) : 0.1; /* горизонтально кут нижчий, щоб лишались приладова панель і кермо */
       this.baseFov = fov; w.camera.fov = fov; w.camera.updateProjectionMatrix(); this.cabC.fov = fov; this.cabC.aspect = a; this.cabC.updateProjectionMatrix();
     }
     setCam(m) { this.cam = m; this.orb = null; this.fit(); }

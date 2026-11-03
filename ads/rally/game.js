@@ -62,20 +62,22 @@
 
   function drawDevice() {
     const c = sc.devC, g = c.getContext('2d'), W = c.width, H = c.height;
-    g.fillStyle = '#2D2F22'; g.fillRect(0, 0, W, H); g.fillStyle = '#0D0D0E'; g.fillRect(36, 6, W - 72, 34);
-    g.fillStyle = '#F4F1EA'; g.font = 'bold 26px monospace'; g.textAlign = 'center'; g.fillText(fmt(t), W / 2, 32);
+    g.fillStyle = '#2D2F22'; g.fillRect(0, 0, W, H);
+    /* годинник має власну смугу: маршрут обрізається під нею */
+    g.save(); g.beginPath(); g.rect(0, 46, W, H - 46); g.clip();
     const ox = W / 2, oy = H - 62, sca = 0.95, sn = Math.sin(car.travel), cs = Math.cos(car.travel);
     const P = (p) => { const dx = p.x - car.x, dz = p.z - car.z, fw = dx * sn + dz * cs, rt = -dx * cs + dz * sn; return [ox + rt * sca, oy - fw * sca]; };
     g.strokeStyle = '#F2DDA0'; g.lineWidth = 7; g.lineJoin = 'round'; g.lineCap = 'round'; g.beginPath(); let first = true;
     for (let s = Math.max(0, car.s - 50); s < Math.min(LEN, car.s + 340); s += 8) { const q = P(road.at(s)); if (first) g.moveTo(q[0], q[1]); else g.lineTo(q[0], q[1]); first = false; }
     g.stroke();
-    g.fillStyle = '#FF8A1E'; g.beginPath(); g.moveTo(ox, oy - 20); g.lineTo(ox - 13, oy + 12); g.lineTo(ox + 13, oy + 12); g.closePath(); g.fill();
+    g.fillStyle = '#FF8A1E'; g.beginPath(); g.moveTo(ox, oy - 20); g.lineTo(ox - 13, oy + 12); g.lineTo(ox + 13, oy + 12); g.closePath(); g.fill(); g.restore();
+    g.fillStyle = '#0D0D0E'; g.fillRect(0, 0, W, 46); g.fillStyle = '#F4F1EA'; g.font = 'bold 28px monospace'; g.textAlign = 'center'; g.fillText(fmt(t), W / 2, 33);
     sc.devTex.needsUpdate = true;
   }
   const fmt = (x) => Math.floor(x / 60) + ':' + String(Math.floor(x % 60)).padStart(2, '0') + '.' + Math.floor(x * 10 % 10);
 
   function setSeat(s) {
-    seat = s; if (sc) sc.seat = s === 'drive' ? 'driver' : 'nav'; document.body.dataset.seat = s;
+    seat = s; if (sc) { sc.seat = s === 'drive' ? 'driver' : 'nav'; sc.fit(); } document.body.dataset.seat = s;
     $('seatBtn').textContent = s === 'drive' ? '⇄ До штурмана' : s === 'nav' ? '⇄ За кермо' : '⇄ За кермо';
   }
 

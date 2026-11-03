@@ -33,6 +33,14 @@ body{background:var(--night);color:var(--ink);font-family:var(--body);overflow:h
 .navp button{min-height:48px;border:0;border-radius:12px;color:#fff;font:700 14px var(--body);cursor:pointer;touch-action:none}
 .navp .l{background:rgba(89,195,255,.55)}.navp .r{background:rgba(255,138,30,.6)}
 .navp button:active{transform:scale(.96)}
+@media (max-height:480px){
+  .navp{left:0;right:0;transform:none;width:auto;grid-template-columns:128px 1fr 128px;grid-template-rows:repeat(3,auto);padding:0 max(16px,env(safe-area-inset-right,0px)) 0 max(16px,env(safe-area-inset-left,0px));pointer-events:none}
+  .navp button{pointer-events:auto;min-height:44px;font-size:13px}
+  .navp .l{grid-column:1}.navp .r{grid-column:3}
+  .navp [data-call=L5]{grid-row:1}.navp [data-call=L3]{grid-row:2}.navp [data-call=L1]{grid-row:3}
+  .navp [data-call=R5]{grid-row:1}.navp [data-call=R3]{grid-row:2}.navp [data-call=R1]{grid-row:3}
+  .seatb{top:calc(env(safe-area-inset-top,0px) + 12px)}
+}
 body:not([data-seat=drive]) #gas,body:not([data-seat=drive]) #brake,body:not([data-seat=drive]) #hand,body:not([data-seat=drive]) #wheelS{display:none}
 body:not([data-seat=nav]) .navp{display:none}
 .overlay{position:fixed;inset:0;display:grid;padding:calc(env(safe-area-inset-top,0px) + 16px) max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 16px) max(16px,env(safe-area-inset-left,0px));background:rgba(8,6,12,.5);overflow-y:auto;place-items:start center;touch-action:pan-y}
