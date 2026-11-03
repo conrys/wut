@@ -9,7 +9,7 @@
     { id: 'own', name: 'Своя музика', off: true },
   ];
   const hz = (m) => 440 * Math.pow(2, (m - 69) / 12);
-  let AC = null, master, music, roadG, rainG, engine, engG, engF, delay, timer = 0, next = 0, step = 0, cur = null;
+  let AC = null, master, music, roadG, rainG, tyreG, rumbleG, engine, eng2, engG, engF, delay, noiseBuf, timer = 0, next = 0, step = 0, cur = null;
 
   function init() {
     if (AC) return true;
@@ -20,9 +20,9 @@
     delay.connect(fb); fb.connect(f); f.connect(delay); delay.connect(music);
     const n = AC.createBuffer(1, AC.sampleRate * 2, AC.sampleRate), d = n.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     const noise = (freq, type) => { const s = AC.createBufferSource(); s.buffer = n; s.loop = true; const fl = AC.createBiquadFilter(); fl.type = type; fl.frequency.value = freq; const g = AC.createGain(); g.gain.value = 0; s.connect(fl); fl.connect(g); g.connect(master); s.start(); return g; };
-    roadG = noise(420, 'lowpass'); rainG = noise(2600, 'highpass');
-    engine = AC.createOscillator(); engine.type = 'sawtooth'; engF = AC.createBiquadFilter(); engF.frequency.value = 240; engG = AC.createGain(); engG.gain.value = 0;
-    engine.connect(engF); engF.connect(engG); engG.connect(master); engine.start();
+    noiseBuf = n; roadG = noise(420, 'lowpass'); rainG = noise(2600, 'highpass'); tyreG = noise(1500, 'bandpass'); rumbleG = noise(110, 'lowpass');
+    engine = AC.createOscillator(); engine.type = 'sawtooth'; eng2 = AC.createOscillator(); eng2.type = 'square'; eng2.connect(engF0()); engF = AC.createBiquadFilter(); engF.frequency.value = 240; engG = AC.createGain(); engG.gain.value = 0;
+    engine.connect(engF); engF0().connect(engF); engF.connect(engG); engG.connect(master); engine.start(); eng2.start();
     return true;
   }
   function note(t, m, len, type, vol, wet) {
@@ -44,17 +44,23 @@
   }
   function setStation(i) {
     cur = STATIONS[i];
-    if (cur.off) { if (AC) { clearInterval(timer); AC.close(); AC = null; } return; }
+    if (cur.off) { if (AC) { clearInterval(timer); AC.close(); AC = null; e2g = null; } return; }
     if (!init()) return; if (AC.state === 'suspended') AC.resume();
     clearInterval(timer); step = 0; next = AC.currentTime + 0.1;
     if (cur.bpm) timer = setInterval(sched, 180);
   }
-  function drive(speed, rain) {
+  let e2g = null; function engF0() { if (!e2g) { e2g = AC.createGain(); e2g.gain.value = 0.3; } return e2g; }
+  function thud() {
+    if (!AC) return; const t = AC.currentTime, o = AC.createOscillator(), g = AC.createGain(); o.frequency.setValueAtTime(90, t); o.frequency.exponentialRampToValueAtTime(38, t + 0.2);
+    g.gain.setValueAtTime(0.4, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.26); o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.3);
+  }
+  function drive(speed, rain, rpm, rumble, slip) {
     if (!AC) return;
     const t = AC.currentTime, v = Math.min(1, speed / 40), q = cur && cur.road ? 1 : 0.42;
     roadG.gain.setTargetAtTime(v * 0.13 * q, t, 0.3); rainG.gain.setTargetAtTime(rain * 0.05, t, 0.8);
-    engine.frequency.setTargetAtTime(46 + v * 62, t, 0.25); engG.gain.setTargetAtTime((0.018 + v * 0.03) * q, t, 0.3);
+    const f = 38 + rpm * 118; engine.frequency.setTargetAtTime(f, t, 0.08); eng2.frequency.setTargetAtTime(f * 0.5, t, 0.08); engF.frequency.setTargetAtTime(170 + rpm * 520, t, 0.1); engG.gain.setTargetAtTime((0.02 + rpm * 0.035) * q, t, 0.15);
+    tyreG.gain.setTargetAtTime(Math.min(0.09, v * v * 0.05 + slip * 0.03) * q, t, 0.2); rumbleG.gain.setTargetAtTime(rumble * 0.5, t, 0.06);
   }
   function pause(on) { if (AC) { if (on) AC.suspend(); else AC.resume(); } }
-  window.RelaxMusic = { STATIONS, setStation, drive, pause, get active() { return !!AC; } };
+  window.RelaxMusic = { STATIONS, setStation, drive, thud, pause, get active() { return !!AC; } };
 })();

@@ -93,7 +93,9 @@
     }
   }
 
-  const SURF = { asphalt: { grip: 9, drag: 0.012 }, gravel: { grip: 4.6, drag: 0.03 }, grass: { grip: 3, drag: 0.5 } };
+  const SURF = { asphalt: { grip: 9, drag: 0.012 }, gravel: { grip: 4.6, drag: 0.03 }, grass: { grip: 3, drag: 0.9 } };
+  /* ручні передачі: максимальна швидкість (м/с) і тяга кожної */
+  const GEARS = [14, 22, 30, 37, 44], GPOW = [1.5, 1.25, 1, 0.85, 0.7];
 
   /* Аркадне авто. Кермо: +1 праворуч */
   class Car {
@@ -104,7 +106,8 @@
       this.yaw = p.h; this.vx = 0; this.vz = 0; this.steer = 0; this.spin = 0; this.pitch = 0; this.roll = 0;
       this.s = p.s; this.off = lane; this.dist = 0; this.vmax = opt.vmax || 42; this.accel = opt.accel || 6;
       this.surface = opt.surface || 'asphalt'; this.rail = opt.rail == null ? road.half + 5 : opt.rail;
-      this.onGrass = false; this.lat = 0;
+      this.onGrass = false; this.lat = 0; this.gripMul = 1; this.ax = 0; this.bodyPitch = 0; this.bump = 0; this.rumble = 0;
+      this.manual = false; this.gear = 1; this.rpm = 0.3; this.braking = false; this.railOn = false; this.slip = 0;
     }
     get speed() { return Math.hypot(this.vx, this.vz); }
     /* кут коліс обмежений бічним прискоренням: на швидкості кермо не смикає авто */
@@ -112,6 +115,7 @@
     step(dt, inp) {
       const n = Math.max(1, Math.ceil(dt * 90)), h = dt / n;
       for (let i = 0; i < n; i++) this.sub(h, inp);
+      this.bump = Math.max(0, this.bump - dt * 3);
     }
     sub(dt, inp) {
       const R = this.road, sf = Math.sin(this.yaw), cf = Math.cos(this.yaw);
@@ -121,10 +125,21 @@
       this.yaw -= vf * Math.tan(a) / 2.6 * dt;
       this.onGrass = Math.abs(this.off) > R.half + 1.1;
       const S = SURF[this.onGrass ? 'grass' : this.surface];
-      vf += (inp.gas || 0) * this.accel * (1 - clamp(vf / this.vmax, 0, 1)) * dt;
+      const gas = inp.gas || 0, v0 = vf; let power;
+      if (this.manual) {
+        const g = this.gear - 1, r = vf / GEARS[g]; this.rpm = clamp(r, 0.12, 1.05);
+        power = r >= 1 ? 0 : GPOW[g] * (0.4 + 0.8 * (1 - Math.abs(r - 0.72)));
+        if (r > 1) vf -= (r - 1) * 12 * dt; /* двигун стримує на надто низькій передачі */
+      } else { power = 1 - clamp(vf / this.vmax, 0, 1); this.rpm += (0.28 + 0.6 * clamp(vf / this.vmax, 0, 1) + 0.1 * gas - this.rpm) * Math.min(1, dt * 3); }
+      vf += gas * this.accel * power * dt;
       vf -= (inp.brake || 0) * 12 * dt * Math.sign(vf);
       vf -= vf * S.drag * dt;
-      vl *= Math.exp(-S.grip * dt);
+      this.braking = (inp.brake || 0) > 0.1;
+      this.ax += ((vf - v0) / dt - this.ax) * Math.min(1, dt * 6);
+      /* у швидкому повороті задня вісь трохи ковзає; дощ і сніг зменшують зчеплення */
+      vl -= this.lat * 0.35 * dt;
+      vl *= Math.exp(-S.grip * this.gripMul * (1 - 0.4 * clamp(Math.abs(this.lat) / 16, 0, 1)) * dt);
+      this.slip = Math.abs(vl);
       const sn = Math.sin(this.yaw), cn = Math.cos(this.yaw);
       this.vx = sn * vf - cn * vl; this.vz = cn * vf + sn * vl;
       this.x += this.vx * dt; this.z += this.vz * dt;
@@ -132,6 +147,8 @@
       this.dist += Math.max(0, L.s - this.s); this.s = L.s; this.off = L.off;
       const q = R.at(L.s);
       /* м'який бортик: Релакс без аварій, авто повертається на узбіччя */
+      const edge = Math.abs(L.off); this.rumble = (edge > R.half + 1.1 ? 1 : edge > R.half + 0.1 ? 0.35 : 0) * clamp(Math.abs(vf) / 12, 0, 1);
+      const railed = !!this.rail && edge > this.rail; if (railed && !this.railOn && Math.abs(vf) > 6) this.bump = 1; this.railOn = railed;
       if (this.rail && Math.abs(L.off) > this.rail) {
         const over = Math.abs(L.off) - this.rail, sg = Math.sign(L.off), rx = -Math.cos(q.h), rz = Math.sin(q.h);
         this.x -= rx * sg * over * Math.min(1, dt * 8); this.z -= rz * sg * over * Math.min(1, dt * 8);
@@ -140,7 +157,8 @@
       const ahead = R.at(L.s + 2).y, back = R.at(Math.max(0, L.s - 2)).y;
       this.y = q.y; this.pitch += (Math.atan2(ahead - back, 4) - this.pitch) * Math.min(1, dt * 8);
       this.lat = vf * vf * Math.tan(a) / 2.6;
-      this.roll += (clamp(this.lat * 0.012, -0.08, 0.08) - this.roll) * Math.min(1, dt * 5);
+      this.roll += (clamp(-this.lat * 0.016, -0.085, 0.085) - this.roll) * Math.min(1, dt * 5);
+      this.bodyPitch += (clamp(this.ax * 0.007, -0.05, 0.035) - this.bodyPitch) * Math.min(1, dt * 6);
       this.spin += vf * dt / 0.33;
     }
   }

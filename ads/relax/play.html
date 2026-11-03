@@ -41,6 +41,10 @@ body{background:var(--night);color:var(--ink);font-family:var(--body);overflow:h
 #speedS .thumb{position:absolute;left:-6px;margin-bottom:-22px;width:60px;height:44px;border-radius:12px;background:var(--gold);color:#2A2000;font-family:var(--display);font-weight:800;font-size:19px;line-height:44px;text-align:center}
 body:not([data-steer=buttons]) #left,body:not([data-steer=buttons]) #right,body:not([data-steer=slider]) #wheelS{display:none}
 body:not([data-speed=pedals]) #gas,body:not([data-speed=pedals]) #brake,body:not([data-speed=slider]) #speedS{display:none}
+#gears{position:fixed;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 112px);display:flex;align-items:center;gap:6px;transition:opacity .6s}
+#gears b{font-family:var(--display);font-size:22px;min-width:30px;text-align:center;background:rgba(12,10,16,.62);border-radius:10px;line-height:44px}
+body:not([data-gears=manual]) #gears,body.autopilot #gears{display:none}
+body.calm #gears{opacity:.4}
 .opt{display:grid;gap:5px;text-align:left}.opt>span{font-size:13px;opacity:.75}
 .seg{display:flex;gap:6px}
 .seg button{flex:1;min-height:42px;border:2px solid var(--line);border-radius:12px;background:transparent;color:var(--ink);font:600 14px var(--body);cursor:pointer;padding:4px}
@@ -86,6 +90,7 @@ body.calm.autopilot .track{opacity:0}
     <button class="icon" id="auto" type="button" aria-label="Автопілот" aria-pressed="false">A</button>
   </div>
   <div class="track" id="wheelS" role="slider" tabindex="0" aria-label="Кермо" aria-valuemin="-1" aria-valuemax="1"><div class="thumb"><i></i></div></div>
+  <div id="gears"><button class="icon" id="gDn" type="button" aria-label="Передача нижче">−</button><b id="gearV">1</b><button class="icon" id="gUp" type="button" aria-label="Передача вище">+</button></div>
   <button class="pad" id="left" type="button" aria-label="Кермо ліворуч">←</button>
   <button class="pad" id="right" type="button" aria-label="Кермо праворуч">→</button>
   <div class="track" id="speedS" role="slider" tabindex="0" aria-label="Швидкість" aria-valuemin="0" aria-valuemax="33"><div class="thumb">90</div></div>
@@ -100,6 +105,7 @@ body.calm.autopilot .track{opacity:0}
     <div class="dots" id="colors"></div>
     <div class="opt"><span>Кермо</span><div class="seg"><button type="button" data-set="steerMode" data-val="slider">Повзунок</button><button type="button" data-set="steerMode" data-val="buttons">Кнопки</button><button type="button" data-set="steerMode" data-val="tilt">Нахил</button></div></div>
     <div class="opt"><span>Швидкість</span><div class="seg"><button type="button" data-set="speedMode" data-val="slider">Повзунок</button><button type="button" data-set="speedMode" data-val="pedals">Педалі</button></div></div>
+    <div class="opt"><span>Передачі</span><div class="seg"><button type="button" data-set="gearMode" data-val="off">Без передач</button><button type="button" data-set="gearMode" data-val="manual">Ручні</button></div></div>
     <button class="btn" id="go" type="button">Їхати</button>
     <button class="btn2" id="watch" type="button">Просто дивитись</button>
     <p class="hint">Радіо вбудоване. Хочеш своє — увімкни 🎧 «Своя музика» й запусти її в іншому застосунку.</p>

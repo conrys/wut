@@ -7,7 +7,7 @@
 
   const COLORS = [0xD63A32, 0x2F6FBF, 0xE8E4D8, 0x2FA36B, 0xF2B632, 0x35363C];
   const CAMS = [['cabin', 'Із салону'], ['chase', 'Ззаду'], ['side', 'Узбіччя']];
-  const st = { color: load('color', 0), cam: load('cam', 0), radio: load('radio', 0), cruise: load('cruise', 25), steerMode: load('steer', 'slider'), speedMode: load('speed', 'slider'), btn: 0, auto: false, playing: false, total: load('km', 0), tiltV: 0 };
+  const st = { color: load('color', 0), cam: load('cam', 0), radio: load('radio', 0), cruise: load('cruise', 25), steerMode: load('steer', 'slider'), speedMode: load('speed', 'slider'), gearMode: load('gears', 'off'), btn: 0, auto: false, playing: false, total: load('km', 0), tiltV: 0 };
   const seed = (Math.random() * 1e9) | 0, road = new Road({ seed }), car = new Car(road, { rail: road.half + 5 });
   const sc = new Scene({ canvas: $('gl'), road, car, color: COLORS[st.color], time: 0.08 + Math.random() * 0.45 });
   sc.setCam(CAMS[st.cam][0]);
@@ -66,7 +66,7 @@
   }
   $('radio').addEventListener('click', () => { radio((st.radio + 1) % M.STATIONS.length); wake(); });
   $('cam').addEventListener('click', () => { st.cam = (st.cam + 1) % CAMS.length; save('cam', st.cam); sc.setCam(CAMS[st.cam][0]); say(CAMS[st.cam][1]); wake(); });
-  function setAuto(on) { st.auto = on; $('auto').classList.toggle('active', on); $('auto').setAttribute('aria-pressed', on); document.body.classList.toggle('autopilot', on); }
+  function setAuto(on) { st.auto = on; $('auto').classList.toggle('active', on); $('auto').setAttribute('aria-pressed', on); document.body.classList.toggle('autopilot', on); layout(); }
   $('auto').addEventListener('click', () => { setAuto(!st.auto); say(st.auto ? 'Автопілот' : 'Кермо твоє'); wake(); });
 
   /* нахил телефона */
@@ -81,16 +81,20 @@
     return on;
   }
   function layout() {
-    document.body.dataset.steer = st.steerMode; document.body.dataset.speed = st.speedMode;
+    document.body.dataset.steer = st.steerMode; document.body.dataset.speed = st.speedMode; document.body.dataset.gears = st.gearMode; car.manual = st.gearMode === 'manual' && !st.auto;
     for (const b of document.querySelectorAll('[data-set]')) { const on = st[b.dataset.set] === b.dataset.val; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); }
   }
   for (const b of document.querySelectorAll('[data-set]')) b.addEventListener('click', async () => {
     const key = b.dataset.set, v = b.dataset.val;
     if (v === 'tilt' && !(await tilt(true))) { say('Нахил недоступний на цьому пристрої'); return; }
     if (key === 'steerMode' && v !== 'tilt') tilt(false);
-    st[key] = v; save(key === 'steerMode' ? 'steer' : 'speed', v); layout();
+    st[key] = v; save({ steerMode: 'steer', speedMode: 'speed', gearMode: 'gears' }[key], v); layout();
   });
   layout();
+
+  function shift(d) { car.gear = clamp(car.gear + d, 1, 5); wake(); }
+  $('gUp').addEventListener('click', () => shift(1)); $('gDn').addEventListener('click', () => shift(-1));
+  addEventListener('keydown', (e) => { if (e.key === 'e') shift(1); if (e.key === 'q') shift(-1); });
 
   /* плавне кермо: кнопки набирають поворот поступово, повзунок і нахил точніші біля центру */
   const curve = (v) => { const a = Math.abs(v); return a < 0.03 ? 0 : Math.sign(v) * Math.pow(a, 1.3); };
@@ -128,7 +132,7 @@
   $('menuBtn').addEventListener('click', () => { st.playing = false; M.pause(true); $('menu').hidden = false; $('hud').hidden = true; $('go').textContent = 'Далі'; M.pause(true); });
   document.addEventListener('visibilitychange', () => { const h = document.hidden; if (st.playing) M.pause(h); if (!h && st.playing) keepAwake(); });
 
-  let savedKm = 0, frames = 0;
+  let savedKm = 0, frames = 0, bumpWas = 0;
   window.G3.loop((dt) => {
     let inp = { steer: 0, gas: 0, brake: 0 };
     if (st.playing) {
@@ -136,11 +140,13 @@
       if (st.auto) inp = hand ? { ...ap, steer: hand } : ap;
       else { const sp = speedInput(ap), keep = 0.3 * (1 - Math.min(1, Math.abs(hand) * 3)); inp = { steer: hand + ap.steer * keep, gas: sp.gas, brake: sp.brake }; }
     } else inp = autopilot(road, car, 16);
+    car.gripMul = 1 - 0.22 * sc.wx.rain - 0.42 * sc.wx.snow;
     car.step(dt, inp); weather(dt); sc.update(dt);
+    if (car.bump > bumpWas + 0.5) { M.thud(); try { navigator.vibrate && navigator.vibrate(25); } catch (e) {} } bumpWas = car.bump;
     if (st.playing) {
       idle += dt; if (idle > 6) document.body.classList.add('calm');
       $('speed').textContent = Math.round(car.speed * 3.6); $('km').textContent = (car.dist / 1000).toFixed(1);
-      M.drive(car.speed, sc.wx.rain);
+      M.drive(car.speed, sc.wx.rain, car.rpm, car.rumble, car.slip); $('gearV').textContent = car.gear;
       if (car.dist - savedKm > 500) { st.total += (car.dist - savedKm) / 1000; savedKm = car.dist; save('km', st.total); }
     }
     frames++;

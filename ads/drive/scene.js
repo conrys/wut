@@ -179,6 +179,8 @@
     t.box(-0.62, 0.74, 2.06, 0.34, 0.16, 0.04, 0, [1, 0.96, 0.78]); t.box(0.62, 0.74, 2.06, 0.34, 0.16, 0.04, 0, [1, 0.96, 0.78]);
     t.box(-0.64, 0.74, -2.06, 0.34, 0.14, 0.04, 0, [0.85, 0.08, 0.08]); t.box(0.64, 0.74, -2.06, 0.34, 0.14, 0.04, 0, [0.85, 0.08, 0.08]);
     const body = new T.Mesh(t.geo(), new T.MeshLambertMaterial({ vertexColors: true })); G.add(body);
+    G.stop = new T.MeshBasicMaterial({ color: 0x5A0A0A });
+    for (const x of [-0.64, 0.64]) { const m = new T.Mesh(new T.BoxGeometry(0.36, 0.15, 0.03), G.stop); m.position.set(x, 0.74, -2.09); G.add(m); }
     const wg = new T.CylinderGeometry(0.34, 0.34, 0.24, 10); wg.rotateZ(1.5708);
     const wm = new T.MeshLambertMaterial({ color: 0x15161A }); G.wheels = [];
     for (const [x, z] of [[-0.82, 1.3], [0.82, 1.3], [-0.82, -1.3], [0.82, -1.3]]) { const w = new T.Mesh(wg, wm); w.position.set(x, 0.34, z); G.add(w); G.wheels.push(w); }
@@ -241,6 +243,11 @@
     const hm = new T.MeshLambertMaterial({ color: 0xD9C7A6 });
     for (const sg of [-1, 1]) { const h = new T.Mesh(new T.BoxGeometry(0.1, 0.07, 0.06), hm); h.position.set(sg * 0.18, 0.02, 0.02); rot.add(h); }
     G.add(wheel); G.wheelRot = rot;
+    /* двірники */
+    G.wipers = [-0.34, 0.3].map((x) => { const w = new T.Group(); w.position.set(x, -0.19, -0.82); w.rotation.x = -0.72; const b = new T.Mesh(new T.BoxGeometry(0.015, 0.56, 0.012), new T.MeshLambertMaterial({ color: 0x141416 })); b.geometry.translate(0, 0.28, 0); w.add(b); G.add(w); return w; });
+    /* краплі на склі */
+    const N = 70, dp = new Float32Array(N * 3).fill(-50), dg = new T.BufferGeometry(); dg.setAttribute('position', new T.BufferAttribute(dp, 3));
+    G.drops = new T.Points(dg, new T.PointsMaterial({ color: 0xDCEBF4, size: 0.012, transparent: true, opacity: 0.6, map: softDot(), depthWrite: false })); G.drops.frustumCulled = false; G.add(G.drops);
     /* пристрій штурмана: Раллі малює карту на його екрані */
     if (opt && opt.device) {
       const d = new T.Group(); d.position.set(0.37, -0.56, -0.34); d.rotation.x = -0.62;
@@ -248,6 +255,12 @@
       G.add(d); G.device = d;
     }
     return G;
+  }
+
+  let dot = null;
+  function softDot() {
+    if (!dot) dot = window.G3.canvasTex(32, 32, (g) => { const r = g.createRadialGradient(16, 16, 1, 16, 16, 15); r.addColorStop(0, '#fff'); r.addColorStop(0.6, 'rgba(255,255,255,.7)'); r.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = r; g.fillRect(0, 0, 32, 32); });
+    return dot;
   }
 
   /* ключові моменти доби: t 0 — світанок */
@@ -274,7 +287,7 @@
       this.chunks = new Map(); this.q = [];
       this.time = opt.time == null ? 0.3 : opt.time; this.dayLen = opt.dayLen || 480; this.locked = !!opt.lockDay;
       this.wx = { ...WEATHER.clear }; this.wxT = { ...WEATHER.clear }; this.night = 0; this.shake = 0;
-      this.buildSky(); this.buildWeather();
+      this.buildSky(); this.buildWeather(); this.buildDust();
       this.cam = 'cabin'; this.seat = 'driver';
       this.carM = carModel(opt.color); s.add(this.carM);
       this.spot = new T.SpotLight(0xFFF1CC, 0, 90, 0.5, 0.6, 1.2); this.spot.position.set(0, 1, 1.5); this.spot.target.position.set(0, 0, 18); this.carM.add(this.spot, this.spot.target);
@@ -316,7 +329,50 @@
       const g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(p, 3));
       this.rain = new T.LineSegments(g, new T.LineBasicMaterial({ color: 0xBFD6E8, transparent: true, opacity: 0.5 })); this.rain.frustumCulled = false; this.rain.visible = false; this.scene.add(this.rain);
       const sp = new Float32Array(n * 3), sg = new T.BufferGeometry(); sg.setAttribute('position', new T.BufferAttribute(sp, 3));
-      this.snow = new T.Points(sg, new T.PointsMaterial({ color: 0xffffff, size: 0.16, transparent: true, opacity: 0.9 })); this.snow.frustumCulled = false; this.snow.visible = false; this.scene.add(this.snow);
+      this.snow = new T.Points(sg, new T.PointsMaterial({ color: 0xffffff, size: 0.09, transparent: true, opacity: 0.9, map: softDot(), depthWrite: false })); this.snow.frustumCulled = false; this.snow.visible = false; this.scene.add(this.snow);
+    }
+    /* пил, бризки й снігова курява */
+    buildDust() {
+      const N = this.dustN = 150; this.dust = []; const p = new Float32Array(N * 3).fill(-9999), c = new Float32Array(N * 3), g = new T.BufferGeometry();
+      g.setAttribute('position', new T.BufferAttribute(p, 3)); g.setAttribute('color', new T.BufferAttribute(c, 3));
+      for (let i = 0; i < N; i++) this.dust.push({ l: 0, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0 });
+      this.dustI = 0; this.dustM = new T.Points(g, new T.PointsMaterial({ size: 0.75, vertexColors: true, transparent: true, opacity: 0.42, map: softDot(), depthWrite: false })); this.dustM.frustumCulled = false; this.scene.add(this.dustM);
+      /* сліди: стрічка за колесами */
+      const S = this.trackN = 160, tp = new Float32Array(S * 18).fill(-9999), tg = new T.BufferGeometry(); tg.setAttribute('position', new T.BufferAttribute(tp, 3));
+      this.track = new T.Mesh(tg, new T.MeshBasicMaterial({ color: 0x4A5058, transparent: true, opacity: 0.3, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4, side: T.DoubleSide })); this.track.frustumCulled = false; this.scene.add(this.track);
+      this.trackI = 0; this.trackS = -1; this.trackLast = null; this.emit = 0;
+    }
+    puff(x, y, z, col) {
+      const d = this.dust[this.dustI], c = this.car, a = this.dustM.geometry.getAttribute('color'); this.dustI = (this.dustI + 1) % this.dustN;
+      d.l = 0.5 + Math.random() * 0.5; d.x = x; d.y = y; d.z = z; d.vx = c.vx * 0.3 + (Math.random() - 0.5) * 2.4; d.vy = 0.7 + Math.random() * 1.5; d.vz = c.vz * 0.3 + (Math.random() - 0.5) * 2.4;
+      a.setXYZ(this.dustI, col[0], col[1], col[2]); a.needsUpdate = true; d.i = this.dustI;
+    }
+    effects(dt) {
+      const c = this.car, W = this.wx, b = this.road.biome(c.s), winter = (b.t > 0.5 ? b.b : b.a) === BIOME.WINTER, sy = Math.sin(c.yaw), cy = Math.cos(c.yaw), v = c.speed;
+      const rain = W.rain * clamp(v / 18, 0, 1), snowKick = winter ? clamp(v / 16, 0, 1) * 0.45 : 0, rate = c.rumble * 60 + rain * 40 + snowKick * 26;
+      this.emit += rate * dt;
+      const col = c.rumble > 0.1 ? (winter ? [0.93, 0.95, 0.97] : [0.68, 0.58, 0.42]) : winter ? [0.93, 0.95, 0.97] : [0.75, 0.8, 0.84];
+      while (this.emit > 1) { this.emit--; const sd = Math.random() < 0.5 ? -0.8 : 0.8; this.puff(c.x - sy * 1.7 - cy * sd, c.y + 0.25, c.z - cy * 1.7 + sy * sd, col); }
+      const pa = this.dustM.geometry.getAttribute('position');
+      for (const d of this.dust) { if (d.i == null) continue; d.l -= dt; if (d.l <= 0) { pa.setXYZ(d.i, 0, -9999, 0); continue; } d.x += d.vx * dt; d.y += d.vy * dt; d.z += d.vz * dt; d.vy -= dt * 1.4; pa.setXYZ(d.i, d.x, d.y, d.z); }
+      pa.needsUpdate = true;
+      /* сліди взимку й на траві */
+      const on = winter || c.rumble > 0.5; this.track.visible = true;
+      if (Math.abs(c.dist - this.trackS) > 1.1) {
+        const pr = this.trackLast, mk = (o) => { const rx = -cy, rz = sy, y = c.y + 0.1; return [[c.x + rx * (o - 0.13), y, c.z + rz * (o - 0.13)], [c.x + rx * (o + 0.13), y, c.z + rz * (o + 0.13)]]; }, cur = [mk(-0.82), mk(0.82)];
+        if (pr && on) { const a = this.track.geometry.getAttribute('position'); for (let w = 0; w < 2; w++) { const I = this.trackI; this.trackI = (I + 1) % this.trackN; const [p0, p1] = pr[w], [q0, q1] = cur[w], arr = [p0, p1, q1, p0, q1, q0]; arr.forEach((v3, k) => a.setXYZ(I * 6 + k, v3[0], v3[1], v3[2])); } a.needsUpdate = true; }
+        this.trackLast = cur; this.trackS = c.dist;
+      }
+    }
+    glass(dt) {
+      const W = this.wx, cab = this.cab, wet = Math.max(W.rain, W.snow * 0.6), g = cab.drops.geometry.getAttribute('position'); cab.drops.visible = wet > 0.05;
+      /* сухо: двірники лежать унизу скла; мокро: ходять туди-сюди */
+      this.wip = this.wip || 0; const moving = wet > 0.15 || (this.wip % 6.283) > 0.05; if (moving) this.wip += dt * 3.6; else this.wip = 0;
+      const ph = (1 - Math.cos(this.wip)) / 2; for (const w of cab.wipers) w.rotation.z = -1.5 + ph * 1.9;
+      if (!cab.drops.visible) return;
+      for (let n = Math.random() < wet * dt * 40 ? 1 : 0; n > 0; n--) { const i = Math.floor(Math.random() * g.count), t = Math.random(); g.setXYZ(i, -0.68 + Math.random() * 1.36, lerp(-0.18, 0.44, t), lerp(-0.84, -0.3, t)); }
+      const band = 0.72 - ph * 1.44; for (let i = 0; i < g.count; i++) if (Math.abs(g.getX(i) - band) < 0.1) g.setXYZ(i, 0, -50, 0);
+      g.needsUpdate = true;
     }
     syncChunks(all) {
       const cur = Math.floor(this.car.s / this.road.step / CH), S = this.chunks;
@@ -368,19 +424,22 @@
     update(dt) {
       const c = this.car, w = this.w, cam = w.camera, m = this.carM;
       this.syncChunks(false); const sd = this.light(dt);
-      m.position.set(c.x, c.y, c.z); m.rotation.set(-c.pitch, c.yaw, 0, 'YXZ'); m.rotateZ(c.roll);
+      const rm = c.rumble + c.bump, jig = window.G3.reduce ? 0 : rm * 0.035;
+      m.position.set(c.x, c.y + (Math.random() - 0.5) * jig, c.z); m.rotation.set(-c.pitch - c.bodyPitch, c.yaw, 0, 'YXZ'); m.rotateZ(c.roll + (Math.random() - 0.5) * jig * 0.5);
+      m.stop.color.setHex(c.braking ? 0xFF2A1E : 0x5A0A0A);
       for (const wh of m.wheels) wh.rotation.x = c.spin;
       const sy = Math.sin(c.yaw), cy = Math.cos(c.yaw), vis = this.cam !== 'cabin'; m.visible = vis || this.lamp > 0.02;
       for (const ch of m.children) if (ch !== this.spot && ch !== this.spot.target) ch.visible = vis;
       if (this.cam === 'cabin') {
-        const sx = this.seat === 'nav' ? 0.37 : -0.37, rx = -cy, rz = sy, sh = (c.speed > 3 && !window.G3.reduce) ? c.speed * 0.00016 : 0;
-        cam.position.set(c.x + sy * 0.15 + rx * sx, c.y + 1.2 + (Math.random() - 0.5) * sh, c.z + cy * 0.15 + rz * sx);
-        cam.rotation.order = 'YXZ'; cam.rotation.set(c.pitch - this.tilt, c.yaw + Math.PI, -c.roll * 0.7);
+        const sx = this.seat === 'nav' ? 0.37 : -0.37, rx = -cy, rz = sy, sh = window.G3.reduce ? 0 : (c.speed > 3 ? c.speed * 0.00016 : 0) + rm * 0.03, lean = clamp(c.lat * 0.004, -0.05, 0.05);
+        cam.position.set(c.x + sy * 0.15 + rx * (sx + lean), c.y + 1.2 + (Math.random() - 0.5) * sh, c.z + cy * 0.15 + rz * (sx + lean));
+        cam.rotation.order = 'YXZ'; cam.rotation.set(c.pitch + c.bodyPitch * 0.6 - this.tilt, c.yaw + Math.PI, -c.roll * 0.7);
         this.cabC.rotation.x = -this.tilt;
         this.cab.position.set(-sx, 0, 0); this.cab.rotation.z = 0; this.cab.wheelRot.rotation.z = -c.steer * 1.6;
         const v = clamp(c.speed / 46, 0, 1); this.cab.needle.rotation.z = 3.8 - v * 4.4;
       } else if (this.cam === 'chase') {
-        const tx = c.x - sy * 7, tz = c.z - cy * 7, k = Math.min(1, dt * 5);
+        if (this.lagYaw == null) this.lagYaw = c.yaw; let dy = c.yaw - this.lagYaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); this.lagYaw += dy * Math.min(1, dt * 3.2);
+        const back = 6.6 + c.speed * 0.045, ly = Math.sin(this.lagYaw), lc = Math.cos(this.lagYaw), tx = c.x - ly * back, tz = c.z - lc * back, k = Math.min(1, dt * 7);
         if (!this.ch) this.ch = new T.Vector3(tx, c.y + 2.9, tz);
         this.ch.x += (tx - this.ch.x) * k; this.ch.y += (c.y + 2.9 - this.ch.y) * k; this.ch.z += (tz - this.ch.z) * k;
         cam.position.copy(this.ch); cam.rotation.order = 'XYZ'; cam.lookAt(c.x + sy * 5, c.y + 1.1, c.z + cy * 5);
@@ -392,7 +451,7 @@
       this.sky.position.copy(cam.position); this.stars.position.copy(cam.position); this.clouds.position.set(cam.position.x, 0, cam.position.z);
       this.sunM.position.set(cam.position.x + sd.x * 1100, cam.position.y + sd.y * 1100, cam.position.z + sd.z * 1100); this.sunM.lookAt(cam.position);
       w.sun.position.set(c.x + sd.x * 200, c.y + sd.y * 200, c.z + sd.z * 200); w.sun.target.position.set(c.x, c.y, c.z);
-      this.weather(dt);
+      this.weather(dt); this.effects(dt); if (this.cam === 'cabin') this.glass(dt);
       w.renderer.clear(); w.renderer.render(this.scene, cam);
       if (this.cam === 'cabin') { w.renderer.clearDepth(); w.renderer.render(this.cabS, this.cabC); }
     }
