@@ -137,7 +137,15 @@
       }
     }
     /* світ */
-    const place = (s, off) => { const p = road.at(s), x = p.x - Math.cos(p.h) * off, z = p.z + Math.sin(p.h) * off; const q = { s, h: p.h, k: p.k, y: p.y }; return [x - ox, p.y + hgt(q, off, x, z) - oy, z - oz, p.h]; };
+    /* об'єкт стоїть точно на трикутнику землі, а не на «ідеальному» рельєфі: сітка груба, і різниця сягала кількох метрів */
+    const place = (s, off) => {
+      const row = Math.max(0, Math.floor(s / road.step / 2) * 2), a = P(row), b = P(row + 2), v = clamp((s - a.s) / (b.s - a.s), 0, 1);
+      off = clamp(off, OFFS[0], OFFS[OFFS.length - 1]);
+      let j = 0; while (j < OFFS.length - 2 && off > OFFS[j + 1]) j++;
+      const u = clamp((off - OFFS[j]) / (OFFS[j + 1] - OFFS[j]), 0, 1), A = pt(a, OFFS[j]), B = pt(a, OFFS[j + 1]), C = pt(b, OFFS[j + 1]), E = pt(b, OFFS[j]);
+      const m = (k) => (u + v <= 1 ? A[k] + (B[k] - A[k]) * u + (E[k] - A[k]) * v : C[k] + (E[k] - C[k]) * (1 - u) + (B[k] - C[k]) * (1 - v));
+      return [m(0), m(1) - 0.12, m(2), lerp(a.h, b.h, v)]; /* трохи в землю: без щілини на схилі */
+    };
     const s0 = O.s, len = CH * road.step;
     const out = () => { const sg = r2() < 0.5 ? -1 : 1; return sg * (8.5 + r2() ** 1.5 * 62); };
     for (const [id, w] of (() => { const b = road.biome(s0 + len / 2); return b.a === b.b ? [[b.a, 1]] : [[b.a, 1 - b.t], [b.b, b.t]]; })()) {
@@ -163,6 +171,7 @@
           const sg = r2() < 0.5 ? -1 : 1, [x, y, z, h] = place(s0 + 14 + r2() * (len - 28), sg * (13 + r2() * 11)), w2 = 5 + r2() * 3, d2 = 6 + r2() * 3;
           const yaw = h + (sg > 0 ? 1.57 : -1.57), s = Math.sin(yaw), c = Math.cos(yaw), wc = WALLS[Math.floor(r2() * 4)], rc = ROOF[Math.floor(r2() * 3)];
           ground.box(x, y + 1.5, z, w2, 3, d2, yaw, wc);
+          ground.box(x, y - 1.2, z, w2 + 0.3, 3, d2 + 0.3, yaw, rgb(0x8A8578)); /* фундамент на схилі */
           const A = (a, b, e) => [x + a * c + e * s, y + b, z - a * s + e * c], W = w2 / 2 + 0.3, Dd = d2 / 2 + 0.3;
           ground.quad(A(-W, 3, -Dd), A(0, 5.2, -Dd), A(0, 5.2, Dd), A(-W, 3, Dd), rc); ground.quad(A(0, 5.2, -Dd), A(W, 3, -Dd), A(W, 3, Dd), A(0, 5.2, Dd), shade(rc, 0.84));
           ground.tri(A(-W, 3, -Dd), A(W, 3, -Dd), A(0, 5.2, -Dd), wc); ground.tri(A(W, 3, Dd), A(-W, 3, Dd), A(0, 5.2, Dd), wc);
