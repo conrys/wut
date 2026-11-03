@@ -7,10 +7,10 @@
 
   const COLORS = [0xD63A32, 0x2F6FBF, 0xE8E4D8, 0x2FA36B, 0xF2B632, 0x35363C];
   const CAMS = [['cabin', 'Із салону'], ['chase', 'Ззаду'], ['side', 'Узбіччя']];
-  const st = { color: load('color', 0), cam: load('cam', 0), radio: load('radio', 0), cruise: load('cruise', 25), steerMode: load('steer', 'slider'), speedMode: load('speed', 'slider'), roadMode: load('road', 'highway'), gearMode: load('gears', 'off'), btn: 0, auto: false, playing: false, total: load('km', 0), tiltV: 0 };
+  const st = { color: load('color', 0), cam: load('cam', 0), radio: load('radio', 0), cruise: load('cruise', 25), steerMode: load('steer', 'slider'), speedMode: load('speed', 'slider'), roadMode: load('road', 'highway'), gearMode: load('gears', 'off'), bodyMode: load('body', 'zhiguli'), fxMode: load('fx', 'on'), btn: 0, auto: false, playing: false, total: load('km', 0), tiltV: 0 };
   const seed = (Math.random() * 1e9) | 0, pad = st.roadMode !== 'highway', road = new Road({ seed, pad }), car = new Car(road, { rail: pad ? 0 : road.half + 5 });
   document.body.classList.toggle('padmode', pad);
-  const sc = new Scene({ canvas: $('gl'), road, car, color: COLORS[st.color], time: 0.08 + Math.random() * 0.45 });
+  const sc = new Scene({ canvas: $('gl'), road, car, color: COLORS[st.color], body: st.bodyMode, fx: st.fxMode === 'on', time: 0.08 + Math.random() * 0.45 });
   sc.setCam(CAMS[st.cam][0]);
 
   /* погода іде сама; сніг лише взимку */
@@ -54,7 +54,7 @@
     S.set(opt.value); return S;
   }
   const wheelS = slider($('wheelS'), { min: -1, max: 1, value: 0, onset: (v, th) => { th.firstElementChild.style.transform = `rotate(${v * 120}deg)`; } });
-  const speedS = slider($('speedS'), { min: 0, max: 33.4, value: st.cruise, vertical: true, onset: (v, th, user) => { th.textContent = Math.round(v * 3.6 / 5) * 5; if (user) { st.cruise = v; save('cruise', v); } } });
+  const speedS = slider($('speedS'), { min: 0, max: 41.7, value: st.cruise, vertical: true, onset: (v, th, user) => { th.textContent = Math.round(v * 3.6 / 5) * 5; if (user) { st.cruise = v; save('cruise', v); } } });
 
   /* кнопка спрацьовує від дотику, навіть коли інший палець тримає кермо чи газ; click лишається для клавіатури */
   function press(el, fn) {
@@ -98,7 +98,8 @@
     if (key === 'roadMode') { if (v !== st.roadMode) { save('road', v); location.reload(); } return; }
     if (v === 'tilt' && !(await tilt(true))) { say('Нахил недоступний на цьому пристрої'); return; }
     if (key === 'steerMode' && v !== 'tilt') tilt(false);
-    st[key] = v; save({ steerMode: 'steer', speedMode: 'speed', gearMode: 'gears' }[key], v); layout();
+    st[key] = v; save({ steerMode: 'steer', speedMode: 'speed', gearMode: 'gears', bodyMode: 'body', fxMode: 'fx' }[key], v);
+    if (key === 'bodyMode') sc.setBody(v); if (key === 'fxMode') sc.fxOn = v === 'on'; layout();
   });
   layout();
 
@@ -118,7 +119,7 @@
   }
   function speedInput(ap) {
     if (st.speedMode === 'pedals') { const g = ped.gas || keys.up, b = ped.brake || keys.down; return { gas: g ? 1 : 0, brake: b ? 1 : (g ? 0 : 0.04) }; }
-    if (keys.up || keys.down) speedS.set(st.cruise = clamp(st.cruise + ((keys.up ? 1 : 0) - (keys.down ? 1 : 0)) * 0.2, 0, 33.4));
+    if (keys.up || keys.down) speedS.set(st.cruise = clamp(st.cruise + ((keys.up ? 1 : 0) - (keys.down ? 1 : 0)) * 0.2, 0, 41.7));
     const dv = st.cruise - car.speed;
     return { gas: dv > 0 ? clamp(dv / 3 + 0.2, 0, 1) : 0, brake: dv < -0.5 ? clamp(-dv / 8, 0, 0.7) : 0 };
   }

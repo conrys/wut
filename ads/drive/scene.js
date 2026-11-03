@@ -178,22 +178,45 @@
     });
   }
 
-  /* --- модель авто: простий кузов, спільний для Релаксу й Раллі --- */
-  function carModel(color) {
-    const G = new T.Group(), c = rgb(color), t = new Tris(), dark = [0.1, 0.11, 0.13], glass = [0.18, 0.25, 0.32];
-    t.box(0, 0.62, 0, 1.76, 0.5, 4.1, 0, c); t.box(0, 1.1, -0.2, 1.54, 0.5, 2.1, 0, c);
-    t.box(0, 1.12, 0.87, 1.42, 0.38, 0.06, 0, glass); t.box(0, 1.12, -1.27, 1.42, 0.38, 0.06, 0, glass);
-    t.box(-0.78, 1.12, -0.2, 0.03, 0.36, 1.85, 0, glass); t.box(0.78, 1.12, -0.2, 0.03, 0.36, 1.85, 0, glass);
-    t.box(0, 0.42, 2.06, 1.78, 0.22, 0.12, 0, dark); t.box(0, 0.42, -2.06, 1.78, 0.22, 0.12, 0, dark);
-    t.box(-0.62, 0.74, 2.06, 0.34, 0.16, 0.04, 0, [1, 0.96, 0.78]); t.box(0.62, 0.74, 2.06, 0.34, 0.16, 0.04, 0, [1, 0.96, 0.78]);
-    t.box(-0.64, 0.74, -2.06, 0.34, 0.14, 0.04, 0, [0.85, 0.08, 0.08]); t.box(0.64, 0.74, -2.06, 0.34, 0.14, 0.04, 0, [0.85, 0.08, 0.08]);
-    const body = new T.Mesh(t.geo(), new T.MeshLambertMaterial({ vertexColors: true })); G.add(body);
-    G.stop = new T.MeshBasicMaterial({ color: 0x5A0A0A });
-    for (const x of [-0.64, 0.64]) { const m = new T.Mesh(new T.BoxGeometry(0.36, 0.15, 0.03), G.stop); m.position.set(x, 0.74, -2.09); G.add(m); }
-    const wg = new T.CylinderGeometry(0.34, 0.34, 0.24, 10); wg.rotateZ(1.5708);
+  /* --- кузови: профіль збоку (z вперед, y вгору) видавлюється на ширину авто --- */
+  const BODIES = {
+    zhiguli: { len: 2.05, w: 1.66, wz: [1.26, -1.2], low: [[-2.05, 0.4], [2.02, 0.4], [2.05, 0.8], [0.92, 0.9], [-1.32, 0.9], [-2.05, 0.82]], top: [[0.9, 0.9], [0.32, 1.36], [-0.86, 1.36], [-1.3, 0.9]] },
+    zaporozhets: { len: 1.86, w: 1.56, wz: [1.1, -1.08], ears: true, low: [[-1.86, 0.42], [1.86, 0.42], [1.9, 0.72], [1.12, 0.9], [-1.1, 0.92], [-1.86, 0.74]], top: [[1.08, 0.9], [0.36, 1.38], [-0.62, 1.4], [-1.56, 0.88]] },
+    tavria: { len: 1.9, w: 1.56, wz: [1.18, -1.14], low: [[-1.88, 0.38], [1.9, 0.38], [1.95, 0.68], [0.92, 0.86], [-1.88, 0.94]], top: [[0.88, 0.86], [0.1, 1.32], [-1.22, 1.32], [-1.86, 0.96]] },
+    lanos: { len: 2.12, w: 1.68, wz: [1.3, -1.24], low: [[-2.1, 0.42], [-1.6, 0.36], [1.7, 0.36], [2.12, 0.52], [2.05, 0.74], [1, 0.9], [-1.5, 0.96], [-2.1, 0.9]], top: [[0.98, 0.9], [0.5, 1.2], [0.1, 1.34], [-0.72, 1.34], [-1.14, 1.2], [-1.5, 0.96]] },
+  };
+  function extrude(t, pts, w, col, topW) {
+    const hw = w / 2, tw = (topW || w) / 2, n = pts.length; let cz = 0, cy = 0; for (const p of pts) { cz += p[0] / n; cy += p[1] / n; }
+    const yMid = cy, X = (x, y) => (y > yMid + 0.02 ? x * tw / hw : x);
+    for (let i = 0; i < n; i++) {
+      const a = pts[i], b = pts[(i + 1) % n];
+      /* бортики */
+      t.tri([X(hw, a[1]), a[1], a[0]], [X(hw, b[1]), b[1], b[0]], [hw, cy, cz], shade(col, 0.86)); t.tri([X(-hw, b[1]), b[1], b[0]], [X(-hw, a[1]), a[1], a[0]], [-hw, cy, cz], shade(col, 0.8));
+      /* поверхня */
+      const up = b[0] - a[0] < 0 ? 1 : 0.8;
+      t.quad([X(-hw, a[1]), a[1], a[0]], [X(hw, a[1]), a[1], a[0]], [X(hw, b[1]), b[1], b[0]], [X(-hw, b[1]), b[1], b[0]], shade(col, up));
+    }
+  }
+  function carModel(color, type) {
+    const B = BODIES[type] || BODIES.zhiguli, G = new T.Group(), c = rgb(color), t = new Tris(), dark = [0.1, 0.11, 0.13], glass = [0.16, 0.22, 0.28], chrome = [0.72, 0.74, 0.76], w = B.w, L = B.len;
+    extrude(t, B.low, w, c); extrude(t, B.top, w - 0.12, glass, w - 0.42);
+    /* дах і стійки кольору кузова */
+    const roofZ = B.top.filter((p) => p[1] > 1.25), rz0 = Math.min(...roofZ.map((p) => p[0])), rz1 = Math.max(...roofZ.map((p) => p[0])), ry = Math.max(...B.top.map((p) => p[1]));
+    t.box(0, ry + 0.02, (rz0 + rz1) / 2, w - 0.36, 0.05, rz1 - rz0 + 0.1, 0, c);
+    t.box(0, 0.42, L + 0.03, w + 0.04, 0.16, 0.1, 0, type === 'lanos' ? c : chrome); t.box(0, 0.42, -L - 0.03, w + 0.04, 0.16, 0.1, 0, type === 'lanos' ? c : chrome);
+    const fy = 0.66, ry2 = 0.74, round = type === 'zaporozhets' || type === 'zhiguli';
+    for (const sg of [-1, 1]) {
+      if (round) t.prism(sg * (w / 2 - 0.3), fy, L + 0.01, 0.13, 0.13, 0.03, 8, [1, 0.96, 0.78]); else t.box(sg * (w / 2 - 0.3), fy, L + 0.02, 0.44, 0.13, 0.03, 0, [1, 0.96, 0.78]);
+      if (B.ears) { t.box(sg * (w / 2 + 0.03), 1, -0.72, 0.1, 0.2, 0.46, 0, c); t.box(sg * (w / 2 + 0.05), 1, -0.72, 0.03, 0.12, 0.34, 0, dark); }
+    }
+    if (type === 'zhiguli') t.box(0, fy, L + 0.02, 0.5, 0.14, 0.02, 0, dark);
+    const body = new T.Mesh(t.geo(), new T.MeshLambertMaterial({ vertexColors: true, side: T.DoubleSide })); G.add(body);
+    G.stop = new T.MeshBasicMaterial({ color: 0x5A0A0A }); G.tail = [];
+    for (const x of [-(w / 2 - 0.26), w / 2 - 0.26]) { const m = new T.Mesh(new T.BoxGeometry(0.4, 0.14, 0.03), G.stop); m.position.set(x, ry2, -L - 0.02); G.add(m); G.tail.push([x, ry2, -L - 0.03]); }
+    const wg = new T.CylinderGeometry(0.33, 0.33, 0.22, 10); wg.rotateZ(1.5708);
     const wm = new T.MeshLambertMaterial({ color: 0x15161A }); G.wheels = [];
-    for (const [x, z] of [[-0.82, 1.3], [0.82, 1.3], [-0.82, -1.3], [0.82, -1.3]]) { const w = new T.Mesh(wg, wm); w.position.set(x, 0.34, z); G.add(w); G.wheels.push(w); }
-    const sh = new T.Mesh(new T.PlaneGeometry(2.3, 4.7), new T.MeshBasicMaterial({ color: 0, transparent: true, opacity: 0.28, depthWrite: false }));
+    for (const [x, z] of [[-w / 2 + 0.06, B.wz[0]], [w / 2 - 0.06, B.wz[0]], [-w / 2 + 0.06, B.wz[1]], [w / 2 - 0.06, B.wz[1]]]) { const q = new T.Mesh(wg, wm); q.position.set(x, 0.33, z); G.add(q); G.wheels.push(q); }
+    const sh = new T.Mesh(new T.PlaneGeometry(w + 0.5, L * 2 + 0.5), new T.MeshBasicMaterial({ color: 0, transparent: true, opacity: 0.28, depthWrite: false }));
     sh.rotation.x = -1.5708; sh.position.y = 0.09; G.add(sh);
     return G;
   }
@@ -309,9 +332,10 @@
       }
       this.time = opt.time == null ? 0.3 : opt.time; this.dayLen = opt.dayLen || 480; this.locked = !!opt.lockDay;
       this.wx = { ...WEATHER.clear }; this.wxT = { ...WEATHER.clear }; this.night = 0; this.shake = 0;
-      this.buildSky(); this.buildWeather(); this.buildDust();
+      this.buildSky(); this.buildWeather(); this.buildDust(); this.buildSpeedFx();
       this.cam = 'cabin'; this.seat = 'driver';
-      this.carM = carModel(opt.color); s.add(this.carM);
+      this.bodyType = opt.body || 'zhiguli'; this.fxOn = opt.fx !== false; this.fxK = 0;
+      this.carM = carModel(opt.color, this.bodyType); s.add(this.carM);
       this.spot = new T.SpotLight(0xFFF1CC, 0, 90, 0.5, 0.6, 1.2); this.spot.position.set(0, 1, 1.5); this.spot.target.position.set(0, 0, 18); this.carM.add(this.spot, this.spot.target);
       this.cabS = new T.Scene(); this.cabC = new T.PerspectiveCamera(62, 1, 0.05, 10);
       this.cabHemi = new T.HemisphereLight(0xffffff, 0x777788, 0.8); this.cabSun = new T.DirectionalLight(0xffffff, 0.5); this.cabSun.position.set(-0.2, 0.7, 0.9); this.cabS.add(this.cabHemi, this.cabSun);
@@ -320,16 +344,17 @@
       addEventListener('resize', () => this.fit());
       this.syncChunks(true);
     }
+    setBody(b) { this.bodyType = b; this.setColor(this.color); this.trailPts = [[], []]; }
     setColor(c) {
       this.color = c; this.scene.remove(this.carM); this.spot.parent && this.carM.remove(this.spot, this.spot.target);
-      this.carM = carModel(c); this.carM.add(this.spot, this.spot.target); this.scene.add(this.carM);
+      this.carM = carModel(c, this.bodyType); this.carM.add(this.spot, this.spot.target); this.scene.add(this.carM);
       this.cabS.remove(this.cab); this.cab = cabinModel(c, { device: !!this.cab.device }); this.cabS.add(this.cab);
     }
     /* однаковий масштаб у вертикальному й горизонтальному положенні: фокусна відстань іде від короткої сторони екрана */
     fit() {
       const w = this.w, a = w.W / w.H, f = Math.min(w.W, w.H) * 0.92, fov = Math.min(105, 2 * Math.atan(w.H / 2 / f) * 180 / Math.PI);
       this.tilt = a > 1 ? 0.22 : 0.1; /* горизонтально кут нижчий, щоб лишались приладова панель і кермо */
-      w.camera.fov = fov; w.camera.updateProjectionMatrix(); this.cabC.fov = fov; this.cabC.aspect = a; this.cabC.updateProjectionMatrix();
+      this.baseFov = fov; w.camera.fov = fov; w.camera.updateProjectionMatrix(); this.cabC.fov = fov; this.cabC.aspect = a; this.cabC.updateProjectionMatrix();
     }
     setCam(m) { this.cam = m; this.orb = null; this.fit(); }
     setWeather(n, instant) { this.wxT = { ...WEATHER[n], name: n }; if (instant) this.wx = { ...this.wxT }; }
@@ -353,12 +378,54 @@
       const sp = new Float32Array(n * 3), sg = new T.BufferGeometry(); sg.setAttribute('position', new T.BufferAttribute(sp, 3));
       this.snow = new T.Points(sg, new T.PointsMaterial({ color: 0xffffff, size: 0.09, transparent: true, opacity: 0.9, map: softDot(), depthWrite: false })); this.snow.frustumCulled = false; this.snow.visible = false; this.scene.add(this.snow);
     }
+    /* ефекти швидкості як в Underground: світлові смуги від задніх ліхтарів і радіальне розмиття */
+    buildSpeedFx() {
+      const N = this.trailN = 34, M = (N - 1) * 6 * 2, p = new Float32Array(M * 3), c = new Float32Array(M * 3), g = new T.BufferGeometry();
+      g.setAttribute('position', new T.BufferAttribute(p, 3)); g.setAttribute('color', new T.BufferAttribute(c, 3));
+      this.trail = new T.Mesh(g, new T.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: T.AdditiveBlending, depthWrite: false, fog: false, side: T.DoubleSide })); this.trail.frustumCulled = false; this.trail.visible = false; this.scene.add(this.trail);
+      this.trailPts = [[], []]; this.blurScene = new T.Scene(); this.blurCam = new T.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+      this.blurMat = new T.ShaderMaterial({ depthTest: false, depthWrite: false, uniforms: { t: { value: null }, c: { value: new T.Vector2(0.5, 0.5) }, k: { value: 0 } },
+        vertexShader: 'varying vec2 u;void main(){u=uv;gl_Position=vec4(position.xy,0.,1.);}',
+        fragmentShader: 'uniform sampler2D t;uniform vec2 c;uniform float k;varying vec2 u;void main(){vec2 d=u-c;float a=k*smoothstep(.1,.62,length(d));vec3 s=vec3(0.);for(int i=0;i<7;i++){s+=texture2D(t,u-d*a*float(i)/6.).rgb;}gl_FragColor=vec4(s/7.,1.);}' });
+      this.blurScene.add(new T.Mesh(new T.PlaneGeometry(2, 2), this.blurMat));
+    }
+    speedFx(dt) {
+      const c = this.car, v = c.speed, kmh = v * 3.6, target = this.fxOn ? smooth((kmh - 95) / 45) : 0; this.fxK += (target - this.fxK) * Math.min(1, dt * 2.5);
+      const k = this.fxK, cam = this.w.camera, chase = this.cam !== 'cabin';
+      cam.fov = this.baseFov + k * 7; cam.updateProjectionMatrix();
+      const m = this.carM, a = this.trail.geometry.getAttribute('position'), col = this.trail.geometry.getAttribute('color'), N = this.trailN; this.trail.visible = chase && k > 0.03;
+      m.updateMatrixWorld(); const v3 = new T.Vector3();
+      m.tail.forEach((tl, side) => {
+        v3.set(tl[0], tl[1], tl[2]).applyMatrix4(m.matrixWorld); const P = this.trailPts[side]; const l = P[0];
+        if (!l || Math.hypot(l[0] - v3.x, l[2] - v3.z) > 0.9) P.unshift([v3.x, v3.y, v3.z]); else { l[0] = v3.x; l[1] = v3.y; l[2] = v3.z; }
+        if (P.length > N) P.length = N;
+        for (let i = 0; i < N - 1; i++) {
+          const o = (side * (N - 1) + i) * 18, p0 = P[i], p1 = P[i + 1], off = !p0 || !p1;
+          const w0 = 0.05 * (1 - i / N), w1 = 0.05 * (1 - (i + 1) / N), q = off ? [0, 0, 0] : p0, r = off ? [0, 0, 0] : p1;
+          const vs = [[q[0], q[1] - w0, q[2]], [q[0], q[1] + w0, q[2]], [r[0], r[1] + w1, r[2]], [q[0], q[1] - w0, q[2]], [r[0], r[1] + w1, r[2]], [r[0], r[1] - w1, r[2]]];
+          const f0 = k * (1 - i / N) ** 1.4, f1 = k * (1 - (i + 1) / N) ** 1.4;
+          vs.forEach((u, n) => { a.array[o + n * 3] = u[0]; a.array[o + n * 3 + 1] = u[1]; a.array[o + n * 3 + 2] = u[2]; const f = n === 0 || n === 1 || n === 3 ? f0 : f1; col.array[o + n * 3] = f; col.array[o + n * 3 + 1] = f * 0.09; col.array[o + n * 3 + 2] = f * 0.06; });
+        }
+      });
+      a.needsUpdate = true; col.needsUpdate = true;
+      return k;
+    }
+    drawWorld(k) {
+      const w = this.w, r = w.renderer, cam = w.camera;
+      if (k < 0.04) { r.clear(); r.render(this.scene, cam); return; }
+      const sz = r.getDrawingBufferSize(new T.Vector2()), W2 = Math.floor(sz.x * 0.7), H2 = Math.floor(sz.y * 0.7);
+      if (!this.rt || this.rt.width !== W2 || this.rt.height !== H2) { if (this.rt) this.rt.dispose(); this.rt = new T.WebGLRenderTarget(W2, H2, { depthBuffer: true, stencilBuffer: false }); }
+      r.setRenderTarget(this.rt); r.clear(); r.render(this.scene, cam); r.setRenderTarget(null);
+      const c = this.car, far = new T.Vector3(c.x + Math.sin(c.travel) * 300, c.y + 1, c.z + Math.cos(c.travel) * 300).project(cam);
+      this.blurMat.uniforms.t.value = this.rt.texture; this.blurMat.uniforms.k.value = k * 0.17; this.blurMat.uniforms.c.value.set(clamp(far.x * 0.5 + 0.5, 0.15, 0.85), clamp(far.y * 0.5 + 0.5, 0.15, 0.85));
+      r.clear(); r.render(this.blurScene, this.blurCam);
+    }
     /* пил, бризки й снігова курява */
     buildDust() {
       const N = this.dustN = 150; this.dust = []; const p = new Float32Array(N * 3).fill(-9999), c = new Float32Array(N * 3), g = new T.BufferGeometry();
       g.setAttribute('position', new T.BufferAttribute(p, 3)); g.setAttribute('color', new T.BufferAttribute(c, 3));
       for (let i = 0; i < N; i++) this.dust.push({ l: 0, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0 });
-      this.dustI = 0; this.dustM = new T.Points(g, new T.PointsMaterial({ size: 0.75, vertexColors: true, transparent: true, opacity: 0.42, map: softDot(), depthWrite: false })); this.dustM.frustumCulled = false; this.scene.add(this.dustM);
+      this.dustI = 0; this.dustM = new T.Points(g, new T.PointsMaterial({ size: 0.5, vertexColors: true, transparent: true, opacity: 0.3, map: softDot(), depthWrite: false })); this.dustM.frustumCulled = false; this.scene.add(this.dustM);
       /* сліди: стрічка за колесами */
       const S = this.trackN = 160, tp = new Float32Array(S * 18).fill(-9999), tg = new T.BufferGeometry(); tg.setAttribute('position', new T.BufferAttribute(tp, 3));
       this.track = new T.Mesh(tg, new T.MeshBasicMaterial({ color: 0x4A5058, transparent: true, opacity: 0.3, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4, side: T.DoubleSide })); this.track.frustumCulled = false; this.scene.add(this.track);
@@ -478,7 +545,7 @@
       w.sun.position.set(c.x + sd.x * 200, c.y + sd.y * 200, c.z + sd.z * 200); w.sun.target.position.set(c.x, c.y, c.z);
       if (this.plane) { this.plane.position.set(Math.round(c.x / 20) * 20, -0.02, Math.round(c.z / 20) * 20); this.cones.position.set(Math.round(c.x / 80) * 80, 0, Math.round(c.z / 80) * 80); }
       this.weather(dt); this.effects(dt); if (this.cam === 'cabin') this.glass(dt);
-      w.renderer.clear(); w.renderer.render(this.scene, cam);
+      this.drawWorld(this.speedFx(dt));
       if (this.cam === 'cabin') { w.renderer.clearDepth(); w.renderer.render(this.cabS, this.cabC); }
     }
   }
