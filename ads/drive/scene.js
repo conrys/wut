@@ -180,10 +180,10 @@
 
   /* --- кузови: профіль збоку (z вперед, y вгору) видавлюється на ширину авто --- */
   const BODIES = {
-    zhiguli: { len: 2.05, w: 1.66, wz: [1.26, -1.2], low: [[-2.05, 0.4], [2.02, 0.4], [2.05, 0.8], [0.92, 0.9], [-1.32, 0.9], [-2.05, 0.82]], top: [[0.9, 0.9], [0.32, 1.36], [-0.86, 1.36], [-1.3, 0.9]] },
-    zaporozhets: { len: 1.86, w: 1.56, wz: [1.1, -1.08], ears: true, low: [[-1.86, 0.42], [1.86, 0.42], [1.9, 0.72], [1.12, 0.9], [-1.1, 0.92], [-1.86, 0.74]], top: [[1.08, 0.9], [0.36, 1.38], [-0.62, 1.4], [-1.56, 0.88]] },
-    tavria: { len: 1.9, w: 1.56, wz: [1.18, -1.14], low: [[-1.88, 0.38], [1.9, 0.38], [1.95, 0.68], [0.92, 0.86], [-1.88, 0.94]], top: [[0.88, 0.86], [0.1, 1.32], [-1.22, 1.32], [-1.86, 0.96]] },
-    lanos: { len: 2.12, w: 1.68, wz: [1.3, -1.24], low: [[-2.1, 0.42], [-1.6, 0.36], [1.7, 0.36], [2.12, 0.52], [2.05, 0.74], [1, 0.9], [-1.5, 0.96], [-2.1, 0.9]], top: [[0.98, 0.9], [0.5, 1.2], [0.1, 1.34], [-0.72, 1.34], [-1.14, 1.2], [-1.5, 0.96]] },
+    sedan: { len: 2.12, w: 1.72, wz: [1.3, -1.24], low: [[-2.1, 0.42], [-1.6, 0.34], [1.7, 0.34], [2.12, 0.5], [2.05, 0.74], [1, 0.9], [-1.5, 0.98], [-2.1, 0.92]], top: [[0.98, 0.9], [0.5, 1.2], [0.1, 1.34], [-0.72, 1.34], [-1.14, 1.2], [-1.5, 0.98]] },
+    hatch: { len: 1.9, w: 1.7, wz: [1.2, -1.16], low: [[-1.88, 0.42], [-1.6, 0.34], [1.5, 0.34], [1.95, 0.5], [1.9, 0.74], [0.9, 0.9], [-1.88, 1]], top: [[0.88, 0.9], [0.1, 1.38], [-1.2, 1.38], [-1.84, 1]] },
+    coupe: { len: 2.15, w: 1.8, wz: [1.34, -1.26], low: [[-2.12, 0.46], [-1.7, 0.3], [1.8, 0.3], [2.18, 0.42], [2.1, 0.62], [0.9, 0.8], [-1.6, 0.9], [-2.12, 0.92]], top: [[0.86, 0.8], [0.12, 1.16], [-0.5, 1.16], [-1.5, 0.9]] },
+    pickup: { len: 2.3, w: 1.84, wz: [1.42, -1.4], bed: true, low: [[-2.3, 0.5], [2.2, 0.5], [2.3, 0.72], [2.25, 0.96], [1.1, 1.06], [-2.3, 1.06]], top: [[1.06, 1.06], [0.56, 1.56], [-0.5, 1.56], [-0.72, 1.06]] },
   };
   function extrude(t, pts, w, col, topW) {
     const hw = w / 2, tw = (topW || w) / 2, n = pts.length; let cz = 0, cy = 0; for (const p of pts) { cz += p[0] / n; cy += p[1] / n; }
@@ -198,18 +198,18 @@
     }
   }
   function carModel(color, type) {
-    const B = BODIES[type] || BODIES.zhiguli, G = new T.Group(), c = rgb(color), t = new Tris(), dark = [0.1, 0.11, 0.13], glass = [0.16, 0.22, 0.28], chrome = [0.72, 0.74, 0.76], w = B.w, L = B.len;
+    const B = BODIES[type] || BODIES.sedan, G = new T.Group(), c = rgb(color), t = new Tris(), dark = [0.1, 0.11, 0.13], glass = [0.16, 0.22, 0.28], chrome = [0.72, 0.74, 0.76], w = B.w, L = B.len;
     extrude(t, B.low, w, c); extrude(t, B.top, w - 0.12, glass, w - 0.42);
     /* дах і стійки кольору кузова */
-    const roofZ = B.top.filter((p) => p[1] > 1.25), rz0 = Math.min(...roofZ.map((p) => p[0])), rz1 = Math.max(...roofZ.map((p) => p[0])), ry = Math.max(...B.top.map((p) => p[1]));
+    const topY = Math.max(...B.top.map((p) => p[1])), roofZ = B.top.filter((p) => p[1] > topY - 0.05), rz0 = Math.min(...roofZ.map((p) => p[0])), rz1 = Math.max(...roofZ.map((p) => p[0])), ry = Math.max(...B.top.map((p) => p[1]));
     t.box(0, ry + 0.02, (rz0 + rz1) / 2, w - 0.36, 0.05, rz1 - rz0 + 0.1, 0, c);
-    t.box(0, 0.42, L + 0.03, w + 0.04, 0.16, 0.1, 0, type === 'lanos' ? c : chrome); t.box(0, 0.42, -L - 0.03, w + 0.04, 0.16, 0.1, 0, type === 'lanos' ? c : chrome);
-    const fy = 0.66, ry2 = 0.74, round = type === 'zaporozhets' || type === 'zhiguli';
+    const bum = B.bed ? chrome : dark; t.box(0, 0.46, L + 0.03, w + 0.04, 0.18, 0.1, 0, bum); t.box(0, 0.46, -L - 0.03, w + 0.04, 0.18, 0.1, 0, bum);
+    if (B.bed) t.box(0, 1.03, -1.5, w - 0.3, 0.08, 1.4, 0, dark);
+    const fy = B.bed ? 0.86 : 0.64, ry2 = B.bed ? 0.9 : 0.76;
     for (const sg of [-1, 1]) {
-      if (round) t.prism(sg * (w / 2 - 0.3), fy, L + 0.01, 0.13, 0.13, 0.03, 8, [1, 0.96, 0.78]); else t.box(sg * (w / 2 - 0.3), fy, L + 0.02, 0.44, 0.13, 0.03, 0, [1, 0.96, 0.78]);
-      if (B.ears) { t.box(sg * (w / 2 + 0.03), 1, -0.72, 0.1, 0.2, 0.46, 0, c); t.box(sg * (w / 2 + 0.05), 1, -0.72, 0.03, 0.12, 0.34, 0, dark); }
+      t.box(sg * (w / 2 - 0.3), fy, L + 0.02, 0.44, 0.13, 0.03, 0, [1, 0.96, 0.78]);
     }
-    if (type === 'zhiguli') t.box(0, fy, L + 0.02, 0.5, 0.14, 0.02, 0, dark);
+    t.box(0, fy, L + 0.02, 0.5, 0.1, 0.02, 0, dark);
     const body = new T.Mesh(t.geo(), new T.MeshLambertMaterial({ vertexColors: true, side: T.DoubleSide })); G.add(body);
     G.stop = new T.MeshBasicMaterial({ color: 0x5A0A0A }); G.tail = [];
     for (const x of [-(w / 2 - 0.26), w / 2 - 0.26]) { const m = new T.Mesh(new T.BoxGeometry(0.4, 0.14, 0.03), G.stop); m.position.set(x, ry2, -L - 0.02); G.add(m); G.tail.push([x, ry2, -L - 0.03]); }
@@ -334,7 +334,7 @@
       this.wx = { ...WEATHER.clear }; this.wxT = { ...WEATHER.clear }; this.night = 0; this.shake = 0;
       this.buildSky(); this.buildWeather(); this.buildDust(); this.buildSpeedFx();
       this.cam = 'cabin'; this.seat = 'driver';
-      this.bodyType = opt.body || 'zhiguli'; this.fxOn = opt.fx !== false; this.fxK = 0;
+      this.bodyType = opt.body || 'sedan'; this.fxOn = opt.fx !== false; this.fxK = 0;
       this.carM = carModel(opt.color, this.bodyType); s.add(this.carM);
       this.spot = new T.SpotLight(0xFFF1CC, 0, 90, 0.5, 0.6, 1.2); this.spot.position.set(0, 1, 1.5); this.spot.target.position.set(0, 0, 18); this.carM.add(this.spot, this.spot.target);
       this.cabS = new T.Scene(); this.cabC = new T.PerspectiveCamera(62, 1, 0.05, 10);

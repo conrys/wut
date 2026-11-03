@@ -7,7 +7,7 @@
 
   const COLORS = [0xD63A32, 0x2F6FBF, 0xE8E4D8, 0x2FA36B, 0xF2B632, 0x35363C];
   const CAMS = [['cabin', 'Із салону'], ['chase', 'Ззаду'], ['side', 'Узбіччя']];
-  const st = { color: load('color', 0), cam: load('cam', 0), radio: load('radio', 0), cruise: load('cruise', 25), steerMode: load('steer', 'slider'), speedMode: load('speed', 'slider'), roadMode: load('road', 'highway'), gearMode: load('gears', 'off'), bodyMode: load('body', 'zhiguli'), fxMode: load('fx', 'on'), btn: 0, auto: false, playing: false, total: load('km', 0), tiltV: 0 };
+  const st = { color: load('color', 0), cam: load('cam', 0), radio: load('radio', 0), cruise: load('cruise', 25), steerMode: load('steer', 'slider'), speedMode: load('speed', 'slider'), roadMode: load('road', 'highway'), gearMode: load('gears', 'off'), bodyMode: ['sedan', 'hatch', 'coupe', 'pickup'].includes(load('body', 'sedan')) ? load('body', 'sedan') : 'sedan', fxMode: load('fx', 'on'), btn: 0, auto: false, playing: false, total: load('km', 0), tiltV: 0 };
   const seed = (Math.random() * 1e9) | 0, pad = st.roadMode !== 'highway', road = new Road({ seed, pad }), car = new Car(road, { rail: pad ? 0 : road.half + 5 });
   document.body.classList.toggle('padmode', pad);
   const sc = new Scene({ canvas: $('gl'), road, car, color: COLORS[st.color], body: st.bodyMode, fx: st.fxMode === 'on', time: 0.08 + Math.random() * 0.45 });
