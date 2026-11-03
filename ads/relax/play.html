@@ -13,7 +13,7 @@ html,body{height:100%;margin:0}
 [hidden]{display:none!important}
 body{background:var(--night);color:var(--ink);font-family:var(--body);overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
 #gl{position:fixed;inset:0;width:100%;height:100%;display:block}
-.top{position:fixed;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 12px);padding:0 max(16px,env(safe-area-inset-right,0px)) 0 max(52px,env(safe-area-inset-left,0px));display:flex;align-items:center;gap:8px;transition:opacity .6s}
+.top{position:fixed;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 12px);padding:0 max(16px,env(safe-area-inset-right,0px)) 0 calc(max(10px,env(safe-area-inset-left,0px)) + 44px);display:flex;align-items:center;gap:8px;transition:opacity .6s}
 .chip{font-family:var(--display);font-weight:800;font-size:17px;line-height:1;background:rgba(12,10,16,.62);padding:8px 12px 6px;border-radius:12px;white-space:nowrap}
 .chip small{font-size:12px;opacity:.7;margin-left:3px}
 .grow{flex:1}
@@ -31,7 +31,7 @@ body{background:var(--night);color:var(--ink);font-family:var(--body);overflow:h
 .track{position:fixed;touch-action:none;cursor:pointer;transition:opacity .6s}
 .track::before{content:"";position:absolute;background:rgba(255,255,255,.26);border-radius:6px}
 .track:focus-visible{outline:3px solid var(--sky);outline-offset:6px;border-radius:8px}
-#wheelS{left:calc(max(16px,env(safe-area-inset-left,0px)) + 38px);right:calc(max(16px,env(safe-area-inset-right,0px)) + 112px);bottom:calc(env(safe-area-inset-bottom,0px) + 24px);height:76px}
+#wheelS{left:calc(max(16px,env(safe-area-inset-left,0px)) + 38px);width:min(240px,calc(100vw - 166px));bottom:calc(env(safe-area-inset-bottom,0px) + 24px);height:76px}
 #wheelS::before{left:0;right:0;top:34px;height:8px}
 #wheelS::after{content:"";position:absolute;left:50%;top:26px;width:2px;height:24px;background:rgba(255,255,255,.6)}
 #wheelS .thumb{top:0;margin-left:-38px;width:76px;height:76px;border-radius:50%;background:rgba(12,10,16,.68);display:grid;place-items:center;position:absolute}
