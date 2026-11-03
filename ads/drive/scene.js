@@ -212,7 +212,11 @@
     t.box(0, fy, L + 0.02, 0.5, 0.1, 0.02, 0, dark);
     const body = new T.Mesh(t.geo(), new T.MeshLambertMaterial({ vertexColors: true, side: T.DoubleSide })); G.add(body);
     G.stop = new T.MeshBasicMaterial({ color: 0x5A0A0A }); G.tail = [];
-    for (const x of [-(w / 2 - 0.26), w / 2 - 0.26]) { const m = new T.Mesh(new T.BoxGeometry(0.4, 0.14, 0.03), G.stop); m.position.set(x, ry2, -L - 0.02); G.add(m); G.tail.push([x, ry2, -L - 0.03]); }
+    /* світлова смуга: хрест із двох площин, яскравий біля ліхтаря, згасає до кінця */
+    const gg = new T.BufferGeometry(), r = 0.1, vp = [0, -r, 0, 0, r, 0, 0, 0, -1, -r, 0, 0, r, 0, 0, 0, 0, -1], vc = [1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0];
+    gg.setAttribute('position', new T.Float32BufferAttribute(vp, 3)); gg.setAttribute('color', new T.Float32BufferAttribute(vc, 3));
+    G.glowMat = new T.MeshBasicMaterial({ vertexColors: true, color: 0x000000, transparent: true, blending: T.AdditiveBlending, depthWrite: false, fog: false, side: T.DoubleSide }); G.glows = [];
+    for (const x of [-(w / 2 - 0.26), w / 2 - 0.26]) { const m = new T.Mesh(new T.BoxGeometry(0.4, 0.14, 0.03), G.stop); m.position.set(x, ry2, -L - 0.02); G.add(m); const g = new T.Mesh(gg, G.glowMat); g.position.set(x, ry2, -L - 0.04); g.frustumCulled = false; G.add(g); G.glows.push(g); }
     const wg = new T.CylinderGeometry(0.33, 0.33, 0.22, 10); wg.rotateZ(1.5708);
     const wm = new T.MeshLambertMaterial({ color: 0x15161A }); G.wheels = [];
     for (const [x, z] of [[-w / 2 + 0.06, B.wz[0]], [w / 2 - 0.06, B.wz[0]], [-w / 2 + 0.06, B.wz[1]], [w / 2 - 0.06, B.wz[1]]]) { const q = new T.Mesh(wg, wm); q.position.set(x, 0.33, z); G.add(q); G.wheels.push(q); }
@@ -344,7 +348,7 @@
       addEventListener('resize', () => this.fit());
       this.syncChunks(true);
     }
-    setBody(b) { this.bodyType = b; this.setColor(this.color); this.trailPts = [[], []]; }
+    setBody(b) { this.bodyType = b; this.setColor(this.color); }
     setColor(c) {
       this.color = c; this.scene.remove(this.carM); this.spot.parent && this.carM.remove(this.spot, this.spot.target);
       this.carM = carModel(c, this.bodyType); this.carM.add(this.spot, this.spot.target); this.scene.add(this.carM);
@@ -380,10 +384,7 @@
     }
     /* ефекти швидкості як в Underground: світлові смуги від задніх ліхтарів і радіальне розмиття */
     buildSpeedFx() {
-      const N = this.trailN = 12, M = (N - 1) * 6 * 2, p = new Float32Array(M * 3), c = new Float32Array(M * 3), g = new T.BufferGeometry();
-      g.setAttribute('position', new T.BufferAttribute(p, 3)); g.setAttribute('color', new T.BufferAttribute(c, 3));
-      this.trail = new T.Mesh(g, new T.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: T.AdditiveBlending, depthWrite: false, fog: false, side: T.DoubleSide })); this.trail.frustumCulled = false; this.trail.visible = false; this.scene.add(this.trail);
-      this.trailPts = [[], []]; this.blurScene = new T.Scene(); this.blurCam = new T.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+      this.blurScene = new T.Scene(); this.blurCam = new T.OrthographicCamera(-1, 1, 1, -1, 0, 1);
       this.blurMat = new T.ShaderMaterial({ depthTest: false, depthWrite: false, uniforms: { t: { value: null }, c: { value: new T.Vector2(0.5, 0.5) }, k: { value: 0 } },
         vertexShader: 'varying vec2 u;void main(){u=uv;gl_Position=vec4(position.xy,0.,1.);}',
         fragmentShader: 'uniform sampler2D t;uniform vec2 c;uniform float k;varying vec2 u;void main(){vec2 d=u-c;float a=k*smoothstep(.1,.62,length(d));vec3 s=vec3(0.);for(int i=0;i<7;i++){s+=texture2D(t,u-d*a*float(i)/6.).rgb;}gl_FragColor=vec4(s/7.,1.);}' });
@@ -391,23 +392,11 @@
     }
     speedFx(dt) {
       const c = this.car, v = c.speed, kmh = v * 3.6, target = this.fxOn ? smooth((kmh - 95) / 45) : 0; this.fxK += (target - this.fxK) * Math.min(1, dt * 2.5);
-      const k = this.fxK, cam = this.w.camera, chase = this.cam !== 'cabin';
+      const k = this.fxK, cam = this.w.camera, m = this.carM;
       cam.fov = this.baseFov + k * 7; cam.updateProjectionMatrix();
-      const m = this.carM, a = this.trail.geometry.getAttribute('position'), col = this.trail.geometry.getAttribute('color'), N = this.trailN; this.trail.visible = chase && k > 0.03;
-      m.updateMatrixWorld(); const v3 = new T.Vector3();
-      m.tail.forEach((tl, side) => {
-        v3.set(tl[0], tl[1], tl[2]).applyMatrix4(m.matrixWorld); const P = this.trailPts[side]; const l = P[0];
-        if (!l || Math.hypot(l[0] - v3.x, l[2] - v3.z) > 0.7) P.unshift([v3.x, v3.y, v3.z]); else { l[0] = v3.x; l[1] = v3.y; l[2] = v3.z; }
-        if (P.length > N) P.length = N;
-        for (let i = 0; i < N - 1; i++) {
-          const o = (side * (N - 1) + i) * 18, p0 = P[i], p1 = P[i + 1], off = !p0 || !p1;
-          const w0 = 0.07 * (1 - i / N), w1 = 0.07 * (1 - (i + 1) / N), q = off ? [0, 0, 0] : p0, r = off ? [0, 0, 0] : p1;
-          const vs = [[q[0], q[1] - w0, q[2]], [q[0], q[1] + w0, q[2]], [r[0], r[1] + w1, r[2]], [q[0], q[1] - w0, q[2]], [r[0], r[1] + w1, r[2]], [r[0], r[1] - w1, r[2]]];
-          const kd = k * (1 - c.drift), f0 = kd * (1 - i / N) ** 1.4, f1 = kd * (1 - (i + 1) / N) ** 1.4; /* у заносі смуг немає: вони б тягнулись убік */
-          vs.forEach((u, n) => { a.array[o + n * 3] = u[0]; a.array[o + n * 3 + 1] = u[1]; a.array[o + n * 3 + 2] = u[2]; const f = n === 0 || n === 1 || n === 3 ? f0 : f1; col.array[o + n * 3] = f; col.array[o + n * 3 + 1] = f * 0.09; col.array[o + n * 3 + 2] = f * 0.06; });
-        }
-      });
-      a.needsUpdate = true; col.needsUpdate = true;
+      /* смуги — частина авто, а не слід на землі: вони завжди виходять із ліхтарів */
+      const kd = k * (1 - c.drift); m.glowMat.color.setRGB(kd, kd * 0.1, kd * 0.07);
+      for (const g of m.glows) g.scale.z = 1 + k * 5;
       return k;
     }
     drawWorld(k) {
