@@ -53,6 +53,12 @@
   const wheelS = slider($('wheelS'), { min: -1, max: 1, value: 0, onset: (v, th) => { th.firstElementChild.style.transform = `rotate(${v * 120}deg)`; } });
   const speedS = slider($('speedS'), { min: 0, max: 33.4, value: st.cruise, vertical: true, onset: (v, th, user) => { th.textContent = Math.round(v * 3.6 / 5) * 5; if (user) { st.cruise = v; save('cruise', v); } } });
 
+  /* кнопка спрацьовує від дотику, навіть коли інший палець тримає кермо чи газ; click лишається для клавіатури */
+  function press(el, fn) {
+    el.addEventListener('pointerdown', (e) => { e.preventDefault(); fn(); });
+    el.addEventListener('click', (e) => { if (e.detail === 0) fn(); });
+  }
+
   /* інтерфейс ховається, щоб лишилась сама дорога */
   let idle = 0;
   function wake() { idle = 0; document.body.classList.remove('calm'); }
@@ -64,10 +70,10 @@
     $('radio').textContent = i === 4 ? '🎧' : i === 3 ? '🛣' : '📻'; $('radio').setAttribute('aria-label', 'Радіо: ' + M.STATIONS[i].name);
     if (!quiet) say(M.STATIONS[i].name);
   }
-  $('radio').addEventListener('click', () => { radio((st.radio + 1) % M.STATIONS.length); wake(); });
-  $('cam').addEventListener('click', () => { st.cam = (st.cam + 1) % CAMS.length; save('cam', st.cam); sc.setCam(CAMS[st.cam][0]); say(CAMS[st.cam][1]); wake(); });
+  press($('radio'), () => { radio((st.radio + 1) % M.STATIONS.length); wake(); });
+  press($('cam'), () => { st.cam = (st.cam + 1) % CAMS.length; save('cam', st.cam); sc.setCam(CAMS[st.cam][0]); say(CAMS[st.cam][1]); wake(); });
   function setAuto(on) { st.auto = on; $('auto').classList.toggle('active', on); $('auto').setAttribute('aria-pressed', on); document.body.classList.toggle('autopilot', on); layout(); }
-  $('auto').addEventListener('click', () => { setAuto(!st.auto); say(st.auto ? 'Автопілот' : 'Кермо твоє'); wake(); });
+  press($('auto'), () => { setAuto(!st.auto); say(st.auto ? 'Автопілот' : 'Кермо твоє'); wake(); });
 
   /* нахил телефона */
   function onTilt(e) {
@@ -93,7 +99,7 @@
   layout();
 
   function shift(d) { car.gear = clamp(car.gear + d, 1, 5); wake(); }
-  $('gUp').addEventListener('click', () => shift(1)); $('gDn').addEventListener('click', () => shift(-1));
+  press($('gUp'), () => shift(1)); press($('gDn'), () => shift(-1));
   addEventListener('keydown', (e) => { if (e.key === 'e') shift(1); if (e.key === 'q') shift(-1); });
 
   /* плавне кермо: кнопки набирають поворот поступово, повзунок і нахил точніші біля центру */
