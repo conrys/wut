@@ -108,7 +108,7 @@
     }
     get speed() { return Math.hypot(this.vx, this.vz); }
     /* кут коліс обмежений бічним прискоренням: на швидкості кермо не смикає авто */
-    maxSteer(v) { return Math.min(0.55, Math.atan(8 * 2.6 / Math.max(1, v * v))); }
+    maxSteer(v) { return Math.min(0.55, Math.atan(15 * 2.6 / Math.max(1, v * v))); }
     step(dt, inp) {
       const n = Math.max(1, Math.ceil(dt * 90)), h = dt / n;
       for (let i = 0; i < n; i++) this.sub(h, inp);
@@ -116,7 +116,7 @@
     sub(dt, inp) {
       const R = this.road, sf = Math.sin(this.yaw), cf = Math.cos(this.yaw);
       let vf = this.vx * sf + this.vz * cf, vl = -this.vx * cf + this.vz * sf;
-      this.steer += (clamp(inp.steer || 0, -1, 1) - this.steer) * Math.min(1, dt * 4.5);
+      this.steer += (clamp(inp.steer || 0, -1, 1) - this.steer) * Math.min(1, dt * 5.5);
       const a = this.steer * this.maxSteer(Math.abs(vf));
       this.yaw -= vf * Math.tan(a) / 2.6 * dt;
       this.onGrass = Math.abs(this.off) > R.half + 1.1;

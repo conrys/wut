@@ -290,10 +290,11 @@
       this.carM = carModel(c); this.carM.add(this.spot, this.spot.target); this.scene.add(this.carM);
       this.cabS.remove(this.cab); this.cab = cabinModel(c, { device: !!this.cab.device }); this.cabS.add(this.cab);
     }
-    /* вертикальний екран: горизонтальний кут тримається широким */
+    /* однаковий масштаб у вертикальному й горизонтальному положенні: фокусна відстань іде від короткої сторони екрана */
     fit() {
-      const w = this.w, a = w.W / w.H, want = this.cam === 'cabin' ? 66 : 58, v = 2 * Math.atan(Math.tan(want / 2 * Math.PI / 180) / a) * 180 / Math.PI;
-      const fov = clamp(v, this.cam === 'cabin' ? 60 : 46, 86); w.camera.fov = fov; w.camera.updateProjectionMatrix(); this.cabC.fov = fov; this.cabC.aspect = a; this.cabC.updateProjectionMatrix();
+      const w = this.w, a = w.W / w.H, f = Math.min(w.W, w.H) * 0.92, fov = Math.min(105, 2 * Math.atan(w.H / 2 / f) * 180 / Math.PI);
+      this.tilt = a > 1 ? 0.22 : 0.1; /* горизонтально кут нижчий, щоб лишались приладова панель і кермо */
+      w.camera.fov = fov; w.camera.updateProjectionMatrix(); this.cabC.fov = fov; this.cabC.aspect = a; this.cabC.updateProjectionMatrix();
     }
     setCam(m) { this.cam = m; this.orb = null; this.fit(); }
     setWeather(n, instant) { this.wxT = { ...WEATHER[n], name: n }; if (instant) this.wx = { ...this.wxT }; }
@@ -374,8 +375,8 @@
       if (this.cam === 'cabin') {
         const sx = this.seat === 'nav' ? 0.37 : -0.37, rx = -cy, rz = sy, sh = (c.speed > 3 && !window.G3.reduce) ? c.speed * 0.00016 : 0;
         cam.position.set(c.x + sy * 0.15 + rx * sx, c.y + 1.2 + (Math.random() - 0.5) * sh, c.z + cy * 0.15 + rz * sx);
-        cam.rotation.order = 'YXZ'; cam.rotation.set(c.pitch - 0.1, c.yaw + Math.PI, -c.roll * 0.7);
-        this.cabC.rotation.x = -0.1;
+        cam.rotation.order = 'YXZ'; cam.rotation.set(c.pitch - this.tilt, c.yaw + Math.PI, -c.roll * 0.7);
+        this.cabC.rotation.x = -this.tilt;
         this.cab.position.set(-sx, 0, 0); this.cab.rotation.z = 0; this.cab.wheelRot.rotation.z = -c.steer * 1.6;
         const v = clamp(c.speed / 46, 0, 1); this.cab.needle.rotation.z = 3.8 - v * 4.4;
       } else if (this.cam === 'chase') {

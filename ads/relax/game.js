@@ -93,10 +93,10 @@
   layout();
 
   /* плавне кермо: кнопки набирають поворот поступово, повзунок і нахил точніші біля центру */
-  const curve = (v) => { const a = Math.abs(v); return a < 0.03 ? 0 : Math.sign(v) * Math.pow(a, 1.5); };
+  const curve = (v) => { const a = Math.abs(v); return a < 0.03 ? 0 : Math.sign(v) * Math.pow(a, 1.3); };
   function steerHand(dt) {
     const want = (keys.r ? 1 : 0) - (keys.l ? 1 : 0); let hand;
-    const rate = want && want * st.btn >= 0 ? 1.3 : 4; /* натиснув — кермо крутиться ~0,8 с; відпустив — вертається швидше */
+    const rate = want && want * st.btn >= 0 ? 1.8 : 4.5; /* натиснув — кермо крутиться ~0,55 с; відпустив — вертається швидше */
     st.btn += clamp(want - st.btn, -rate * dt, rate * dt); hand = st.btn;
     if (st.steerMode === 'slider') { if (!wheelS.held && wheelS.value) { const v = wheelS.value; wheelS.set(v - Math.sign(v) * Math.min(Math.abs(v), dt * 0.9)); } hand += curve(wheelS.value); }
     if (st.steerMode === 'tilt') { st.tiltS += (st.tiltV - st.tiltS) * Math.min(1, dt * 7); hand += curve(st.tiltS); }

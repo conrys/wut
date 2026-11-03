@@ -36,7 +36,7 @@ body{background:var(--night);color:var(--ink);font-family:var(--body);overflow:h
 #wheelS::after{content:"";position:absolute;left:50%;top:26px;width:2px;height:24px;background:rgba(255,255,255,.6)}
 #wheelS .thumb{top:0;margin-left:-38px;width:76px;height:76px;border-radius:50%;background:rgba(12,10,16,.68);display:grid;place-items:center;position:absolute}
 #wheelS .thumb i{display:block;width:50px;height:50px;box-sizing:border-box;border:7px solid #fff;border-radius:50%;background:linear-gradient(#fff,#fff) center/100% 6px no-repeat,linear-gradient(#fff,#fff) 50% 100%/6px 50% no-repeat}
-#speedS{right:calc(max(16px,env(safe-area-inset-right,0px)) + 20px);bottom:calc(env(safe-area-inset-bottom,0px) + 42px);width:48px;height:min(200px,44vh)}
+#speedS{right:calc(max(16px,env(safe-area-inset-right,0px)) + 20px);bottom:calc(env(safe-area-inset-bottom,0px) + 42px);width:48px;height:200px}
 #speedS::before{top:0;bottom:0;left:20px;width:8px}
 #speedS .thumb{position:absolute;left:-6px;margin-bottom:-22px;width:60px;height:44px;border-radius:12px;background:var(--gold);color:#2A2000;font-family:var(--display);font-weight:800;font-size:19px;line-height:44px;text-align:center}
 body:not([data-steer=buttons]) #left,body:not([data-steer=buttons]) #right,body:not([data-steer=slider]) #wheelS{display:none}
