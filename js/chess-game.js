@@ -42,6 +42,7 @@
     state: null,         // ChessRules.encodeState(...) поточної позиції
     result: null,         // { status, winner, reason } коли гра завершилась
     drawOfferBy: null,    // username, хто запропонував нічию (null — нема пропозиції)
+    undoRequestBy: null,  // username, хто просить скасувати хід
     rematchVotes: null,   // { username: true } — обидва проголосували → нова партія
     timeControl: null,    // { type: "none" } | { type: "clock", initialSeconds, incrementSeconds }
     clock: null,          // { w: секунди_лишилось, b: секунди_лишилось, turnStartedAt } — лише для type:"clock"
@@ -160,7 +161,7 @@
     const initial = R.encodeState(R.initialState());
     const tc = room.timeControl || { type: "none" };
     const clock = tc.type === "clock" ? { w: tc.initialSeconds, b: tc.initialSeconds, turnStartedAt: engine.now() } : null;
-    engine.roomRef.update({ phase: "playing", state: initial, result: null, drawOfferBy: null, rematchVotes: null, clock });
+    engine.roomRef.update({ phase: "playing", state: initial, result: null, drawOfferBy: null, undoRequestBy: null, rematchVotes: null, clock });
   }
 
   // ------------------------- хід -------------------------
@@ -179,7 +180,7 @@
     if (!next) return false;
 
     const status = R.gameStatus(next);
-    const update = { state: R.encodeState(next), drawOfferBy: null };
+    const update = { state: R.encodeState(next), drawOfferBy: null, undoRequestBy: null };
 
     const tc = room.timeControl;
     if (tc && tc.type === "clock" && room.clock) {
@@ -223,6 +224,29 @@
     engine.roomRef.child("drawOfferBy").set(null);
   }
 
+  // Скасування ходу онлайн — лише за згодою суперника. Партія відмотується до ходу того,
+  // хто просив: його останній хід (і відповідь суперника, якщо вона вже була).
+  function requestUndo() {
+    const room = engine.latestRoom;
+    if (!room || room.phase !== "playing" || !room.state) return;
+    const myColor = room.white === username ? "w" : room.black === username ? "b" : null;
+    if (!myColor) return;
+    const st = R.decodeState(room.state), mine = myMovesCount(st, myColor);
+    if (mine > 0) engine.roomRef.child("undoRequestBy").set(username);
+  }
+  function myMovesCount(st, color) { return color === "w" ? Math.ceil(st.history.length / 2) : Math.floor(st.history.length / 2); }
+  function acceptUndo() {
+    const room = engine.latestRoom;
+    if (!room || room.phase !== "playing" || !room.undoRequestBy || room.undoRequestBy === username) return;
+    const asker = room.undoRequestBy === room.white ? "w" : "b", st = R.decodeState(room.state);
+    const back = R.rewind(st, st.turn === asker ? 2 : 1);
+    if (!back) { declineUndo(); return; }
+    const update = { state: R.encodeState(back), undoRequestBy: null, drawOfferBy: null };
+    if (room.clock) update.clock = Object.assign({}, room.clock, { turnStartedAt: engine.now() });
+    engine.roomRef.update(update);
+  }
+  function declineUndo() { engine.roomRef.child("undoRequestBy").set(null); }
+
   // Обидва гравці голосують → нова партія, кольори міняються місцями,
   // годинник (якщо є) стартує заново з тих самих початкових значень.
   function voteRematch() {
@@ -237,7 +261,7 @@
         phase: "playing",
         white: room.black, black: room.white,
         state: R.encodeState(R.initialState()),
-        result: null, drawOfferBy: null, rematchVotes: null, clock,
+        result: null, drawOfferBy: null, undoRequestBy: null, rematchVotes: null, clock,
       });
     } else {
       engine.roomRef.child("rematchVotes").set(votes);
@@ -298,6 +322,7 @@
     claimColor, releaseColor,
     startGame, makeMove, resign,
     offerDraw, acceptDraw, declineDraw, voteRematch,
+    requestUndo, acceptUndo, declineUndo, myMovesCount,
     liveClockSeconds,
     now: () => engine.now(),
     get roomId() { return engine.currentRoomId; },

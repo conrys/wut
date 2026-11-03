@@ -111,6 +111,7 @@
         .draw-toggle button { background: transparent; border: none; color: var(--text-muted); font: 600 12px 'Inter', sans-serif;
             padding: 3px 10px; cursor: pointer; }
         .draw-toggle button.on { background: rgba(56,207,160,0.18); color: var(--text-light); }
+        .page.autoplay #tableau, .page.autoplay .top-row { pointer-events: none; }
         .page.dealing #tableau, .page.dealing .top-row { opacity: 0.35; pointer-events: none; }
 
         .result-panel { text-align: center; margin: 8px 0 4px; }
@@ -275,7 +276,7 @@
       }
 
       function updateUndoButton() {
-        document.getElementById("undoBtn").disabled = historyStack.length === 0 || finished;
+        document.getElementById("undoBtn").disabled = historyStack.length === 0 || finished || autoRun;
       }
 
       // ------------------------------------------------------------------
@@ -489,12 +490,58 @@
         return true;
       }
 
+      // ------------------------------------------------------------------
+      // Автозбирання: усі карти в колонках відкриті, а простим перекладанням
+      // на бази партія точно закінчується — гра дограє сама. Ходи й час автозбирання
+      // не рахуються, скасовувати нема чого: далі лише перемога.
+      // ------------------------------------------------------------------
+      let autoRun = false, autoToken = 0, autoNow = 0, autoMoves = 0;
+      const fitsBase = (st, c) => st.foundations[c.suit].length === c.rank - 1;
+      function autoStep(st) {
+        if (st.waste.length && fitsBase(st, st.waste[st.waste.length - 1])) return { from: "waste" };
+        for (let i = 0; i < 7; i++) { const col = st.tableau[i]; if (col.length && fitsBase(st, col[col.length - 1])) return { from: "col", i }; }
+        return st.stock.length || st.waste.length ? { from: "stock" } : null;
+      }
+      function canAutoFinish() {
+        if (!state.tableau.every((col) => col.every((c) => c.faceUp))) return false;
+        const s = cloneState(state); let idle = 0;
+        const cycle = s.stock.length + s.waste.length + 2;
+        while (SUITS.reduce((n, x) => n + s.foundations[x].length, 0) < 52) {
+          const step = autoStep(s); if (!step || idle > cycle) return false;
+          if (step.from === "waste") { const c = s.waste.pop(); s.foundations[c.suit].push(c); idle = 0; }
+          else if (step.from === "col") { const c = s.tableau[step.i].pop(); s.foundations[c.suit].push(c); idle = 0; }
+          else {
+            idle++;
+            if (!s.stock.length) { s.stock = s.waste.reverse(); s.waste = []; }
+            else for (let i = 0; i < drawCount && s.stock.length; i++) s.waste.push(s.stock.pop());
+          }
+        }
+        return true;
+      }
+      function startAutoFinish() {
+        autoRun = true; autoNow = Date.now(); autoMoves = moves; const token = ++autoToken;
+        pageEl.classList.add("autoplay"); updateUndoButton();
+        const tick = () => {
+          if (token !== autoToken) return;
+          const step = autoStep(state);
+          if (step && step.from === "waste") moveWasteToFoundation();
+          else if (step && step.from === "col") moveTableauToFoundation(step.i);
+          else if (step) drawStock();
+          moves = autoMoves;
+          if (finished || !step) { stopAutoFinish(); return; }
+          setTimeout(tick, step.from === "stock" ? 70 : 110);
+        };
+        setTimeout(tick, 250);
+      }
+      function stopAutoFinish() { autoRun = false; autoToken++; pageEl.classList.remove("autoplay"); }
+
       function checkWin() {
         const total = SUITS.reduce((sum, s) => sum + state.foundations[s].length, 0);
         if (total !== 52) return;
+        if (autoRun) moves = autoMoves;
         finished = true;
         clearInterval(timerHandle);
-        const elapsedSec = Math.floor((Date.now() - startTime) / 1000);
+        const elapsedSec = Math.floor(((autoRun ? autoNow : Date.now()) - startTime) / 1000);
         const score = Math.max(50, Math.round((SCORE_BASE - elapsedSec * 2 - moves) * LEVELS[level].mult) - hintsUsed * HINT_PENALTY);
 
         document.getElementById("resultPanel").style.display = "block";
@@ -637,7 +684,8 @@
         if (typeof clearHint === "function") clearHint();
         if (deadEndShown) setDeadEnd(false);
         clearTimeout(deadEndTimer);
-        if (finished || !state) return;
+        if (finished || !state || autoRun) return;
+        if (canAutoFinish()) { startAutoFinish(); return; }
         const version = positionVersion;
         deadEndTimer = setTimeout(async () => {
           const r = await runSolver(state, { drawCount, maxNodes: DEADEND_NODES, complete: true });
@@ -865,6 +913,7 @@
       let dealing = false;
       async function newGame() {
         if (dealing) return;
+        stopAutoFinish();
         dealing = true;
         pageEl.classList.add("dealing");
         document.getElementById("msg").textContent = "Тасую колоду…";
@@ -938,7 +987,7 @@
         hintTimer = setTimeout(clearHint, 2600);
       }
       async function hint() {
-        if (finished || dealing || hintBusy || !state) return;
+        if (finished || dealing || hintBusy || autoRun || !state) return;
         let step = planStep();
         if (!step) {
           hintBusy = true;
@@ -960,7 +1009,7 @@
       }
       document.getElementById("hintBtn").addEventListener("click", hint);
       // для автотестів: підставити позицію (bots/local-sim/soliter-test.js)
-      window.SoliterDebug = { load(st) { state = st; historyStack = []; finished = false; render(); }, get state() { return state; } };
+      window.SoliterDebug = { load(st) { state = st; historyStack = []; finished = false; stopAutoFinish(); render(); }, get state() { return state; } };
 
       const actionsEl = document.querySelector(".actions");
       function syncActionsHeight() {

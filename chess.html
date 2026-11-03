@@ -285,15 +285,22 @@
       <button class="btn btn-primary" id="acceptDrawBtn">Прийняти</button>
       <button class="btn" id="declineDrawBtn">Відхилити</button>
     </div>
+    <div class="hidden draw-offer-bar" id="undoOfferBar">
+      <span id="undoOfferText"></span>
+      <button class="btn btn-primary" id="acceptUndoBtn">Дозволити</button>
+      <button class="btn" id="declineUndoBtn">Ні</button>
+    </div>
     <div class="board-wrap">
       <div class="board" id="boardEl"></div>
     </div>
     <div class="board-actions" id="onlineActions">
+      <button class="btn" id="undoReqBtn">Скасувати хід</button>
       <button class="btn" id="offerDrawBtn">Нічия?</button>
       <button class="btn" id="resignBtn">Здатись</button>
     </div>
     <div class="board-actions hidden" id="localActions">
-      <button class="btn btn-block" id="newLocalGameBtn">Нова партія</button>
+      <button class="btn" id="undoLocalBtn">Скасувати хід</button>
+      <button class="btn" id="newLocalGameBtn">Нова партія</button>
     </div>
     <div class="card" style="margin-top:10px;">
       <h3>Ходи</h3>
@@ -484,6 +491,7 @@
     }
 
     renderTurnBar(st, status);
+    if (mode === "local") updateLocalUndo();
     renderMoveHistory(st);
     if (moveToAnimate) animateMove(boardEl, ori, moveToAnimate);
   }
@@ -600,6 +608,25 @@
       maybeShowLocalResult();
     }, 450 + Math.random() * 350);
   }
+
+  // Проти бота відмотуємо до свого ходу (свій хід + відповідь бота), удвох — один хід.
+  function localUndoPlies() {
+    if (!localState) return 0;
+    const n = localState.history.length;
+    if (!localBot) return n ? 1 : 0;
+    const plies = localState.turn === localBot.color ? 1 : 2;
+    return n >= plies ? plies : 0;
+  }
+  function updateLocalUndo() {
+    const over = localState && !["check", "playing"].includes(R.gameStatus(localState).status);
+    document.getElementById("undoLocalBtn").disabled = !localUndoPlies() || !!over;
+  }
+  document.getElementById("undoLocalBtn").addEventListener("click", () => {
+    const plies = localUndoPlies(); if (!plies) return;
+    const back = R.rewind(localState, plies); if (!back) return;
+    localState = back; selected = null; legalTargets = []; lastAnimatedSignature = null;
+    renderBoard(); maybeTriggerBot();
+  });
 
   function maybeShowLocalResult() {
     const status = R.gameStatus(localState);
@@ -761,6 +788,19 @@
     document.getElementById("onlineActions").classList.toggle("hidden", ctx.isSpectator || room.phase !== "playing");
     document.getElementById("localActions").classList.add("hidden");
 
+    const undoBar = document.getElementById("undoOfferBar"), asked = room.phase === "playing" && room.undoRequestBy;
+    undoBar.classList.toggle("hidden", !asked || ctx.isSpectator);
+    if (asked) {
+      const mineU = room.undoRequestBy === username;
+      document.getElementById("undoOfferText").textContent = mineU ? "Чекаємо на згоду суперника..." : "Суперник просить скасувати хід";
+      document.getElementById("acceptUndoBtn").classList.toggle("hidden", mineU);
+      document.getElementById("declineUndoBtn").classList.toggle("hidden", mineU);
+    }
+    if (room.state && !ctx.isSpectator) {
+      const mc = room.white === username ? "w" : room.black === username ? "b" : null;
+      document.getElementById("undoReqBtn").disabled = !mc || !!asked || window.ChessGame.myMovesCount(R.decodeState(room.state), mc) === 0;
+    }
+
     const offerBar = document.getElementById("drawOfferBar");
     if (room.drawOfferBy && room.phase === "playing") {
       offerBar.classList.remove("hidden");
@@ -852,6 +892,9 @@
 
   document.getElementById("startOnlineBtn").addEventListener("click", () => window.ChessGame.startGame());
   document.getElementById("resignBtn").addEventListener("click", () => { if (confirm("Здатись?")) window.ChessGame.resign(); });
+  document.getElementById("undoReqBtn").addEventListener("click", () => window.ChessGame.requestUndo());
+  document.getElementById("acceptUndoBtn").addEventListener("click", () => window.ChessGame.acceptUndo());
+  document.getElementById("declineUndoBtn").addEventListener("click", () => window.ChessGame.declineUndo());
   document.getElementById("offerDrawBtn").addEventListener("click", () => window.ChessGame.offerDraw());
   document.getElementById("acceptDrawBtn").addEventListener("click", () => window.ChessGame.acceptDraw());
   document.getElementById("declineDrawBtn").addEventListener("click", () => window.ChessGame.declineDraw());

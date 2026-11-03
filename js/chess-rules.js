@@ -421,6 +421,16 @@
     }
     return out;
   }
+  // Позиція на plies півходів раніше: партія заново розігрується від початку за історією,
+  // тож рокіровки, взяття на проході й лічильники відновлюються самі.
+  function rewind(state, plies) {
+    const keep = state.history.length - plies;
+    if (keep < 0) return null;
+    let s = initialState();
+    for (const h of state.history.slice(0, keep)) { s = makeMove(s, { from: h.from, to: h.to, promotion: h.promotion || undefined }); if (!s) return null; }
+    return s;
+  }
+
   function encodeState(state) {
     return {
       board: encodeBoard(state.board),
@@ -465,6 +475,6 @@
     initialBoard, initialState,
     legalMovesFrom, allLegalMoves, needsPromotion,
     makeMove, inCheck, gameStatus,
-    encodeState, decodeState,
+    encodeState, decodeState, rewind,
   };
 })();
