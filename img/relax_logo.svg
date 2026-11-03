@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- сонце на горизонті -->
+  <path d="M332 470a180 180 0 0 1 360 0" fill="none" stroke="#FFC93C" stroke-width="26" stroke-linecap="round"/>
+  <g fill="none" stroke="#fff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M120 470h784"/>
+    <!-- дорога -->
+    <path d="M462 470L200 900M562 470L824 900"/>
+    <path d="M512 530v70M512 670v90M512 830v70"/>
+  </g>
+</svg>

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<script src="../../js/core/native.js"></script>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Релакс</title>
+<link rel="stylesheet" href="../../vendor/fonts/baloo-2.css"><link rel="stylesheet" href="../../vendor/fonts/rubik.css">
+<style>
+:root{--ink:#F4F1EA;--night:#14121A;--card:#1E1B25;--line:#33303D;--gold:#FFC93C;--gold-deep:#C99716;--sky:#59C3FF;
+  --display:'Baloo 2','Arial Rounded MT Bold','Trebuchet MS',sans-serif;--body:'Rubik',system-ui,-apple-system,sans-serif;color-scheme:dark}
+html,body{height:100%;margin:0}
+[hidden]{display:none!important}
+body{background:var(--night);color:var(--ink);font-family:var(--body);overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+#gl{position:fixed;inset:0;width:100%;height:100%;display:block}
+.top{position:fixed;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 12px);padding:0 max(16px,env(safe-area-inset-right,0px)) 0 max(52px,env(safe-area-inset-left,0px));display:flex;align-items:center;gap:8px;transition:opacity .6s}
+.chip{font-family:var(--display);font-weight:800;font-size:17px;line-height:1;background:rgba(12,10,16,.62);padding:8px 12px 6px;border-radius:12px;white-space:nowrap}
+.chip small{font-size:12px;opacity:.7;margin-left:3px}
+.grow{flex:1}
+.icon{border:0;border-radius:12px;min-width:44px;height:44px;background:rgba(12,10,16,.62);color:#fff;font-size:18px;cursor:pointer;font-family:var(--display);font-weight:800}
+.icon.active{background:var(--gold);color:#2A2000}
+.icon:focus-visible,.btn:focus-visible,.btn2:focus-visible,.pad:focus-visible,.dot:focus-visible{outline:3px solid var(--sky);outline-offset:3px}
+.tools{position:fixed;right:max(16px,env(safe-area-inset-right,0px));top:calc(env(safe-area-inset-top,0px) + 66px);display:grid;gap:8px;transition:opacity .6s}
+.cruise{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 26px);display:flex;align-items:center;gap:6px;background:rgba(12,10,16,.62);padding:5px;border-radius:14px;transition:opacity .6s}
+.cruise b{font-family:var(--display);min-width:38px;text-align:center;font-size:18px;line-height:1}
+.cruise .icon{background:rgba(255,255,255,.1)}
+.pad{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 22px);width:92px;height:92px;border:0;border-radius:50%;background:rgba(255,255,255,.2);color:#fff;font-size:36px;cursor:pointer;touch-action:none;transition:opacity .6s,transform .12s,background .12s}
+.pad.on{transform:scale(.93);background:rgba(255,201,60,.65)}
+#left{left:max(18px,env(safe-area-inset-left,0px))}#right{right:max(18px,env(safe-area-inset-right,0px))}
+body.tilting .pad{display:none}
+body.calm .top,body.calm .tools,body.calm .cruise{opacity:0}
+body.calm .__back{opacity:0}
+body.calm.autopilot .pad{opacity:0}
+body.calm .pad{opacity:.35}
+.say{position:fixed;left:0;right:0;top:24%;text-align:center;font-family:var(--display);font-weight:800;font-size:30px;color:#fff;pointer-events:none;opacity:0;text-shadow:0 3px 0 rgba(0,0,0,.35),0 0 18px rgba(0,0,0,.5);padding:0 16px}
+.say.show{animation:say 1.8s ease forwards}
+@keyframes say{0%{opacity:0;transform:translateY(8px)}15%,75%{opacity:1;transform:none}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.say.show{animation:sayR 1.8s linear forwards}@keyframes sayR{0%,75%{opacity:1}100%{opacity:0}}}
+.overlay{position:fixed;inset:0;display:grid;padding:calc(env(safe-area-inset-top,0px) + 16px) max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 16px) max(16px,env(safe-area-inset-left,0px));background:rgba(8,6,12,.32);overflow-y:auto;place-items:start center;touch-action:pan-y}
+.card{margin-block:auto;background:var(--card);border:1px solid var(--line);border-radius:24px;padding:24px 22px 22px;max-width:360px;width:100%;box-sizing:border-box;text-align:center;box-shadow:0 10px 0 rgba(0,0,0,.4);display:grid;gap:12px}
+.card h1{font-family:var(--display);font-weight:800;font-size:44px;line-height:1;margin:0;color:var(--gold)}
+.card p{margin:0;font-size:15px;line-height:1.45}
+.hint{font-size:13px;opacity:.72}
+.dots{display:flex;gap:10px;justify-content:center}
+.dot{width:38px;height:38px;border-radius:50%;border:3px solid var(--card);box-shadow:0 0 0 2px var(--line);cursor:pointer;padding:0}
+.dot.on{box-shadow:0 0 0 3px var(--gold)}
+.btn{font-family:var(--display);font-weight:800;font-size:22px;background:var(--gold);color:#2A2000;border:0;border-radius:16px;padding:10px 26px 8px;box-shadow:0 5px 0 var(--gold-deep);cursor:pointer;justify-self:center}
+.btn:active{transform:translateY(3px);box-shadow:0 2px 0 var(--gold-deep)}
+.btn2{font-family:var(--display);font-weight:800;font-size:19px;background:transparent;color:var(--ink);border:2.5px solid var(--gold);border-radius:16px;padding:7px 22px 5px;cursor:pointer;justify-self:center}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div class="say" id="say" aria-live="polite"></div>
+
+<div id="hud" hidden>
+  <div class="top">
+    <span class="chip"><span id="speed">0</span><small>км/год</small></span>
+    <span class="chip"><span id="km">0.0</span><small>км</small></span>
+    <span class="grow"></span>
+    <button class="icon" id="menuBtn" type="button" aria-label="Меню">☰</button>
+  </div>
+  <div class="tools">
+    <button class="icon" id="radio" type="button" aria-label="Радіо">📻</button>
+    <button class="icon" id="cam" type="button" aria-label="Змінити камеру">🎥</button>
+    <button class="icon" id="auto" type="button" aria-label="Автопілот" aria-pressed="false">A</button>
+    <button class="icon" id="tilt" type="button" aria-label="Кермо нахилом" aria-pressed="false">📱</button>
+  </div>
+  <div class="cruise">
+    <button class="icon" id="slower" type="button" aria-label="Повільніше">−</button>
+    <b id="cruiseV">90</b>
+    <button class="icon" id="faster" type="button" aria-label="Швидше">+</button>
+  </div>
+  <button class="pad" id="left" type="button" aria-label="Кермо ліворуч">←</button>
+  <button class="pad" id="right" type="button" aria-label="Кермо праворуч">→</button>
+</div>
+
+<div class="overlay" id="menu">
+  <div class="card">
+    <h1>Релакс</h1>
+    <p>Дорога без кінця, день і ніч, дощ і сніг. Ані цілі, ані аварій.</p>
+    <div class="dots" id="colors"></div>
+    <button class="btn" id="go" type="button">Їхати</button>
+    <button class="btn2" id="watch" type="button">Просто дивитись</button>
+    <p class="hint">Радіо вбудоване. Хочеш своє — увімкни 🎧 «Своя музика» й запусти її в іншому застосунку.</p>
+    <p class="hint" id="kmTotal"></p>
+  </div>
+</div>
+
+<script src="../vendor/three.min.js"></script>
+<script src="../vendor/engine.js"></script>
+<script src="../drive/core.js" charset="utf-8"></script>
+<script src="../drive/scene.js" charset="utf-8"></script>
+<script src="music.js" charset="utf-8"></script>
+<script src="game.js" charset="utf-8"></script>
+<a href="../../index.html" class="__back" aria-label="До списку ігор" style="position:fixed;left:max(10px,env(safe-area-inset-left,0px));top:calc(env(safe-area-inset-top,0px) + 12px);z-index:50;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.45);color:#fff;display:grid;place-items:center;text-decoration:none;font:700 18px system-ui;transition:opacity .6s">←</a>
+<script src="../../js/core/back-button.js"></script>
+</body>
+</html>
