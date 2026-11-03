@@ -21,17 +21,37 @@ body{background:var(--night);color:var(--ink);font-family:var(--body);overflow:h
 .icon.active{background:var(--gold);color:#2A2000}
 .icon:focus-visible,.btn:focus-visible,.btn2:focus-visible,.pad:focus-visible,.dot:focus-visible{outline:3px solid var(--sky);outline-offset:3px}
 .tools{position:fixed;right:max(16px,env(safe-area-inset-right,0px));top:calc(env(safe-area-inset-top,0px) + 66px);display:grid;gap:8px;transition:opacity .6s}
-.cruise{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 26px);display:flex;align-items:center;gap:6px;background:rgba(12,10,16,.62);padding:5px;border-radius:14px;transition:opacity .6s}
-.cruise b{font-family:var(--display);min-width:38px;text-align:center;font-size:18px;line-height:1}
-.cruise .icon{background:rgba(255,255,255,.1)}
-.pad{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 22px);width:92px;height:92px;border:0;border-radius:50%;background:rgba(255,255,255,.2);color:#fff;font-size:36px;cursor:pointer;touch-action:none;transition:opacity .6s,transform .12s,background .12s}
+.pad{position:fixed;width:76px;height:76px;border:0;border-radius:50%;background:rgba(255,255,255,.2);color:#fff;font-size:30px;cursor:pointer;touch-action:none;transition:opacity .6s,transform .12s,background .12s}
 .pad.on{transform:scale(.93);background:rgba(255,201,60,.65)}
-#left{left:max(18px,env(safe-area-inset-left,0px))}#right{right:max(18px,env(safe-area-inset-right,0px))}
-body.tilting .pad{display:none}
-body.calm .top,body.calm .tools,body.calm .cruise{opacity:0}
+.pad small{font-family:var(--display);font-weight:800;font-size:15px}
+#left{left:max(16px,env(safe-area-inset-left,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 24px)}
+#right{left:calc(max(16px,env(safe-area-inset-left,0px)) + 90px);bottom:calc(env(safe-area-inset-bottom,0px) + 24px)}
+#gas{right:max(16px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 112px);background:rgba(61,214,163,.42)}
+#brake{right:max(16px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 24px);background:rgba(255,92,92,.42)}
+.track{position:fixed;touch-action:none;cursor:pointer;transition:opacity .6s}
+.track::before{content:"";position:absolute;background:rgba(255,255,255,.26);border-radius:6px}
+.track:focus-visible{outline:3px solid var(--sky);outline-offset:6px;border-radius:8px}
+#wheelS{left:calc(max(16px,env(safe-area-inset-left,0px)) + 38px);right:calc(max(16px,env(safe-area-inset-right,0px)) + 112px);bottom:calc(env(safe-area-inset-bottom,0px) + 24px);height:76px}
+#wheelS::before{left:0;right:0;top:34px;height:8px}
+#wheelS::after{content:"";position:absolute;left:50%;top:26px;width:2px;height:24px;background:rgba(255,255,255,.6)}
+#wheelS .thumb{top:0;margin-left:-38px;width:76px;height:76px;border-radius:50%;background:rgba(12,10,16,.68);display:grid;place-items:center;position:absolute}
+#wheelS .thumb i{display:block;width:50px;height:50px;box-sizing:border-box;border:7px solid #fff;border-radius:50%;background:linear-gradient(#fff,#fff) center/100% 6px no-repeat,linear-gradient(#fff,#fff) 50% 100%/6px 50% no-repeat}
+#speedS{right:calc(max(16px,env(safe-area-inset-right,0px)) + 20px);bottom:calc(env(safe-area-inset-bottom,0px) + 42px);width:48px;height:min(200px,44vh)}
+#speedS::before{top:0;bottom:0;left:20px;width:8px}
+#speedS .thumb{position:absolute;left:-6px;margin-bottom:-22px;width:60px;height:44px;border-radius:12px;background:var(--gold);color:#2A2000;font-family:var(--display);font-weight:800;font-size:19px;line-height:44px;text-align:center}
+body:not([data-steer=buttons]) #left,body:not([data-steer=buttons]) #right,body:not([data-steer=slider]) #wheelS{display:none}
+body:not([data-speed=pedals]) #gas,body:not([data-speed=pedals]) #brake,body:not([data-speed=slider]) #speedS{display:none}
+.opt{display:grid;gap:5px;text-align:left}.opt>span{font-size:13px;opacity:.75}
+.seg{display:flex;gap:6px}
+.seg button{flex:1;min-height:42px;border:2px solid var(--line);border-radius:12px;background:transparent;color:var(--ink);font:600 14px var(--body);cursor:pointer;padding:4px}
+.seg button.on{background:var(--gold);border-color:var(--gold);color:#2A2000}
+.seg button:focus-visible{outline:3px solid var(--sky);outline-offset:2px}
+@media (max-height:480px){.tools{grid-auto-flow:column;top:calc(env(safe-area-inset-top,0px) + 12px);right:calc(max(16px,env(safe-area-inset-right,0px)) + 52px)}}
+body.calm .top,body.calm .tools{opacity:0}
 body.calm .__back{opacity:0}
 body.calm.autopilot .pad{opacity:0}
-body.calm .pad{opacity:.35}
+body.calm .pad,body.calm .track{opacity:.4}
+body.calm.autopilot .track{opacity:0}
 .say{position:fixed;left:0;right:0;top:24%;text-align:center;font-family:var(--display);font-weight:800;font-size:30px;color:#fff;pointer-events:none;opacity:0;text-shadow:0 3px 0 rgba(0,0,0,.35),0 0 18px rgba(0,0,0,.5);padding:0 16px}
 .say.show{animation:say 1.8s ease forwards}
 @keyframes say{0%{opacity:0;transform:translateY(8px)}15%,75%{opacity:1;transform:none}100%{opacity:0}}
@@ -64,15 +84,13 @@ body.calm .pad{opacity:.35}
     <button class="icon" id="radio" type="button" aria-label="Радіо">📻</button>
     <button class="icon" id="cam" type="button" aria-label="Змінити камеру">🎥</button>
     <button class="icon" id="auto" type="button" aria-label="Автопілот" aria-pressed="false">A</button>
-    <button class="icon" id="tilt" type="button" aria-label="Кермо нахилом" aria-pressed="false">📱</button>
   </div>
-  <div class="cruise">
-    <button class="icon" id="slower" type="button" aria-label="Повільніше">−</button>
-    <b id="cruiseV">90</b>
-    <button class="icon" id="faster" type="button" aria-label="Швидше">+</button>
-  </div>
+  <div class="track" id="wheelS" role="slider" tabindex="0" aria-label="Кермо" aria-valuemin="-1" aria-valuemax="1"><div class="thumb"><i></i></div></div>
   <button class="pad" id="left" type="button" aria-label="Кермо ліворуч">←</button>
   <button class="pad" id="right" type="button" aria-label="Кермо праворуч">→</button>
+  <div class="track" id="speedS" role="slider" tabindex="0" aria-label="Швидкість" aria-valuemin="0" aria-valuemax="33"><div class="thumb">90</div></div>
+  <button class="pad" id="gas" type="button" aria-label="Газ"><small>Газ</small></button>
+  <button class="pad" id="brake" type="button" aria-label="Гальмо"><small>Стоп</small></button>
 </div>
 
 <div class="overlay" id="menu">
@@ -80,6 +98,8 @@ body.calm .pad{opacity:.35}
     <h1>Релакс</h1>
     <p>Дорога без кінця, день і ніч, дощ і сніг. Ані цілі, ані аварій.</p>
     <div class="dots" id="colors"></div>
+    <div class="opt"><span>Кермо</span><div class="seg"><button type="button" data-set="steerMode" data-val="slider">Повзунок</button><button type="button" data-set="steerMode" data-val="buttons">Кнопки</button><button type="button" data-set="steerMode" data-val="tilt">Нахил</button></div></div>
+    <div class="opt"><span>Швидкість</span><div class="seg"><button type="button" data-set="speedMode" data-val="slider">Повзунок</button><button type="button" data-set="speedMode" data-val="pedals">Педалі</button></div></div>
     <button class="btn" id="go" type="button">Їхати</button>
     <button class="btn2" id="watch" type="button">Просто дивитись</button>
     <p class="hint">Радіо вбудоване. Хочеш своє — увімкни 🎧 «Своя музика» й запусти її в іншому застосунку.</p>
