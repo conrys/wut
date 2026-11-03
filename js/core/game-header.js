@@ -33,6 +33,10 @@
 
     for (const name of SLOT_NAMES) {
       if (!header.querySelector(`[data-header-slot="${name}"]`)) {
+        // слот уже є в розмітці сторінки (Косинка) — лише позначаємо його: інакше з'являється
+        // другий порожній слот, а в режимі шапки «лише кнопки» кнопки не реагують на дотик
+        const own = header.querySelector(`.slot-${name}`);
+        if (own) { own.dataset.headerSlot = name; continue; }
         const slot = document.createElement("div");
         slot.className = `slot-${name}`;
         slot.dataset.headerSlot = name;
