@@ -48,6 +48,7 @@ body.calm #gears{opacity:.4}
 #hand{right:max(16px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 254px);background:rgba(255,201,60,.42)}
 body[data-speed=pedals] #hand{bottom:calc(env(safe-area-inset-bottom,0px) + 200px)}
 body.autopilot #hand{display:none}
+body.padmode #auto,body.padmode #watch{display:none}
 .opt{display:grid;gap:5px;text-align:left}.opt>span{font-size:13px;opacity:.75}
 .seg{display:flex;gap:6px}
 .seg button{flex:1;min-height:42px;border:2px solid var(--line);border-radius:12px;background:transparent;color:var(--ink);font:600 14px var(--body);cursor:pointer;padding:4px}
@@ -107,7 +108,7 @@ body.calm.autopilot .track{opacity:0}
     <h1>Релакс</h1>
     <p>Дорога без кінця, день і ніч, дощ і сніг. Ані цілі, ані аварій.</p>
     <div class="dots" id="colors"></div>
-    <div class="opt"><span>Дорога</span><div class="seg"><button type="button" data-set="roadMode" data-val="highway">Траса</button><button type="button" data-set="roadMode" data-val="wild">Ґрунт, шпильки</button></div></div>
+    <div class="opt"><span>Дорога</span><div class="seg"><button type="button" data-set="roadMode" data-val="highway">Траса</button><button type="button" data-set="roadMode" data-val="pad">Майданчик</button></div></div>
     <div class="opt"><span>Кермо</span><div class="seg"><button type="button" data-set="steerMode" data-val="slider">Повзунок</button><button type="button" data-set="steerMode" data-val="buttons">Кнопки</button><button type="button" data-set="steerMode" data-val="tilt">Нахил</button></div></div>
     <div class="opt"><span>Швидкість</span><div class="seg"><button type="button" data-set="speedMode" data-val="slider">Повзунок</button><button type="button" data-set="speedMode" data-val="pedals">Педалі</button></div></div>
     <div class="opt"><span>Передачі</span><div class="seg"><button type="button" data-set="gearMode" data-val="off">Без передач</button><button type="button" data-set="gearMode" data-val="manual">Ручні</button></div></div>

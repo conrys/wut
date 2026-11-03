@@ -8,13 +8,15 @@
   const COLORS = [0xD63A32, 0x2F6FBF, 0xE8E4D8, 0x2FA36B, 0xF2B632, 0x35363C];
   const CAMS = [['cabin', 'Із салону'], ['chase', 'Ззаду'], ['side', 'Узбіччя']];
   const st = { color: load('color', 0), cam: load('cam', 0), radio: load('radio', 0), cruise: load('cruise', 25), steerMode: load('steer', 'slider'), speedMode: load('speed', 'slider'), roadMode: load('road', 'highway'), gearMode: load('gears', 'off'), btn: 0, auto: false, playing: false, total: load('km', 0), tiltV: 0 };
-  const seed = (Math.random() * 1e9) | 0, wild = st.roadMode === 'wild', road = new Road({ seed, wild }), car = new Car(road, { rail: wild ? 0 : road.half + 5, surface: wild ? 'gravel' : 'asphalt' });
+  const seed = (Math.random() * 1e9) | 0, pad = st.roadMode !== 'highway', road = new Road({ seed, pad }), car = new Car(road, { rail: pad ? 0 : road.half + 5 });
+  document.body.classList.toggle('padmode', pad);
   const sc = new Scene({ canvas: $('gl'), road, car, color: COLORS[st.color], time: 0.08 + Math.random() * 0.45 });
   sc.setCam(CAMS[st.cam][0]);
 
   /* погода іде сама; сніг лише взимку */
   let wxLeft = 0, wxName = 'clear';
   function weather(dt) {
+    if (pad) return;
     wxLeft -= dt;
     const b = road.biome(car.s), winter = (b.t > 0.5 ? b.b : b.a) === 4;
     if (winter !== (wxName === 'snow' || wxName === 'wclear')) wxLeft = 0;
@@ -146,7 +148,7 @@
     if (st.playing) {
       const ap = autopilot(road, car, st.speedMode === 'slider' ? st.cruise : 25), hand = steerHand(dt);
       if (st.auto) inp = hand ? { ...ap, steer: hand } : ap;
-      else { const sp = speedInput(ap), keep = 0.3 * (1 - Math.min(1, Math.abs(hand) * 3)); inp = { steer: hand + (wild || ped.hand || keys.hand ? 0 : ap.steer * keep), gas: sp.gas, brake: sp.brake, hand: ped.hand || keys.hand }; }
+      else { const sp = speedInput(ap), keep = 0.3 * (1 - Math.min(1, Math.abs(hand) * 3)); inp = { steer: hand + (pad || ped.hand || keys.hand ? 0 : ap.steer * keep), gas: sp.gas, brake: sp.brake, hand: ped.hand || keys.hand }; }
     } else inp = autopilot(road, car, 16);
     car.gripMul = 1 - 0.22 * sc.wx.rain - 0.42 * sc.wx.snow;
     car.step(dt, inp); weather(dt); sc.update(dt);
