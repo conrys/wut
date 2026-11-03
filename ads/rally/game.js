@@ -82,7 +82,7 @@
   function begin() {
     speakInit(); M.setStation(3);
     const L = LOC[st.loc], seed = (Math.random() * 1e9) | 0;
-    road = new Road({ seed, fixedBiome: L.biome, startBiome: L.biome, kMax: L.kMax, hill: L.hill, kRate: 14, maxH: 1.3 });
+    road = new Road({ seed, fixedBiome: L.biome, startBiome: L.biome, kMax: L.kMax, hill: L.hill, kRate: 14, maxH: 1, lowFar: true });
     car = new Car(road, { lane: 0, rail: road.half + 5, s: 12 });
     sc = new Scene({ canvas: $('gl'), road, car, color: COLORS, body: st.body, device: true, seat: 'driver', time: 0.1 + Math.random() * 0.42, lockDay: true });
     sc.setCam('cabin'); sc.addGate(26, 0xFFC93C); sc.addGate(LEN, 0x3DD6A3);
@@ -130,7 +130,7 @@
         if (!held && wheel) wheel -= Math.sign(wheel) * Math.min(Math.abs(wheel), dt * 1.1);
         wTh.style.left = (wheel + 1) * 50 + '%';
         const s = Math.sign(wheel) * Math.abs(wheel) ** 1.3 + (key.ArrowRight ? 1 : 0) - (key.ArrowLeft ? 1 : 0);
-        inp = { steer: clamp(s, -1, 1), gas: gas || key.ArrowUp ? 1 : 0, brake: brake || key.ArrowDown ? 1 : 0, hand: hand || key[' '] };
+        inp = { steer: clamp(s, -1, 1), gas: gas || key.ArrowUp ? 1 : 0, brake: brake || key.ArrowDown ? 1 : 0, rev: brake || key.ArrowDown, hand: hand || key[' '] };
       } else inp = botDrive();
       if (Math.abs(car.off) > road.half + 0.6) off += dt;
       $('time').textContent = fmt(t); $('speed').textContent = Math.round(car.speed * 3.6); $('left').textContent = (Math.max(0, LEN - car.s) / 1000).toFixed(1);

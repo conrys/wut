@@ -83,6 +83,7 @@
     const hgt = (p, off, wx, wz) => {
       const a = Math.abs(off), b = road.biome(p.s), amp = lerp(BI[b.a].amp, BI[b.b].amp, b.t);
       const t = smooth((a - 6) / 46), ditch = -0.55 * smooth((a - hw - 1) / 2) * (1 - smooth((a - 9) / 7));
+      if (road.lowFar) return ditch + t * (-14 * road.hill - 3 + (noise(wx * 0.011, wz * 0.011) - 1) * amp * 0.35 - p.y + noise(wx * 0.05, wz * 0.05) * 1.2);
       return ditch + t * ((noise(wx * 0.011, wz * 0.011) + 0.45) * amp + noise(wx * 0.05, wz * 0.05) * 1.6);
     };
     const pt = (p, off) => {

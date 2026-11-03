@@ -118,7 +118,7 @@
     return clamp(hand, -1, 1);
   }
   function speedInput(ap) {
-    if (st.speedMode === 'pedals') { const g = ped.gas || keys.up, b = ped.brake || keys.down; return { gas: g ? 1 : 0, brake: b ? 1 : (g ? 0 : 0.04) }; }
+    if (st.speedMode === 'pedals') { const g = ped.gas || keys.up, b = ped.brake || keys.down; return { gas: g ? 1 : 0, brake: b ? 1 : (g ? 0 : 0.04), rev: b }; }
     if (keys.up || keys.down) speedS.set(st.cruise = clamp(st.cruise + ((keys.up ? 1 : 0) - (keys.down ? 1 : 0)) * 0.2, 0, 41.7));
     const dv = st.cruise - car.speed;
     return { gas: dv > 0 ? clamp(dv / 3 + 0.2, 0, 1) : 0, brake: dv < -0.5 ? clamp(-dv / 8, 0, 0.7) : 0 };
@@ -149,7 +149,7 @@
     if (st.playing) {
       const ap = autopilot(road, car, st.speedMode === 'slider' ? st.cruise : 25), hand = steerHand(dt);
       if (st.auto) inp = hand ? { ...ap, steer: hand } : ap;
-      else { const sp = speedInput(ap), keep = 0.3 * (1 - Math.min(1, Math.abs(hand) * 3)); inp = { steer: hand + (pad || ped.hand || keys.hand ? 0 : ap.steer * keep), gas: sp.gas, brake: sp.brake, hand: ped.hand || keys.hand }; }
+      else { const sp = speedInput(ap), keep = 0.3 * (1 - Math.min(1, Math.abs(hand) * 3)); inp = { steer: hand + (pad || ped.hand || keys.hand ? 0 : ap.steer * keep), gas: sp.gas, brake: sp.brake, rev: sp.rev, hand: ped.hand || keys.hand }; }
     } else inp = autopilot(road, car, 16);
     car.gripMul = 1 - 0.22 * sc.wx.rain - 0.42 * sc.wx.snow;
     car.step(dt, inp); weather(dt); sc.update(dt);

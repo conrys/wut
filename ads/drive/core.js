@@ -24,7 +24,7 @@
       this.pad = !!opt.pad; /* тестовий майданчик: дороги немає, під авто пряма невидима лінія */
       if (this.pad) this.half = 1e5;
       this.kMax = opt.kMax || 1 / 95;
-      this.fixedBiome = opt.fixedBiome == null ? null : opt.fixedBiome; this.kRate = opt.kRate || 36; this.maxH = opt.maxH || 0.8;
+      this.fixedBiome = opt.fixedBiome == null ? null : opt.fixedBiome; this.kRate = opt.kRate || 36; this.maxH = opt.maxH || 0.8; this.lowFar = !!opt.lowFar; /* далека земля нижче дороги: на звивистій трасі схили не нависають над нею */
       this.hill = this.pad ? 0 : opt.hill == null ? 1 : opt.hill;
       this.r = rng(opt.seed || 1);
       this.pts = [{ s: 0, x: 0, z: 0, h: 0, k: 0, y: 0 }];
@@ -141,7 +141,8 @@
         if (r > 1) vf -= (r - 1) * 12 * dt; /* двигун стримує на надто низькій передачі */
       } else { power = 1 - clamp(vf / this.vmax, 0, 1); this.rpm += (0.28 + 0.6 * clamp(vf / this.vmax, 0, 1) + 0.1 * gas - this.rpm) * Math.min(1, dt * 3); }
       vf += gas * this.accel * power * dt;
-      vf -= (inp.brake || 0) * 12 * dt * Math.sign(vf);
+      if (inp.rev && vf < 0.6) vf -= 5.5 * (1 + clamp(vf / 10, -1, 0)) * dt; /* «Стоп» на місці — задній хід */
+      else vf -= (inp.brake || 0) * 12 * dt * Math.sign(vf);
       vf -= vf * S.drag * dt;
       this.braking = (inp.brake || 0) > 0.1;
       this.ax += ((vf - v0) / dt - this.ax) * Math.min(1, dt * 6);
