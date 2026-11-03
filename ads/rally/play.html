@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<script src="../../js/core/native.js"></script>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Раллі</title>
+<link rel="stylesheet" href="../../vendor/fonts/baloo-2.css"><link rel="stylesheet" href="../../vendor/fonts/rubik.css">
+<style>
+:root{--ink:#F4F1EA;--night:#14121A;--card:#1E1B25;--line:#33303D;--gold:#FFC93C;--gold-deep:#C99716;--sky:#59C3FF;
+  --display:'Baloo 2','Arial Rounded MT Bold','Trebuchet MS',sans-serif;--body:'Rubik',system-ui,-apple-system,sans-serif;color-scheme:dark}
+html,body{height:100%;margin:0}
+[hidden]{display:none!important}
+body{background:var(--night);color:var(--ink);font-family:var(--body);overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+#gl{position:fixed;inset:0;width:100%;height:100%;display:block}
+.top{position:fixed;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 12px);padding:0 max(16px,env(safe-area-inset-right,0px)) 0 calc(max(10px,env(safe-area-inset-left,0px)) + 44px);display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.chip{font-family:var(--display);font-weight:800;font-size:16px;line-height:1;background:rgba(12,10,16,.62);padding:8px 10px 6px;border-radius:12px;white-space:nowrap}
+.chip small{font-size:12px;opacity:.7;margin-left:3px}
+.loc{font-size:13px}
+.seatb{position:fixed;right:max(16px,env(safe-area-inset-right,0px));top:calc(env(safe-area-inset-top,0px) + 96px);min-height:44px;padding:0 14px;border:0;border-radius:12px;background:var(--gold);color:#2A2000;font-family:var(--display);font-weight:800;font-size:16px;cursor:pointer}
+.call{position:fixed;left:0;right:0;top:27%;text-align:center;font-family:var(--display);font-weight:800;font-size:40px;line-height:1;color:#fff;text-shadow:0 3px 0 rgba(0,0,0,.45),0 0 16px rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:opacity .2s}
+.call.show{opacity:1}
+.pad{position:fixed;width:76px;height:76px;border:0;border-radius:50%;color:#fff;font-family:var(--display);font-weight:800;font-size:15px;cursor:pointer;touch-action:none;transition:transform .12s;right:max(16px,env(safe-area-inset-right,0px))}
+.pad.on{transform:scale(.93)}
+#gas{bottom:calc(env(safe-area-inset-bottom,0px) + 112px);background:rgba(61,214,163,.5)}
+#brake{bottom:calc(env(safe-area-inset-bottom,0px) + 24px);background:rgba(255,92,92,.5)}
+#hand{bottom:calc(env(safe-area-inset-bottom,0px) + 200px);background:rgba(255,201,60,.5)}
+#wheelS{position:fixed;left:calc(max(16px,env(safe-area-inset-left,0px)) + 38px);width:min(210px,calc(100vw - 166px));bottom:calc(env(safe-area-inset-bottom,0px) + 24px);height:76px;touch-action:none}
+#wheelS::before{content:"";position:absolute;left:0;right:0;top:34px;height:8px;background:rgba(255,255,255,.26);border-radius:6px}
+#wheelS .thumb{position:absolute;left:50%;top:0;margin-left:-38px;width:76px;height:76px;border-radius:50%;background:rgba(12,10,16,.68);display:grid;place-items:center}
+#wheelS .thumb i{display:block;width:50px;height:50px;box-sizing:border-box;border:7px solid #fff;border-radius:50%}
+.navp{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 14px);display:grid;grid-template-columns:repeat(3,1fr);gap:6px;width:min(360px,calc(100vw - 32px))}
+.navp button{min-height:48px;border:0;border-radius:12px;color:#fff;font:700 14px var(--body);cursor:pointer;touch-action:none}
+.navp .l{background:rgba(89,195,255,.55)}.navp .r{background:rgba(255,138,30,.6)}
+.navp button:active{transform:scale(.96)}
+body:not([data-seat=drive]) #gas,body:not([data-seat=drive]) #brake,body:not([data-seat=drive]) #hand,body:not([data-seat=drive]) #wheelS{display:none}
+body:not([data-seat=nav]) .navp{display:none}
+.overlay{position:fixed;inset:0;display:grid;padding:calc(env(safe-area-inset-top,0px) + 16px) max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 16px) max(16px,env(safe-area-inset-left,0px));background:rgba(8,6,12,.5);overflow-y:auto;place-items:start center;touch-action:pan-y}
+.card{margin-block:auto;background:var(--card);border:1px solid var(--line);border-radius:24px;padding:22px;max-width:380px;width:100%;box-sizing:border-box;text-align:center;box-shadow:0 10px 0 rgba(0,0,0,.4);display:grid;gap:10px}
+.card h1{font-family:var(--display);font-weight:800;font-size:40px;line-height:1;margin:0;color:var(--gold)}
+.card p{margin:0;font-size:15px;line-height:1.45}
+.opt{display:grid;gap:5px;text-align:left}.opt>span{font-size:13px;opacity:.75}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{flex:1 1 30%;min-height:42px;border:2px solid var(--line);border-radius:12px;background:transparent;color:var(--ink);font:600 13px var(--body);cursor:pointer;padding:4px}
+.seg button.on{background:var(--gold);border-color:var(--gold);color:#2A2000}
+.seg button:focus-visible,.btn:focus-visible{outline:3px solid var(--sky);outline-offset:2px}
+.btn{font-family:var(--display);font-weight:800;font-size:22px;background:var(--gold);color:#2A2000;border:0;border-radius:16px;padding:10px 26px 8px;box-shadow:0 5px 0 var(--gold-deep);cursor:pointer;justify-self:center}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div class="call" id="call" aria-live="polite"></div>
+<div id="hud" hidden>
+  <div class="top">
+    <span class="chip" id="time">0:00.0</span>
+    <span class="chip"><span id="speed">0</span><small>км/год</small></span>
+    <span class="chip"><span id="left">2.6</span><small>км</small></span>
+    <span class="chip loc" id="locChip"></span>
+  </div>
+  <button class="seatb" id="seatBtn" type="button">⇄ За кермо</button>
+  <div class="track" id="wheelS" role="slider" aria-label="Кермо" aria-valuemin="-1" aria-valuemax="1" aria-valuenow="0"><div class="thumb"><i></i></div></div>
+  <button class="pad" id="hand" type="button">Ручник</button>
+  <button class="pad" id="gas" type="button">Газ</button>
+  <button class="pad" id="brake" type="button">Стоп</button>
+  <div class="navp" aria-label="Підказки водієві">
+    <button class="l" type="button" data-call="L5">Лівий легкий</button><button class="l" type="button" data-call="L3">Лівий середній</button><button class="l" type="button" data-call="L1">Лівий крутий</button>
+    <button class="r" type="button" data-call="R5">Правий легкий</button><button class="r" type="button" data-call="R3">Правий середній</button><button class="r" type="button" data-call="R1">Правий крутий</button>
+  </div>
+</div>
+<div class="overlay" id="menu">
+  <div class="card">
+    <h1>Раллі</h1>
+    <p>Водій бачить лише дорогу, штурман — карту. Прототип: другим місцем керує бот.</p>
+    <div class="opt"><span>Твоє місце</span><div class="seg"><button type="button" data-set="seat" data-val="nav">Штурман</button><button type="button" data-set="seat" data-val="drive">Водій</button><button type="button" data-set="seat" data-val="watch">Обидва боти</button></div></div>
+    <div class="opt"><span>Локація</span><div class="seg"><button type="button" data-set="loc" data-val="carp">Карпати</button><button type="button" data-set="loc" data-val="step">Степ</button><button type="button" data-set="loc" data-val="selo">Село</button><button type="button" data-set="loc" data-val="osin">Осінь</button><button type="button" data-set="loc" data-val="zyma">Зима</button></div></div>
+    <div class="opt"><span>Видимість</span><div class="seg"><button type="button" data-set="wx" data-val="rand">Випадкова</button><button type="button" data-set="wx" data-val="1250">Ясно</button><button type="button" data-set="wx" data-val="150">150 м</button><button type="button" data-set="wx" data-val="60">60 м</button><button type="button" data-set="wx" data-val="10">10 м</button></div></div>
+    <div class="opt"><span>Бот-штурман</span><div class="seg"><button type="button" data-set="nav" data-val="easy">Новачок</button><button type="button" data-set="nav" data-val="mid">Досвідчений</button><button type="button" data-set="nav" data-val="pro">Профі</button></div></div>
+    <button class="btn" id="go" type="button">Старт</button>
+  </div>
+</div>
+<div class="overlay" id="end" hidden>
+  <div class="card">
+    <h1>Фініш</h1>
+    <p style="font-family:var(--display);font-size:34px;font-weight:800" id="endTime"></p>
+    <p id="endText"></p><p id="endGrade" style="font-weight:700"></p>
+    <button class="btn" id="again" type="button">Ще раз</button>
+  </div>
+</div>
+<script src="../vendor/three.min.js"></script>
+<script src="../vendor/engine.js"></script>
+<script src="../drive/core.js" charset="utf-8"></script>
+<script src="../drive/scene.js" charset="utf-8"></script>
+<script src="../relax/music.js" charset="utf-8"></script>
+<script src="game.js" charset="utf-8"></script>
+<a href="../../index.html" class="__back" aria-label="До списку ігор" style="position:fixed;left:max(10px,env(safe-area-inset-left,0px));top:calc(env(safe-area-inset-top,0px) + 12px);z-index:50;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.45);color:#fff;display:grid;place-items:center;text-decoration:none;font:700 18px system-ui">←</a>
+<script src="../../js/core/back-button.js"></script>
+</body>
+</html>

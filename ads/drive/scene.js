@@ -286,8 +286,11 @@
     G.drops = new T.Points(dg, new T.PointsMaterial({ color: 0xDCEBF4, size: 0.012, transparent: true, opacity: 0.6, map: softDot(), depthWrite: false })); G.drops.frustumCulled = false; G.add(G.drops);
     /* пристрій штурмана: Раллі малює карту на його екрані */
     if (opt && opt.device) {
-      const d = new T.Group(); d.position.set(0.37, -0.56, -0.34); d.rotation.x = -0.62;
-      d.add(new T.Mesh(new T.BoxGeometry(0.3, 0.42, 0.03), new T.MeshLambertMaterial({ color: 0xE08A1E })));
+      const d = new T.Group(); d.position.set(0.37, -0.25, -0.5); d.rotation.x = -0.5;
+      d.add(new T.Mesh(new T.BoxGeometry(0.3, 0.4, 0.03), new T.MeshLambertMaterial({ color: 0xE08A1E })));
+      const sc = new T.Mesh(new T.PlaneGeometry(0.25, 0.34), new T.MeshBasicMaterial({ map: opt.device })); sc.position.z = 0.017; d.add(sc);
+      const hm2 = new T.MeshLambertMaterial({ color: 0xD9C7A6 });
+      for (const sg of [-1, 1]) { const h = new T.Mesh(new T.BoxGeometry(0.07, 0.16, 0.06), hm2); h.position.set(sg * 0.17, -0.1, 0.02); d.add(h); }
       G.add(d); G.device = d;
     }
     return G;
@@ -343,7 +346,9 @@
       this.spot = new T.SpotLight(0xFFF1CC, 0, 90, 0.5, 0.6, 1.2); this.spot.position.set(0, 1, 1.5); this.spot.target.position.set(0, 0, 18); this.carM.add(this.spot, this.spot.target);
       this.cabS = new T.Scene(); this.cabC = new T.PerspectiveCamera(62, 1, 0.05, 10);
       this.cabHemi = new T.HemisphereLight(0xffffff, 0x777788, 0.8); this.cabSun = new T.DirectionalLight(0xffffff, 0.5); this.cabSun.position.set(-0.2, 0.7, 0.9); this.cabS.add(this.cabHemi, this.cabSun);
-      this.cab = cabinModel(opt.color, { device: opt.device }); this.cabS.add(this.cab);
+      this.seat = opt.seat || 'driver';
+      if (opt.device) { this.devC = document.createElement('canvas'); this.devC.width = 256; this.devC.height = 348; this.devTex = new T.CanvasTexture(this.devC); }
+      this.cab = cabinModel(opt.color, { device: this.devTex }); this.cabS.add(this.cab);
       this.color = opt.color; this.orb = null; this.fit();
       addEventListener('resize', () => this.fit());
       this.syncChunks(true);
@@ -352,7 +357,7 @@
     setColor(c) {
       this.color = c; this.scene.remove(this.carM); this.spot.parent && this.carM.remove(this.spot, this.spot.target);
       this.carM = carModel(c, this.bodyType); this.carM.add(this.spot, this.spot.target); this.scene.add(this.carM);
-      this.cabS.remove(this.cab); this.cab = cabinModel(c, { device: !!this.cab.device }); this.cabS.add(this.cab);
+      this.cabS.remove(this.cab); this.cab = cabinModel(c, { device: this.devTex }); this.cabS.add(this.cab);
     }
     /* однаковий масштаб у вертикальному й горизонтальному положенні: фокусна відстань іде від короткої сторони екрана */
     fit() {
@@ -361,6 +366,15 @@
       this.baseFov = fov; w.camera.fov = fov; w.camera.updateProjectionMatrix(); this.cabC.fov = fov; this.cabC.aspect = a; this.cabC.updateProjectionMatrix();
     }
     setCam(m) { this.cam = m; this.orb = null; this.fit(); }
+    /* Раллі: задана видимість у метрах */
+    setVisibility(n, vis) { this.wxT = { ...WEATHER[n], name: n, vis }; this.wx = { ...this.wxT }; }
+    /* арка старту / фінішу */
+    addGate(s, color, label) {
+      const p = this.road.at(s), t = new Tris(), c = rgb(color), hw = this.road.half + 1.2;
+      for (const sg of [-1, 1]) t.box(-Math.cos(p.h) * sg * hw, 2.6, Math.sin(p.h) * sg * hw, 0.3, 5.2, 0.3, p.h, [0.2, 0.2, 0.22]);
+      t.box(0, 5.2, 0, hw * 2 + 0.3, 0.9, 0.2, p.h, c);
+      const m = new T.Mesh(t.geo(), this.mat); m.position.set(p.x, p.y, p.z); this.scene.add(m); return m;
+    }
     setWeather(n, instant) { this.wxT = { ...WEATHER[n], name: n }; if (instant) this.wx = { ...this.wxT }; }
     buildSky() {
       const g = new T.SphereGeometry(1200, 16, 10), n = g.getAttribute('position').count;
@@ -509,6 +523,7 @@
       for (const wh of m.wheels) wh.rotation.x = c.spin;
       const sy = Math.sin(c.yaw), cy = Math.cos(c.yaw), vis = this.cam !== 'cabin'; m.visible = vis || this.lamp > 0.02;
       for (const ch of m.children) if (ch !== this.spot && ch !== this.spot.target) ch.visible = vis;
+      if (this.cab.device) this.cab.device.visible = this.seat === 'nav';
       if (this.cam === 'cabin') {
         const sx = this.seat === 'nav' ? 0.37 : -0.37, rx = -cy, rz = sy, sh = window.G3.reduce ? 0 : (c.speed > 3 ? c.speed * 0.00016 : 0) + rm * 0.03, lean = clamp(c.lat * 0.004, -0.05, 0.05);
         cam.position.set(c.x + sy * 0.15 + rx * (sx + lean), c.y + 1.2 + (Math.random() - 0.5) * sh, c.z + cy * 0.15 + rz * (sx + lean));

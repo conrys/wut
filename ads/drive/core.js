@@ -24,6 +24,7 @@
       this.pad = !!opt.pad; /* тестовий майданчик: дороги немає, під авто пряма невидима лінія */
       if (this.pad) this.half = 1e5;
       this.kMax = opt.kMax || 1 / 95;
+      this.fixedBiome = opt.fixedBiome == null ? null : opt.fixedBiome; this.kRate = opt.kRate || 36; this.maxH = opt.maxH || 0.8;
       this.hill = this.pad ? 0 : opt.hill == null ? 1 : opt.hill;
       this.r = rng(opt.seed || 1);
       this.pts = [{ s: 0, x: 0, z: 0, h: 0, k: 0, y: 0 }];
@@ -40,6 +41,7 @@
     /* біом у точці s: {a, b, t} — плавний перехід на останніх 180 м зони */
     biome(s) {
       if (this.pad) return { a: BIOME.FOREST, b: BIOME.FOREST, t: 0 };
+      if (this.fixedBiome != null) return { a: this.fixedBiome, b: this.fixedBiome, t: 0 };
       while (s + 400 > this.zoneEnd) {
         const last = this.zones[this.zones.length - 1].id;
         let id; do { id = Math.floor(this.r() * 5); } while (id === last);
@@ -64,13 +66,13 @@
           this.segLeft = 70 + this.r() * 240;
           const mag = this.r() < 0.22 ? 0 : this.kMax * (0.3 + this.r() * 0.7);
           let sign = this.r() < 0.5 ? -1 : 1;
-          if (Math.abs(q.h) > 0.6) sign = q.h > 0 ? -1 : 1;
+          if (Math.abs(q.h) > this.maxH * 0.75) sign = q.h > 0 ? -1 : 1;
           this.kT = mag * sign;
         }
         /* дорога не закручується в петлю і не перетинає сама себе */
-        if (Math.abs(q.h) > 0.8 && q.h * this.kT >= 0) { this.kT = -Math.sign(q.h) * this.kMax * 0.7; this.segLeft = Math.max(this.segLeft, 90); }
+        if (Math.abs(q.h) > this.maxH && q.h * this.kT >= 0) { this.kT = -Math.sign(q.h) * this.kMax * 0.7; this.segLeft = Math.max(this.segLeft, 90); }
         this.segLeft -= d;
-        const k = q.k + (this.kT - q.k) * Math.min(1, d / 36);
+        const k = q.k + (this.kT - q.k) * Math.min(1, d / this.kRate);
         const h = q.h + k * d, s = q.s + d;
         P.push({ s, k, h, x: q.x + Math.sin(h) * d, z: q.z + Math.cos(h) * d, y: this.elev(s) });
       }
@@ -202,15 +204,29 @@
   }
 
   /* Автопілот: слідує за смугою, сповільнюється перед поворотом */
-  function autopilot(road, car, cruise, lane = 1.75) {
+  function autopilot(road, car, cruise, lane = 1.75, see = 90) {
     const v = Math.max(car.speed, 5), L = 7 + v * 0.7, q = road.at(car.s + L);
     const tx = q.x - Math.cos(q.h) * lane, tz = q.z + Math.sin(q.h) * lane, dx = tx - car.x, dz = tz - car.z;
     const fw = dx * Math.sin(car.yaw) + dz * Math.cos(car.yaw), rt = -dx * Math.cos(car.yaw) + dz * Math.sin(car.yaw);
     const curv = 2 * rt / Math.max(9, fw * fw + rt * rt), ang = Math.atan(curv * 2.6);
     let safe = cruise;
-    for (let d = 10; d <= 90; d += 20) { const k = Math.abs(road.at(car.s + d).k); if (k > 1e-4) safe = Math.min(safe, Math.sqrt(3.4 / k) + d * 0.08); }
+    for (let d = 10; d <= see; d += 20) { const k = Math.abs(road.at(car.s + d).k); if (k > 1e-4) safe = Math.min(safe, Math.sqrt(3.4 / k) + d * 0.08); }
     const dv = safe - car.speed;
     return { steer: clamp(ang / car.maxSteer(v), -1, 1), gas: dv > 0 ? clamp(dv / 3 + 0.3, 0, 1) : 0, brake: dv < -1 ? clamp(-dv / 12, 0, 0.6) : 0 };
+  }
+
+  /* Повороти ділянки дороги для легенди штурмана: 1 — шпилька, 6 — майже прямо */
+  function corners(road, from, to) {
+    const out = []; let cur = null;
+    for (let i = Math.floor(from / road.step); i * road.step < to; i++) {
+      const p = road.ensure(i), on = Math.abs(p.k) > 0.005, sign = p.k > 0 ? 1 : -1;
+      if (on && cur && cur.sign === sign) { cur.s1 = p.s; cur.k = Math.max(cur.k, Math.abs(p.k)); cur.ang += Math.abs(p.k) * road.step; }
+      else { if (cur) out.push(cur); cur = on ? { s0: p.s, s1: p.s, sign, k: Math.abs(p.k), ang: 0 } : null; }
+    }
+    if (cur) out.push(cur);
+    return out.filter((c) => c.ang > 0.3).map((c) => {
+      const R = 1 / c.k; return { s0: c.s0, s1: c.s1, k: c.k, dir: c.sign > 0 ? 'L' : 'R', grade: R < 34 ? 1 : R < 46 ? 2 : R < 62 ? 3 : R < 85 ? 4 : R < 120 ? 5 : 6, call: null };
+    });
   }
 
   const WEATHER = {
@@ -221,7 +237,7 @@
     snow: { vis: 210, grey: 0.8, dark: 0.08, rain: 0, snow: 1, label: 'Сніг' },
   };
 
-  const api = { Road, Car, autopilot, WEATHER, BIOME, noise, rng, clamp, lerp, smooth };
+  const api = { Road, Car, autopilot, corners, WEATHER, BIOME, noise, rng, clamp, lerp, smooth };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Drive = Object.assign(root.Drive || {}, api);
 })(typeof window !== 'undefined' ? window : globalThis);
