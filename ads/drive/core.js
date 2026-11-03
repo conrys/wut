@@ -118,7 +118,7 @@
       this.s = p.s; this.off = lane; this.dist = 0; this.vmax = opt.vmax || 42; this.accel = opt.accel || 6;
       this.surface = opt.surface || 'asphalt'; this.rail = opt.rail == null ? road.half + 5 : opt.rail;
       this.onGrass = false; this.lat = 0; this.gripMul = 1; this.ax = 0; this.bodyPitch = 0; this.bump = 0; this.rumble = 0;
-      this.manual = false; this.gear = 1; this.rpm = 0.3; this.braking = false; this.railOn = false; this.slip = 0; this.drift = 0;
+      this.manual = false; this.gear = 1; this.rpm = 0.3; this.braking = false; this.railOn = false; this.slip = 0; this.drift = 0; this.dr = null; this.travel = p.h;
     }
     get speed() { return Math.hypot(this.vx, this.vz); }
     /* кут коліс обмежений бічним прискоренням: на швидкості кермо не смикає авто */
@@ -130,16 +130,16 @@
     }
     sub(dt, inp) {
       const R = this.road, sf = Math.sin(this.yaw), cf = Math.cos(this.yaw);
+      if (inp.hand && !this.dr && this.speed > 5) {
+        const st = inp.steer || 0, k = R.at(this.s + 20).k;
+        this.dr = { s: st > 0.05 ? -1 : st < -0.05 ? 1 : k < 0 ? -1 : 1, ang: 0, rel: false };
+      }
+      if (this.dr) { this.subDrift(dt, inp); return; }
       let vf = this.vx * sf + this.vz * cf, vl = -this.vx * cf + this.vz * sf;
       this.steer += (clamp(inp.steer || 0, -1, 1) - this.steer) * Math.min(1, dt * 5.5);
-      /* ручник зриває задню вісь: кут коліс відкривається, а авто далі ковзає за інерцією */
-      const hb = inp.hand ? 1 : 0, sp = Math.hypot(vf, vl), std = this.maxSteer(Math.abs(vf));
-      if (hb && sp > 4) this.drift = Math.min(1, this.drift + dt * 7);
-      else this.drift = Math.max(0, this.drift - dt * (this.surface === 'gravel' ? 0.6 : 1.6) * (Math.abs(vl) < 2 ? 2 : 1));
-      const a = this.steer * lerp(std, Math.max(std, 0.42), this.drift);
+      const sp = Math.hypot(vf, vl), a = this.steer * this.maxSteer(Math.abs(vf));
       this.yaw -= vf * Math.tan(a) / 2.6 * dt;
-      /* нос сам тягнеться за напрямком руху, тому занос можна спіймати кермом */
-      this.yaw -= Math.atan2(vl, Math.max(4, Math.abs(vf))) * this.drift * 1.3 * dt;
+      this.travel = sp > 2 ? Math.atan2(this.vx, this.vz) : this.yaw; this.drift = 0;
       this.onGrass = Math.abs(this.off) > R.half + 1.1;
       const S = SURF[this.onGrass ? 'grass' : this.surface];
       const gas = inp.gas || 0, v0 = vf; let power;
@@ -151,15 +151,46 @@
       vf += gas * this.accel * power * dt;
       vf -= (inp.brake || 0) * 12 * dt * Math.sign(vf);
       vf -= vf * (R.wild ? Math.min(S.drag, 0.35) : S.drag) * dt; /* на тестовій ґрунтовці вилет за дорогу не вбиває швидкість */
-      vf -= hb * 3.5 * dt * Math.sign(vf);
-      this.braking = (inp.brake || 0) > 0.1 || !!hb;
+      this.braking = (inp.brake || 0) > 0.1;
       this.ax += ((vf - v0) / dt - this.ax) * Math.min(1, dt * 6);
       /* у швидкому повороті задня вісь трохи ковзає; дощ і сніг зменшують зчеплення */
       vl -= this.lat * 0.35 * dt;
-      vl *= Math.exp(-S.grip * this.gripMul * (1 - 0.4 * clamp(Math.abs(this.lat) / 16, 0, 1)) * lerp(1, 0.16, this.drift) * dt);
+      vl *= Math.exp(-S.grip * this.gripMul * (1 - 0.4 * clamp(Math.abs(this.lat) / 16, 0, 1)) * dt);
       this.slip = Math.abs(vl);
       const sn = Math.sin(this.yaw), cn = Math.cos(this.yaw);
       this.vx = sn * vf - cn * vl; this.vz = cn * vf + sn * vl;
+      this.track(dt, vf, vf * vf * Math.tan(a) / 2.6, sp);
+    }
+    /* Занос в аркадному стилі: окремий стан. Швидкість і напрямок руху живуть окремо від носа авто,
+       тож занос не залежить від тертя шин і завжди керований:
+       ручник тримаєш — авто йде дугою; кермо в поворот — дуга крутіша й кут більший; кермо назовні — дуга ширша.
+       Відпустив — ніс плавно повертається до напрямку руху, швидкість лишається. */
+    subDrift(dt, inp) {
+      const D = this.dr, st = clamp(inp.steer || 0, -1, 1), gas = inp.gas || 0; let v = this.speed, vh = Math.atan2(this.vx, this.vz), rate = 0, loss = 0.5;
+      const v0 = v; D.rel = !inp.hand;
+      if (!D.rel) {
+        let into = -st * D.s;
+        if (into < -0.75 && D.ang < 0.3) { D.s = -D.s; into = -into; } /* перекидання заносу в інший бік */
+        const t = (into + 1) / 2;
+        D.ang += (lerp(0.32, 1, t) - D.ang) * Math.min(1, dt * 6);
+        rate = lerp(0.35, 1.55, t) * clamp(v / 9, 0.5, 1.15) * (0.65 + 0.35 * this.gripMul) * (1 - 0.15 * gas);
+        loss = this.surface === 'gravel' ? 1.2 : 2.4;
+      } else { D.ang = Math.max(0, D.ang - dt * 1.6); rate = D.ang * 0.6; }
+      this.steer += (D.s * 0.55 * (D.rel ? 0 : 1) - this.steer) * Math.min(1, dt * 8);
+      vh += D.s * rate * dt;
+      const edge = Math.abs(this.off), grass = edge > this.road.half + 1.1;
+      v += gas * this.accel * 0.8 * (1 - clamp(v / this.vmax, 0, 1)) * dt - loss * dt - (inp.brake || 0) * 12 * dt - v * (grass ? 0.35 : 0.012) * dt;
+      v = Math.max(0, v);
+      this.yaw = vh + D.s * D.ang; this.vx = Math.sin(vh) * v; this.vz = Math.cos(vh) * v;
+      this.travel = vh; this.drift = clamp(D.ang / 0.7, 0, 1); this.slip = v * Math.sin(D.ang); this.braking = (inp.brake || 0) > 0.1;
+      this.onGrass = grass; this.ax += ((v - v0) / dt - this.ax) * Math.min(1, dt * 6);
+      this.rpm += (0.42 + 0.5 * gas + 0.05 * Math.sin(v) - this.rpm) * Math.min(1, dt * 5);
+      if ((D.rel && D.ang <= 0.01) || v < 3) { this.dr = null; this.yaw = vh; }
+      this.track(dt, v * Math.cos(D.ang), -D.s * rate * v, v);
+    }
+    /* спільне для звичайної їзди й заносу: позиція на дорозі, бортик, нахили */
+    track(dt, vf, lat, sp) {
+      const R = this.road;
       this.x += this.vx * dt; this.z += this.vz * dt;
       const L = R.locate(this.x, this.z, this.s);
       this.dist += Math.max(0, L.s - this.s); this.s = L.s; this.off = L.off;
@@ -174,7 +205,7 @@
       }
       const ahead = R.at(L.s + 2).y, back = R.at(Math.max(0, L.s - 2)).y;
       this.y = q.y; this.pitch += (Math.atan2(ahead - back, 4) - this.pitch) * Math.min(1, dt * 8);
-      this.lat = vf * vf * Math.tan(a) / 2.6;
+      this.lat = lat;
       this.roll += (clamp(-this.lat * 0.016, -0.085, 0.085) - this.roll) * Math.min(1, dt * 5);
       this.bodyPitch += (clamp(this.ax * 0.007, -0.05, 0.035) - this.bodyPitch) * Math.min(1, dt * 6);
       this.spin += vf * dt / 0.33;

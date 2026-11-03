@@ -471,12 +471,14 @@
       if (this.cam === 'cabin') {
         const sx = this.seat === 'nav' ? 0.37 : -0.37, rx = -cy, rz = sy, sh = window.G3.reduce ? 0 : (c.speed > 3 ? c.speed * 0.00016 : 0) + rm * 0.03, lean = clamp(c.lat * 0.004, -0.05, 0.05);
         cam.position.set(c.x + sy * 0.15 + rx * (sx + lean), c.y + 1.2 + (Math.random() - 0.5) * sh, c.z + cy * 0.15 + rz * (sx + lean));
-        cam.rotation.order = 'YXZ'; cam.rotation.set(c.pitch + c.bodyPitch * 0.6 - this.tilt, c.yaw + Math.PI, -c.roll * 0.7);
-        this.cabC.rotation.x = -this.tilt;
+        cam.rotation.order = 'YXZ'; let look = c.travel - c.yaw; look = Math.atan2(Math.sin(look), Math.cos(look)) * 0.5 * c.drift; /* у заносі дивимось туди, куди їдемо */
+        cam.rotation.set(c.pitch + c.bodyPitch * 0.6 - this.tilt, c.yaw + Math.PI + look, -c.roll * 0.7);
+        this.cabC.rotation.y = look;
+        this.cabC.rotation.order = 'YXZ'; this.cabC.rotation.x = -this.tilt;
         this.cab.position.set(-sx, 0, 0); this.cab.rotation.z = 0; this.cab.wheelRot.rotation.z = -c.steer * 1.6;
         const v = clamp(c.speed / 46, 0, 1); this.cab.needle.rotation.z = 3.8 - v * 4.4;
       } else if (this.cam === 'chase') {
-        if (this.lagYaw == null) this.lagYaw = c.yaw; let dy = c.yaw - this.lagYaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); this.lagYaw += dy * Math.min(1, dt * 3.2);
+        if (this.lagYaw == null) this.lagYaw = c.yaw; let dy = (c.drift > 0 ? c.travel : c.yaw) - this.lagYaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); this.lagYaw += dy * Math.min(1, dt * 3.2);
         const back = 6.6 + c.speed * 0.045, ly = Math.sin(this.lagYaw), lc = Math.cos(this.lagYaw), tx = c.x - ly * back, tz = c.z - lc * back, k = Math.min(1, dt * 7);
         if (!this.ch) this.ch = new T.Vector3(tx, c.y + 2.9, tz);
         this.ch.x += (tx - this.ch.x) * k; this.ch.y += (c.y + 2.9 - this.ch.y) * k; this.ch.z += (tz - this.ch.z) * k;
