@@ -75,7 +75,26 @@
   const CH = 30; /* точок у чанку */
   const AHEAD = 10, BEHIND = 2;
 
+  /* тестова ґрунтовка: лише смуга дороги й дерева осторонь, земля — одна пласка площина */
+  function wildChunk(road, c) {
+    const i0 = c * CH, r2 = rng(c * 7919 + 13), O = road.ensure(i0), ox = O.x, oy = O.y, oz = O.z, hw = road.half, R = new Tris(), g = new Tris(); R.uv = [];
+    const edge = (p, o) => [p.x - Math.cos(p.h) * o - ox, 0.06, p.z + Math.sin(p.h) * o - oz];
+    for (let i = i0; i < i0 + CH; i++) {
+      const a = road.ensure(i), b = road.ensure(i + 1), f = a.s / 24, h = b.s / 24, A = edge(a, -hw), B = edge(a, hw), C = edge(b, hw), E = edge(b, -hw), col = [1, 1, 1];
+      R.tri(A, B, E, col); R.uv.push(0, f, 1, f, 0, h); R.tri(B, C, E, col); R.uv.push(1, f, 1, h, 0, h);
+    }
+    for (let i = 0; i < 24; i++) {
+      const p = road.ensure(i0 + Math.floor(r2() * CH)), o = (r2() < 0.5 ? -1 : 1) * (9 + r2() * 45), x = p.x - Math.cos(p.h) * o, z = p.z + Math.sin(p.h) * o;
+      let free = true; for (let j = Math.max(0, i0 - 60); j < i0 + CH + 60 && free; j += 2) { const q = road.ensure(j); if ((q.x - x) ** 2 + (q.z - z) ** 2 < 64) free = false; }
+      if (!free) continue;
+      if (r2() < 0.5) g.pine(x - ox, 0, z - oz, 9 + r2() * 6, PINE, TR); else g.oak(x - ox, 0, z - oz, 7 + r2() * 5, LEAF[Math.floor(r2() * 3)], TR, r2);
+    }
+    if (!g.p.length) g.box(0, -5, 0, 0.1, 0.1, 0.1, 0, [0, 0, 0]);
+    return { ox, oy, oz, ground: g.geo(), road: R.geo(), lit: null };
+  }
+
   function chunk(road, c) {
+    if (road.wild) return wildChunk(road, c);
     const i0 = c * CH, r2 = rng(c * 7919 + 13), O = road.ensure(i0), ox = O.x, oy = O.y, oz = O.z;
     const P = (i) => road.ensure(i), ground = new Tris(), lit = new Tris(), R = new Tris(); R.uv = [];
     const hw = road.half, OFFS = [-160, -74, -34, -15, -7.5, -hw - 1, hw + 1, 7.5, 15, 34, 74, 160];
@@ -160,8 +179,14 @@
     return { ox, oy, oz, ground: ground.geo(), road: R.geo(), lit: lit.p.length ? lit.geo() : null };
   }
 
-  function roadTexture() {
+  function roadTexture(dirt) {
     return window.G3.canvasTex(128, 512, (g, W, H) => {
+      if (dirt) {
+        g.fillStyle = '#8C7052'; g.fillRect(0, 0, W, H); const r = rng(11);
+        for (let i = 0; i < 3200; i++) { const v = r(); g.fillStyle = v < 0.5 ? 'rgba(96,74,50,.5)' : 'rgba(170,144,110,.45)'; g.fillRect(r() * W, r() * H, 2 + r() * 3, 2 + r() * 3); }
+        g.fillStyle = 'rgba(70,52,36,.32)'; g.fillRect(W * 0.2, 0, W * 0.16, H); g.fillRect(W * 0.64, 0, W * 0.16, H);
+        return;
+      }
       g.fillStyle = '#6A6B70'; g.fillRect(0, 0, W, H);
       const r = rng(5); for (let i = 0; i < 2600; i++) { const v = 88 + r() * 40 | 0; g.fillStyle = `rgba(${v},${v},${v + 4},.5)`; g.fillRect(r() * W, r() * H, 2, 2); }
       for (let i = 0; i < 7; i++) { g.fillStyle = 'rgba(52,52,56,.16)'; g.fillRect(16 + r() * 90, r() * H, 3 + r() * 5, 30 + r() * 70); }
@@ -282,9 +307,13 @@
       const s = this.scene = this.w.scene, w = this.w; s.background = new T.Color(0xCDEBE6); w.renderer.autoClear = false;
       this.mat = new T.MeshLambertMaterial({ vertexColors: true, side: T.DoubleSide });
       this.lit = new T.MeshBasicMaterial({ vertexColors: true });
-      const rt = roadTexture(); rt.wrapS = rt.wrapT = T.RepeatWrapping; rt.anisotropy = 4;
+      const rt = roadTexture(this.road.wild); rt.wrapS = rt.wrapT = T.RepeatWrapping; rt.anisotropy = 4;
       this.roadMat = new T.MeshLambertMaterial({ map: rt, vertexColors: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
       this.chunks = new Map(); this.q = [];
+      if (this.road.wild) {
+        const gt = window.G3.canvasTex(256, 256, (g, W, H) => { g.fillStyle = '#5C8F45'; g.fillRect(0, 0, W, H); const r = rng(4); for (let i = 0; i < 500; i++) { g.fillStyle = r() < 0.5 ? 'rgba(74,126,58,.6)' : 'rgba(112,162,78,.5)'; g.fillRect(r() * W, r() * H, 3 + r() * 14, 3 + r() * 14); } });
+        gt.wrapS = gt.wrapT = T.RepeatWrapping; gt.repeat.set(25, 25); this.plane = new T.Mesh(new T.PlaneGeometry(2000, 2000), new T.MeshLambertMaterial({ map: gt })); this.plane.rotation.x = -1.5708; this.scene.add(this.plane);
+      }
       this.time = opt.time == null ? 0.3 : opt.time; this.dayLen = opt.dayLen || 480; this.locked = !!opt.lockDay;
       this.wx = { ...WEATHER.clear }; this.wxT = { ...WEATHER.clear }; this.night = 0; this.shake = 0;
       this.buildSky(); this.buildWeather(); this.buildDust();
@@ -349,15 +378,15 @@
     }
     effects(dt) {
       const c = this.car, W = this.wx, b = this.road.biome(c.s), winter = (b.t > 0.5 ? b.b : b.a) === BIOME.WINTER, sy = Math.sin(c.yaw), cy = Math.cos(c.yaw), v = c.speed;
-      const rain = W.rain * clamp(v / 18, 0, 1), snowKick = winter ? clamp(v / 16, 0, 1) * 0.45 : 0, rate = c.rumble * 60 + rain * 40 + snowKick * 26;
+      const rain = W.rain * clamp(v / 18, 0, 1), snowKick = winter ? clamp(v / 16, 0, 1) * 0.45 : 0, rate = c.rumble * 60 + rain * 40 + snowKick * 26 + (c.surface === 'gravel' ? c.slip * 14 : 0);
       this.emit += rate * dt;
-      const col = c.rumble > 0.1 ? (winter ? [0.93, 0.95, 0.97] : [0.68, 0.58, 0.42]) : winter ? [0.93, 0.95, 0.97] : [0.75, 0.8, 0.84];
+      const col = c.surface === 'gravel' ? [0.66, 0.55, 0.42] : c.rumble > 0.1 ? (winter ? [0.93, 0.95, 0.97] : [0.68, 0.58, 0.42]) : winter ? [0.93, 0.95, 0.97] : [0.75, 0.8, 0.84];
       while (this.emit > 1) { this.emit--; const sd = Math.random() < 0.5 ? -0.8 : 0.8; this.puff(c.x - sy * 1.7 - cy * sd, c.y + 0.25, c.z - cy * 1.7 + sy * sd, col); }
       const pa = this.dustM.geometry.getAttribute('position');
       for (const d of this.dust) { if (d.i == null) continue; d.l -= dt; if (d.l <= 0) { pa.setXYZ(d.i, 0, -9999, 0); continue; } d.x += d.vx * dt; d.y += d.vy * dt; d.z += d.vz * dt; d.vy -= dt * 1.4; pa.setXYZ(d.i, d.x, d.y, d.z); }
       pa.needsUpdate = true;
       /* сліди взимку й на траві */
-      const on = winter || c.rumble > 0.5; this.track.visible = true;
+      const on = winter || c.rumble > 0.5 || c.drift > 0.2; this.track.visible = true;
       if (Math.abs(c.dist - this.trackS) > 1.1) {
         const pr = this.trackLast, mk = (o) => { const rx = -cy, rz = sy, y = c.y + 0.1; return [[c.x + rx * (o - 0.13), y, c.z + rz * (o - 0.13)], [c.x + rx * (o + 0.13), y, c.z + rz * (o + 0.13)]]; }, cur = [mk(-0.82), mk(0.82)];
         if (pr && on) { const a = this.track.geometry.getAttribute('position'); for (let w = 0; w < 2; w++) { const I = this.trackI; this.trackI = (I + 1) % this.trackN; const [p0, p1] = pr[w], [q0, q1] = cur[w], arr = [p0, p1, q1, p0, q1, q0]; arr.forEach((v3, k) => a.setXYZ(I * 6 + k, v3[0], v3[1], v3[2])); } a.needsUpdate = true; }
@@ -451,6 +480,7 @@
       this.sky.position.copy(cam.position); this.stars.position.copy(cam.position); this.clouds.position.set(cam.position.x, 0, cam.position.z);
       this.sunM.position.set(cam.position.x + sd.x * 1100, cam.position.y + sd.y * 1100, cam.position.z + sd.z * 1100); this.sunM.lookAt(cam.position);
       w.sun.position.set(c.x + sd.x * 200, c.y + sd.y * 200, c.z + sd.z * 200); w.sun.target.position.set(c.x, c.y, c.z);
+      if (this.plane) this.plane.position.set(Math.round(c.x / 80) * 80, -0.02, Math.round(c.z / 80) * 80);
       this.weather(dt); this.effects(dt); if (this.cam === 'cabin') this.glass(dt);
       w.renderer.clear(); w.renderer.render(this.scene, cam);
       if (this.cam === 'cabin') { w.renderer.clearDepth(); w.renderer.render(this.cabS, this.cabC); }

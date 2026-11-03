@@ -21,8 +21,10 @@
     constructor(opt = {}) {
       this.step = 4;
       this.half = opt.half || 3.5;
+      this.wild = !!opt.wild; /* тестова ґрунтовка: шпильки без запобіжників, дорога може перетнути себе */
+      this.wTurn = 1; this.wCorner = false;
       this.kMax = opt.kMax || 1 / 95;
-      this.hill = opt.hill == null ? 1 : opt.hill;
+      this.hill = this.wild ? 0 : opt.hill == null ? 1 : opt.hill;
       this.r = rng(opt.seed || 1);
       this.pts = [{ s: 0, x: 0, z: 0, h: 0, k: 0, y: 0 }];
       this.segLeft = 90; this.kT = 0;
@@ -37,6 +39,7 @@
     }
     /* біом у точці s: {a, b, t} — плавний перехід на останніх 180 м зони */
     biome(s) {
+      if (this.wild) return { a: BIOME.FOREST, b: BIOME.FOREST, t: 0 };
       while (s + 400 > this.zoneEnd) {
         const last = this.zones[this.zones.length - 1].id;
         let id; do { id = Math.floor(this.r() * 5); } while (id === last);
@@ -56,7 +59,15 @@
       const P = this.pts, d = this.step;
       while (P.length <= i) {
         const q = P[P.length - 1];
-        if (this.segLeft <= 0) {
+        if (this.wild) {
+          if (this.segLeft <= 0) {
+            this.wCorner = !this.wCorner;
+            if (this.wCorner) { /* поворот 120–190°, радіус 14–28 м */
+              const ang = 2.1 + this.r() * 1.2, R = 14 + this.r() * 14; if (this.r() < 0.72) this.wTurn = -this.wTurn;
+              this.kT = this.wTurn / R; this.segLeft = ang * R;
+            } else { this.kT = 0; this.segLeft = 30 + this.r() * 110; }
+          }
+        } else if (this.segLeft <= 0) {
           this.segLeft = 70 + this.r() * 240;
           const mag = this.r() < 0.22 ? 0 : this.kMax * (0.3 + this.r() * 0.7);
           let sign = this.r() < 0.5 ? -1 : 1;
@@ -64,9 +75,9 @@
           this.kT = mag * sign;
         }
         /* дорога не закручується в петлю і не перетинає сама себе */
-        if (Math.abs(q.h) > 0.8 && q.h * this.kT >= 0) { this.kT = -Math.sign(q.h) * this.kMax * 0.7; this.segLeft = Math.max(this.segLeft, 90); }
+        if (!this.wild && Math.abs(q.h) > 0.8 && q.h * this.kT >= 0) { this.kT = -Math.sign(q.h) * this.kMax * 0.7; this.segLeft = Math.max(this.segLeft, 90); }
         this.segLeft -= d;
-        const k = q.k + (this.kT - q.k) * Math.min(1, d / 36);
+        const k = q.k + (this.kT - q.k) * Math.min(1, d / (this.wild ? 8 : 36));
         const h = q.h + k * d, s = q.s + d;
         P.push({ s, k, h, x: q.x + Math.sin(h) * d, z: q.z + Math.cos(h) * d, y: this.elev(s) });
       }
@@ -107,7 +118,7 @@
       this.s = p.s; this.off = lane; this.dist = 0; this.vmax = opt.vmax || 42; this.accel = opt.accel || 6;
       this.surface = opt.surface || 'asphalt'; this.rail = opt.rail == null ? road.half + 5 : opt.rail;
       this.onGrass = false; this.lat = 0; this.gripMul = 1; this.ax = 0; this.bodyPitch = 0; this.bump = 0; this.rumble = 0;
-      this.manual = false; this.gear = 1; this.rpm = 0.3; this.braking = false; this.railOn = false; this.slip = 0;
+      this.manual = false; this.gear = 1; this.rpm = 0.3; this.braking = false; this.railOn = false; this.slip = 0; this.drift = 0;
     }
     get speed() { return Math.hypot(this.vx, this.vz); }
     /* кут коліс обмежений бічним прискоренням: на швидкості кермо не смикає авто */
@@ -121,8 +132,14 @@
       const R = this.road, sf = Math.sin(this.yaw), cf = Math.cos(this.yaw);
       let vf = this.vx * sf + this.vz * cf, vl = -this.vx * cf + this.vz * sf;
       this.steer += (clamp(inp.steer || 0, -1, 1) - this.steer) * Math.min(1, dt * 5.5);
-      const a = this.steer * this.maxSteer(Math.abs(vf));
+      /* ручник зриває задню вісь: кут коліс відкривається, а авто далі ковзає за інерцією */
+      const hb = inp.hand ? 1 : 0, sp = Math.hypot(vf, vl), std = this.maxSteer(Math.abs(vf));
+      if (hb && sp > 4) this.drift = Math.min(1, this.drift + dt * 7);
+      else this.drift = Math.max(0, this.drift - dt * (this.surface === 'gravel' ? 0.6 : 1.6) * (Math.abs(vl) < 2 ? 2 : 1));
+      const a = this.steer * lerp(std, Math.max(std, 0.42), this.drift);
       this.yaw -= vf * Math.tan(a) / 2.6 * dt;
+      /* нос сам тягнеться за напрямком руху, тому занос можна спіймати кермом */
+      this.yaw -= Math.atan2(vl, Math.max(4, Math.abs(vf))) * this.drift * 1.3 * dt;
       this.onGrass = Math.abs(this.off) > R.half + 1.1;
       const S = SURF[this.onGrass ? 'grass' : this.surface];
       const gas = inp.gas || 0, v0 = vf; let power;
@@ -133,12 +150,13 @@
       } else { power = 1 - clamp(vf / this.vmax, 0, 1); this.rpm += (0.28 + 0.6 * clamp(vf / this.vmax, 0, 1) + 0.1 * gas - this.rpm) * Math.min(1, dt * 3); }
       vf += gas * this.accel * power * dt;
       vf -= (inp.brake || 0) * 12 * dt * Math.sign(vf);
-      vf -= vf * S.drag * dt;
-      this.braking = (inp.brake || 0) > 0.1;
+      vf -= vf * (R.wild ? Math.min(S.drag, 0.35) : S.drag) * dt; /* на тестовій ґрунтовці вилет за дорогу не вбиває швидкість */
+      vf -= hb * 3.5 * dt * Math.sign(vf);
+      this.braking = (inp.brake || 0) > 0.1 || !!hb;
       this.ax += ((vf - v0) / dt - this.ax) * Math.min(1, dt * 6);
       /* у швидкому повороті задня вісь трохи ковзає; дощ і сніг зменшують зчеплення */
       vl -= this.lat * 0.35 * dt;
-      vl *= Math.exp(-S.grip * this.gripMul * (1 - 0.4 * clamp(Math.abs(this.lat) / 16, 0, 1)) * dt);
+      vl *= Math.exp(-S.grip * this.gripMul * (1 - 0.4 * clamp(Math.abs(this.lat) / 16, 0, 1)) * lerp(1, 0.16, this.drift) * dt);
       this.slip = Math.abs(vl);
       const sn = Math.sin(this.yaw), cn = Math.cos(this.yaw);
       this.vx = sn * vf - cn * vl; this.vz = cn * vf + sn * vl;
@@ -147,7 +165,7 @@
       this.dist += Math.max(0, L.s - this.s); this.s = L.s; this.off = L.off;
       const q = R.at(L.s);
       /* м'який бортик: Релакс без аварій, авто повертається на узбіччя */
-      const edge = Math.abs(L.off); this.rumble = (edge > R.half + 1.1 ? 1 : edge > R.half + 0.1 ? 0.35 : 0) * clamp(Math.abs(vf) / 12, 0, 1);
+      const edge = Math.abs(L.off); this.rumble = (edge > R.half + 1.1 ? 1 : edge > R.half + 0.1 ? 0.35 : this.surface === 'gravel' ? 0.14 : 0) * clamp(sp / 12, 0, 1);
       const railed = !!this.rail && edge > this.rail; if (railed && !this.railOn && Math.abs(vf) > 6) this.bump = 1; this.railOn = railed;
       if (this.rail && Math.abs(L.off) > this.rail) {
         const over = Math.abs(L.off) - this.rail, sg = Math.sign(L.off), rx = -Math.cos(q.h), rz = Math.sin(q.h);

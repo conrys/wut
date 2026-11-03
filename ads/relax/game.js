@@ -7,8 +7,8 @@
 
   const COLORS = [0xD63A32, 0x2F6FBF, 0xE8E4D8, 0x2FA36B, 0xF2B632, 0x35363C];
   const CAMS = [['cabin', 'Із салону'], ['chase', 'Ззаду'], ['side', 'Узбіччя']];
-  const st = { color: load('color', 0), cam: load('cam', 0), radio: load('radio', 0), cruise: load('cruise', 25), steerMode: load('steer', 'slider'), speedMode: load('speed', 'slider'), gearMode: load('gears', 'off'), btn: 0, auto: false, playing: false, total: load('km', 0), tiltV: 0 };
-  const seed = (Math.random() * 1e9) | 0, road = new Road({ seed }), car = new Car(road, { rail: road.half + 5 });
+  const st = { color: load('color', 0), cam: load('cam', 0), radio: load('radio', 0), cruise: load('cruise', 25), steerMode: load('steer', 'slider'), speedMode: load('speed', 'slider'), roadMode: load('road', 'highway'), gearMode: load('gears', 'off'), btn: 0, auto: false, playing: false, total: load('km', 0), tiltV: 0 };
+  const seed = (Math.random() * 1e9) | 0, wild = st.roadMode === 'wild', road = new Road({ seed, wild }), car = new Car(road, { rail: wild ? 0 : road.half + 5, surface: wild ? 'gravel' : 'asphalt' });
   const sc = new Scene({ canvas: $('gl'), road, car, color: COLORS[st.color], time: 0.08 + Math.random() * 0.45 });
   sc.setCam(CAMS[st.cam][0]);
 
@@ -32,7 +32,8 @@
   }
   hold($('left'), () => { keys.l = true; }, () => { keys.l = false; }); hold($('right'), () => { keys.r = true; }, () => { keys.r = false; });
   hold($('gas'), () => { ped.gas = true; }, () => { ped.gas = false; }); hold($('brake'), () => { ped.brake = true; }, () => { ped.brake = false; });
-  const KEY = { ArrowLeft: 'l', a: 'l', ArrowRight: 'r', d: 'r', ArrowUp: 'up', w: 'up', ArrowDown: 'down', s: 'down' };
+  hold($('hand'), () => { ped.hand = true; }, () => { ped.hand = false; });
+  const KEY = { ' ': 'hand', ArrowLeft: 'l', a: 'l', ArrowRight: 'r', d: 'r', ArrowUp: 'up', w: 'up', ArrowDown: 'down', s: 'down' };
   addEventListener('keydown', (e) => { if (KEY[e.key]) keys[KEY[e.key]] = true; });
   addEventListener('keyup', (e) => { if (KEY[e.key]) keys[KEY[e.key]] = false; });
 
@@ -92,6 +93,7 @@
   }
   for (const b of document.querySelectorAll('[data-set]')) b.addEventListener('click', async () => {
     const key = b.dataset.set, v = b.dataset.val;
+    if (key === 'roadMode') { if (v !== st.roadMode) { save('road', v); location.reload(); } return; }
     if (v === 'tilt' && !(await tilt(true))) { say('Нахил недоступний на цьому пристрої'); return; }
     if (key === 'steerMode' && v !== 'tilt') tilt(false);
     st[key] = v; save({ steerMode: 'steer', speedMode: 'speed', gearMode: 'gears' }[key], v); layout();
@@ -144,7 +146,7 @@
     if (st.playing) {
       const ap = autopilot(road, car, st.speedMode === 'slider' ? st.cruise : 25), hand = steerHand(dt);
       if (st.auto) inp = hand ? { ...ap, steer: hand } : ap;
-      else { const sp = speedInput(ap), keep = 0.3 * (1 - Math.min(1, Math.abs(hand) * 3)); inp = { steer: hand + ap.steer * keep, gas: sp.gas, brake: sp.brake }; }
+      else { const sp = speedInput(ap), keep = 0.3 * (1 - Math.min(1, Math.abs(hand) * 3)); inp = { steer: hand + (wild || ped.hand || keys.hand ? 0 : ap.steer * keep), gas: sp.gas, brake: sp.brake, hand: ped.hand || keys.hand }; }
     } else inp = autopilot(road, car, 16);
     car.gripMul = 1 - 0.22 * sc.wx.rain - 0.42 * sc.wx.snow;
     car.step(dt, inp); weather(dt); sc.update(dt);
