@@ -21,7 +21,7 @@ const tapTile = async (p, x, y) => { await p.evaluate(([x, y]) => { KHUTIR.focus
   const wh = await p.evaluate(() => KHUTIR.view.st.wheat || 0);
   check("пшениця зібрана, селянин теж носить", wh >= 3, String(wh));
   check("«Зібрати» знову посіяло поле", await p.evaluate(() => KHUTIR.view.b[0].p >= 0));
-  await p.evaluate(() => { const v = KHUTIR.S; v.lv = 12; v.coins = 50000; v.st = { wheat: 20, corn: 20, flour: 5, egg: 5 }; for (const b of v.b) if (b.k === "field") { b.p = -1; b.buf = 0; } KHUTIR.refresh(); });
+  await p.evaluate(() => { const v = KHUTIR.S; v.lv = 30; v.coins = 50000; v.st = { wheat: 20, corn: 20, flour: 5, egg: 5 }; for (const b of v.b) if (b.k === "field") { b.p = -1; b.buf = 0; } KHUTIR.refresh(); });
   await tapTile(p, v0.f.x, v0.f.y);
   await p.screenshot({ path: OUT + "/1-sow.png" });
   check("порожнє поле питає, що сіяти", await p.isVisible("#shB button.row:has-text('Гарбуз')"));

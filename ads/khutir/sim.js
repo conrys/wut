@@ -33,31 +33,31 @@
   const CROP = {
     wheat: { lv: 1, d: 120, y: 3 },
     corn: { lv: 2, d: 900, y: 4 },
-    sun: { lv: 5, d: 3600, y: 5 },
-    beet: { lv: 7, d: 10800, y: 6 },
-    pump: { lv: 10, d: 28800, y: 6 },
+    sun: { lv: 9, d: 3600, y: 5 },
+    beet: { lv: 13, d: 10800, y: 6 },
+    pump: { lv: 20, d: 28800, y: 6 },
   };
   // in — що бере за цикл, out — що дає, d — тривалість циклу (с), cap — місце в будівлі, q — черга, lv — з якого рівня хутора, m — у скільки дорожчає кожна наступна
   const B = {
     field: { n: 'Поле', ic: '🌾', lv: 1, c: 10, step: 5, m: 1.5, d: 120, out: ['wheat', 3], cap: 6, kind: 'field', hint: 'Сам обираєш, що сіяти.' },
     mill: { n: 'Млин', ic: '🌬', lv: 1, c: 60, d: 600, in: [['wheat', 2]], out: ['flour', 1], cap: 6, q: 2, wall: '#EFE6D2', roof: '#7A5C3E' },
-    market: { n: 'Ринок', ic: '🏪', lv: 2, c: 100, kind: 'market', one: 1, wall: '#E7CFA0', roof: '#B5452E', hint: 'Сюди часто приїздять торговці з інших сіл.' },
+    market: { n: 'Ринок', ic: '🏪', lv: 3, c: 100, kind: 'market', one: 1, wall: '#E7CFA0', roof: '#B5452E', hint: 'Сюди часто приїздять торговці з інших сіл.' },
     coop: { n: 'Курник', ic: '🐔', lv: 2, c: 80, d: 1200, in: [['corn', 1]], out: ['egg', 1], cap: 6, q: 2, wall: '#E9D9B8', roof: '#C8553D' },
-    lumber: { n: 'Лісоруб', ic: '🪓', lv: 2, c: 60, d: 1800, out: ['wood', 2], cap: 4, wall: '#B98A5A', roof: '#5E7D3A' },
+    lumber: { n: 'Лісоруб', ic: '🪓', lv: 4, c: 60, d: 1800, out: ['wood', 2], cap: 4, wall: '#B98A5A', roof: '#5E7D3A' },
     home: { n: 'Хата', ic: '🏠', lv: 999, c: 0, kind: 'home', hint: 'Тут живе селянин. Звідси він ходить по врожай.' },
     barn: { n: 'Комора', ic: '📦', lv: 999, c: 0, kind: 'barn' },
-    well: { n: 'Криниця', ic: '💧', lv: 3, c: 120, kind: 'well', hint: '+25% швидкості полям, саду, курнику й корівнику навколо (8 клітинок).' },
-    saw: { n: 'Тартак', ic: '🪚', lv: 3, c: 120, d: 2400, in: [['wood', 2]], out: ['plank', 1], cap: 6, q: 2, wall: '#C9A06B', roof: '#6B4A2E' },
-    bakery: { n: 'Пекарня', ic: '🍞', lv: 4, c: 250, d: 1800, in: [['flour', 1], ['egg', 1]], out: ['bread', 1], cap: 6, q: 3, wall: '#F2D3A2', roof: '#B5452E' },
-    dairy: { n: 'Корівник', ic: '🐄', lv: 4, c: 280, d: 2700, in: [['corn', 2]], out: ['milk', 1], cap: 6, q: 2, wall: '#F4F1EA', roof: '#3D6F9E' },
-    orchard: { n: 'Сад', ic: '🍎', lv: 5, c: 200, d: 7200, out: ['apple', 4], cap: 4, kind: 'orchard', hint: 'Яблуні родять самі. Пасіка й криниця поруч пришвидшують.' },
-    oilery: { n: 'Олійня', ic: '🫙', lv: 6, c: 400, pl: 5, d: 3600, in: [['sun', 2]], out: ['oil', 1], cap: 6, q: 3, wall: '#EAD9A8', roof: '#8A6D1F' },
-    cheese: { n: 'Сироварня', ic: '🧀', lv: 6, c: 450, pl: 8, d: 5400, in: [['milk', 2]], out: ['cheese', 1], cap: 6, q: 3, wall: '#FBE7A1', roof: '#8A6D1F' },
-    apiary: { n: 'Пасіка', ic: '🐝', lv: 7, c: 380, pl: 5, d: 10800, out: ['honey', 2], cap: 2, kind: 'apiary', hint: 'Мед. Ще й +30% полям і саду навколо (8 клітинок).' },
-    press: { n: 'Пресс', ic: '🧃', lv: 8, c: 550, pl: 10, d: 3600, in: [['apple', 4]], out: ['juice', 1], cap: 6, q: 3, wall: '#E7C6D9', roof: '#7B3D63' },
-    kitchen: { n: 'Кухня', ic: '🍲', lv: 9, c: 700, pl: 14, d: 7200, in: [['beet', 2], ['oil', 1]], out: ['borsch', 1], cap: 6, q: 3, wall: '#F4DCC4', roof: '#9E3B2E' },
-    pastry: { n: 'Кондитерська', ic: '🥧', lv: 10, c: 900, pl: 18, d: 7200, in: [['pump', 1], ['flour', 1], ['egg', 1]], out: ['pie', 1], cap: 6, q: 3, wall: '#FFD6E0', roof: '#C2477A' },
-    meadery: { n: 'Медоварня', ic: '🍺', lv: 12, c: 1400, pl: 28, d: 14400, in: [['honey', 2], ['apple', 2]], out: ['mead', 1], cap: 6, q: 3, wall: '#D9B97A', roof: '#5B3A1E' },
+    well: { n: 'Криниця', ic: '💧', lv: 5, c: 120, kind: 'well', hint: '+25% швидкості полям, саду, курнику й корівнику навколо (8 клітинок).' },
+    saw: { n: 'Тартак', ic: '🪚', lv: 6, c: 120, d: 2400, in: [['wood', 2]], out: ['plank', 1], cap: 6, q: 2, wall: '#C9A06B', roof: '#6B4A2E' },
+    bakery: { n: 'Пекарня', ic: '🍞', lv: 7, c: 250, d: 1800, in: [['flour', 1], ['egg', 1]], out: ['bread', 1], cap: 6, q: 3, wall: '#F2D3A2', roof: '#B5452E' },
+    dairy: { n: 'Корівник', ic: '🐄', lv: 8, c: 280, d: 2700, in: [['corn', 2]], out: ['milk', 1], cap: 6, q: 2, wall: '#F4F1EA', roof: '#3D6F9E' },
+    orchard: { n: 'Сад', ic: '🍎', lv: 10, c: 200, d: 7200, out: ['apple', 4], cap: 4, kind: 'orchard', hint: 'Яблуні родять самі. Пасіка й криниця поруч пришвидшують.' },
+    oilery: { n: 'Олійня', ic: '🫙', lv: 12, c: 400, d: 3600, in: [['sun', 2]], out: ['oil', 1], cap: 6, q: 3, wall: '#EAD9A8', roof: '#8A6D1F' },
+    cheese: { n: 'Сироварня', ic: '🧀', lv: 14, c: 450, d: 5400, in: [['milk', 2]], out: ['cheese', 1], cap: 6, q: 3, wall: '#FBE7A1', roof: '#8A6D1F' },
+    apiary: { n: 'Пасіка', ic: '🐝', lv: 16, c: 380, d: 10800, out: ['honey', 2], cap: 2, kind: 'apiary', hint: 'Мед. Ще й +30% полям і саду навколо (8 клітинок).' },
+    press: { n: 'Пресс', ic: '🧃', lv: 18, c: 550, d: 3600, in: [['apple', 4]], out: ['juice', 1], cap: 6, q: 3, wall: '#E7C6D9', roof: '#7B3D63' },
+    kitchen: { n: 'Кухня', ic: '🍲', lv: 21, c: 700, d: 7200, in: [['beet', 2], ['oil', 1]], out: ['borsch', 1], cap: 6, q: 3, wall: '#F4DCC4', roof: '#9E3B2E' },
+    pastry: { n: 'Кондитерська', ic: '🥧', lv: 24, c: 900, d: 7200, in: [['pump', 1], ['flour', 1], ['egg', 1]], out: ['pie', 1], cap: 6, q: 3, wall: '#FFD6E0', roof: '#C2477A' },
+    meadery: { n: 'Медоварня', ic: '🍺', lv: 27, c: 1400, d: 14400, in: [['honey', 2], ['apple', 2]], out: ['mead', 1], cap: 6, q: 3, wall: '#D9B97A', roof: '#5B3A1E' },
   };
   // прикраси: b — очки краси, shop: false — лише від торговця
   const DECOR = {
@@ -191,7 +191,7 @@
   // час обходу за стану зараз
   function tripOf(s, uid, r) { const v = s.vl[uid]; return v.rt ? restMs(s, v) : walkPlan(s, uid, r, !!v.fx).ms / speedOf(v); }
   function restDone(s, v) { const kinds = new Set(restSpots(s).map((q) => q.k)).size; v.m = Math.min(100, mood(v) + 40 + 20 * kinds); v.rt = 0; }
-  const vupCost = (v, k) => { const L = v.u[k] || 0; return { c: Math.round(80 * Math.pow(1.9, L)), pl: L >= 1 ? 3 * L : 0 }; };
+  const vupCost = (v, k) => { const L = v.u[k] || 0; return { c: Math.round((80 * Math.pow(L + 1, 1.8)) / 10) * 10, pl: 0 }; };
   // хто що обходить: по черзі приходу, найближчі вільні будівлі до хати
   function routes(s) {
     const out = {}, taken = new Set();
@@ -211,13 +211,11 @@
   }
   function trip(s, v, list, now) {
     let room = basket(v), got = 0;
-    if (v.fx) { const n = Math.min(CUT_WOOD, Math.max(0, storeCap(s) - (s.st.wood || 0))); if (n) { s.st.wood = (s.st.wood || 0) + n; s.made += n; got += n; } v.fx = 0; v.ax = now; }
+    if (v.fx) { store(s, 'wood', CUT_WOOD); got += CUT_WOOD; v.fx = 0; v.ax = now; }
     for (const b of list) {
       if (!room) break;
       const take = Math.min(room, b.buf); if (!take) continue;
-      const r = outOf(b)[0], fit = Math.min(take, Math.max(0, storeCap(s) - (s.st[r] || 0)));
-      if (!fit) continue;
-      b.buf -= fit; s.st[r] = (s.st[r] || 0) + fit; s.made += fit; room -= fit; got += fit;
+      b.buf -= take; store(s, outOf(b)[0], take); room -= take; got += take;
     }
     v.got = (v.got || 0) + got;
     // ставить у чергу будівлі свого маршруту зі своєї комори
@@ -287,19 +285,35 @@
   }
 
   // ---------- числа ----------
-  const storeCap = (s) => Math.round(100 * Math.pow(1.5, s.sl));
-  const xpNeed = (L) => Math.round(25 * Math.pow(L, 1.55));
+  const MAXLV = 30;
+  const storeCap = (s) => 100 + 60 * s.sl;
+  const xpNeed = (L) => Math.round(25 * Math.pow(L, 2.2));   // 1-й день ≈ 5 рів., тиждень ≈ 12, місяць ≈ 26, 30-й ≈ 6 тижнів (4 заходи по 20 хв на день)
+  // рівень будівлі обмежений рівнем села: на 1-му — до 2, далі +1 кожні 3 рівні (на 30-му — 12)
+  const bMax = (s) => 2 + Math.floor(s.lv / 3);
   const slots = (s) => 3 + (s.lv >= 6) + (s.lv >= 12);
-  function buildCost(s, k) { const m = Math.pow(B[k].m || 1.15, B[k].step ? Math.floor(count(s, k) / B[k].step) : count(s, k)); return { c: Math.round(B[k].c * m), pl: B[k].pl ? Math.ceil(B[k].pl * m) : 0 }; }
-  function upCost(b) { const d = B[b.k], L = b.lv; return { c: Math.round(d.c * 0.8 * Math.pow(1.7, L)) + 20, pl: L >= 2 ? 3 * L : 0 }; }
+  // кожна наступна така сама будівля дорожча на 25% від базової ціни (поля — кожні 5 штук)
+  const r10 = (x) => (x >= 1000 ? Math.round(x / 10) * 10 : Math.round(x));
+  function buildCost(s, k) { const n = B[k].step ? Math.floor(count(s, k) / B[k].step) : count(s, k); return { c: r10(B[k].c * (1 + 0.25 * n)), pl: 0 }; }
+  function upCost(b) { return { c: r10(B[b.k].c * 0.7 * Math.pow(b.lv, 1.6) + 20), pl: 0 }; }
   const hireCost = (b) => ({ c: 100 + B[b.k].c * 2, pl: 0 });
-  const storeCost = (s) => ({ c: Math.round(150 * Math.pow(1.9, s.sl)), pl: s.sl >= 1 ? 4 * s.sl : 0 });
-  const chunkCost = (s) => { const n = s.ch.length; return { c: Math.round(150 * Math.pow(1.55, n - 9)), pl: n >= 11 ? 4 * (n - 10) : 0 }; };
+  const storeCost = (s) => ({ c: r10(150 * Math.pow(s.sl + 1, 1.6)), pl: 0 });
+  const chunkCost = (s) => ({ c: r10(150 + 110 * Math.pow(Math.max(0, s.ch.length - 8), 1.5)), pl: 0 });
   const ROCK = 30;
   const qMax = (b) => (B[b.k].q || 0) + b.lv - 1;
   function capOf(b) { return Math.round(B[b.k].cap * (1 + 0.5 * (b.lv - 1))); }
-  function canAfford(s, cost) { return s.coins >= cost.c && (s.st.plank || 0) >= cost.pl; }
-  function pay(s, cost) { s.coins -= cost.c; if (cost.pl) s.st.plank -= cost.pl; }
+  function canAfford(s, cost) { return s.coins >= cost.c; }
+  function pay(s, cost) { s.coins -= cost.c; }
+  // досвід дробами: копійки досвіду від кожного зібраного товару складаються в цілі очки
+  function addXp(s, x) { s.xq = (s.xq || 0) + x; const n = Math.floor(s.xq); if (n > 0) { s.xq -= n; gainXp(s, n); } }
+  const XP_ITEM = 0.08;   // досвіду за кожну монету ціни зібраного товару
+  // покласти в комору; що не влізло — само їде на ярмарок за третину ціни. Досвід — за все зібране.
+  function store(s, r, n) {
+    const room = Math.max(0, storeCap(s) - (s.st[r] || 0)), k = Math.min(room, n), over = n - k;
+    if (k) s.st[r] = (s.st[r] || 0) + k;
+    if (over) { const c = Math.ceil(over * RES[r].p * 0.3); s.coins += c; s.as = (s.as || 0) + c; }
+    s.made += n; addXp(s, n * RES[r].p * XP_ITEM);
+    return n;
+  }
 
   // бонуси сусідства: криниця +25% (поле, сад, курник, корівник), пасіка +30% (поле, сад)
   function bonuses(s) {
@@ -328,9 +342,7 @@
   }
   function flush(s, b) {
     if (!B[b.k].out || !b.buf) return 0;
-    const r = outOf(b)[0];
-    const room = Math.max(0, storeCap(s) - (s.st[r] || 0)), n = Math.min(room, b.buf);
-    if (n > 0) { s.st[r] = (s.st[r] || 0) + n; b.buf -= n; s.made += n; }
+    const n = b.buf; b.buf = 0; store(s, outOf(b)[0], n);
     return n;
   }
 
@@ -446,7 +458,8 @@
 
   function gainXp(s, n, out) {
     s.xp += n;
-    while (s.xp >= xpNeed(s.lv)) { s.xp -= xpNeed(s.lv); s.lv++; if (out) out.lvUp = s.lv; }
+    while (s.lv < MAXLV && s.xp >= xpNeed(s.lv)) { s.xp -= xpNeed(s.lv); s.lv++; if (out) out.lvUp = s.lv; }
+    if (s.lv >= MAXLV) s.xp = Math.min(s.xp, xpNeed(MAXLV));
     fillOrders(s);
   }
   function log(s, who, text) { s.lg.push([s.t, who || '', text]); if (s.lg.length > 30) s.lg.splice(0, s.lg.length - 30); }
@@ -471,13 +484,13 @@
         pay(s, cost);
         const b = { id: s.nid++, k: a.k, x: a.x, y: a.y, lv: 1, buf: 0, p: -1, h: 0, at: s.t, pd: cost };
         s.b.push(b); log(s, who, 'збудував(ла) ' + d.n);
-        gainXp(s, 3, res); kick(s);
+        gainXp(s, 3 + Math.round(cost.c / 20), res); kick(s);
         res.fx.push([a.x, a.y, '-' + cost.c + ' 💰']); return res;
       }
       case 'collect': {
         const b = s.b.find((q) => q.id === a.id); if (!b) return fail('Нема');
         if (!b.buf) return fail('Ще не готово');
-        const r0 = outOf(b)[0], n = flush(s, b); if (!n) return fail('Комора повна — продай щось');
+        const r0 = outOf(b)[0], n = flush(s, b);
         kick(s);
         res.fx.push([b.x, b.y, '+' + n + ' ' + RES[r0].ic]); res.n = n; return res;
       }
@@ -486,7 +499,7 @@
         let tot = 0, full = false, sown = 0;
         for (const b of s.b) if (b.buf) { const r0 = outOf(b)[0], n = flush(s, b); tot += n; if (n) res.fx.push([b.x, b.y, '+' + n + ' ' + RES[r0].ic]); if (b.buf) full = true; }
         for (const b of s.b) if (b.k === 'field' && b.cr && !b.buf && b.p < 0) { b.p = 0; sown++; }
-        if (!tot && !sown) return fail(full ? 'Комора повна — продай щось' : 'Нічого не дозріло');
+        if (!tot && !sown) return fail('Нічого не дозріло');
         kick(s); res.n = tot; return res;
       }
       case 'sow': {
@@ -522,7 +535,7 @@
         if (at(s, a.x, a.y) || s.ob[i] || s.d[i]) return fail('Тут зайнято');
         if (d.shop === false) { if (!s.inv[a.k]) return fail('Привозить лише торговець'); s.inv[a.k]--; }
         else { if (s.lv < d.lv) return fail('Відкриється на ' + d.lv + ' рівні'); if (s.coins < d.c) return fail('Треба ' + d.c + ' 💰'); s.coins -= d.c; }
-        s.d[i] = a.k; return res;
+        s.d[i] = a.k; if (d.shop !== false) addXp(s, d.c / 15); return res;
       }
       case 'fence': {
         // межа: e = 0 — між (x,y) і (x+1,y), e = 1 — між (x,y) і (x,y+1)
@@ -570,7 +583,7 @@
         if (s.sd[key]) return fail('Тут уже є');
         if (d.shop === false) { if (!s.inv[a.k]) return fail('Привозить лише торговець'); s.inv[a.k]--; }
         else { if (s.lv < d.lv) return fail('Відкриється на ' + d.lv + ' рівні'); if (s.coins < d.c) return fail('Треба ' + d.c + ' 💰'); s.coins -= d.c; }
-        s.sd[key] = a.k; return res;
+        s.sd[key] = a.k; if (d.shop !== false) addXp(s, d.c / 15); return res;
       }
       case 'smove': {
         const to = idx(a.x, a.y) * 9 + (a.sl | 0); if (!s.sd[a.from]) return fail('Нема'); if (s.sd[to] || (a.sl | 0) === 4 || !owned(s, a.x, a.y)) return fail('Тут зайнято');
@@ -585,14 +598,14 @@
         if (s.e[key] !== undefined) return fail('Тут уже є');
         if (s.lv < DECOR.bench.lv) return fail('Відкриється на ' + DECOR.bench.lv + ' рівні');
         if (s.coins < c) return fail('Треба ' + c + ' 💰');
-        s.coins -= c; s.e[key] = a.dr | 0; return res;
+        s.coins -= c; s.e[key] = a.dr | 0; addXp(s, c / 15); return res;
       }
       case 'fences': {
         // весь намальований тин однією дією: гроші списуються разом або ніяк
         const list = (a.l || []).filter(([x, y, e]) => !s.f[fenceKey(x, y, e)] && (owned(s, x, y) || owned(s, x + (e ? 0 : 1), y + (e ? 1 : 0))));
         if (!list.length) return fail('Нема що ставити');
         const c = list.length * DECOR.fence.c; if (s.coins < c) return fail('Треба ' + c + ' 💰');
-        s.coins -= c; for (const [x, y, e] of list) s.f[fenceKey(x, y, e)] = 1; return res;
+        s.coins -= c; for (const [x, y, e] of list) s.f[fenceKey(x, y, e)] = 1; addXp(s, c / 15); return res;
       }
       case 'turn': {
         const i = idx(a.x, a.y), d = DECOR[s.d[i]]; if (!d || !d.turn) return fail('Нема');
@@ -613,9 +626,10 @@
       }
       case 'upgrade': {
         const b = s.b.find((q) => q.id === a.id); if (!b || !B[b.k].d) return fail('Не покращується');
+        if (b.lv >= bMax(s)) return fail('Далі — коли село підросте (рівень ' + (3 * (b.lv - 1)) + ')');
         const cost = upCost(b); if (!canAfford(s, cost)) return fail('Треба ' + fmtCost(cost));
         pay(s, cost); b.lv++; kick(s); log(s, who, 'покращив(ла) ' + B[b.k].n + ' до ' + b.lv + ' рівня');
-        gainXp(s, 2 + b.lv, res); res.fx.push([b.x, b.y, '⬆ ' + b.lv]); return res;
+        gainXp(s, 3 + Math.round(cost.c / 20), res); res.fx.push([b.x, b.y, '⬆ ' + b.lv]); return res;
       }
       case 'hire': {
         const b = s.b.find((q) => q.id === a.id); if (!b || !B[b.k].d || b.h) return fail('Не можна');
@@ -655,7 +669,7 @@
       case 'clear': {
         const k = s.ob[idx(a.x, a.y)]; if (k === 'F') return fail('Ліс не вирубується'); if (!k || !owned(s, a.x, a.y)) return fail('Нема що прибирати');
         if (k === 'r') { if (s.coins < ROCK) return fail('Треба ' + ROCK + ' 💰'); s.coins -= ROCK; res.fx.push([a.x, a.y, '-' + ROCK + ' 💰']); }
-        else { const room = Math.max(0, storeCap(s) - (s.st.wood || 0)), n = Math.min(2, room); s.st.wood = (s.st.wood || 0) + n; res.fx.push([a.x, a.y, n ? '+' + n + ' 🪵' : '🪓']); }
+        else { store(s, 'wood', 2); res.fx.push([a.x, a.y, '+2 🪵']); }
         delete s.ob[idx(a.x, a.y)]; gainXp(s, 1, res); return res;
       }
       case 'chunk': {
@@ -665,12 +679,12 @@
         if (!adj) return fail('Купуй землю поруч зі своєю');
         const cost = chunkCost(s); if (!canAfford(s, cost)) return fail('Треба ' + fmtCost(cost));
         pay(s, cost); s.ch.push(c); genChunk(s, c, false); log(s, who, 'прикупив(ла) землі');
-        gainXp(s, 10, res); return res;
+        gainXp(s, 5 + Math.round(cost.c / 25), res); return res;
       }
       case 'store': {
         const cost = storeCost(s); if (!canAfford(s, cost)) return fail('Треба ' + fmtCost(cost));
         pay(s, cost); s.sl++; log(s, who, 'розширив(ла) комору до ' + storeCap(s));
-        gainXp(s, 5, res); kick(s); return res;
+        gainXp(s, 3 + Math.round(cost.c / 25), res); kick(s); return res;
       }
       case 'join': {
         const nm = String(a.n || '').replace(/[<>&"]/g, '').trim().slice(0, 16) || 'Селянин';
@@ -713,6 +727,6 @@
     return '';
   }
 
-  const api = { CUT_WOOD, CUT_EVERY, benchAt, mood, moodF, restSpot, restPlan, walkPlan, tripOf, speedOf, WALK, PAUSE, SIT, fenceKey, VER, MID, CROP, DECOR, outOf, qMax, beauty, tier, tierNeed, beautyBonus, market, LOOK, VUP, routes, route, basket, vupCost, addVillager, kick, N, CH, NC, RES, B, ORDER, create, advance, act, why, storeCap, xpNeed, buildCost, upCost, hireCost, storeCost, chunkCost, capOf, durOf, bonuses, slots, owned, chunkOf, idx, at, count, ROCK, fmtCost, canAfford, MAX_AWAY };
+  const api = { MAXLV, bMax, XP_ITEM, CUT_WOOD, CUT_EVERY, benchAt, mood, moodF, restSpot, restPlan, walkPlan, tripOf, speedOf, WALK, PAUSE, SIT, fenceKey, VER, MID, CROP, DECOR, outOf, qMax, beauty, tier, tierNeed, beautyBonus, market, LOOK, VUP, routes, route, basket, vupCost, addVillager, kick, N, CH, NC, RES, B, ORDER, create, advance, act, why, storeCap, xpNeed, buildCost, upCost, hireCost, storeCost, chunkCost, capOf, durOf, bonuses, slots, owned, chunkOf, idx, at, count, ROCK, fmtCost, canAfford, MAX_AWAY };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.KhutirSim = api;
 })(typeof window !== 'undefined' ? window : globalThis);

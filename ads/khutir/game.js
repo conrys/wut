@@ -21,12 +21,21 @@
   const myUid = () => (mode === 'shared' ? me.uid : 'me');
   const myV = () => (view && view.vl ? view.vl[myUid()] : null);
 
+  let shownLv = 0;
+  function announceLv(L) {
+    const opened = K.ORDER.filter((k) => B[k].lv === L).map((k) => B[k].ic + ' ' + B[k].n).concat(Object.keys(K.CROP).filter((c) => K.CROP[c].lv === L).map((c) => RES[c].ic + ' ' + RES[c].n));
+    const more = L % 3 === 0 ? 'будівлі можна покращити до ' + K.bMax({ lv: L }) + ' рівня' : '';
+    say('Рівень ' + L + '!', L >= K.MAXLV ? 'Найвищий рівень села' : opened.length ? 'Відкрито: ' + opened.join(', ') : more || 'Нові замовлення стали більшими');
+    sfx('lvl');
+  }
   function refreshView(force) {
     if (!S) return;
     const t = now();
     if (!S.t) K.advance(S, t); // новий хутір — годинник стартує зараз
     if (!force && t - viewAt < 250) return;
     view = K.advance(clone(S), t); viewAt = t;
+    if (shownLv && view.lv > shownLv) announceLv(view.lv);
+    shownLv = view.lv;
     hud();
   }
 
@@ -61,11 +70,7 @@
     else if (a.t === 'clear') sfx('chop');
     else if (a.t === 'deco' || a.t === 'fence') sfx('pick');
 
-    if (r.lvUp) {
-      const opened = K.ORDER.filter((k) => B[k].lv === r.lvUp).map((k) => B[k].ic + ' ' + B[k].n).concat(Object.keys(K.CROP).filter((c) => K.CROP[c].lv === r.lvUp).map((c) => RES[c].ic + ' ' + RES[c].n));
-      say('Рівень ' + r.lvUp + '!', opened.length ? 'Відкрито: ' + opened.join(', ') : 'Нові замовлення стали більшими');
-      sfx('lvl');
-    }
+    if (r.lvUp) { announceLv(r.lvUp); shownLv = r.lvUp; }
     refreshView(true); if (sheetFn) sheetFn();
   }
 
@@ -85,14 +90,15 @@
   // що набігло, поки нікого не було
   function totals(s) { const o = {}; for (const r in s.st) o[r] = (o[r] || 0) + s.st[r]; for (const b of s.b) if (b.buf && B[b.k].out) { const r = K.outOf(b)[0]; o[r] = (o[r] || 0) + b.buf; } return o; }
   function enter(s) {
-    const before = totals(s), was = s.t;
-    S = s; refreshView(true);
+    const before = totals(s), was = s.t, as0 = s.as || 0, lv0 = s.lv;
+    shownLv = 0; S = s; refreshView(true);
     const after = totals(view), gain = [];
     for (const r in after) { const d = after[r] - (before[r] || 0); if (d > 0) gain.push('+' + d + ' ' + RES[r].ic); }
     $('menu').hidden = true; ['hud', 'bar'].forEach((id) => ($(id).hidden = false));
     $('hOn').hidden = mode !== 'shared';
     centerCam();
-    if (was && now() - was > 60e3 && gain.length) toast('Поки тебе не було: ' + gain.slice(0, 6).join('  '));
+    const sold = (view.as || 0) - as0;
+    if (was && now() - was > 60e3 && (gain.length || sold > 0)) toast('Поки тебе не було: ' + gain.slice(0, 5).join('  ') + (sold > 0 ? '  · зайве продано: +' + fmt(sold) + ' 💰' : '') + (view.lv > lv0 ? '  · ⭐ рівень ' + view.lv : ''));
     if (mode === 'solo') saveSolo();
     if (!S.vl || !S.vl[myUid()]) commit({ t: 'join', uid: myUid(), n: me.name || 'Селянин' });
     else if (mode === 'shared' && S.vl[myUid()].n !== me.name && me.name) commit({ t: 'join', uid: myUid(), n: me.name });
@@ -341,7 +347,8 @@
     const uc = K.upCost(b), hc = K.hireCost(b);
     h += '<div class="btns">';
     if (b.buf) h += '<button class="btn" data-a="' + A({ t: 'collect', id: b.id }) + '">🧺 Зібрати ' + b.buf + ' ' + RES[outR].ic + '</button>';
-    h += '<button class="btn' + (b.buf ? ' sec' : '') + '" data-a="' + A({ t: 'upgrade', id: b.id }) + '"' + (K.canAfford(s, uc) ? '' : ' disabled') + '>⬆ Рівень ' + (b.lv + 1) + '<small>' + costTxt(uc) + ' · швидше й більше місця</small></button>';
+    const capLv = b.lv >= K.bMax(s);
+    h += '<button class="btn' + (b.buf ? ' sec' : '') + '" data-a="' + A({ t: 'upgrade', id: b.id }) + '"' + (!capLv && K.canAfford(s, uc) ? '' : ' disabled') + '>⬆ Рівень ' + (b.lv + 1) + '<small>' + (capLv ? 'коли село дійде ' + 3 * (b.lv - 1) + ' рівня' : costTxt(uc) + ' · швидше й більше місця') + '</small></button>';
     void hc;
     h += '<button class="btn red" data-a="' + A({ t: 'demolish', id: b.id }) + '">🗑 Знести<small>повернеться половина ціни</small></button>';
     return h + '</div>';
@@ -388,8 +395,8 @@
   }
   function storeSheet() {
     const s = view, cap = K.storeCap(s), sc = K.storeCost(s);
-    let h = '<div class="row"><span class="ic">📦</span><span class="tx"><b>Місця: по ' + cap + ' кожного</b><small>Селянин зносить сюди врожай. Повна комора — будівлі стоять.</small></span></div>';
-    h += '<div class="btns"><button class="btn sec" data-a="' + A({ t: 'store' }) + '"' + (K.canAfford(s, sc) ? '' : ' disabled') + '>Розширити до ' + Math.round(cap * 1.5) + '<small>' + costTxt(sc) + '</small></button></div>';
+    let h = '<div class="row"><span class="ic">📦</span><span class="tx"><b>Місця: по ' + cap + ' кожного</b><small>Селянин зносить сюди врожай. Що не влізе — само їде на ярмарок за третину ціни.' + (s.as ? ' Уже продано зайвого на ' + fmt(s.as) + ' 💰.' : '') + '</small></span></div>';
+    h += '<div class="btns"><button class="btn sec" data-a="' + A({ t: 'store' }) + '"' + (K.canAfford(s, sc) ? '' : ' disabled') + '>Розширити до ' + (cap + 60) + '<small>' + costTxt(sc) + '</small></button></div>';
     const list = Object.keys(RES).filter((r) => s.st[r] > 0);
     if (!list.length) h += '<p class="note">Поки порожньо. Збирай урожай із будівель.</p>';
     for (const r of list) {
@@ -412,7 +419,7 @@
   }
   function levelSheet() {
     const s = view, next = K.ORDER.filter((k) => B[k].lv > s.lv).slice(0, 3);
-    let h = '<div class="row"><span class="ic">⭐</span><span class="tx"><b>' + s.xp + ' / ' + K.xpNeed(s.lv) + ' досвіду</b><small>Досвід — за замовлення, будівництво, покращення, нову землю.</small><span class="cap"><i style="width:' + (100 * s.xp) / K.xpNeed(s.lv) + '%"></i></span></span></div>';
+    let h = '<div class="row"><span class="ic">⭐</span><span class="tx"><b>' + (s.lv >= K.MAXLV ? 'Найвищий рівень села' : s.xp + ' / ' + K.xpNeed(s.lv) + ' досвіду') + '</b><small>Досвід дає все: кожен зібраний урожай (і те, що приніс селянин), будівництво, покращення, нова земля, прикраси й замовлення. Будівлі можна покращувати до ' + K.bMax(s) + ' рівня, +1 кожні 3 рівні села.</small><span class="cap"><i style="width:' + (100 * s.xp) / K.xpNeed(s.lv) + '%"></i></span></span></div>';
     for (const k of next) h += '<div class="row off"><span class="ic">' + B[k].ic + '</span><span class="tx"><b>' + B[k].n + '</b><small>на ' + B[k].lv + ' рівні</small></span></div>';
     if (!next.length) h += '<p class="note">Усі будівлі відкрито. Далі — більші замовлення, нова земля й покращення без межі.</p>';
     h += '<p class="note">З 6 рівня — 4-те місце для замовлень, з 12 — 5-те.</p>';
