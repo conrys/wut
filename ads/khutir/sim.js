@@ -191,7 +191,7 @@
   // час обходу за стану зараз
   function tripOf(s, uid, r) { const v = s.vl[uid]; return v.rt ? restMs(s, v) : walkPlan(s, uid, r, !!v.fx).ms / speedOf(v); }
   function restDone(s, v) { const kinds = new Set(restSpots(s).map((q) => q.k)).size; v.m = Math.min(100, mood(v) + 40 + 20 * kinds); v.rt = 0; }
-  const vupCost = (v, k) => { const L = v.u[k] || 0; return { c: Math.round((80 * Math.pow(L + 1, 1.8)) / 10) * 10, pl: 0 }; };
+  const vupCost = (v, k) => ({ c: 300, pl: 0 });
   // хто що обходить: по черзі приходу, найближчі вільні будівлі до хати
   function routes(s) {
     const out = {}, taken = new Set();
@@ -291,13 +291,12 @@
   // рівень будівлі обмежений рівнем села: на 1-му — до 2, далі +1 кожні 3 рівні (на 30-му — 12)
   const bMax = (s) => 2 + Math.floor(s.lv / 3);
   const slots = (s) => 3 + (s.lv >= 6) + (s.lv >= 12);
-  // кожна наступна така сама будівля дорожча на 25% від базової ціни (поля — кожні 5 штук)
-  const r10 = (x) => (x >= 1000 ? Math.round(x / 10) * 10 : Math.round(x));
-  function buildCost(s, k) { const n = B[k].step ? Math.floor(count(s, k) / B[k].step) : count(s, k); return { c: r10(B[k].c * (1 + 0.25 * n)), pl: 0 }; }
-  function upCost(b) { return { c: r10(B[b.k].c * 0.7 * Math.pow(b.lv, 1.6) + 20), pl: 0 }; }
+  // ціни сталі: скільки б уже не було, наступне коштує стільки ж
+  function buildCost(s, k) { return { c: B[k].c, pl: 0 }; }
+  function upCost(b) { return { c: Math.round(B[b.k].c * 1.5 / 10) * 10 || 20, pl: 0 }; }
   const hireCost = (b) => ({ c: 100 + B[b.k].c * 2, pl: 0 });
-  const storeCost = (s) => ({ c: r10(150 * Math.pow(s.sl + 1, 1.6)), pl: 0 });
-  const chunkCost = (s) => ({ c: r10(150 + 110 * Math.pow(Math.max(0, s.ch.length - 8), 1.5)), pl: 0 });
+  const storeCost = (s) => ({ c: 400, pl: 0 });
+  const chunkCost = (s) => ({ c: 500, pl: 0 });
   const ROCK = 30;
   const qMax = (b) => (B[b.k].q || 0) + b.lv - 1;
   function capOf(b) { return Math.round(B[b.k].cap * (1 + 0.5 * (b.lv - 1))); }
