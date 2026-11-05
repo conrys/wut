@@ -41,7 +41,7 @@
     cam.x = Math.max(0, Math.min(W, cam.x)); cam.z = Math.max(0, Math.min(H, cam.z)); cam.dist = Math.max(8, Math.min(60, cam.dist));
     const cy = Math.cos(cam.pitch), sy = Math.sin(cam.pitch);
     camera.position.set(cam.x + Math.sin(cam.yaw) * cy * cam.dist, sy * cam.dist + 1, cam.z + Math.cos(cam.yaw) * cy * cam.dist);
-    camera.lookAt(cam.x, 1, cam.z);
+    camera.lookAt(cam.x, 1, cam.z); camera.updateMatrixWorld();
   }
   function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
   addEventListener('resize', resize); resize();
@@ -163,14 +163,22 @@
       const p = c.path, a = p ? p[Math.min(c.k || 0, p.length - 1)] : c.i, b = p && c.k < p.length - 1 ? p[c.k + 1] : a, f = Math.min(1, c.f || 0);
       const x = tx(a) + (tx(b) - tx(a)) * f, z = tz(a) + (tz(b) - tz(a)) * f, y = topY(a) + (topY(b) - topY(a)) * f;
       const bob = c.job ? Math.abs(Math.sin(performance.now() / 120 + m)) * 0.04 : 0;
+      cpos[m] = { x, y, z };
       m4.compose(v3.set(x, y + 0.16 + bob, z), q4.identity(), s3.set(1, 1, 1)); bodies.setMatrixAt(m, m4); bodies.setColorAt(m, col.set(SHIRTS[m % SHIRTS.length]));
       m4.compose(v3.set(x, y + 0.42 + bob, z), q4.identity(), s3.set(1, 1, 1)); heads.setMatrixAt(m, m4);
       if (c.it && n < MAXI) { m4.compose(v3.set(x, y + 0.62 + bob, z), q4.identity(), s3.set(0.9, 0.9, 0.9)); items.setMatrixAt(n, m4); items.setColorAt(n, col.set(RES[c.it].c)); n++; }
       m++;
     }
-    items.count = n; bodies.count = heads.count = m;
+    items.count = n; bodies.count = heads.count = m; cpos.length = m;
+    // вибраний носій: кільце під ним і лінія маршруту
+    const c = sheetFn && selC >= 0 && S.cr && S.cr[selC];
+    ring.visible = !!c && !!cpos[selC]; if (ring.visible) ring.position.set(cpos[selC].x, cpos[selC].y + 0.03, cpos[selC].z);
+    const rt = c && c.rt && (S.rt || []).find((r) => r.id === c.rt);
+    rline.visible = !!rt; if (rt && S.b[rt.a] && S.b[rt.b]) { const A0 = S.b[rt.a], B0 = S.b[rt.b], pa = rline.geometry.attributes.position; pa.setXYZ(0, A0.x + 0.5, topY(M.idx(A0.x, A0.y)) + 1.2, A0.y + 0.5); pa.setXYZ(1, B0.x + 0.5, topY(M.idx(B0.x, B0.y)) + 1.2, B0.y + 0.5); pa.needsUpdate = true; }
     [items, bodies, heads].forEach((q) => { q.instanceMatrix.needsUpdate = true; if (q.instanceColor) q.instanceColor.needsUpdate = true; });
   }
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.2, 0.3, 20), new THREE.MeshBasicMaterial({ color: '#FFC93C', side: THREE.DoubleSide })); ring.rotation.x = -Math.PI / 2; ring.visible = false; scene.add(ring);
+  const rline = new THREE.Line(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 0, 0, 0], 3)), new THREE.LineBasicMaterial({ color: '#FFC93C' })); rline.visible = false; scene.add(rline);
   // дим
   const smokeG = new THREE.SphereGeometry(0.08, 6, 5), smokeM = new THREE.MeshLambertMaterial({ color: '#F0ECE4', transparent: true, opacity: 0.6 }), puffs = new THREE.InstancedMesh(smokeG, smokeM, 200); scene.add(puffs);
   function syncDeco(t) {
@@ -214,9 +222,10 @@
   function setTool(t) {
     tool = t; document.querySelectorAll('.tb').forEach((b) => b.classList.toggle('on', b.dataset.t === t || (t.startsWith('b:') && b.dataset.t === 'build')));
     setGhost(t.startsWith('b:') ? t.slice(2) : null);
-    const tip = t.startsWith('b:') ? 'Торкнись клітинки, щоб поставити: ' + B[t.slice(2)].n + ' (' + M.costTxt(B[t.slice(2)].cost) + ')' : t === 'belt' || t === 'chute' || t === 'lift' ? M.CONV[t].n + ': веди пальцем, куди має їхати товар. ' + M.CONV[t].hint + ' Двома пальцями — рух камери.' : t === 'path' ? 'Стежка: веди пальцем. Носії по ній ходять швидше.' : t === 'erase' ? 'Знести: торкнись або веди пальцем. Повертається половина ціни.' : '';
+    const tip = t === 'r1' ? '📍 Маршрут: торкнись будівлі, ЗВІДКИ носити (склад, ратуша або виробництво)' : t === 'r2' ? '📍 Тепер торкнись будівлі, КУДИ нести' : t.startsWith('b:') ? 'Торкнись клітинки, щоб поставити: ' + B[t.slice(2)].n + ' (' + M.costTxt(B[t.slice(2)].cost) + ')' : t === 'belt' || t === 'chute' || t === 'lift' ? M.CONV[t].n + ': веди пальцем, куди має їхати товар. ' + M.CONV[t].hint + ' Двома пальцями — рух камери.' : t === 'path' ? 'Стежка: веди пальцем. Носії по ній ходять швидше.' : t === 'erase' ? 'Знести: торкнись або веди пальцем. Повертається половина ціни.' : '';
     $('mode').hidden = t === 'look'; $('modeT').textContent = tip;
     if (t === 'look') showHi(-1);
+    if (t !== 'r1' && t !== 'r2') route = route && (t === 'look') ? null : route;
   }
   document.querySelectorAll('.tb').forEach((b) => b.addEventListener('click', () => { au(); const t = b.dataset.t; if (t === 'build') openBuild(); else setTool(tool === t ? 'look' : t); }));
   $('modeX').addEventListener('click', () => setTool('look'));
@@ -235,50 +244,70 @@
     doAct({ t: 'conv', k: tool, x, y, d: dir }, drawLast >= 0); drawLast = i;
   }
 
-  // ================= жести =================
+  // ================= жести: точка землі під пальцем лишається під пальцем =================
   const ptr = new Map(); let gest = null;
+  function groundAt(px, py) {
+    ndc.set((px / innerWidth) * 2 - 1, -(py / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
+    const o = ray.ray.origin, d = ray.ray.direction; if (Math.abs(d.y) < 1e-4) return null;
+    const t = (1 - o.y) / d.y; return t > 0 ? { x: o.x + d.x * t, z: o.z + d.z * t } : null;
+  }
+  function keep(anchor, px, py) { placeCam(); const P = groundAt(px, py); if (P && anchor) { cam.x += anchor.x - P.x; cam.z += anchor.z - P.z; } placeCam(); }
+  const two = () => { const [a, b] = [...ptr.values()]; return { a, b, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y), an: Math.atan2(b.y - a.y, b.x - a.x) }; };
   cv.addEventListener('pointerdown', (e) => {
     au(); cv.setPointerCapture && cv.setPointerCapture(e.pointerId);
     ptr.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t0: performance.now() });
-    if (ptr.size === 1) { gest = { moved: false, draw: tool !== 'look' && !tool.startsWith('b:'), cx: cam.x, cz: cam.z }; drawLast = -1; if (gest.draw) { gest.wait = true; } }
-    if (ptr.size === 2) { const [a, b] = [...ptr.values()]; gest = { two: true, d0: Math.hypot(a.x - b.x, a.y - b.y), a0: Math.atan2(b.y - a.y, b.x - a.x), dist0: cam.dist, yaw0: cam.yaw, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, cx: cam.x, cz: cam.z }; drawLast = -1; }
+    if (ptr.size === 1) { gest = { moved: false, draw: drawTool(), anchor: groundAt(e.clientX, e.clientY) }; drawLast = -1; }
+    if (ptr.size === 2) { const q = two(); gest = { two: true, d0: q.d, a0: q.an, dist0: cam.dist, yaw0: cam.yaw, anchor: groundAt(q.mx, q.my) }; drawLast = -1; }
   });
-  function panBy(dx, dy, g) {
-    const k = cam.dist / innerHeight * 1.1, s = Math.sin(cam.yaw), c = Math.cos(cam.yaw);
-    const fy = 1 / Math.sin(cam.pitch);   // рух уперед на екрані — укорочений нахилом камери
-    cam.x = g.cx - (dx * c + dy * s * fy) * k; cam.z = g.cz - (-dx * s + dy * c * fy) * k;
-  }
   cv.addEventListener('pointermove', (e) => {
     const p = ptr.get(e.pointerId);
     if (!p) { if (tool !== 'look' && e.pointerType === 'mouse') { const i = pickTile(e.clientX, e.clientY); showHi(i, okHere(i)); } return; }
     p.x = e.clientX; p.y = e.clientY; if (!gest) return;
     if (gest.two && ptr.size >= 2) {
-      const [a, b] = [...ptr.values()], d = Math.hypot(a.x - b.x, a.y - b.y), an = Math.atan2(b.y - a.y, b.x - a.x);
-      cam.dist = gest.dist0 * gest.d0 / Math.max(20, d); cam.yaw = gest.yaw0 - (an - gest.a0);
-      panBy((a.x + b.x) / 2 - gest.mx, (a.y + b.y) / 2 - gest.my, gest);
+      const q = two(); cam.dist = Math.max(8, Math.min(60, gest.dist0 * gest.d0 / Math.max(20, q.d))); cam.yaw = gest.yaw0 + (q.an - gest.a0);
+      keep(gest.anchor, q.mx, q.my);
     } else if (!gest.two) {
       if (Math.hypot(p.x - p.x0, p.y - p.y0) > 8) gest.moved = true;
       if (gest.draw) { if (gest.moved || performance.now() - p.t0 > 120) { const i = pickTile(p.x, p.y); showHi(i, okHere(i)); drawAt(i); } }
-      else if (gest.moved) panBy(p.x - p.x0, p.y - p.y0, gest);
+      else if (gest.moved) keep(gest.anchor, p.x, p.y);
     }
   });
   const up = (e) => {
     const p = ptr.get(e.pointerId); ptr.delete(e.pointerId); if (!p || !gest) return;
     if (!gest.two && !gest.moved && ptr.size === 0 && performance.now() - p.t0 < 500) tap(p.x, p.y);
     if (ptr.size === 0) { gest = null; drawLast = -1; if (tool === 'look') showHi(-1); }
-    else if (gest.two) { const q = [...ptr.values()][0]; q.x0 = q.x; q.y0 = q.y; gest = { moved: true, cx: cam.x, cz: cam.z }; }
+    else if (gest.two) { const q = [...ptr.values()][0]; q.x0 = q.x; q.y0 = q.y; gest = { moved: true, anchor: groundAt(q.x, q.y) }; }
   };
   cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', (e) => { ptr.delete(e.pointerId); if (!ptr.size) gest = null; });
-  cv.addEventListener('wheel', (e) => { e.preventDefault(); cam.dist *= Math.exp(e.deltaY * 0.0012); }, { passive: false });
-  $('rotL').addEventListener('click', () => { cam.yaw += Math.PI / 4; });
-  $('rotR').addEventListener('click', () => { cam.yaw -= Math.PI / 4; });
+  cv.addEventListener('wheel', (e) => { e.preventDefault(); const a = groundAt(e.clientX, e.clientY); cam.dist = Math.max(8, Math.min(60, cam.dist * Math.exp(e.deltaY * 0.0012))); keep(a, e.clientX, e.clientY); }, { passive: false });
+  // кнопки повороту — навколо центру екрана, у той самий бік, що й пальці
+  const rotBy = (k) => { const a = groundAt(innerWidth / 2, innerHeight / 2); cam.yaw += k; keep(a, innerWidth / 2, innerHeight / 2); };
+  $('rotL').addEventListener('click', () => rotBy(-Math.PI / 4));
+  $('rotR').addEventListener('click', () => rotBy(Math.PI / 4));
+  const drawTool = () => tool === 'belt' || tool === 'chute' || tool === 'lift' || tool === 'path' || tool === 'erase';
   function okHere(i) {
     if (i < 0) return false; const x = i % W, y = (i - x) / W;
     if (tool.startsWith('b:')) { const k = tool.slice(2); if (M.bAt(S, x, y) || S.tr[i] || S.rk[i] || S.cv[i]) return false; if (B[k].near === 'rock') return [0, 1, 2, 3].some((d) => M.inb(x + DX[d], y + DY[d]) && S.rk[M.idx(x + DX[d], y + DY[d])]); return true; }
     return true;
   }
+  // найближчий до пальця носій (на екрані)
+  const cpos = [];
+  function carrierAt(px, py) {
+    let best = -1, bd = 46; const v = new THREE.Vector3();
+    cpos.forEach((p, k) => { v.set(p.x, p.y + 0.3, p.z).project(camera); const sx = (v.x + 1) / 2 * innerWidth, sy = (1 - v.y) / 2 * innerHeight, d = Math.hypot(sx - px, sy - py); if (d < bd) { bd = d; best = k; } });
+    return best;
+  }
+  let selC = -1, route = null;   // вибраний носій; маршрут, що зараз задається: { ci, a }
   function tap(px, py) {
+    if (tool === 'look') { const c = carrierAt(px, py); if (c >= 0) { openCarrier(c); return; } }
     const i = pickTile(px, py); if (i < 0) return; const x = i % W, y = (i - x) / W;
+    if (tool === 'r1' || tool === 'r2') {
+      const b = M.bAt(S, x, y); if (!b) { toast('Торкнись будівлі', true); return; }
+      if (tool === 'r1') { if (!B[b.k].stor && !B[b.k].out) { toast(B[b.k].n + ' нічого не виробляє', true); return; } route.a = b.id; setTool('r2'); return; }
+      route.b = b.id; const A0 = S.b[route.a];
+      if (B[A0.k].stor) { pickItem(); return; }
+      finishRoute(B[A0.k].out); return;
+    }
     if (tool.startsWith('b:')) { const k = tool.slice(2), r = doAct({ t: 'build', k, x, y }); showHi(i, okHere(i)); if (r.ok && !M.canPay(S, B[k].cost)) setTool('look'); return; }
     if (tool !== 'look') { drawLast = -1; if ((tool === 'belt' || tool === 'chute' || tool === 'lift') && S.cv[i]) { doAct({ t: 'turn', x, y }); return; } drawAt(i); return; }
     const b = M.bAt(S, x, y);
@@ -289,6 +318,30 @@
     openBuild();
   }
 
+  function startRoute(ci, a) { closeSheet(); route = { ci, a }; setTool(a ? 'r2' : 'r1'); }
+  function finishRoute(r) {
+    const R = route; if (!R) return; const a = { t: 'route', a: R.a, b: R.b, r }; if (R.ci >= 0) a.ci = R.ci;
+    const res = doAct(a); route = null; setTool('look');
+    if (res.ok) toast('📍 Маршрут: ' + B[S.b[R.a].k].n + ' → ' + B[S.b[R.b].k].n + (r ? ' · ' + RES[r].ic : ''));
+  }
+  function pickItem() {
+    const to = S.b[route.b], d = B[to.k], list = Object.keys(RES).filter((r) => (S.st[r] || 0) > 0 && (d.stor ? false : (d.in && d.in[r]) || (d.sells && d.sells.indexOf(r) >= 0)));
+    const all = list.length ? list : Object.keys(RES).filter((r) => (d.in && d.in[r]) || (d.sells && d.sells.indexOf(r) >= 0));
+    if (!all.length) { toast(d.n + ' нічого не бере зі складу', true); setTool('look'); route = null; return; }
+    if (all.length === 1) { finishRoute(all[0]); return; }
+    openSheet('Що носити?', () => '<div class="grid">' + all.map((r) => '<button class="card2" data-pick="' + r + '"><span class="ic">' + RES[r].ic + '</span><b>' + RES[r].n + '</b><small>на складі: ' + (S.st[r] || 0) + '</small></button>').join('') + '</div>');
+  }
+  function openCarrier(ci) {
+    selC = ci;
+    openSheet('👷 Носій', () => {
+      const c = (S.cr || [])[ci]; if (!c) { setTimeout(closeSheet); return ''; }
+      const rt = c.rt && (S.rt || []).find((r) => r.id === c.rt);
+      const now = c.job ? (c.it ? 'несе ' + RES[c.it].ic + ' ' + RES[c.it].n.toLowerCase() + ' → ' + B[c.job.to.k].n : 'іде по ' + RES[c.job.r].ic + ' до: ' + B[c.job.from.k].n) : 'чекає роботи';
+      let h = '<div class="row"><span class="ic">👷</span><span class="tx"><b>' + esc(now) + '</b><small>' + (rt ? '📍 Маршрут: ' + B[S.b[rt.a].k].n + ' → ' + B[S.b[rt.b].k].n + (rt.r ? ' · ' + RES[rt.r].ic : '') + ', по колу' : 'Вільний: сам вирішує, що й куди носити') + '</small></span></div>';
+      h += '<div class="btns"><button class="btn" data-route="c' + ci + '">📍 ' + (rt ? 'Інший маршрут' : 'Задати маршрут') + '<small>торкнись «звідки», потім «куди»</small></button>' + (rt ? '<button class="btn sec" data-a="' + A({ t: 'unroute', id: rt.id }) + '">Зробити вільним</button>' : '') + '</div>';
+      return h;
+    });
+  }
   // ================= HUD і шторки =================
   function hud() {
     if (!S) return; const st = M.staff(S), hp = Math.round(M.happy(S) * 100);
@@ -307,10 +360,13 @@
     $('tip').hidden = !t || tool !== 'look'; $('tip').textContent = t;
   }
   let sheetFn = null;
-  function openSheet(title, render) { $('shT').textContent = title; sheetFn = () => { $('shB').innerHTML = render(); bind(); }; sheetFn(); $('sheet').classList.add('open'); }
-  function closeSheet() { $('sheet').classList.remove('open'); sheetFn = null; }
+  // перемальовує вміст, лише коли щось змінилось — щоб кнопки не зникали з-під пальця
+  function openSheet(title, render) { $('shT').textContent = title; let last = null; sheetFn = () => { const h = render(); if (h === last) return; last = h; $('shB').innerHTML = h; bind(); }; sheetFn(); $('sheet').classList.add('open'); }
+  function closeSheet() { $('sheet').classList.remove('open'); sheetFn = null; selC = -1; }
   $('shX').addEventListener('click', closeSheet);
   function bind() {
+    $('shB').querySelectorAll('[data-route]').forEach((el) => el.addEventListener('click', () => { au(); const v = el.dataset.route; if (v[0] === 'c') startRoute(+v.slice(1)); else startRoute(-1, +v.slice(1)); }));
+    $('shB').querySelectorAll('[data-pick]').forEach((el) => el.addEventListener('click', () => { au(); const r = el.dataset.pick; closeSheet(); finishRoute(r); }));
     $('shB').querySelectorAll('[data-b]').forEach((el) => el.addEventListener('click', () => { au(); closeSheet(); setTool('b:' + el.dataset.b); }));
     $('shB').querySelectorAll('[data-a]').forEach((el) => el.addEventListener('click', () => { au(); const a = JSON.parse(el.dataset.a); if (a.t === 'erase' && el.dataset.sure !== '1') { el.dataset.sure = '1'; el.textContent = 'Точно знести?'; return; } const r = doAct(a); if (r.ok && a.t === 'erase') closeSheet(); else if (sheetFn) sheetFn(); }));
     const rs = $('resetB'); if (rs) rs.onclick = () => { if (rs.dataset.sure !== '1') { rs.dataset.sure = '1'; rs.textContent = 'Точно почати заново? Натисни ще раз'; return; } S = M.create((Math.random() * 2 ** 31) | 0); saveLocal(); cloudT = 0; saveCloud(); rebuildAll(); closeSheet(); centerCam(); };
@@ -343,13 +399,18 @@
         h += '<div class="row"><span class="tx"><b>Рівень ' + b.lv + ' · живе ' + (b.lv > 1 ? 4 : 2) + ' · щастя ' + Math.round(100 * M.happyOf(S, b)) + '%</b><small>хоче: ' + need.map((r) => RES[r].ic + (b.hb[r] && S.t - b.hb[r] < 90 ? '✓' : '✗')).join(' ') + ' · платить ' + (b.lv > 1 ? 'удвічі' : 'звичайно') + '</small></span></div>';
         if (b.lv < 2) h += '<div class="btns"><button class="btn" data-a="' + A({ t: 'up', id: b.id }) + '"' + (M.canPay(S, B.house.up) ? '' : ' disabled') + '>⬆ Покращити<small>' + M.costTxt(B.house.up) + ' · 4 жителі, ще й дрова</small></button></div>';
       }
+      if (d.job) h += '<div class="btns"><button class="btn sec" data-a="' + A({ t: 'off', id: b.id }) + '">' + (b.off ? '▶ Запустити' : '⏸ Зупинити') + '<small>' + (b.off ? 'знову візьме робітника' : 'робітник стане носієм') + '</small></button></div>';
+      const rts = (S.rt || []).filter((r) => r.a === b.id || r.b === b.id);
+      if (d.stor || d.out) h += '<div class="btns"><button class="btn sec" data-route="b' + b.id + '">📍 Маршрут звідси<small>вільний носій носитиме ' + (d.out ? RES[d.out].ic : 'зі складу') + ' туди, куди скажеш</small></button></div>';
+      if (rts.length || b.k === 'hall') h += '<div class="row"><span class="tx"><b>Маршрути' + (b.k === 'hall' ? ' міста' : '') + '</b><small>' + ((b.k === 'hall' ? S.rt || [] : rts).map((r) => B[S.b[r.a].k].n + ' → ' + B[S.b[r.b].k].n + (r.r ? ' ' + RES[r.r].ic : '') + ' <button class="sell" data-a="' + A({ t: 'unroute', id: r.id }) + '">✕</button>').join('<br>') || 'нема — торкнись носія або «Маршрут звідси»') + '</small></span></div>';
       if (b.k !== 'hall') h += '<div class="btns"><button class="btn red" data-a="' + A({ t: 'erase', x: b.x, y: b.y }) + '">🗑 Знести</button></div>';
       else h += '<div class="btns"><button class="btn sec" id="resetB">↺ Почати місто заново</button></div>';
       return h;
     });
   }
   $('hSt').addEventListener('click', () => { const hall = Object.values(S.b).find((b) => b.k === 'hall'); if (hall) openBuilding(hall.id); });
-  setInterval(() => { if (sheetFn) sheetFn(); }, 1000);
+  let sheetTouch = 0; $('sheet').addEventListener('pointerdown', () => { sheetTouch = performance.now(); });
+  setInterval(() => { if (sheetFn && performance.now() - sheetTouch > 1500) sheetFn(); }, 1000);
 
   // ================= повідомлення й звук =================
   let toastT = 0;
@@ -377,5 +438,5 @@
   // ================= старт =================
   S = loadLocal() || M.create((Math.random() * 2 ** 31) | 0);
   rebuildAll(); centerCam(); setTool('look'); cloudInit(); requestAnimationFrame(frame);
-  window.MISTO = { get S() { return S; }, M, cam, setTool, tap, pickTile, openBuild, closeSheet, step(n) { for (let k = 0; k < n; k++) M.step(S, STEP); }, rebuildAll, get tool() { return tool; } };
+  window.MISTO = { screenOf(x, y) { const v = new THREE.Vector3(x + 0.5, topY(M.idx(x, y)) + 0.3, y + 0.5).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, carrierScreen(k) { const p = cpos[k]; if (!p) return null; const v = new THREE.Vector3(p.x, p.y + 0.3, p.z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; }, get S() { return S; }, M, cam, setTool, tap, pickTile, openBuild, closeSheet, step(n) { for (let k = 0; k < n; k++) M.step(S, STEP); }, rebuildAll, get tool() { return tool; } };
 })();

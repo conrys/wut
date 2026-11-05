@@ -96,7 +96,7 @@
 
   // ---------- робітники ----------
   function pop(s) { let p = 0; for (const id in s.b) { const b = s.b[id]; if (b.k === 'house') p += b.lv > 1 ? 4 : 2; else if (B[b.k].pop) p += B[b.k].pop; } return p; }
-  function jobs(s) { const o = []; for (const id in s.b) if (B[s.b[id].k].job) o.push(s.b[id]); o.sort((a, b) => a.id - b.id); return o; }
+  function jobs(s) { const o = []; for (const id in s.b) { const b = s.b[id]; if (B[b.k].job) { if (b.off) b.on = 0; else o.push(b); } } o.sort((a, b) => a.id - b.id); return o; }
   // хто працює: перші за порядком будови; решта людей — носії
   function staff(s) { const p = pop(s), js = jobs(s); let left = p; for (const b of js) { b.on = left > 0 ? 1 : 0; if (b.on) left--; } return { pop: p, jobs: js.length, free: left }; }
 
@@ -203,18 +203,34 @@
     }
     return null;
   }
+  // маршрут: носій ходить по колу — забирає r у A (з виробництва або зі складу) і несе в B
+  function routePlan(s, cr, rt) {
+    const a = s.b[rt.a], b = s.b[rt.b]; if (!a || !b) return null;
+    let r = rt.r;
+    if (B[a.k].stor) { if (!r || (s.st[r] || 0) - ((s._rsv['s' + r]) || 0) <= 0) return null; }
+    else { if (!a.out.length) return null; if (r && a.out.indexOf(r) < 0) return null; r = r || a.out[0]; }
+    if (!accepts(s, b, r)) return null;
+    const p1 = bfs(s, cr.i, around(s, a)); if (!p1) { a.stuck = s.t; return null; }
+    const p2 = bfs(s, p1[p1.length - 1], around(s, b)); if (!p2) { b.stuck = s.t; return null; }
+    return { from: a, to: b, r, st: B[a.k].stor ? 1 : 0, p1, p2, rt: rt.id };
+  }
   function stepCarriers(s, dt) {
     const want = staff(s).free;
     if (!s.cr) s.cr = [];
     const hall = stores(s)[0];
     while (s.cr.length < want && hall) { const a = around(s, hall); s.cr.push({ i: a[0] !== undefined ? a[0] : idx(hall.x, hall.y), f: 0, job: null }); }
     while (s.cr.length > want) { const c = s.cr.pop(); if (c.job && c.it) s.st[c.it] = (s.st[c.it] || 0) + 1; }
+    // маршрути: кожному — свій носій; зайвих відв'язати
+    if (!s.rt) s.rt = [];
+    const live = new Set(s.rt.map((r) => r.id));
+    for (const c of s.cr) if (c.rt && !live.has(c.rt)) c.rt = 0;
+    for (const r of s.rt) if (!s.cr.some((c) => c.rt === r.id)) { const c = s.cr.find((q) => !q.rt && !q.job) || s.cr.find((q) => !q.rt); if (c) c.rt = r.id; }
     // броні: що вже хтось несе
     s._rsv = {};
     for (const c of s.cr) if (c.job) { const j = c.job; s._rsv[j.to.id + j.r] = (s._rsv[j.to.id + j.r] || 0) + 1; if (!c.it) s._rsv[(j.st ? 's' + j.r : 'o' + j.from.id)] = (s._rsv[(j.st ? 's' + j.r : 'o' + j.from.id)] || 0) + 1; }
     let planned = 0;
     for (const c of s.cr) {
-      if (!c.job) { if (c.wait > 0) { c.wait -= dt; continue; } if (planned >= 3) continue; planned++; const j = plan(s, c); if (!j) { c.wait = 1; continue; } c.job = j; c.path = j.p1; c.k = 0; c.f = 0; s._rsv[j.to.id + j.r] = (s._rsv[j.to.id + j.r] || 0) + 1; s._rsv[(j.st ? 's' + j.r : 'o' + j.from.id)] = (s._rsv[(j.st ? 's' + j.r : 'o' + j.from.id)] || 0) + 1; continue; }
+      if (!c.job) { if (c.wait > 0) { c.wait -= dt; continue; } if (planned >= 3) continue; planned++; const rt = c.rt && s.rt.find((r) => r.id === c.rt); const j = rt ? routePlan(s, c, rt) : plan(s, c); if (!j) { c.wait = 1; continue; } c.job = j; c.path = j.p1; c.k = 0; c.f = 0; s._rsv[j.to.id + j.r] = (s._rsv[j.to.id + j.r] || 0) + 1; s._rsv[(j.st ? 's' + j.r : 'o' + j.from.id)] = (s._rsv[(j.st ? 's' + j.r : 'o' + j.from.id)] || 0) + 1; continue; }
       // крок по шляху
       const p = c.path; if (c.k < p.length - 1) {
         const nx = p[c.k + 1], sp = (s.pa[nx] ? 2.2 : s.tr[nx] ? 0.8 : 1.3) * dt;
@@ -245,6 +261,7 @@
       if (b.out.length) { const oc = outConvs(s, b); if (oc.length) { const k = (b.rr = ((b.rr || 0) + 1) % oc.length); const [, c] = oc[k]; if (roomAtStart(c)) c.it.push([b.out.shift(), 0]); } }
       if (d.job) {
         b.why = '';
+        if (b.off) { b.why = 'off'; continue; }
         if (!b.on) { b.why = 'worker'; continue; }
         if (b.out.length >= OUT_CAP) { b.why = 'full'; continue; }
         if (d.in && b.t === 0) { for (const r in d.in) if ((b.inp[r] || 0) < d.in[r]) { b.why = r; break; } if (b.why) continue; }
@@ -297,11 +314,24 @@
       case 'erase': {
         if (i < 0) return fail('Нема');
         const b = bAt(s, x, y);
-        if (b) { if (b.k === 'hall') return fail('Ратушу не знести'); pay(s, B[b.k].cost, 0.5); delete s.b[b.id]; s._occ = null; return { ok: true }; }
+        if (b) { if (b.k === 'hall') return fail('Ратушу не знести'); pay(s, B[b.k].cost, 0.5); delete s.b[b.id]; s._occ = null; if (s.rt) s.rt = s.rt.filter((r) => r.a !== b.id && r.b !== b.id); return { ok: true }; }
         if (s.cv[i]) { pay(s, CONV[s.cv[i].k].cost, 1); delete s.cv[i]; return { ok: true }; }
         if (s.pa[i]) { s.pa[i] = 0; return { ok: true }; }
         return fail('Тут нічого нема');
       }
+      case 'off': { const b = s.b[a.id]; if (!b || !B[b.k].job) return fail('Нема'); b.off = b.off ? 0 : 1; return { ok: true }; }
+      case 'route': {
+        const A = s.b[a.a], Bb = s.b[a.b]; if (!A || !Bb || A === Bb) return fail('Обери дві різні будівлі');
+        if (!B[A.k].stor && !B[A.k].out) return fail(B[A.k].n + ' нічого не виробляє');
+        if (a.r && !(B[Bb.k].stor || (B[Bb.k].in && B[Bb.k].in[a.r]) || (B[Bb.k].sells && B[Bb.k].sells.indexOf(a.r) >= 0))) return fail(B[Bb.k].n + ' не бере ' + RES[a.r].n.toLowerCase());
+        if (!s.rt) s.rt = []; if (!s.rtn) s.rtn = 1;
+        const busy = (s.cr || []).filter((c) => c.rt).length; if (busy >= staff(s).free && !a.ci && a.ci !== 0) return fail('Нема вільного носія — збудуй хату');
+        const r = { id: s.rtn++, a: A.id, b: Bb.id, r: a.r || (B[A.k].out || null) };
+        s.rt.push(r);
+        if (a.ci !== undefined && s.cr && s.cr[a.ci]) { const c = s.cr[a.ci]; if (c.rt) s.rt = s.rt.filter((q) => q.id !== c.rt || q === r); c.rt = r.id; if (c.job && !c.it) c.job = null; }
+        return { ok: true, rt: r };
+      }
+      case 'unroute': { if (!s.rt) return fail('Нема'); const n = s.rt.length; s.rt = s.rt.filter((r) => r.id !== a.id); for (const c of s.cr || []) if (c.rt === a.id) c.rt = 0; return n === s.rt.length ? fail('Нема') : { ok: true }; }
       case 'up': {
         const b = s.b[a.id]; if (!b || b.k !== 'house' || b.lv > 1) return fail('Нема');
         if (!canPay(s, B.house.up)) return fail('Треба ' + costTxt(B.house.up));
@@ -320,6 +350,7 @@
   function why(s, b) {
     const w = b.why; if (!w && !(b.stuck && s.t - b.stuck < 5)) return '';
     if (b.stuck && s.t - b.stuck < 5) return 'носії не можуть підійти — залиш вільну клітинку поруч';
+    if (w === 'off') return 'зупинено';
     if (w === 'worker') return 'нема вільного робітника — збудуй хату';
     if (w === 'full') return 'повно — забери або постав стрічку';
     if (w === 'tree') return 'нема дерев поруч';
