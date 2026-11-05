@@ -167,6 +167,8 @@
     return null;
   }
   const around = (s, b) => [0, 1, 2, 3].map((d) => [b.x + DX[d], b.y + DY[d]]).filter(([x, y]) => inb(x, y) && walk(s, idx(x, y)) && Math.abs(s.h[idx(x, y)] - s.h[idx(b.x, b.y)]) <= 1).map(([x, y]) => idx(x, y));
+  const treeSides = (s, ti) => { const x = ti % W, y = Math.floor(ti / W); return [0, 1, 2, 3].map((d) => [x + DX[d], y + DY[d]]).filter(([X, Y]) => inb(X, Y) && walk(s, idx(X, Y)) && Math.abs(s.h[idx(X, Y)] - s.h[ti]) <= 1).map(([X, Y]) => idx(X, Y)); };
+  const CHOP_T = 3;   // скільки секунд носій рубає дерево
   const dist = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
   // сирі запити: хто що хоче отримати
   function requests(s, rsv) {
@@ -194,9 +196,16 @@
       const from = st.slice().sort((p, o) => dist(p, q.b) - dist(o, q.b))[0];
       cand.push({ from, to: q.b, r: q.r, st: 1, d: 5 + dist(here, from) + dist(from, q.b) * 0.5 });
     }
+    // 3) позначені дерева: підійти, зрубати, віднести колоди на склад
+    for (const k in s.ct || {}) {
+      const ti = +k; if (!s.tr[ti]) { delete s.ct[ti]; continue; } if (rsv['t' + ti]) continue;
+      const t = { x: ti % W, y: Math.floor(ti / W) }, to = st.slice().sort((p, o) => dist(p, t) - dist(o, t))[0]; if (!to) continue;
+      cand.push({ chop: ti, from: t, to, r: 'log', d: 2 + dist(here, t) + dist(t, to) * 0.5 });
+    }
     cand.sort((a, b) => a.d - b.d);
     // найближче, до якого справді можна дійти
     for (const c of cand.slice(0, 6)) {
+      if (c.chop !== undefined) { const goals = treeSides(s, c.chop), p1 = goals.length ? bfs(s, cr.i, goals) : null; if (!p1) continue; const p2 = bfs(s, p1[p1.length - 1], around(s, c.to)); if (!p2) continue; return { ...c, p1, p2 }; }
       const p1 = bfs(s, cr.i, around(s, c.from)); if (!p1) { c.from.stuck = s.t; continue; }
       const p2 = bfs(s, p1[p1.length - 1], around(s, c.to)); if (!p2) { c.to.stuck = s.t; continue; }
       return { ...c, p1, p2 };
@@ -227,10 +236,11 @@
     for (const r of s.rt) if (!s.cr.some((c) => c.rt === r.id)) { const c = s.cr.find((q) => !q.rt && !q.job) || s.cr.find((q) => !q.rt); if (c) c.rt = r.id; }
     // броні: що вже хтось несе
     s._rsv = {};
-    for (const c of s.cr) if (c.job) { const j = c.job; s._rsv[j.to.id + j.r] = (s._rsv[j.to.id + j.r] || 0) + 1; if (!c.it) s._rsv[(j.st ? 's' + j.r : 'o' + j.from.id)] = (s._rsv[(j.st ? 's' + j.r : 'o' + j.from.id)] || 0) + 1; }
+    for (const c of s.cr) if (c.job && c.job.chop !== undefined) s._rsv['t' + c.job.chop] = 1;
+    for (const c of s.cr) if (c.job && c.job.chop === undefined) { const j = c.job; s._rsv[j.to.id + j.r] = (s._rsv[j.to.id + j.r] || 0) + 1; if (!c.it) s._rsv[(j.st ? 's' + j.r : 'o' + j.from.id)] = (s._rsv[(j.st ? 's' + j.r : 'o' + j.from.id)] || 0) + 1; }
     let planned = 0;
     for (const c of s.cr) {
-      if (!c.job) { if (c.wait > 0) { c.wait -= dt; continue; } if (planned >= 3) continue; planned++; const rt = c.rt && s.rt.find((r) => r.id === c.rt); const j = rt ? routePlan(s, c, rt) : plan(s, c); if (!j) { c.wait = 1; continue; } c.job = j; c.path = j.p1; c.k = 0; c.f = 0; s._rsv[j.to.id + j.r] = (s._rsv[j.to.id + j.r] || 0) + 1; s._rsv[(j.st ? 's' + j.r : 'o' + j.from.id)] = (s._rsv[(j.st ? 's' + j.r : 'o' + j.from.id)] || 0) + 1; continue; }
+      if (!c.job) { if (c.wait > 0) { c.wait -= dt; continue; } if (planned >= 3) continue; planned++; const rt = c.rt && s.rt.find((r) => r.id === c.rt); const j = rt ? routePlan(s, c, rt) : plan(s, c); if (!j) { c.wait = 1; continue; } c.job = j; c.path = j.p1; c.k = 0; c.f = 0; if (j.chop !== undefined) { s._rsv['t' + j.chop] = 1; continue; } s._rsv[j.to.id + j.r] = (s._rsv[j.to.id + j.r] || 0) + 1; s._rsv[(j.st ? 's' + j.r : 'o' + j.from.id)] = (s._rsv[(j.st ? 's' + j.r : 'o' + j.from.id)] || 0) + 1; continue; }
       // крок по шляху
       const p = c.path; if (c.k < p.length - 1) {
         const nx = p[c.k + 1], sp = (s.pa[nx] ? 2.2 : s.tr[nx] ? 0.8 : 1.3) * dt;
@@ -239,6 +249,11 @@
       }
       c.f = 0;
       const j = c.job;
+      if (j.chop !== undefined && !c.it) {   // рубає
+        if (!s.tr[j.chop]) { c.job = null; c.cw = 0; continue; }
+        c.cw = (c.cw || 0) + dt; if (c.cw < CHOP_T) continue;
+        c.cw = 0; s.tr[j.chop] = 0; delete (s.ct || {})[j.chop]; c.it = 'log'; c.n = 2; c.path = j.p2; c.k = 0; continue;
+      }
       if (!c.it) {   // забрати
         if (!s.b[j.from.id]) { c.job = null; continue; }
         if (j.st) { if ((s.st[j.r] || 0) > 0) { s.st[j.r]--; c.it = j.r; } else { c.job = null; continue; } }
@@ -247,8 +262,8 @@
       }
       // віддати (або на склад, якщо вже не треба)
       const to = s.b[j.to.id];
-      if (to && accepts(s, to, c.it)) put(s, to, c.it); else s.st[c.it] = (s.st[c.it] || 0) + 1;
-      c.it = null; c.job = null;
+      for (let n = 0; n < (c.n || 1); n++) { if (to && accepts(s, to, c.it)) put(s, to, c.it); else s.st[c.it] = (s.st[c.it] || 0) + 1; }
+      c.it = null; c.n = 0; c.job = null;
     }
   }
 
@@ -294,7 +309,7 @@
     switch (a.t) {
       case 'build': {
         const d = B[a.k]; if (!d || d.nobuild) return fail('Нема');
-        if (!freeTile(s, x, y)) return fail(i >= 0 && s.tr[i] ? 'Тут дерево — торкнись, щоб зрубати' : 'Тут зайнято');
+        if (!freeTile(s, x, y)) return fail(i >= 0 && s.tr[i] ? 'Тут дерево — у «Огляді» торкнись його, і носій зрубає' : 'Тут зайнято');
         if (d.near === 'rock' && ![0, 1, 2, 3].some((k) => inb(x + DX[k], y + DY[k]) && s.rk[idx(x + DX[k], y + DY[k])])) return fail('Каменярню — впритул до скелі');
         if (!canPay(s, d.cost)) return fail('Треба ' + costTxt(d.cost));
         pay(s, d.cost); s.pa[i] = 0; const b = addB(s, a.k, x, y); return { ok: true, b };
@@ -310,7 +325,12 @@
       }
       case 'turn': { const c = s.cv[i]; if (!c) return fail('Нема'); c.d = (c.d + 1) % 4; return { ok: true }; }
       case 'path': { if (i < 0 || bAt(s, x, y) || s.rk[i]) return fail('Не можна'); if (s.tr[i]) return fail('Спершу зрубай дерево'); s.pa[i] = a.off ? 0 : 1; return { ok: true }; }
-      case 'clear': { if (i < 0 || !s.tr[i]) return fail('Нема дерева'); s.tr[i] = 0; s.st.log = (s.st.log || 0) + 2; return { ok: true, log: 2 }; }
+      case 'clear': {
+        // позначити дерево на вирубку (або зняти позначку) — рубає вільний носій
+        if (i < 0 || !s.tr[i]) return fail('Нема дерева');
+        if (!s.ct) s.ct = {}; if (s.ct[i]) { delete s.ct[i]; return { ok: true, marked: false }; }
+        s.ct[i] = 1; return { ok: true, marked: true };
+      }
       case 'erase': {
         if (i < 0) return fail('Нема');
         const b = bAt(s, x, y);
@@ -358,6 +378,6 @@
     return 'чекає: ' + RES[w].ic + ' ' + RES[w].n.toLowerCase();
   }
 
-  const api = { _plan: (s, c) => plan(s, c), _bfs: (s, a, g) => bfs(s, a, g), W, H, VER, DX, DY, idx, inb, RES, B, CONV, NEEDS, create, step, act, pack, bAt, pop, staff, happy, happyOf, speed, storCap, costTxt, canPay, why, outConvs, MK_CAP, OUT_CAP, IN_CAP };
+  const api = { CHOP_T, _plan: (s, c) => plan(s, c), _bfs: (s, a, g) => bfs(s, a, g), W, H, VER, DX, DY, idx, inb, RES, B, CONV, NEEDS, create, step, act, pack, bAt, pop, staff, happy, happyOf, speed, storCap, costTxt, canPay, why, outConvs, MK_CAP, OUT_CAP, IN_CAP };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MistoSim = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -162,7 +162,8 @@
       if (m >= 120) break;
       const p = c.path, a = p ? p[Math.min(c.k || 0, p.length - 1)] : c.i, b = p && c.k < p.length - 1 ? p[c.k + 1] : a, f = Math.min(1, c.f || 0);
       const x = tx(a) + (tx(b) - tx(a)) * f, z = tz(a) + (tz(b) - tz(a)) * f, y = topY(a) + (topY(b) - topY(a)) * f;
-      const bob = c.job ? Math.abs(Math.sin(performance.now() / 120 + m)) * 0.04 : 0;
+      const chopping = c.job && c.job.chop !== undefined && !c.it && c.cw > 0;
+      const bob = chopping ? Math.abs(Math.sin(performance.now() / 70)) * 0.1 : c.job ? Math.abs(Math.sin(performance.now() / 120 + m)) * 0.04 : 0;
       cpos[m] = { x, y, z };
       m4.compose(v3.set(x, y + 0.16 + bob, z), q4.identity(), s3.set(1, 1, 1)); bodies.setMatrixAt(m, m4); bodies.setColorAt(m, col.set(SHIRTS[m % SHIRTS.length]));
       m4.compose(v3.set(x, y + 0.42 + bob, z), q4.identity(), s3.set(1, 1, 1)); heads.setMatrixAt(m, m4);
@@ -197,6 +198,13 @@
       ic.visible = !!em; if (em) { ic.material = emojiSprite(em, w || b.k === 'house' ? '#FFF3D6' : '#fff'); ic.position.y = 1.35 + Math.sin(t / 300 + id) * 0.05; }
     }
     puffs.count = n; puffs.instanceMatrix.needsUpdate = true;
+  }
+  // 🪓 над деревами, позначеними на вирубку
+  const axes = [];
+  function syncMarks(t) {
+    const ks = Object.keys(S.ct || {}); let n = 0;
+    for (const k of ks) { const i = +k; if (!S.tr[i]) continue; let sp = axes[n]; if (!sp) { sp = new THREE.Sprite(emojiSprite('🪓', '#FFE2A8')); sp.scale.set(0.45, 0.45, 1); sp.renderOrder = 10; scene.add(sp); axes[n] = sp; } sp.visible = true; sp.position.set(tx(i), topY(i) + 1.55 + Math.sin(t / 250 + i) * 0.05, tz(i)); n++; }
+    for (let k = n; k < axes.length; k++) axes[k].visible = false;
   }
   // ================= підсвітка клітинки й привид будівлі =================
   const hiG = new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 0.02, 1)), hi = new THREE.LineSegments(hiG, new THREE.LineBasicMaterial({ color: '#FFFFFF' })); hi.visible = false; scene.add(hi);
@@ -313,7 +321,7 @@
     const b = M.bAt(S, x, y);
     if (b) { openBuilding(b.id); return; }
     if (S.cv[i]) { doAct({ t: 'turn', x, y }); toast(M.CONV[S.cv[i].k].n + ': розвернуто'); return; }
-    if (S.tr[i]) { const r = doAct({ t: 'clear', x, y }); if (r.ok) toast('+2 🪵'); return; }
+    if (S.tr[i]) { const r = doAct({ t: 'clear', x, y }); if (r.ok) toast(r.marked ? '🪓 Позначено на вирубку — прийде вільний носій' : 'Позначку знято'); return; }
     if (S.rk[i]) { toast('Скеля: постав поруч каменярню'); return; }
     openBuild();
   }
@@ -336,7 +344,7 @@
     openSheet('👷 Носій', () => {
       const c = (S.cr || [])[ci]; if (!c) { setTimeout(closeSheet); return ''; }
       const rt = c.rt && (S.rt || []).find((r) => r.id === c.rt);
-      const now = c.job ? (c.it ? 'несе ' + RES[c.it].ic + ' ' + RES[c.it].n.toLowerCase() + ' → ' + B[c.job.to.k].n : 'іде по ' + RES[c.job.r].ic + ' до: ' + B[c.job.from.k].n) : 'чекає роботи';
+      const now = c.job && c.job.chop !== undefined && !c.it ? (c.cw > 0 ? '🪓 рубає дерево' : 'іде рубати дерево') : c.job ? (c.it ? 'несе ' + RES[c.it].ic + ' ' + RES[c.it].n.toLowerCase() + ' → ' + (c.job.to.k ? B[c.job.to.k].n : '') : 'іде по ' + RES[c.job.r].ic + ' до: ' + B[c.job.from.k].n) : 'чекає роботи';
       let h = '<div class="row"><span class="ic">👷</span><span class="tx"><b>' + esc(now) + '</b><small>' + (rt ? '📍 Маршрут: ' + B[S.b[rt.a].k].n + ' → ' + B[S.b[rt.b].k].n + (rt.r ? ' · ' + RES[rt.r].ic : '') + ', по колу' : 'Вільний: сам вирішує, що й куди носити') + '</small></span></div>';
       h += '<div class="btns"><button class="btn" data-route="c' + ci + '">📍 ' + (rt ? 'Інший маршрут' : 'Задати маршрут') + '<small>торкнись «звідки», потім «куди»</small></button>' + (rt ? '<button class="btn sec" data-a="' + A({ t: 'unroute', id: rt.id }) + '">Зробити вільним</button>' : '') + '</div>';
       return h;
@@ -430,7 +438,7 @@
       acc += dt; let n = 0; while (acc >= STEP && n < 6) { M.step(S, STEP); acc -= STEP; n++; } if (n === 6) acc = 0;
       if (t - sigT > 700) { sigT = t; const sg = terrainSig(); if (sg !== terrSig) { terrSig = sg; buildTerrain(); } hud(); syncBuildings(); }
       arrowTex.offset.y = (arrowTex.offset.y - dt * 1.2) % 1;
-      syncMovers(acc / STEP); syncDeco(t);
+      syncMovers(acc / STEP); syncDeco(t); syncMarks(t);
     }
     placeCam(); renderer.render(scene, camera);
   }
