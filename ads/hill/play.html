@@ -7,7 +7,7 @@
 <title>Цар гори</title>
 <link rel="stylesheet" href="../../vendor/fonts/baloo-2.css"><link rel="stylesheet" href="../../vendor/fonts/rubik.css">
 <style>
-/* Цар гори: утримай зону сам — капають очки. Рушій і карти — з Хованок, персонажі й мережа — як в Агентах. */
+/* Цар гори: утримай зону — капають очки. Рушій і карти — з Хованок, персонажі й мережа — як в Агентах. */
 :root{
   --ink:#F4F1EA; --night:#14121A; --card:#1E1B25; --line:#33303D;
   --gold:#FFC93C; --gold-deep:#C99716; --red:#FF5C5C; --sky:#59C3FF;
@@ -114,7 +114,7 @@ input:focus-visible,select:focus-visible{outline:3px solid var(--sky);outline-of
 <div class="overlay" id="ov">
   <div class="card">
     <h1 id="ovTitle">Цар гори</h1>
-    <p id="ovText">На карті сяє зона. Поки ти в ній сам — капають очки. Двоє й більше — ніхто нічого не отримує, тож виштовхуй суперників. Кожні 30 секунд зона переїжджає.</p>
+    <p id="ovText">На карті сяє зона. Поки ти в ній — капають очки, навіть якщо там тісно. Виштовхуй суперників, щоб вони не набирали разом із тобою. Кожні 30 секунд зона переїжджає.</p>
     <ul class="score" id="scoreList" hidden></ul>
     <p class="hint" id="ovHint">Веди пальцем по екрану або торкнись підлоги — персонаж піде туди сам. ✋ штовхає найближчого. У кожного ще одне випадкове вміння на раунд: ривок, щит або калюжа.</p>
     <div class="stack" id="soloBox">

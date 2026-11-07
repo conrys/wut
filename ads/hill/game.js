@@ -1,4 +1,4 @@
-/* Цар гори — утримання зони. Поки ти в зоні сам — капає 1 очко за секунду; двоє й більше — ніхто не отримує.
+/* Цар гори — утримання зони. Кожному, хто в зоні, капає 1 очко за секунду (точність до мс), навіть коли там тісно.
    Зона кожні 30 с переїжджає в іншу кімнату (за 6 с показує, куди). Перший до 60 очок або лідер за 3 хв — цар гори.
    ✋ Поштовх (у всіх) відкидає найближчого; ще одне випадкове вміння на раунд: 💨 ривок, 🛡 щит, 🫧 калюжа.
    Рушій і карти — з Хованок (../khovanky/world.js), персонажі-інстанси й мережа — як в Агентах.
@@ -214,11 +214,7 @@ function botThink(b,dt){
   const goal=G.zn>=0&&G.zt<2600&&zones[G.zn]?zones[G.zn]:zc;
   b.offT-=dt;if(!b.off||b.offT<=0){const a=Math.random()*6.283,r=Math.random()*0.9;b.off=[Math.cos(a)*r,Math.sin(a)*r];b.offT=1.5+Math.random()*3}
   let tx=goal.x+b.off[0],tz=goal.z+b.off[1];const dg=dist(b.x,b.z,goal.x,goal.z),inZ=dist(b.x,b.z,zc.x,zc.z)<ZR+0.2;
-  // обережний бот чекає на краю, поки в зоні тісно: найобережніші — якщо там хоч хтось, середні — якщо двоє.
-  // У тісній зоні з поштовхом на перезарядці теж відступає до краю — так хтось встигає побути царем.
-  const others=(G.n|0)-(inZ?1:0),wait=b.bold<0.6?1:b.bold<0.85?2:9;
-  b.back=(b.back||0)-dt;if(inZ&&others>=2&&b.cdP>0.8&&b.bold<0.9&&b.back<=0&&Math.random()<dt*0.8)b.back=1.5+Math.random()*1.5;
-  if(goal===zc&&(b.back>0||(!inZ&&others>=wait))){const a=Math.atan2(b.x-zc.x,b.z-zc.z);const [ex,ez]=snap(zc.x+Math.sin(a)*(ZR+1.2),zc.z+Math.cos(a)*(ZR+1.2));tx=ex;tz=ez}
+  // очки йдуть усім у зоні, тож боти не відступають від тісноти — лізуть у коло й штовхаються
   let near=null,nd=1e9;for(const c of chars){if(c===b||c.gone)continue;const [x,z]=P(c),d=dist(x,z,b.x,b.z);if(d<nd){nd=d;near=c}}
   // поштовх: коли суперник поруч і хтось із нас у зоні (з невеликою «реакцією», щоб боти не були ідеальні)
   if(near&&nd<PUSH_R-0.2&&b.cdP<=0){const [nx,nz]=P(near),hot=dist(nx,nz,zc.x,zc.z)<ZR+0.9||inZ;
@@ -366,7 +362,9 @@ function zoneTick(dt){
   const z=zones[G.zi];if(!z)return;
   const inside=[];for(const c of chars){if(c.gone)continue;const [x,zz]=P(c);if(dist(x,zz,z.x,z.z)<=ZR)inside.push(c.id)}
   G.own=inside.length===1?inside[0]:inside.length>1?'*':'';G.n=inside.length;
-  if(inside.length===1){const id=inside[0];G.sc[id]=Math.round(((G.sc[id]||0)+dt)*100)/100;if(G.sc[id]>=GOAL){endRound(id,'goal');return}}
+  // очки капають усім у зоні (не лише одинаку), рахуємо до мілісекунди; хто перший дотягнув до GOAL — той і цар
+  let top=null;for(const id of inside){G.sc[id]=Math.round(((G.sc[id]||0)+dt)*1000)/1000;if(G.sc[id]>=GOAL&&(!top||G.sc[id]>G.sc[top]))top=id}
+  if(top){endRound(top,'goal');return}
   G.zt-=dt*1000;
   if(G.zt<=WARN*1000&&G.zn<0)G.zn=pickNext();
   if(G.zt<=0){G.zi=G.zn>=0?G.zn:pickNext();G.zn=-1;G.zt=ZONE_T*1000;pushFx(['z',G.zi])}
@@ -398,7 +396,7 @@ function showEnd(){
     const ids=G.pl.concat(G.bots).sort((a,b)=>(G.sc[b]||0)-(G.sc[a]||0));
     for(const id of ids){const li=document.createElement('li');if(id===myId())li.className='me';const d=document.createElement('span');d.className='pdot';d.style.background=PAL[(G.col[id]|0)%PAL.length];
       const nm=document.createElement('span');nm.textContent=nameOf(id)+(id===G.res?' 👑':'');const w=document.createElement('small');w.textContent=MP.on&&G.win[id]?'🏆 '+G.win[id]:'';
-      const b=document.createElement('b');b.textContent=Math.floor(G.sc[id]||0);li.append(d,nm,w,b);sl.append(li)}
+      const b=document.createElement('b');b.textContent=(G.sc[id]||0).toFixed(3).replace('.',',');li.append(d,nm,w,b);sl.append(li)}
     sl.hidden=false;$('ovHint').hidden=true;$('soloBox').hidden=MP.on;$('mpOpen').hidden=MP.on;$('mpNote').hidden=true;
     $('ovBtn').hidden=MP.on&&!MP.host;$('ovBtn').textContent=MP.on?'Наступний раунд':'Ще раз';$('ovLeave').hidden=!MP.on;$('ov').hidden=false},myWin?1500:1100);
 }
@@ -471,7 +469,7 @@ function updHud(force){
   $('meChip').textContent=me?'👑 '+mine+'/'+GOAL:'👁 Глядач';
   const tc=$('timeChip');tc.textContent=mm+':'+String(ss).padStart(2,'0');tc.classList.toggle('low',G.ph==='play'&&rem<30);
   const zc=$('zoneChip');let zt='Зона вільна',cls='chip zone';
-  if(G.own==='*'){zt='⚔ Бійка';cls+=' fight'}else if(G.own&&me&&G.own===me.id){zt='Твоя!';cls+=' mine'}else if(G.own){zt=nameOf(G.own)}
+  if(G.own==='*'){zt='⚔ У зоні '+(G.n|0);cls+=' fight'}else if(G.own&&me&&G.own===me.id){zt='Твоя!';cls+=' mine'}else if(G.own){zt=nameOf(G.own)}
   if(zs>0)zt+=' · ⏭ '+zs;zc.textContent=zt;zc.className=cls;
   const bd=$('board');bd.innerHTML='';
   for(const id of ids){const li=document.createElement('li');if(me&&id===me.id)li.className='me';const d=document.createElement('i');d.style.background=PAL[(G.col[id]|0)%PAL.length];

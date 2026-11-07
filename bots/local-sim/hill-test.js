@@ -39,13 +39,13 @@ async function center(p, sel) { return p.evaluate((s) => { const r = document.qu
   await p.evaluate(() => HILLGame.sim(0.05));
   const kn = await p.evaluate(() => { const v = HILLGame.chr(window.__v); return { k: Math.hypot(v.kx, v.kz), st: v.stun, cd: HILLGame.player.cdP }; });
   check("✋ поштовх відкидає найближчого й оглушає", kn.k > 1.5 && kn.st > 0.3 && kn.cd > 2, JSON.stringify(kn));
-  // очки капають, лише коли в зоні сам
+  // очки капають кожному в зоні
   const sc0 = await p.evaluate(() => { const g = HILLGame; for (const c of g.chars) if (c !== g.player) { c.x = 2; c.z = 2; c.stun = 99; } const z = g.zones[g.G.zi]; g.player.x = z.x; g.player.z = z.z; g.G.zt = 25000; return g.G.sc.me || 0; });
   await p.evaluate(() => HILLGame.sim(3));
   const sc1 = await p.evaluate(() => HILLGame.G.sc.me || 0);
   check("сам у зоні — +1 очко за секунду", sc1 - sc0 > 2.5 && sc1 - sc0 < 3.5, (sc1 - sc0).toFixed(2));
   const sc2 = await p.evaluate(() => { const g = HILLGame, z = g.zones[g.G.zi], o = g.chars.find((c) => c !== g.player); o.x = z.x + 0.6; o.z = z.z; g.player.x = z.x; g.player.z = z.z; g.G.zt = 25000; const a = { me: g.G.sc.me, o: g.G.sc[o.id] || 0, id: o.id }; g.sim(2); return { me: g.G.sc.me - a.me, o: (g.G.sc[a.id] || 0) - a.o, own: g.G.own }; });
-  check("двоє в зоні — ніхто не отримує, зона «⚔ Бійка»", sc2.me === 0 && sc2.o === 0 && sc2.own === "*", JSON.stringify(sc2));
+  check("двоє в зоні — обоє отримують ~+1/с, зона «⚔»", sc2.me > 1.8 && sc2.me < 2.2 && sc2.o > 1.8 && sc2.o < 2.2 && sc2.own === "*", JSON.stringify(sc2));
   // щит: бот штовхає мене — відлітає сам
   const sres = await p.evaluate(() => { const g = HILLGame, me = g.player; me.ab = "shield"; me.cdA = 0; me.stun = 0; me.kx = me.kz = 0; g.doAbil(); const on = (g.G.shd.me | 0) > 0;
     const o = g.chars.find((c) => c !== me); o.x = me.x + 0.8; o.z = me.z; o.stun = 0; o.kx = o.kz = 0; o.gone = false;
