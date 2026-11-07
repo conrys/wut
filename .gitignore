@@ -85,3 +85,4 @@ memes-incoming/
 app/www/
 app-version.json
 app-manifest.json
+bots/local-sim/out*.png
