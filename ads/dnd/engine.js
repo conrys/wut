@@ -599,8 +599,25 @@
       case 'teach': if (R.LESSONS[op.k]) { g.les = (g.les || []).concat({ i: uid(), k: op.k }).slice(-4); if (!g.seen.includes(op.k)) g.seen.push(op.k); } break;
       case 'finale': g.end = op.v || null; if (op.v) log(op.v === 'a' ? '🕯️ Ерандур розбиває Череп порчі. Кошмари в Данстарі зникають.' : '💀 Жезл «Череп порчі» тепер ваш. Але в Данстарі досі не сплять…', 'scene'); break;
       case 'kick': delete g.chars[op.k]; break;
+      case 'bot': {
+        const c = R.CLASSES[op.cls]; if (!c) break;
+        let n = c.who + ' (бот)', i = 2; while (g.chars[keyOf(n)]) n = c.who + ' ' + (i++) + ' (бот)';
+        g.chars[keyOf(n)] = Object.assign(newChar(n, op.cls), { bot: true });
+        if (g.started) log('🤖 До гри приєднується ' + n + ' — ' + c.n.toLowerCase() + '.', 'sys');
+        break;
+      }
+      case 'unbot': if (g.chars[op.k] && g.chars[op.k].bot && !(g.cb && g.cb.tk['p_' + op.k])) delete g.chars[op.k]; break;
     }
   }
+
+  /* боти-гравці кидають свої перевірки самі */
+  function botRolls() {
+    const g = E.G, ck = g && g.ck; if (!ck || ck.done) return false;
+    const k = ck.who.find((w) => g.chars[w] && g.chars[w].bot && !ck.res[w]);
+    if (!k) return false;
+    checkRoll(k); E.dirty = true; return true;
+  }
+  const isBotTurn = (g) => { const t = cur(g); return !!(t && t.ch && g.chars[t.ch] && g.chars[t.ch].bot); };
 
   /* ---------- синхронізація героїв із лобі ---------- */
   function syncChars(players) { // players: [{n, cls}]
@@ -611,19 +628,33 @@
       if (!c) { g.chars[k] = newChar(p.n, p.cls); ch = true; }
       else if (!g.started && c.cls !== p.cls) { g.chars[k] = newChar(p.n, p.cls); ch = true; }
     }
-    if (!g.started) for (const k of Object.keys(g.chars)) if (!players.some((p) => keyOf(p.n) === k)) { delete g.chars[k]; ch = true; }
+    if (!g.started) for (const k of Object.keys(g.chars)) if (!g.chars[k].bot && !players.some((p) => keyOf(p.n) === k)) { delete g.chars[k]; ch = true; }
     if (ch) E.dirty = true;
   }
 
   /* ---------- авто-хід монстра / Ерандура ---------- */
   async function autoTurn() {
     const g = E.G; if (E.busy || !g.cb) return;
-    const t = cur(g); if (!t || t.ch) return;
+    const t = cur(g); if (!t || (t.ch && !(g.chars[t.ch] && g.chars[t.ch].bot))) return;
     E.busy = true;
     const push = () => { E.dirty = true; if (E.onChange) E.onChange(); };
     try {
       const atks = attacks(g, t), melee = atks.findIndex((a) => a.reach), ranged = atks.findIndex((a) => a.range);
-      const m = R.MONSTERS[t.mt];
+      let m = t.mt ? R.MONSTERS[t.mt] : null;
+      if (t.ch) { // бот-гравець
+        const ch = g.chars[t.ch], i = info(g, t);
+        m = { keep: ['rogue', 'ranger'].includes(ch.cls), multi: 1 };
+        if (i.down) { apply({ t: 'death', tok: t.id }, t.ch, false); push(); await E.wait(E.delay); if (g.cb && cur(g) === t) endTurn(t); push(); return; }
+        const sp = i.c.spells || [];
+        if (sp.includes('hword') && ch.slots > 0) { // жриця піднімає того, хто впав
+          const down = toks(g).find((o) => o.ch && o.side === t.side && info(g, o).down && dist(t, o) <= 12 && los(g, t, o));
+          if (down) { apply({ t: 'spell', tok: t.id, sp: 'hword', tgt: down.id }, t.ch, false); push(); await E.wait(E.delay); }
+        }
+        if (sp.includes('firebolt')) { // маг стріляє вогнем, а не б'є посохом
+          const foes = toks(g).filter((o) => o.side !== t.side && active(g, o) && dist(t, o) <= 24 && los(g, t, o)).sort((a, b) => info(g, a).hp - info(g, b).hp);
+          if (foes.length && t.act > 0) { apply({ t: 'spell', tok: t.id, sp: 'firebolt', tgt: foes[0].id }, t.ch, false); push(); await E.wait(E.delay); if (g.cb && cur(g) === t) endTurn(t); push(); return; }
+        }
+      }
       const targets = () => toks(g).filter((o) => o.side !== t.side && alive(g, o)).sort((a, b) => (active(g, b) - active(g, a)) || dist(t, a) - dist(t, b));
       let tg = targets()[0];
       if (!tg) { endTurn(t); push(); return; }
@@ -660,7 +691,7 @@
   Object.assign(E, {
     W, H, uid, keyOf, C, skillB, saveB, passive, wAtk, spellAtk, spellDC, newChar, info, alive, active, dist, toks, cur, attacks,
     tile, blocksMove, blocksLos, occ, reach, pathTo, los, coneCells, sphereCells, enemyNear, atkCheck, checkName, checkParts,
-    blank, apply, syncChars, autoTurn, log,
+    blank, apply, syncChars, autoTurn, log, botRolls, isBotTurn,
   });
   window.DNDE = E;
 })();

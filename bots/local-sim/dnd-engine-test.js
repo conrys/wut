@@ -153,6 +153,20 @@ for (const k in S.MAPS) {
     } else await E.autoTurn();
   }
   ok(g.cb.won || g.cb.lost, 'бій у залі дійшов до кінця за ' + guard + ' ходів');
+  // боти-гравці: кидають самі й воюють самі
+  const gb = E.G = E.blank();
+  E.apply({ t: 'bot', cls: 'fighter' }, null, true); E.apply({ t: 'bot', cls: 'wizard' }, null, true); E.apply({ t: 'bot', cls: 'cleric' }, null, true);
+  E.syncChars([]);
+  ok(Object.keys(gb.chars).length === 3 && Object.values(gb.chars).every((c) => c.bot), 'троє ботів пережили синхронізацію лобі');
+  E.apply({ t: 'start' }, null, true);
+  E.apply({ t: 'ck', cfg: { kind: 'sk', key: 'stealth', dc: 12, who: Object.keys(gb.chars), mode: 'group' } }, null, true);
+  while (E.botRolls());
+  ok(gb.ck.done, 'боти кинули групову перевірку');
+  E.apply({ t: 'fight', f: 'shrine' }, null, true);
+  let gg = 0;
+  while (gb.cb && !gb.cb.won && !gb.cb.lost && gg++ < 400) { await E.autoTurn(); }
+  ok(gb.cb.won || gb.cb.lost, 'боти й монстри довоювали фінальний бій самі за ' + gg + ' ходів (' + (gb.cb.won ? 'перемога' : 'поразка') + ')');
+  ok(gb.log.some((e) => e.r && /Вогняна стріла/.test(e.r.lbl)), 'бот-маг стріляє Вогняною стрілою');
   ok(JSON.stringify(g).length < 30000, 'стан вміщається в запис бази (' + JSON.stringify(g).length + ')');
   console.log((fails ? '✖ ' : '✔ ') + (n - fails) + '/' + n + ' перевірок рушія');
   process.exit(fails ? 1 : 0);

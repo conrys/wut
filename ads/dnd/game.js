@@ -127,9 +127,11 @@
           E.apply(op, k, false);
         }
       }
-      // монстри самі
+      // боти кидають перевірки (з паузою, щоб було видно)
+      if (E.G.ck && !E.G.ck.done && performance.now() > (U.botAt || 0)) { if (E.botRolls()) U.botAt = performance.now() + 700; }
+      // монстри (якщо ввімкнено) і боти-гравці ходять самі
       const cb = E.G.cb, t = E.cur(E.G);
-      if (cb && cb.auto && t && !t.ch && !E.busy && !cb.won && !cb.lost) {
+      if (cb && t && ((cb.auto && !t.ch) || E.isBotTurn(E.G)) && !E.busy && !cb.won && !cb.lost) {
         const key = cb.round + ':' + cb.turn;
         if (U.autoKey !== key) { U.autoKey = key; U.autoAt = performance.now() + 900; }
         else if (performance.now() > U.autoAt) { U.autoAt = Infinity; E.autoTurn(); }
@@ -163,15 +165,19 @@
     $('lobCode').textContent = ME.code;
     const pls = plPeers(), dm = ME.role === 'dm' ? { presence: { n: ME.nick } } : dmPeer();
     const mine = pls.find((p) => p.isMe);
-    const taken = pls.filter((p) => !p.isMe && p.presence.cls).map((p) => p.presence.cls);
-    const sig = 'L' + ME.code + JSON.stringify(pls.map((p) => [p.presence.n, p.presence.cls, p.isMe])) + (dm ? dm.presence.n : '-') + ME.cls;
+    const bots = G && G.chars ? Object.keys(G.chars).filter((k) => G.chars[k].bot).map((k) => Object.assign({ k }, G.chars[k])) : [];
+    const taken = pls.filter((p) => !p.isMe && p.presence.cls).map((p) => p.presence.cls).concat(bots.map((b) => b.cls));
+    const sig = 'L' + ME.code + JSON.stringify(pls.map((p) => [p.presence.n, p.presence.cls, p.isMe])) + JSON.stringify(bots.map((b) => b.k)) + (dm ? dm.presence.n : '-') + ME.cls;
     if (sig === U.sig) return; U.sig = sig;
     $('lobPlayers').innerHTML = (dm ? '<li><span class="avatar" style="width:30px;height:30px;font-size:16px;background:#3A3346">🎲</span><b class="grow">' + esc(dm.presence.n) + '</b><span class="chip gold">майстер</span></li>' : '<li class="muted">Майстра ще немає… Перевір код.</li>') +
+      bots.map((b) => { const c = R.CLASSES[b.cls]; return '<li><span class="avatar" style="width:30px;height:30px;font-size:16px;background:' + c.col + '">' + c.ic + '</span><b class="grow">' + esc(b.n) + '</b><span class="muted">' + c.n + '</span>' + (ME.role === 'dm' ? '<button class="btn2 sm" type="button" data-unbot="' + esc(b.k) + '">✕</button>' : '') + '</li>'; }).join('') +
       pls.map((p) => { const c = R.CLASSES[p.presence.cls]; return '<li><span class="avatar" style="width:30px;height:30px;font-size:16px;background:' + (c ? c.col : '#3A3346') + '">' + (c ? c.ic : '…') + '</span><b class="grow">' + esc(p.presence.n) + (p.isMe ? ' (ти)' : '') + '</b><span class="muted">' + (c ? c.n : 'обирає героя') + '</span></li>'; }).join('');
     if (ME.role === 'dm') {
       $('lobPick').hidden = true; $('lobWait').hidden = true; $('lobStart').hidden = false;
-      $('lobStart').disabled = !pls.some((p) => p.presence.cls);
-      $('lobSub').textContent = 'Гравці вводять цей код на своїх телефонах і обирають героїв. Можна й з одним гравцем.';
+      $('lobStart').disabled = !pls.some((p) => p.presence.cls) && !bots.length;
+      $('lobSub').textContent = 'Гравці вводять цей код на своїх телефонах і обирають героїв. Вільних героїв можна віддати ботам.';
+      $('lobBots').hidden = false;
+      $('lobBotBtns').innerHTML = R.CLASS_IDS.map((id) => { const c = R.CLASSES[id]; return '<button type="button" class="btn2 sm" data-bot="' + id + '"' + (taken.includes(id) || pls.some((p) => p.presence.cls === id) ? ' disabled' : '') + '>' + c.ic + ' ' + c.n + '</button>'; }).join('');
     } else {
       $('lobPick').hidden = false; $('lobStart').hidden = true; $('lobWait').hidden = false;
       $('lobSub').textContent = dm ? 'Майстер: ' + dm.presence.n : 'Шукаємо гру…';
@@ -184,6 +190,11 @@
   $('lobClasses').addEventListener('click', (e) => {
     const b = e.target.closest('[data-cls]'); if (!b || b.disabled || !NET) return;
     ME.cls = b.dataset.cls; NET.presence({ cls: ME.cls }); U.sig = ''; renderLobby();
+  });
+  $('lobby').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-bot],[data-unbot]'); if (!b || b.disabled || ME.role !== 'dm') return;
+    if (b.dataset.bot) send({ t: 'bot', cls: b.dataset.bot }); else send({ t: 'unbot', k: b.dataset.unbot });
+    U.sig = ''; renderLobby();
   });
   $('lobStart').addEventListener('click', () => { E.syncChars(plPeers().filter((p) => !p.isMe).map((p) => ({ n: p.presence.n, cls: p.presence.cls }))); send({ t: 'start' }); U.tab = 'scene'; render(true); });
 
@@ -379,12 +390,14 @@
     if (!keys.length) h += '<p class="muted">Поки нікого.</p>';
     for (const k of keys) {
       const ch = G.chars[k], c = R.CLASSES[ch.cls];
-      h += '<div class="card"><div class="sheet-h"><span class="avatar" style="background:' + c.col + '">' + c.ic + '</span><div class="grow"><b>' + esc(ch.n) + '</b> · ' + c.n + ' <span class="chip ' + (online(k) ? '' : 'red') + '">' + (online(k) ? 'в мережі' : 'не в мережі') + '</span>' + statusTxt(ch) +
+      h += '<div class="card"><div class="sheet-h"><span class="avatar" style="background:' + c.col + '">' + c.ic + '</span><div class="grow"><b>' + esc(ch.n) + '</b> · ' + c.n + (ch.bot ? ' <span class="chip">🤖 бот</span>' : ' <span class="chip ' + (online(k) ? '' : 'red') + '">' + (online(k) ? 'в мережі' : 'не в мережі') + '</span>') + statusTxt(ch) +
         '<div class="bar"><i style="width:' + Math.max(0, ch.hp / c.hp * 100) + '%;background:' + hpCol(ch.hp / c.hp) + '"></i></div></div></div>' +
         '<div class="row" style="margin-top:8px"><span class="grow"><b>' + ch.hp + '/' + c.hp + '</b> хітів</span>' + [-5, -1, 1, 5].map((d) => '<button class="btn2 sm" type="button" data-hp="' + k + '" data-d="' + d + '">' + (d > 0 ? '+' : '') + d + '</button>').join('') + '</div>' +
         '<div class="tags" style="margin-top:8px"><span class="tag">КБ ' + c.ac + '</span><span class="tag st">Пас. сприйн. ' + E.passive(ch) + '</span>' + (c.slots ? '<span class="tag sv">Комірки ' + ch.slots + '/' + c.slots + '</span>' : '') + '</div>' +
         (c.slots ? '<div class="row"><span class="muted grow">Комірки</span><button class="btn2 sm" type="button" data-slot="' + k + '" data-d="-1">−1</button><button class="btn2 sm" type="button" data-slot="' + k + '" data-d="1">+1</button></div>' : '') + '</div>';
     }
+    h += '<div class="card"><h3>🤖 Додати бота</h3><p class="muted">Бот сам кидає перевірки й сам ходить у бою. У поточний бій не потрапить — лише в наступний.</p><div class="chips">' + R.CLASS_IDS.map((id) => '<button type="button" data-bot="' + id + '">' + R.CLASSES[id].ic + ' ' + R.CLASSES[id].n + '</button>').join('') + '</div>' +
+      (keys.some((k) => G.chars[k].bot) ? '<div class="chips">' + keys.filter((k) => G.chars[k].bot).map((k) => '<button type="button" data-unbot="' + esc(k) + '">✕ ' + esc(G.chars[k].n) + '</button>').join('') + '</div>' : '') + '</div>';
     h += '<div class="card"><h3>Відпочинок</h3><p class="muted">Короткий (1 год): кожен кидає кістку хітів і лікується, Друге дихання й Сплеск дій повертаються. Довгий (8 год): усе відновлюється.</p><div class="row"><button class="btn2" type="button" data-rest="short" ' + (G.cb ? 'disabled' : '') + '>☕ Короткий</button><button class="btn2" type="button" data-rest="long" ' + (G.cb ? 'disabled' : '') + '>🌙 Довгий</button></div></div>';
     return h;
   }
@@ -432,6 +445,8 @@
     if (d.hp) return send({ t: 'hp', k: d.hp, d: +d.d });
     if (d.slot) return send({ t: 'slot', k: d.slot, d: +d.d });
     if (d.rest) return send({ t: 'rest', kind: d.rest });
+    if (d.bot) return send({ t: 'bot', cls: d.bot });
+    if (d.unbot) return send({ t: 'unbot', k: d.unbot });
     if (d.leave) { if (confirm('Вийти? Гру збережено на цьому телефоні.')) leave(); }
   });
 
@@ -565,6 +580,7 @@
     const t = E.cur(G); if (!t) return null;
     if (ME.role === 'pl') return t.ch === ME.key ? t : null;
     if (!t.ch) return t;
+    if (G.chars[t.ch] && G.chars[t.ch].bot) return U.override ? t : null;
     return U.override || !online(t.ch) ? t : null;
   }
   function renderOrder() {
@@ -585,7 +601,8 @@
     if (!t) {
       const i = cur && E.info(G, cur);
       h += '<p class="hint">Зараз ходить: <b>' + (i ? i.ic + ' ' + esc(i.n) : '—') + '</b>' + (ME.role === 'pl' && G.chars[ME.key] ? ' · ти — ' + esc(G.chars[ME.key].n) : '') + '</p>';
-      if (ME.role === 'dm' && cur && cur.ch) h += '<p class="hint">Гравець ' + esc(i.n) + ' ходить зі свого телефона.</p><button class="btn2" type="button" data-a="override">Діяти за гравця</button> ';
+      if (ME.role === 'dm' && cur && cur.ch && G.chars[cur.ch].bot) h += '<p class="hint">🤖 Бот ходить сам…</p><button class="btn2" type="button" data-a="override">Сходити за нього</button> ';
+      else if (ME.role === 'dm' && cur && cur.ch) h += '<p class="hint">Гравець ' + esc(i.n) + ' ходить зі свого телефона.</p><button class="btn2" type="button" data-a="override">Діяти за гравця</button> ';
       if (ME.role === 'pl') h += '<p class="hint">Поки чекаєш: торкнись будь-кого на мапі, щоб подивитись. Подумай, що зробиш у свій хід.</p>';
     } else h += actPanel(t);
     if (ME.role === 'dm') h += '<div class="row" style="margin-top:8px"><button class="btn2 sm ' + (cb.auto ? 'on' : '') + '" type="button" data-a="autoall">🤖 Монстри самі: ' + (cb.auto ? 'так' : 'ні') + '</button><button class="btn2 sm" type="button" data-a="fightend">Завершити бій</button></div>';
