@@ -86,3 +86,4 @@ app/www/
 app-version.json
 app-manifest.json
 bots/local-sim/out*.png
+bots/local-sim/shots/
