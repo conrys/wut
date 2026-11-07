@@ -170,7 +170,7 @@
     }
   }
   function die(s, killer) {
-    if (s.dead) return; s.dead = true; s.deathN++; if (s === me) myDeathN = s.deathN;
+    if (s.dead) return; s.dead = true; s.deathN++; if (s === me) { myDeathN = s.deathN; if (NET.on) { NET.kSum += me.kills; NET.deaths++; } }
     const info = deathInfo(s); spawnDeath(s.bot ? 'bot:' + s.id : s.id, info.n, info.p, info.v, info.c);   // той самий ключ, що й у мережі
     if (killer) { killer.kills = (killer.kills || 0) + (killer.bot || killer === me ? 1 : 0); }
     pushFeed(killer ? `${killer.name} зʼїв ${s.name}` : `${s.name} врізався в край`);
@@ -180,7 +180,9 @@
   const botDeaths = [];
 
   // ---------------- мережа ----------------
-  const NET = { on: false, code: '', id: null, host: false, room: null, meRef: null, peers: new Map(), joinTs: 0, lastP: 0, lastK: 0, lastG: 0, hostWas: false };
+  const NET = { on: false, code: '', id: null, host: false, room: null, meRef: null, peers: new Map(), joinTs: 0, lastP: 0, lastK: 0, lastG: 0, hostWas: false,
+    kSum: 0, bm: 0, deaths: 0, lastIdx: 0, idxRef: null };   // підсумки цієї кімнати: зʼїдено змій за всі життя, рекорд довжини, смерті
+  const sessKills = () => NET.kSum + (me && !me.dead ? me.kills : 0);
   function netAvailable() { return !!(window.firebase && firebase.database && firebase.auth && window.firebaseReady !== false); }
   function signedIn() {
     return new Promise((resolve) => { const auth = firebase.auth(), done = setTimeout(() => resolve(false), 8000);
@@ -193,7 +195,7 @@
     const before = (await room.once('value')).val() || {};
     const fresh = Object.values(before).filter((v) => v && typeof v.p === 'string' && Date.now() - (v.t || 0) < 30000).length;
     if (fresh >= 10) throw new Error('full');
-    NET.id = db.ref().push().key; NET.meRef = room.child(NET.id); NET.room = room; NET.code = code; NET.joinTs = Date.now(); NET.on = true; NET.peers.clear();
+    NET.id = db.ref().push().key; NET.meRef = room.child(NET.id); NET.room = room; NET.code = code; NET.joinTs = Date.now(); NET.on = true; NET.peers.clear(); NET.kSum = 0; NET.bm = 0; NET.deaths = 0; NET.lastIdx = 0;
     NET.meRef.onDisconnect().remove();
     const upd = (snap) => { if (snap.key === NET.id) return; const v = snap.val() || {}; let P = null, K = null;
       try { P = typeof v.p === 'string' ? JSON.parse(v.p) : null; } catch (e) {} try { K = typeof v.k === 'string' ? JSON.parse(v.k) : null; } catch (e) {}
@@ -204,6 +206,7 @@
   }
   function netLeave() {
     if (!NET.on) return; NET.on = false; try { NET.room.off(); NET.meRef.onDisconnect().cancel(); NET.meRef.remove(); } catch (e) {}
+    if (NET.idxRef) { try { NET.idxRef.onDisconnect().cancel(); if (NET.host) NET.idxRef.remove().catch(() => {}); } catch (e) {} NET.idxRef = null; }
     NET.peers.clear(); remotes.clear(); NET.host = false;
   }
   function hostIdNow() {
@@ -261,6 +264,12 @@
     }
     for (const [k2, r] of remotes) if (k2.startsWith('bot:') && iHost) remotes.delete(k2);
   }
+  // короткий запис у povzun_rooms/{код} — щоб кімнату було видно в меню «Активні кімнати». Пише лише хост.
+  function writeIndex() {
+    try { const db = firebase.database(); if (!NET.idxRef) { NET.idxRef = db.ref('povzun_rooms/' + NET.code); NET.idxRef.onDisconnect().remove(); }
+      const n = 1 + [...NET.peers.values()].filter((p) => p.P && p.P.j).length;
+      NET.idxRef.set({ n, h: String(myName || 'Гравець').slice(0, 14), t: firebase.database.ServerValue.TIMESTAMP }).catch(() => {}); } catch (e) {}
+  }
   function becomeHost() {   // підхоплюємо ботів попереднього хоста з їхніми тілами
     const inherited = [...remotes.entries()].filter(([k, r]) => k.startsWith('bot:') && !r.dead);
     bots = inherited.map(([k, r]) => spawnBotFrom(k.slice(4), r)).filter(Boolean);
@@ -276,7 +285,7 @@
     while (myEats.length && now - myEats[0][1] > 2) myEats.shift();
     const t = performance.now(), dueP = t - NET.lastP >= 100, dueK = t - NET.lastK >= 1500;
     if (!dueP && !dueK) return;
-    const P = { n: myName || 'Гравець', s: mySkin, j: NET.joinTs, l: me && !me.dead ? 1 : 0, kl: me ? me.kills : 0 };
+    const P = { n: myName || 'Гравець', s: mySkin, j: NET.joinTs, l: me && !me.dead ? 1 : 0, kl: me ? me.kills : 0, kt: sessKills(), bm: NET.bm, dn: NET.deaths };
     if (me && !me.dead) Object.assign(P, { x: Math.round(me.hx), y: Math.round(me.hy), a: +me.ang.toFixed(2), m: Math.round(me.mass), b: me.boosting ? 1 : 0 });
     if (me && me.dead && me.deathInfo && now - me.deathAt < 4) P.X = Object.assign({ by: me.killedBy }, me.deathInfo);
     P.e = myEats.map((e) => e[0]);
@@ -286,6 +295,7 @@
       P.BD = botDeaths.map((d) => ({ id: 'bot:' + d.id, n: d.n, p: d.p, v: d.v, c: d.c, by: d.by, name: d.name }));
       if (now - NET.lastG > 4) { NET.lastG = now; const g = {}; for (let i = 0; i < FOOD_N; i++) if (gens[i]) g[i] = gens[i]; P.G = g; }
     }
+    if (NET.host && now - NET.lastIdx > 5) { NET.lastIdx = now; writeIndex(); }
     if (dueP) { NET.lastP = t; NET.meRef.update({ p: JSON.stringify(P), t: firebase.database.ServerValue.TIMESTAMP }).catch(() => {}); }
     if (dueK) { NET.lastK = t; const K = {};
       if (me && !me.dead) K.me = bodyFlat(me, 4);
@@ -372,6 +382,7 @@
     zoom += (wantZoom - zoom) * Math.min(1, dt * 2);
     uiT -= dt; if (uiT <= 0) { uiT = 0.4; renderHud(); }
     if (me && !me.dead && Math.round(me.mass) > best) { best = Math.round(me.mass); }
+    if (NET.on && me && !me.dead && Math.round(me.mass) > NET.bm) NET.bm = Math.round(me.mass);
   }
   function leader() { let b = null; for (const s of allSnakes()) if (!b || s.mass > b.mass) b = s; return b; }
 
@@ -429,7 +440,8 @@
   function renderHud() {
     const all = allSnakes().sort((a, b) => b.mass - a.mass);
     const rank = me && !me.dead ? all.indexOf(me) + 1 : 0;
-    $('board').innerHTML = all.slice(0, 8).map((s, i) => `<li class="${s === me ? 'me' : ''}"><b>${i + 1}</b><span>${esc(s.name)}</span><i>${Math.round(s.mass)}</i></li>`).join('')
+    if (NET.on) $('board').innerHTML = roomTableHtml();   // у кімнаті — турнірна таблиця людей, а не всі змії разом із ботами
+    else $('board').innerHTML = all.slice(0, 8).map((s, i) => `<li class="${s === me ? 'me' : ''}"><b>${i + 1}</b><span>${esc(s.name)}</span><i>${Math.round(s.mass)}</i></li>`).join('')
       + (rank > 8 ? `<li class="me"><b>${rank}</b><span>${esc(me.name)}</span><i>${Math.round(me.mass)}</i></li>` : '');
     $('len').textContent = me && !me.dead ? Math.round(me.mass) : '—';
     $('kills').textContent = me ? me.kills : 0;
@@ -438,6 +450,19 @@
     mctx.fillStyle = 'rgba(255,255,255,.08)'; mctx.beginPath(); mctx.arc(S / 2, S / 2, S / 2 - 1, 0, 6.283); mctx.fill();
     for (const s of all) { mctx.fillStyle = s === me ? '#fff' : SKINS[s.skin % SKINS.length][0]; const rr = s === me ? 4 : 1.5 + Math.min(3, s.mass / 150);
       mctx.beginPath(); mctx.arc(S / 2 + s.hx * k, S / 2 + s.hy * k, rr, 0, 6.283); mctx.fill(); }
+  }
+  // люди в кімнаті: рекорд довжини за час у кімнаті, зараз (або 💀), зʼїдено змій за всі життя
+  function roomRows() {
+    const rows = [{ me: true, n: myName || 'Ти', alive: !!(me && !me.dead), m: me && !me.dead ? Math.round(me.mass) : 0, bm: NET.bm, kt: sessKills() }];
+    for (const [id, p] of NET.peers) { const P = p.P; if (!P || !P.j) continue;
+      const alive = P.l === 1, m = alive ? Math.round(P.m || 0) : 0;
+      rows.push({ me: false, n: String(P.n || 'Гравець').slice(0, 14), alive, m, bm: Math.max(P.bm | 0, m), kt: P.kt !== undefined ? P.kt | 0 : P.kl | 0 }); }
+    return rows.sort((a, b) => b.bm - a.bm || b.kt - a.kt);
+  }
+  function roomTableHtml(full) {
+    const rows = roomRows();
+    return `<li class="hd"><b></b><span>Кімната · ${rows.length}</span><i>🏆</i><i>🗡</i></li>` + rows.map((r, i) =>
+      `<li class="${r.me ? 'me' : ''}${r.alive ? '' : ' off'}"><b>${i + 1}</b><span>${r.alive ? '' : '💀 '}${esc(r.n)}${full && r.alive ? ' · ' + r.m : ''}</span><i>${r.bm}</i><i>${r.kt}</i></li>`).join('');
   }
   const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   function pushFeed(text) { feed.push({ text, t: now }); if (feed.length > 4) feed.shift(); }
@@ -459,6 +484,7 @@
     setTimeout(() => {
       $('deadTitle').textContent = killer ? `Тебе зʼїв ${killer.name}` : 'Ти врізався в край арени';
       $('deadStats').textContent = `Довжина ${mass} · зʼїдено змій: ${me.kills} · рекорд ${Math.max(best, mass)}`;
+      const db = $('deadBoard'); db.hidden = !NET.on; if (NET.on) db.innerHTML = roomTableHtml(true);
       $('dead').hidden = false; state = 'dead';
     }, 900);
   }
@@ -495,6 +521,25 @@
   $('createBtn').onclick = () => { saveProfile(); if (!netAvailable()) { $('mpErr').textContent = 'Онлайн недоступний — грай з ботами'; return; } enterRoom(rcode()); };
   $('joinBtn').onclick = () => { saveProfile(); const c = ($('codeIn').value || '').trim().toLowerCase(); if (!/^[a-z]{4}$/.test(c)) { $('mpErr').textContent = 'Код — 4 латинські літери'; return; } enterRoom(c); };
   $('codeIn').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('joinBtn').click(); });
+  // активні кімнати: povzun_rooms/{код} = { n людей, h хост, t } — хост оновлює раз на 5 с; старші за 30 с не показуємо
+  let roomsRef = null, roomsTimer = null, roomsVal = {};
+  function renderRooms() {
+    const box = $('roomsBox'), list = $('roomsList'), t = Date.now() + srvSkew;
+    const rooms = Object.entries(roomsVal || {}).filter(([c, v]) => /^[a-z]{4}$/.test(c) && v && t - (v.t || 0) < 30000).sort((a, b) => (b[1].n | 0) - (a[1].n | 0));
+    box.hidden = !rooms.length; if (!rooms.length) { list.innerHTML = ''; return; }
+    list.innerHTML = rooms.map(([c, v]) => `<button class="room" type="button" data-c="${c}"><b>${c.toUpperCase()}</b><span>${esc(String(v.h || 'Гравець').slice(0, 14))}</span><i>👤 ${Math.min(10, v.n | 0)}/10</i></button>`).join('');
+    list.querySelectorAll('.room').forEach((b) => b.onclick = () => { saveProfile(); if ((roomsVal[b.dataset.c] || {}).n >= 10) { $('mpErr').textContent = 'Кімната повна (10 гравців)'; return; } enterRoom(b.dataset.c); });
+  }
+  let srvSkew = 0;
+  async function watchRooms() {
+    if (roomsRef || !netAvailable() || !(await signedIn())) return;
+    try { firebase.database().ref('.info/serverTimeOffset').on('value', (s) => { srvSkew = s.val() || 0; });
+      roomsRef = firebase.database().ref('povzun_rooms'); roomsRef.on('value', (s) => { roomsVal = s.val() || {}; renderRooms(); }, () => {});
+      roomsTimer = setInterval(renderRooms, 5000); } catch (e) {}
+  }
+  function unwatchRooms() { if (roomsRef) { try { roomsRef.off(); } catch (e) {} roomsRef = null; } clearInterval(roomsTimer); roomsTimer = null; }
+  watchRooms();
+  new MutationObserver(() => { if ($('menu').hidden) unwatchRooms(); else watchRooms(); }).observe($('menu'), { attributes: true, attributeFilter: ['hidden'] });
   $('againBtn').onclick = () => { $('dead').hidden = true; startPlay(); };
   $('menuBtn').onclick = () => { netLeave(); state = 'menu'; me = null; bots = []; $('dead').hidden = true; $('hud').hidden = true; $('menu').hidden = false; location.hash = ''; };
   $('shareBtn').onclick = async () => { const url = location.href.split('#')[0] + '#' + NET.code;

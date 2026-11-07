@@ -24,6 +24,12 @@ body{background:var(--ink);color:var(--paper);font-family:var(--body);overflow:h
 .board li{display:grid;grid-template-columns:16px 1fr auto;gap:6px;opacity:.85}
 .board li b{opacity:.6;font-weight:600}.board li span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .board li.me{opacity:1;color:#FFE38A}
+.board li.hd{opacity:.55;font-size:10.5px}.board li.off{opacity:.5}.board li.me.off{opacity:.75}
+.board:has(li.hd) li{grid-template-columns:16px 1fr auto 22px}.board li i{text-align:right;font-style:normal}
+.dboard{position:static;max-width:none;width:100%;margin:6px 0 4px;font-size:14px;background:rgba(0,0,0,.25)}
+.rooms{display:grid;gap:6px;margin-top:8px}
+.room{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;width:100%;border:1px solid rgba(255,255,255,.16);border-radius:12px;background:rgba(0,0,0,.25);color:#fff;padding:10px 12px;font:600 14px var(--body);cursor:pointer;text-align:left}
+.room b{font-family:var(--display);font-weight:800;letter-spacing:.15em;color:var(--acc)}.room span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.8}.room i{font-style:normal;opacity:.75}
 .stats{position:fixed;left:max(12px,env(safe-area-inset-left,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 14px);display:flex;align-items:flex-end;gap:12px;pointer-events:none}
 #mini{width:96px;height:96px;opacity:.9}
 .num{font-family:var(--display);font-weight:800;line-height:1}
@@ -88,6 +94,7 @@ input:focus{border-color:var(--acc)}
     <div class="or">або з друзями — до 10 людей + боти</div>
     <button class="btn ghost" id="createBtn" type="button">Створити кімнату</button>
     <div class="join"><input id="codeIn" maxlength="4" placeholder="КОД" autocomplete="off" aria-label="Код кімнати"><button class="btn ghost" id="joinBtn" type="button">Увійти</button></div>
+    <div id="roomsBox" hidden><div class="or">активні кімнати — торкнись, щоб зайти</div><div class="rooms" id="roomsList"></div></div>
     <div class="busy" id="mpBusy" hidden>Заходжу…</div>
     <div class="err" id="mpErr"></div>
     <ul class="how">
@@ -103,6 +110,7 @@ input:focus{border-color:var(--acc)}
   <div class="card">
     <p class="dt" id="deadTitle"></p>
     <p class="ds" id="deadStats"></p>
+    <ol class="board dboard" id="deadBoard" hidden></ol>
     <button class="btn" id="againBtn" type="button">Ще раз</button>
     <button class="btn ghost" id="menuBtn" type="button">У меню</button>
   </div>

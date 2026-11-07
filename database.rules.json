@@ -18,6 +18,13 @@
         }
       }
     },
+    "povzun_rooms": {
+      ".read": "auth != null",
+      "$code": {
+        ".write": "auth != null && $code.matches(/^[a-z]{4}$/)",
+        ".validate": "newData.hasChildren(['n','t']) && newData.child('n').isNumber() && newData.child('t').isNumber() && (!newData.child('h').exists() || (newData.child('h').isString() && newData.child('h').val().length <= 20))"
+      }
+    },
     "ph": {
       "$code": {
         ".read": "auth != null",
