@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Кошмар наяву: кубик к20 (білий) і фіолетове око сну -->
+  <g fill="none" stroke="#fff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M512 150L826 330v364L512 874 198 694V330z"/>
+    <path d="M512 290L700 610H324z"/>
+    <path d="M512 150v140M826 330L700 610M198 330l126 280M324 610L198 694M700 610l126 84M324 610l188 264 188-264"/>
+  </g>
+  <g fill="none" stroke="#A97CFF" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M404 500q108-90 216 0q-108 90-216 0z"/>
+  </g>
+  <circle cx="512" cy="500" r="30" fill="#A97CFF"/>
+</svg>
