@@ -146,6 +146,9 @@
     E.G.v++; E.dirty = false;
     NET.presence({ g: E.G }); persist();
   }
+  // авто-хід чекає, поки догра анімація, — щоб було видно, хто що зробив
+  const animIdle = () => !ANIM.cur && !ANIM.q.length;
+  E.wait = (ms) => new Promise((r) => { const t0 = performance.now(); const f = () => ((performance.now() - t0 >= ms && animIdle()) || performance.now() - t0 > 7000 ? r() : setTimeout(f, 80)); f(); });
   E.onChange = () => { if (E.dirty) pushG(); G = E.G; render(); };
   function send(op) {
     if (ME.solo) {
@@ -164,8 +167,8 @@
       const cb = E.G.cb, t = E.cur(E.G);
       if (cb && t && (!t.ch || E.isBotTurn(E.G)) && !E.busy && !cb.won && !cb.lost) {
         const key = cb.round + ':' + cb.turn;
-        if (U.autoKey !== key) { U.autoKey = key; U.autoAt = performance.now() + 700; }
-        else if (performance.now() > U.autoAt) { U.autoAt = Infinity; E.autoTurn(); }
+        if (U.autoKey !== key) { U.autoKey = key; U.autoAt = performance.now() + 1300; }
+        else if (performance.now() > U.autoAt && animIdle()) { U.autoAt = Infinity; E.autoTurn(); }
       }
       window.DNDBotDM.step(E);
       if (E.dirty) pushG();
@@ -190,8 +193,8 @@
       const cb = E.G.cb, t = E.cur(E.G);
       if (cb && t && ((cb.auto && !t.ch) || E.isBotTurn(E.G)) && !E.busy && !cb.won && !cb.lost) {
         const key = cb.round + ':' + cb.turn;
-        if (U.autoKey !== key) { U.autoKey = key; U.autoAt = performance.now() + 900; }
-        else if (performance.now() > U.autoAt) { U.autoAt = Infinity; E.autoTurn(); }
+        if (U.autoKey !== key) { U.autoKey = key; U.autoAt = performance.now() + 1300; }
+        else if (performance.now() > U.autoAt && animIdle()) { U.autoAt = Infinity; E.autoTurn(); }
       }
       if (E.dirty) pushG();
       G = E.G;
@@ -292,7 +295,7 @@
 
   function tabsFor() {
     if (ME.role === 'dm') return [['scene', '📜', 'Сцена'], ['fight', '⚔️', 'Бій'], ['party', '👥', 'Гравці'], ['memo', '🧭', 'Памʼятка']];
-    const t = [['story', '📜', 'Пригода'], ['hero', '🧝', 'Герой'], ['rules', '📖', 'Правила']];
+    const t = [['story', '📜', 'Пригода'], ['hero', '🧝', 'Герой'], ['journal', '📓', 'Журнал'], ['rules', '📖', 'Правила']];
     if (G.cb) t.unshift(['map', '⚔️', 'Бій']);
     return t;
   }
@@ -305,7 +308,7 @@
     const ckDot = ME.role === 'dm' ? !!G.ck : G.ck && G.ck.who.includes(ME.key) && !G.ck.res[ME.key];
     const myTurn = !!ctl();
     $('tabs').innerHTML = tabs.map((t) => '<button type="button" data-tab="' + t[0] + '" class="' + (U.tab === t[0] ? 'on' : '') + '"><b>' + t[1] + '</b>' + t[2] +
-      (((t[0] === 'scene' || t[0] === 'story') && ckDot) || ((t[0] === 'map' || t[0] === 'fight') && myTurn && U.tab !== t[0]) ? '<i class="dot"></i>' : '') + '</button>').join('');
+      ((t[0] === 'journal' && jCount() > (U.jSeen || 0) && U.tab !== 'journal') || ((t[0] === 'scene' || t[0] === 'story') && ckDot) || ((t[0] === 'map' || t[0] === 'fight') && myTurn && U.tab !== t[0]) ? '<i class="dot"></i>' : '') + '</button>').join('');
     const isMap = (U.tab === 'map' || U.tab === 'fight') && G.cb;
     $('mapBox').hidden = !isMap; $('main').hidden = isMap;
     if (isMap) { renderOrder(); renderAct(); resizeMap(); if (!$('lesson').hidden) placeLesson(); return; }
@@ -316,6 +319,7 @@
     if (U.tab === 'story') h += viewStory();
     else if (U.tab === 'hero') h += viewHero();
     else if (U.tab === 'rules') h += viewRules();
+    else if (U.tab === 'journal') { h += viewJournal(); U.jSeen = jCount(); }
     else if (U.tab === 'scene') h += viewScene();
     else if (U.tab === 'fight') h += viewFightPick();
     else if (U.tab === 'party') h += viewParty();
@@ -344,20 +348,29 @@
   function dmCard() {
     const v = window.DNDBotDM && ME.solo ? window.DNDBotDM.view(G) : null; if (!v) return '';
     let h = '<div id="dmCard" style="margin-bottom:12px">';
-    if (v.k === 'msg') h += (v.read ? '<div class="read"><p class="eyebrow">Майстер читає</p><p>' + esc(v.t) + '</p></div>' : '<div class="card" style="margin:0;border-color:var(--violet)"><p class="eyebrow">🤖 Майстер</p><p style="margin:0;font-size:16px">' + esc(v.t) + '</p></div>') +
-      (v.tip ? '<div class="tip">💡 ' + esc(v.tip) + '</div>' : '') + '<button class="btn wide" type="button" data-dm="next" style="margin-top:10px">Далі ▸</button>';
-    else if (v.k === 'choice') h += '<div class="card" style="margin:0;border-color:var(--gold)"><p class="eyebrow">🤖 Майстер питає</p><b style="font-size:16px">' + esc(v.ask) + '</b>' +
-      v.opts.map((o) => '<button type="button" class="opt' + (o.used ? ' used' : '') + '" data-dmpick="' + o.i + '"' + (o.used ? ' disabled' : '') + '>' + (o.used ? '✔ ' : '▸ ') + esc(o.t) + '</button>').join('') +
-      (v.multi ? '<button class="btn wide" type="button" data-dm="done" style="margin-top:12px">' + esc(v.done) + '</button>' : '') + '</div>';
-    else if (v.k === 'ck') h += G.ck && G.ck.who.includes(ME.key) && !G.ck.res[ME.key] ? '<button class="btn wide" data-openck="1" type="button">🎲 Кинути: ' + esc(E.checkName(G.ck)) + '</button>' : '<div class="card" style="margin:0"><p class="muted" style="margin:0">Кидають інші…</p></div>';
+    if (v.k === 'msg') {
+      if (v.read) h += '<div class="read"><p class="eyebrow">Майстер розповідає</p><p>' + esc(v.t) + '</p></div>';
+      else if (v.sp) h += '<div class="card npc" style="margin:0"><div class="npc-h"><span class="npc-ic">' + v.ic + '</span><b>' + esc(v.sp) + '</b></div><p class="npc-t">' + esc(v.t) + '</p></div>';
+      else h += '<div class="card" style="margin:0;border-color:var(--violet)"><p class="eyebrow">🤖 Майстер</p><p style="margin:0;font-size:16px">' + esc(v.t) + '</p></div>';
+      h += (v.tip ? '<div class="tip">💡 ' + esc(v.tip) + '</div>' : '') + '<button class="btn wide" type="button" data-dm="next" style="margin-top:10px">Далі ▸' + (v.more ? ' <small style="opacity:.6">(' + v.more + ')</small>' : '') + '</button>';
+    } else if (v.k === 'choice') {
+      h += '<div class="card" style="margin:0;border-color:var(--gold)"><p class="eyebrow">🤖 Майстер питає</p><b style="font-size:16px">' + esc(v.ask) + '</b>' +
+        (v.used.length ? '<div class="muted" style="margin-top:6px;font-size:12.5px">Уже: ' + v.used.map(esc).join(' · ') + '</div>' : '') +
+        v.opts.map((o) => '<button type="button" class="opt" data-dmpick="' + esc(o.i) + '">▸ ' + esc(o.t) + '</button>').join('') +
+        (v.done ? '<button class="btn wide" type="button" data-dm="done" style="margin-top:12px">' + esc(v.done) + '</button>' : '') + '</div>';
+    } else if (v.k === 'ck') h += G.ck && G.ck.who.includes(ME.key) && !G.ck.res[ME.key] ? '<button class="btn wide" data-openck="1" type="button">🎲 Кинути: ' + esc(E.checkName(G.ck)) + '</button>' : '<div class="card" style="margin:0"><p class="muted" style="margin:0">Кидають інші…</p></div>';
     else if (v.k === 'fight') h += '<button class="btn wide" type="button" data-tab="map">⚔️ До бою</button>';
-    else if (v.k === 'end') h += '<div class="card" style="margin:0;border-color:var(--gold)"><h3>Кінець пригоди</h3><button class="btn2" type="button" data-soloagain="1">Зіграти ще раз</button></div>';
+    else if (v.k === 'end') h += '<div class="card" style="margin:0;border-color:var(--gold)"><h3>Кінець пригоди</h3><p class="muted">Загляни у «Журнал» — там уся історія, яку ви відкрили.</p><button class="btn2" type="button" data-soloagain="1">Зіграти ще раз</button></div>';
     return h + '</div>';
+  }
+  const SCENE_BG = { intro: '#3B2E5A,#1E1830', dawnstar: '#2E4A66,#16202C', road: '#5B7894,#1C2633', temple: '#3E2E52,#17121F', dream: '#5A2E7A,#1A0F26', shrine: '#5E1F45,#1A0C16' };
+  function sceneBanner(sc, n) {
+    return '<div class="scene-ban" style="background:linear-gradient(135deg,' + (SCENE_BG[sc.id] || '#333,#111') + ')"><span class="scene-ic">' + sc.icon + '</span><div><p class="eyebrow" style="color:rgba(255,255,255,.65);margin:0">Сцена ' + (n + 1) + ' з ' + S.SCENES.length + '</p><h2 style="margin:0">' + esc(sc.t) + '</h2>' +
+      (G.goal && S.GOALS[G.goal] ? '<div class="scene-goal">🎯 ' + esc(S.GOALS[G.goal]) + '</div>' : '') + '</div></div>';
   }
   function viewStory() {
     const sc = S.SCENES[G.sc];
-    let h = dmCard() + '<div class="card"><p class="eyebrow">Сцена ' + (G.sc + 1) + ' з ' + S.SCENES.length + '</p><h2>' + sc.icon + ' ' + esc(sc.t) + '</h2>' +
-      '<details><summary>Текст сцени (майстер читає вголос)</summary><div class="read" style="margin-top:8px">' + sc.read.map((p) => '<p>' + esc(p) + '</p>').join('') + '</div></details></div>';
+    let h = sceneBanner(sc, G.sc) + dmCard() + (ME.solo ? '' : '<div class="card"><details><summary>Текст сцени (майстер читає вголос)</summary><div class="read" style="margin-top:8px">' + sc.read.map((p) => '<p>' + esc(p) + '</p>').join('') + '</div></details></div>');
     if (G.end) h += '<div class="card" style="border-color:var(--gold)"><h3>' + (G.end === 'a' ? '🕯️ Кінець: Череп знищено' : '💀 Кінець: жезл ваш') + '</h3><p class="muted">Дякуємо за гру! Ти щойно зіграв свою першу пригоду.</p></div>';
     const ch = G.chars[ME.key];
     if (ch) { const c = R.CLASSES[ch.cls]; h += '<div class="card"><div class="sheet-h"><span class="avatar" style="background:' + c.col + '">' + c.ic + '</span><div class="grow"><b>' + esc(ch.n) + '</b> · ' + c.n + statusTxt(ch) + '<div class="bar"><i style="width:' + Math.max(0, ch.hp / c.hp * 100) + '%;background:' + hpCol(ch.hp / c.hp) + '"></i></div><span class="muted">' + ch.hp + '/' + c.hp + ' хітів' + (c.slots ? ' · комірки ' + ch.slots + '/' + c.slots : '') + '</span></div></div></div>'; }
@@ -386,6 +399,16 @@
     h += '<div class="card"><h3>Атаки</h3>' + c.weapons.map((w) => { const a = E.wAtk(c, w); return '<div class="sk"><span>⚔</span>' + w.n + ' <em>' + (w.reach && !w.range ? 'впритул' : w.range ? (w.thrown ? 'впритул або ' : '') + w.range + '/' + w.long + ' кл' : '') + '</em><b>' + sgn(a.b) + ' · ' + kd(w.dmg) + sgn(a.m) + '</b></div>'; }).join('') + '<p class="muted">Перше число — бонус до к20, друге — шкода.</p></div>';
     if (c.spells) h += '<div class="card"><h3>Заклинання</h3><p class="muted">Атака чарами ' + sgn(E.spellAtk(c)) + ' · складність рятівного ' + E.spellDC(c) + ' · комірок ' + ch.slots + '/' + c.slots + '</p>' + c.spells.map((s) => { const sp = R.SPELLS[s]; return '<button type="button" class="sk" data-spell="' + s + '"><span>🪄</span>' + sp.n + ' <em>' + (sp.lvl ? '1 коло' : 'замовляння') + (sp.time === 'b' ? ' · бонусна' : '') + '</em><b>›</b></button>'; }).join('') + '</div>';
     h += '<div class="card"><h3>Особливості</h3>' + c.feats.map((f) => '<div class="gm"><b>' + f.n + '</b> — ' + esc(f.d) + (f.uses ? ' <span class="chip">' + ((ch.uses || {})[f.id] ? 'є' : 'витрачено') + '</span>' : '') + '</div>').join('') + '</div>';
+    return h;
+  }
+  const jCount = () => (G && (G.lore || []).length + (G.journal || []).length) || 0;
+  function viewJournal() {
+    const lore = G.lore || [], jr = G.journal || [];
+    let h = '<div class="card" style="border-color:var(--gold)"><p class="eyebrow">Мета</p><h3 style="margin:0">🎯 ' + esc((S.GOALS || {})[G.goal] || 'Дізнатися, що коїться.') + '</h3></div>';
+    h += '<div class="card"><h3>📝 Що ми знаємо</h3>' + (jr.length ? jr.slice().reverse().map((k, i) => '<div class="' + (i ? 'jr' : 'jr new') + '">' + esc(S.JOURNAL[k]) + '</div>').join('') : '<p class="muted">Поки нічого. Розпитуйте, роздивляйтесь — усе важливе зʼявиться тут.</p>') + '</div>';
+    h += '<div class="card"><h3>📖 Загальний лор</h3><p class="muted">Хто є хто й що є що у світі. Відкривається, коли герої про щось дізнаються.</p>' +
+      (lore.length ? lore.map((k) => { const L = S.LORE[k]; return '<details class="lore"><summary>' + L.ic + ' ' + esc(L.t) + '</summary><p>' + esc(L.d) + '</p></details>'; }).join('') : '<p class="muted">Ще нічого не відкрито.</p>') +
+      (Object.keys(S.LORE).length > lore.length ? '<p class="muted" style="margin-top:8px">Ще не відкрито: ' + (Object.keys(S.LORE).length - lore.length) + '</p>' : '') + '</div>';
     return h;
   }
   const INFO = {
@@ -443,6 +466,12 @@
       h += '<div class="card"><h3>⚔️ ' + esc(F.n) + '</h3><p class="muted">' + esc(F.intro) + '</p>' + (G.cb ? '<p>Бій триває — вкладка «Бій».</p>' : fightStartHtml(sc.fight)) + '</div>';
     }
     if (sc.id === 'shrine') h += '<div class="card"><h3>Фінал</h3><p class="muted">Коли гравці вирішать долю Черепа:</p><div class="row"><button class="btn2" data-finale="a" type="button">🕯️ Череп знищено</button><button class="btn2" data-finale="b" type="button">💀 Жезл забрали</button></div></div>';
+    if ((sc.lore && sc.lore.length) || (sc.journal && sc.journal.length)) {
+      h += '<div class="card"><h3>📓 Відкрити гравцям</h3><p class="muted">Коли герої про щось дізнались — торкнись, і запис зʼявиться в їхньому «Журналі».</p>';
+      if (sc.lore && sc.lore.length) h += '<p class="eyebrow">Лор</p><div class="chips">' + sc.lore.map((k) => '<button type="button" data-lore="' + k + '" class="' + ((G.lore || []).includes(k) ? 'on' : '') + '">' + ((G.lore || []).includes(k) ? '✔ ' : '') + S.LORE[k].ic + ' ' + esc(S.LORE[k].t) + '</button>').join('') + '</div>';
+      if (sc.journal && sc.journal.length) h += '<p class="eyebrow">Журнал квесту</p>' + sc.journal.map((k) => '<button type="button" class="sk" data-jr="' + k + '"' + ((G.journal || []).includes(k) ? ' disabled' : '') + '><span class="pt' + ((G.journal || []).includes(k) ? ' on' : '') + '"></span><span class="grow" style="font-size:13px">' + esc(S.JOURNAL[k]) + '</span></button>').join('');
+      h += '</div>';
+    }
     if (sc.lessons && sc.lessons.length) h += '<div class="card"><h3>📖 Показати урок усім</h3><div class="chips">' + sc.lessons.map((k) => '<button type="button" data-teach="' + k + '">' + (G.seen.includes(k) ? '✔ ' : '') + R.LESSONS[k].t + '</button>').join('') + '</div></div>';
     return h;
   }
@@ -504,7 +533,7 @@
     if (d.info && INFO[d.info]) return pop('<h3>' + INFO[d.info][0] + '</h3><p>' + esc(INFO[d.info][1]) + '</p>');
     if (d.openck) { U.ckOpen = true; return openCheckPrompt(); }
     if (d.dm) return send({ t: d.dm === 'next' ? 'dmnext' : 'dmdone' });
-    if (d.dmpick) return send({ t: 'dmpick', o: +d.dmpick });
+    if (d.dmpick) return send({ t: 'dmpick', o: d.dmpick });
     if (d.tab) { U.tab = d.tab; U.ver++; return render(); }
     if (d.soloagain) { try { localStorage.removeItem('dnd_solo'); } catch (e) {} leave(); $('btnSoloResume').hidden = true; return; }
     if (d.latecls) { ME.cls = d.latecls; if (NET) NET.presence({ cls: ME.cls }); return; }
@@ -515,6 +544,8 @@
     if (d.fight) { const s = $('surp_' + d.fight); send({ t: 'fight', f: d.fight, surp: s ? s.value : '' }); U.tab = 'fight'; return render(true); }
     if (d.finale) return send({ t: 'finale', v: d.finale });
     if (d.teach) return send({ t: 'teach', k: d.teach });
+    if (d.lore) return send({ t: 'lore', k: d.lore });
+    if (d.jr) return send({ t: 'journal', k: d.jr });
     if (d.lessons) return send({ t: 'lessons', on: d.lessons === '1' });
     if (d.hp) return send({ t: 'hp', k: d.hp, d: +d.d });
     if (d.slot) return send({ t: 'slot', k: d.slot, d: +d.d });
@@ -627,6 +658,7 @@
   /* ---------- уроки й тости ---------- */
   function placeLesson() { // на мапі — над панеллю дій, щоб не закривати кнопки
     const map = !$('mapBox').hidden, modal = !$('modal').hidden;
+    // поверх вікна кидка — нагорі; на мапі — над панеллю дій; інакше — внизу над вкладками
     $('lesson').style.top = modal ? 'calc(env(safe-area-inset-top,0px) + 50px)' : '';
     $('lesson').style.bottom = modal ? 'auto' : map ? ($('act').getBoundingClientRect().height + $('tabs').getBoundingClientRect().height + 8) + 'px' : '';
   }
@@ -645,8 +677,8 @@
     const r = e.r;
     $('toast').innerHTML = rollLine(r);
     $('toast').hidden = false; $('toast').classList.remove('show'); void $('toast').offsetWidth; $('toast').classList.add('show');
-    beep(r.crit ? 'crit' : r.vsL === 'КБ' ? (r.ok ? 'hit' : 'miss') : 'dice');
-    U.toastT = performance.now() + (U.toastQ.length ? 1500 : 2600);
+    if (r.vsL !== 'КБ') beep('dice');
+    U.toastT = performance.now() + (U.toastQ.length ? 2200 : 3400);
   }, 120);
 
   /* ==================== БІЙ ==================== */
@@ -660,7 +692,7 @@
   }
   function renderOrder() {
     const cb = G.cb, cur = E.cur(G);
-    $('order').innerHTML = cb.order.map((id) => { const t = cb.tk[id], i = E.info(G, t); return '<button type="button" class="oc' + (t === cur ? ' cur' : '') + (i.dead ? ' dead' : '') + '" data-tok="' + id + '"><i style="background:' + i.col + '">' + i.ic + '</i><span>' + esc(i.n) + (t.cond.sleep ? ' 💤' : '') + (i.down ? ' 🩸' : '') + '</span></button>'; }).join('');
+    $('order').innerHTML = cb.order.map((id) => { const t = cb.tk[id], i = E.info(G, t); return '<button type="button" class="oc' + (t === cur ? ' cur' : '') + (i.dead ? ' dead' : '') + '" data-tok="' + id + '"><i style="background:' + i.col + '">' + i.ic + '</i><span>' + esc(i.n.replace(/ \(бот\)$/, ' 🤖')) + (t.cond.sleep ? ' 💤' : '') + (i.down ? ' 🩸' : '') + '</span></button>'; }).join('');
   }
   $('order').addEventListener('click', (e) => { const b = e.target.closest('[data-tok]'); if (b && G.cb) popToken(G.cb.tk[b.dataset.tok]); });
 
@@ -901,18 +933,26 @@
     for (const t of list) {
       const i = E.info(G, t), p = ANIM.pos(t);
       const X = OX + (p[0] + 0.5) * CS, Y = OY + (p[1] + 0.5) * CS, r = CS * 0.4;
-      if (i.dead && !i.pc) { cx.globalAlpha = 0.35; cx.font = Math.round(CS * 0.5) + 'px serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText(i.ic, X, Y); cx.fillStyle = '#FF6464'; cx.font = 'bold ' + Math.round(CS * 0.6) + 'px sans-serif'; cx.fillText('✕', X, Y); cx.globalAlpha = 1; continue; }
+      const ph = ANIM.pendHp(t.id), shownHp = Math.max(0, Math.min(i.mhp, i.hp - ph)), lag = ph !== 0 && shownHp > 0;
+      if (i.dead && !i.pc && !lag) { cx.globalAlpha = 0.35; cx.font = Math.round(CS * 0.5) + 'px serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText(i.ic, X, Y); cx.fillStyle = '#FF6464'; cx.font = 'bold ' + Math.round(CS * 0.6) + 'px sans-serif'; cx.fillText('✕', X, Y); cx.globalAlpha = 1; continue; }
       if (t === cur) { const pulse = 0.5 + 0.5 * Math.sin(now / 220); cx.fillStyle = 'rgba(233,185,73,' + (0.18 + pulse * 0.22) + ')'; cx.beginPath(); cx.arc(X, Y, r * 1.3, 0, 7); cx.fill(); }
       cx.globalAlpha = t.hidden ? 0.55 : 1;
       cx.fillStyle = 'rgba(0,0,0,.35)'; cx.beginPath(); cx.ellipse(X, Y + r * 0.85, r * 0.9, r * 0.3, 0, 0, 7); cx.fill();
-      cx.fillStyle = i.down || i.dead ? '#555060' : i.col; cx.beginPath(); cx.arc(X, Y, r, 0, 7); cx.fill();
+      cx.fillStyle = (i.down || i.dead) && !lag ? '#555060' : i.col; cx.beginPath(); cx.arc(X, Y, r, 0, 7); cx.fill();
       cx.lineWidth = Math.max(2, CS / 12); cx.strokeStyle = t.side === 'foe' ? '#2A0E12' : '#0E1A2A'; cx.stroke();
       // хіти дугою
-      const f = Math.max(0, i.hp / i.mhp);
+      const f = Math.max(0, shownHp / i.mhp);
       cx.strokeStyle = 'rgba(0,0,0,.45)'; cx.lineWidth = Math.max(3, CS / 9); cx.beginPath(); cx.arc(X, Y, r + cx.lineWidth / 2, 0, 7); cx.stroke();
       cx.strokeStyle = hpCol(f); cx.beginPath(); cx.arc(X, Y, r + cx.lineWidth / 2, -Math.PI / 2, -Math.PI / 2 + f * Math.PI * 2); cx.stroke();
-      cx.font = Math.round(CS * 0.48) + 'px serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText(i.dead ? '💀' : i.ic, X, Y + 1);
+      cx.font = Math.round(CS * 0.48) + 'px serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText(i.dead && !lag ? '💀' : i.ic, X, Y + 1);
       cx.globalAlpha = 1;
+      if (CS >= 24) { // імʼя під токеном
+        const n0 = i.n.replace(/ \(бот\)$/, ''), nm = n0.length > 9 ? n0.slice(0, 8) + '…' : n0;
+        cx.font = '700 ' + Math.max(9, Math.round(CS * 0.27)) + 'px Rubik, sans-serif';
+        const w = cx.measureText(nm).width + 8, ly = Y + r + CS * 0.2;
+        cx.fillStyle = t.side === 'foe' ? 'rgba(90,15,25,.85)' : 'rgba(12,30,60,.85)'; roundRect(X - w / 2, ly - CS * 0.15, w, CS * 0.3, CS * 0.15); cx.fill();
+        cx.fillStyle = '#fff'; cx.fillText(nm, X, ly + 0.5);
+      }
       const mini = (txt, dx, dy) => { cx.font = Math.round(CS * 0.32) + 'px serif'; cx.fillText(txt, X + dx * r, Y + dy * r); };
       if (t.cond.sleep) mini('💤', 0.85, -0.85);
       if (i.down) mini('🩸', 0.85, -0.85);
@@ -927,8 +967,9 @@
 
   /* ---------- анімації ефектів ---------- */
   const ANIM = {
-    q: [], cur: null, t0: 0, parts: [],
-    dur(f) { return f.k === 'move' ? Math.max(150, (f.path.length - 1) * 130) : { slash: 320, arrow: 420, bolt: 480, ray: 480, darts: 650, fire: 750, sleep: 1000, pillar: 700, heal: 700, bless: 800, mark: 550 }[f.k] || 400; },
+    q: [], cur: null, t0: 0, floats: [], banner: null,
+    dur(f) { return f.k === 'move' ? Math.max(300, (f.path.length - 1) * 260) : { aim: 700, slash: 650, arrow: 800, bolt: 900, ray: 900, darts: 1150, fire: 1250, sleep: 1500, pillar: 1050, heal: 950, bless: 1050, mark: 750 }[f.k] || 600; },
+    pendHp(id) { let n = 0; for (const f of this.q) if (f.k === 'float' && f.id === id && f.n) n += f.n; return n; },
     pos(t) {
       const f = this.cur;
       if (f && f.k === 'move' && f.id === t.id) {
@@ -942,14 +983,53 @@
     },
     step(now) {
       if (this.cur && now - this.t0 > this.dur(this.cur)) this.cur = null;
-      if (!this.cur && this.q.length) { this.cur = this.q.shift(); this.t0 = now; if (this.q.length > 8) this.q.splice(0, this.q.length - 8); }
+      if (this.q.length > 30) this.q.splice(0, this.q.length - 30);
+      while (!this.cur && this.q.length) {
+        const f = this.q.shift();
+        if (f.k === 'float') { this.floats.push({ f, t0: now }); if (f.c !== 'heal') { const c = f.c === 'miss' ? 'miss' : 'hit'; beep(f.c === 'crit' ? 'crit' : c); } continue; }
+        this.cur = f; this.t0 = now;
+        if (f.k === 'aim') this.banner = { txt: String(f.txt).replace(/ \(бот\)/g, ''), foe: f.foe, t0: now };
+      }
+      this.floats = this.floats.filter((x) => now - x.t0 < 1400);
+      if (this.banner && now - this.banner.t0 > 2600) this.banner = null;
+    },
+    drawFloats(now) {
+      for (const x of this.floats) {
+        const p = (now - x.t0) / 1400, C0 = center(x.f.b[0], x.f.b[1]);
+        const col = { dmg: '#FF5A5A', crit: '#FFD23F', heal: '#5DD27A', miss: '#E8E2D6' }[x.f.c] || '#fff';
+        const size = Math.round(CS * (x.f.c === 'crit' ? 0.62 : x.f.c === 'miss' ? 0.4 : 0.52) * (p < 0.15 ? 0.6 + p * 2.7 : 1));
+        cx.save(); cx.globalAlpha = p > 0.7 ? (1 - p) / 0.3 : 1;
+        cx.font = '800 ' + size + 'px "Baloo 2", sans-serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle';
+        cx.lineWidth = Math.max(3, size / 5); cx.strokeStyle = 'rgba(10,6,14,.85)';
+        const y = C0[1] - CS * 0.55 - p * CS * 0.9;
+        cx.strokeText(x.f.txt, C0[0], y); cx.fillStyle = col; cx.fillText(x.f.txt, C0[0], y);
+        cx.restore();
+      }
+      const bn = this.banner;
+      if (bn) {
+        const a = Math.min(1, (now - bn.t0) / 200) * (now - bn.t0 > 2200 ? Math.max(0, 1 - (now - bn.t0 - 2200) / 400) : 1);
+        cx.save(); cx.globalAlpha = a; cx.font = '700 ' + Math.max(12, Math.round(CS * 0.42)) + 'px Rubik, sans-serif';
+        const w = cx.measureText(bn.txt).width + 24, X0 = OX + (CS * E.W - w) / 2, Y0 = OY + 6, hh = Math.max(24, CS * 0.75);
+        cx.fillStyle = bn.foe ? 'rgba(120,20,30,.9)' : 'rgba(30,60,110,.9)'; roundRect(X0, Y0, w, hh, hh / 2); cx.fill();
+        cx.fillStyle = '#fff'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText(bn.txt, X0 + w / 2, Y0 + hh / 2 + 1);
+        cx.restore();
+      }
     },
     draw(now) {
       const f = this.cur; if (!f || f.k === 'move') return;
       const p = Math.min(1, (now - this.t0) / this.dur(f));
       const A = f.a && center(f.a[0], f.a[1]), B = f.b && center(f.b[0], f.b[1]);
       cx.save();
-      if (f.k === 'slash' && B) { cx.strokeStyle = 'rgba(255,255,255,' + (1 - p) + ')'; cx.lineWidth = CS / 7; cx.beginPath(); cx.arc(B[0], B[1], CS * 0.55, -2.4 + p * 2, -0.8 + p * 2); cx.stroke(); }
+      if (f.k === 'aim' && A && B) {
+        const col = f.foe ? '255,80,80' : '255,210,90', pulse = 0.55 + 0.45 * Math.sin(p * Math.PI * 4);
+        cx.strokeStyle = 'rgba(' + col + ',' + (0.35 + pulse * 0.5) + ')'; cx.lineWidth = Math.max(2, CS / 12); cx.setLineDash([CS / 4, CS / 6]); cx.lineDashOffset = -p * CS * 2;
+        cx.beginPath(); cx.moveTo(A[0], A[1]); cx.lineTo(B[0], B[1]); cx.stroke(); cx.setLineDash([]);
+        cx.strokeStyle = 'rgba(' + col + ',.95)'; cx.lineWidth = Math.max(2, CS / 14);
+        const rr = CS * (0.75 - 0.2 * Math.min(1, p * 1.5));
+        cx.beginPath(); cx.arc(B[0], B[1], rr, 0, 7); cx.moveTo(B[0] - rr - 4, B[1]); cx.lineTo(B[0] - rr + 6, B[1]); cx.moveTo(B[0] + rr + 4, B[1]); cx.lineTo(B[0] + rr - 6, B[1]); cx.moveTo(B[0], B[1] - rr - 4); cx.lineTo(B[0], B[1] - rr + 6); cx.moveTo(B[0], B[1] + rr + 4); cx.lineTo(B[0], B[1] + rr - 6); cx.stroke();
+      }
+      if (f.k === 'slash' && B) {
+        cx.fillStyle = 'rgba(255,255,255,' + (0.35 * (1 - p)) + ')'; cx.beginPath(); cx.arc(B[0], B[1], CS * 0.5, 0, 7); cx.fill(); cx.strokeStyle = 'rgba(255,255,255,' + (1 - p) + ')'; cx.lineWidth = CS / 6; cx.lineCap = 'round'; cx.beginPath(); cx.arc(B[0], B[1], CS * 0.6, -2.6 + p * 2.4, -1.0 + p * 2.4); cx.stroke(); }
       if ((f.k === 'arrow' || f.k === 'bolt' || f.k === 'ray') && A && B) {
         const q = Math.min(1, p * 1.4), x = A[0] + (B[0] - A[0]) * q, y = A[1] + (B[1] - A[1]) * q;
         const col = f.k === 'bolt' ? '255,130,40' : f.k === 'ray' ? '140,220,255' : '240,230,200';
@@ -984,7 +1064,9 @@
     drawOverlays(ctl());
     drawTokens(now);
     ANIM.draw(now);
+    ANIM.drawFloats(now);
   }
+  function roundRect(x, y, w, h, r) { cx.beginPath(); cx.moveTo(x + r, y); cx.arcTo(x + w, y, x + w, y + h, r); cx.arcTo(x + w, y + h, x, y + h, r); cx.arcTo(x, y + h, x, y, r); cx.arcTo(x, y, x + w, y, r); cx.closePath(); }
   requestAnimationFrame(frame);
 
   /* ---------- мапа: дотики ---------- */

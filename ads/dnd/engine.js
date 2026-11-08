@@ -143,10 +143,10 @@
   }
 
   /* ==================== Хост ==================== */
-  const E = { G: null, dirty: false, busy: false, onChange: null, wait: (ms) => new Promise((r) => setTimeout(r, ms)), delay: 650 };
+  const E = { G: null, dirty: false, busy: false, onChange: null, wait: (ms) => new Promise((r) => setTimeout(r, ms)), delay: 1100 };
 
   function blank() {
-    return { v: 1, started: false, sc: 0, chars: {}, ck: null, cb: null, log: [], seen: [], les: [], pid: [], fx: [], lessonsOn: true, end: null };
+    return { v: 1, started: false, sc: 0, chars: {}, ck: null, cb: null, log: [], seen: [], les: [], lore: [], journal: [], goal: null, pid: [], fx: [], lessonsOn: true, end: null };
   }
   function log(t, c, extra) {
     const e = Object.assign({ i: uid(), t, c: c || '' }, extra || {});
@@ -157,7 +157,7 @@
     const g = E.G; if (!g.lessonsOn || g.seen.includes(k) || !R.LESSONS[k]) return;
     g.seen.push(k); g.les = (g.les || []).concat({ i: uid(), k }).slice(-4); E.dirty = true;
   }
-  function fx(o) { o.i = uid(); E.G.fx.push(o); if (E.G.fx.length > 10) E.G.fx.shift(); E.dirty = true; }
+  function fx(o) { o.i = uid(); E.G.fx.push(o); if (E.G.fx.length > 24) E.G.fx.shift(); E.dirty = true; }
   const P = (n, v) => [n, v];
   function rollEntry(who, lbl, r, parts, vs, vsL, ok, extra) {
     const tot = r.v + parts.reduce((a, p) => a + p[1], 0);
@@ -311,6 +311,7 @@
   function damage(t, n, crit, src) {
     const g = E.G, i = info(g, t);
     if (n <= 0 || i.dead) return;
+    fx({ k: 'float', id: t.id, n: -n, b: [t.x, t.y], txt: (crit ? '💥 ' : '−') + n, c: crit ? 'crit' : 'dmg' });
     if (t.cond.sleep) { delete t.cond.sleep; log('😳 ' + i.n + ' прокидається від удару.', 'sys'); }
     if (i.pc) {
       const ch = i.ch;
@@ -342,6 +343,7 @@
   function heal(t, n) {
     const g = E.G, i = info(g, t);
     if (i.dead) return;
+    fx({ k: 'float', id: t.id, n: Math.min(n, i.mhp - Math.max(0, i.hp)), b: [t.x, t.y], txt: '+' + n, c: 'heal' });
     if (i.pc) {
       const ch = i.ch, was = ch.hp;
       ch.hp = Math.min(i.mhp, ch.hp + n);
@@ -367,8 +369,9 @@
     const e = rollEntry(ai.n, ai.n + ' → ' + ti.n + ': ' + (spellLbl || a.n), r, parts, ti.ac, 'КБ', hit, { adv: ac.n, why: ac.adv.map((s) => '▲ ' + s).concat(ac.dis.map((s) => '▼ ' + s)), crit, nat1 });
     log(e.lbl, 'roll', { r: e });
     if (t.hidden) delete t.hidden;
+    fx({ k: 'aim', a: [t.x, t.y], b: [tgt.x, tgt.y], foe: t.side === 'foe', txt: ai.n + ' → ' + ti.n });
     fx({ k: a.fx || (ac.melee ? 'slash' : (a.spell ? 'bolt' : 'arrow')), a: [t.x, t.y], b: [tgt.x, tgt.y], hit });
-    if (!hit) { log((nat1 ? 'Натуральна 1 — ' : '') + 'Промах.', 'miss'); return false; }
+    if (!hit) { fx({ k: 'float', b: [tgt.x, tgt.y], txt: nat1 ? 'Нат 1!' : 'Промах', c: 'miss' }); log((nat1 ? 'Натуральна 1 — ' : '') + 'Промах.', 'miss'); return false; }
     const d = R.roll(a.dmg, crit), extra = [];
     if (ai.pc && ai.ch.cls === 'rogue' && !t.sneak && a.finesse && ac.n >= 0 &&
       (ac.n > 0 || toks(g).some((o) => o.id !== t.id && o.side === t.side && active(g, o) && dist(o, tgt) <= 1))) {
@@ -566,7 +569,10 @@
     const g = E.G;
     switch (op.t) {
       case 'start': g.started = true; g.sc = 0; log('Пригода «' + S.title + '» починається!', 'sys'); break;
-      case 'scene': g.sc = Math.max(0, Math.min(S.SCENES.length - 1, +op.sc)); log(S.SCENES[g.sc].icon + ' Сцена: ' + S.SCENES[g.sc].t, 'scene'); break;
+      case 'scene': g.sc = Math.max(0, Math.min(S.SCENES.length - 1, +op.sc)); log(S.SCENES[g.sc].icon + ' Сцена: ' + S.SCENES[g.sc].t, 'scene'); if (S.SCENES[g.sc].goal && S.GOALS) setGoal(S.SCENES[g.sc].goal); break;
+      case 'lore': [].concat(op.k).forEach((k) => { if (S.LORE[k] && !(g.lore = g.lore || []).includes(k)) { g.lore.push(k); log('📖 Новий запис у лорі: ' + S.LORE[k].t, 'lore'); } }); break;
+      case 'journal': [].concat(op.k).forEach((k) => { if (S.JOURNAL[k] && !(g.journal = g.journal || []).includes(k)) { g.journal.push(k); log('📝 Журнал: ' + S.JOURNAL[k], 'lore'); } }); break;
+      case 'goal': setGoal(op.k); break;
       case 'ck': checkStart(op.cfg); break;
       case 'ckclose': if (g.ck) { if (!g.ck.done) log('Майстер закрив перевірку.', 'sys'); g.ck = null; } break;
       case 'fight': fightStart(op.f, op.surp); break;
@@ -619,6 +625,8 @@
   }
   const isBotTurn = (g) => { const t = cur(g); return !!(t && t.ch && g.chars[t.ch] && g.chars[t.ch].bot); };
 
+  function setGoal(k) { const g = E.G; if (!S.GOALS[k] || g.goal === k) return; g.goal = k; log('🎯 Мета: ' + S.GOALS[k], 'lore'); }
+
   /* ---------- синхронізація героїв із лобі ---------- */
   function syncChars(players) { // players: [{n, cls}]
     const g = E.G; let ch = false;
@@ -640,6 +648,7 @@
     const push = () => { E.dirty = true; if (E.onChange) E.onChange(); };
     try {
       const atks = attacks(g, t), melee = atks.findIndex((a) => a.reach), ranged = atks.findIndex((a) => a.range);
+      if (!active(g, t) && !(t.ch && info(g, t).down)) { endTurn(t); push(); return; }
       let m = t.mt ? R.MONSTERS[t.mt] : null;
       if (t.ch) { // бот-гравець
         const ch = g.chars[t.ch], i = info(g, t);
@@ -672,7 +681,8 @@
         if (!adjacentReach && ranged >= 0 && shoot(tg)) { /* кидає спис */ }
         else if (best && (best[0] !== t.x || best[1] !== t.y)) { move(t, best[0], best[1]); push(); await E.wait(E.delay); }
       }
-      if (!active(g, t) || !g.cb) return;
+      if (!g.cb) return;
+      if (!active(g, t)) { if (cur(g) === t) endTurn(t); push(); return; } // загинув від атаки при нагоді посеред ходу
       const n = (m.multi || 1);
       for (let k = 0; k < n; k++) {
         tg = targets().filter((o) => dist(t, o) <= 1)[0] || targets()[0];

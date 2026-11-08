@@ -38,7 +38,7 @@ const until = async (fn, ms = 30000) => { const end = Date.now() + ms; while (Da
   await dm.click('[data-a="fightend"]').catch(() => {});
   await dm.evaluate(() => DNDGame.send({ t: "fightend" }));
   await dm.click('[data-tab="party"]');
-  await dm.click('[data-bot="ranger"]');
+  await dm.click('#main [data-bot="ranger"]');
   check("посеред гри — бот додається з вкладки «Гравці»", !!(await until(() => dm.evaluate(() => Object.values(DNDGame.G.chars).some((c) => c.bot && c.cls === "ranger")))));
   check("жодної JS-помилки", dm.errors.length === 0, dm.errors.slice(0, 4).join(" || "));
   const okN = results.filter(Boolean).length;
