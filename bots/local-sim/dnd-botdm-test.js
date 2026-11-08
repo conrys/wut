@@ -13,7 +13,7 @@ async function play(cls, mates, pick) {
   mates.forEach((c) => E.apply({ t: 'bot', cls: c }, null, true));
   E.apply({ t: 'start' }, null, true);
   BOT.init(E, 'я');
-  const g = E.G, scenes = new Set(), fights = new Set(), picks = [];
+  const g = E.G, scenes = new Set(), fights = new Set(), picks = []; let retries = 0;
   let guard = 0, msgs = 0, bad = '';
   while (!g.bd.end && guard++ < 9000) {
     BOT.step(E);
@@ -32,10 +32,10 @@ async function play(cls, mates, pick) {
     if (g.ck && !g.ck.done && g.ck.who.includes('я') && !g.ck.res['я']) { E.apply({ t: 'roll' }, 'я', false); continue; }
     const v = BOT.view(g); if (!v) continue;
     if (v.k === 'msg') { msgs++; if (!v.t) bad = 'порожнє повідомлення'; BOT.op(E, { t: 'dmnext' }); }
-    else if (v.k === 'choice') { const o = pick(v); picks.push(o ? o : '—'); if (o == null) { if (!v.done) { bad = 'хаб без варіантів і без «далі»: ' + v.ask; break; } BOT.op(E, { t: 'dmdone' }); } else BOT.op(E, { t: 'dmpick', o }); }
+    else if (v.k === 'choice') { if (v.retry) retries++; const o = pick(v); picks.push(o ? o : '—'); if (o == null) { if (!v.done) { bad = 'хаб без варіантів і без «далі»: ' + v.ask; break; } BOT.op(E, { t: 'dmdone' }); } else BOT.op(E, { t: 'dmpick', o }); }
   }
   if (!g.bd.end && g.cb) { const cb = g.cb; console.log('ЗАСТРЯГ у бою', cb.f, 'раунд', cb.round, JSON.stringify(Object.values(cb.tk).map((t) => { const i = E.info(g, t); return [i.n, t.x, t.y, i.hp, i.down ? 'down' : '', i.dead ? 'dead' : '', t.cond.sleep ? 'sleep' : '', t.side]; })), 'хід', E.cur(g) && E.info(g, E.cur(g)).n); }
-  return { g, guard, scenes, fights, picks, msgs, bad };
+  return { g, guard, scenes, fights, picks, msgs, bad, retries };
 }
 const curious = (v) => (v.opts.length ? v.opts[0].i : null);
 const hasty = (v) => (v.done ? null : v.opts[v.opts.length - 1].i);
@@ -56,7 +56,7 @@ const scnId = (i) => S.SCENES[i].id;
       ok(r.g.journal.length >= 10, name + ': записів журналу ' + r.g.journal.length);
       ok(r.msgs > 60, name + ': повідомлень майстра ' + r.msgs);
     }
-    console.log('  ' + name + ': ' + r.msgs + ' повідомлень, ' + r.picks.length + ' виборів, лор ' + r.g.lore.length + ', журнал ' + r.g.journal.length + ', фінал ' + r.g.end);
+    console.log('  ' + name + ': ' + r.msgs + ' повідомлень, ' + r.picks.length + ' виборів, повторних спроб ' + r.retries + ', лор ' + r.g.lore.length + ', журнал ' + r.g.journal.length + ', фінал ' + r.g.end);
   }
   // ланцюжок: «чи не договорює» недоступне, поки не поговорили з жерцем
   E.G = E.blank(); E.G.chars['я'] = E.newChar('Я', 'rogue'); E.apply({ t: 'start' }, null, true); BOT.init(E, 'я');

@@ -142,6 +142,33 @@
     return { ok: true, melee, adv, dis, n: (adv.length ? 1 : 0) - (dis.length ? 1 : 0), autoCrit: helpless && d <= 1 };
   }
 
+  /* ---------- прогноз: шанс і очікувана шкода (показуємо при прицілюванні) ---------- */
+  function dstat(expr, crit) { const p = R.parse(expr), n = crit ? p.n * 2 : p.n; return { min: n + p.b, max: n * p.s + p.b, avg: n * (p.s + 1) / 2 + p.b, dice: n * (p.s + 1) / 2 }; }
+  function hitChance(bonus, ac, adv) { // нат 1 — промах, нат 20 — влучання
+    const p = Math.min(0.95, Math.max(0.05, (21 - (ac - bonus)) / 20));
+    return adv > 0 ? 1 - (1 - p) * (1 - p) : adv < 0 ? p * p : p;
+  }
+  function saveFail(t, st, dc, g0) {
+    const g = g0 || E.G, i = info(g, t);
+    if ((st === 'dex' || st === 'str') && (t.cond.sleep || i.down)) return 1;
+    const b = R.mod(i.st[st]) + (i.pc && i.c.saves.includes(st) ? R.PROF : 0) + (t.cond.bless ? 2.5 : 0);
+    return Math.min(1, Math.max(0, (dc - 1 - b) / 20));
+  }
+  function attackPreview(t, a, tgt, g0) { // g0 — стан гри (на телефоні гравця E.G порожній)
+    const g = g0 || E.G, ac = atkCheck(g, t, a, tgt); if (!ac.ok) return null;
+    const ti = info(g, tgt), ai = info(g, t);
+    const bonus = a.b + (t.cond.bless ? 2.5 : 0), p = ac.autoCrit ? hitChance(bonus, ti.ac, ac.n) : hitChance(bonus, ti.ac, ac.n);
+    const pc = ac.autoCrit ? p : (ac.n > 0 ? 1 - 0.95 * 0.95 : ac.n < 0 ? 0.0025 : 0.05);
+    let ex = [];
+    if (ai.pc && ai.ch.cls === 'rogue' && !t.sneak && a.finesse && ac.n >= 0 && (ac.n > 0 || toks(g).some((o) => o.id !== t.id && o.side === t.side && active(g, o) && dist(o, tgt) <= 1))) ex.push(['Підступна атака', '1d6']);
+    if (t.markT === tgt.id && !a.spell) ex.push(['Мітка мисливця', '1d6']);
+    const base = dstat(a.dmg, ac.autoCrit), exs = ex.map((x) => dstat(x[1], ac.autoCrit));
+    const min = base.min + exs.reduce((s, x) => s + x.min, 0), max = base.max + exs.reduce((s, x) => s + x.max, 0), avg = base.avg + exs.reduce((s, x) => s + x.avg, 0);
+    const critBonus = ac.autoCrit ? 0 : base.dice + exs.reduce((s, x) => s + x.dice, 0); // крит подвоює кубики
+    const expected = p * avg + pc * critBonus;
+    return { p, min, max, avg, expected, dmg: a.dmg, extra: ex.map((x) => x[0]), autoCrit: ac.autoCrit, kills: min >= ti.hp, mayKill: max >= ti.hp, hp: ti.hp, ac: ti.ac, bonus: a.b };
+  }
+
   /* ==================== Хост ==================== */
   const E = { G: null, dirty: false, busy: false, onChange: null, wait: (ms) => new Promise((r) => setTimeout(r, ms)), delay: 1100 };
 
@@ -162,6 +189,9 @@
   function rollEntry(who, lbl, r, parts, vs, vsL, ok, extra) {
     const tot = r.v + parts.reduce((a, p) => a + p[1], 0);
     return Object.assign({ who, lbl, d: r.d, v: r.v, parts, tot, vs, vsL, ok }, extra || {});
+  }
+  function rollFx(at, e, extra) { // кубик на мапі: к20, бонус, проти чого, вердикт
+    fx(Object.assign({ k: 'roll', at, d: e.d, v: e.v, b: e.parts.reduce((s, p) => s + p[1], 0), tot: e.tot, vs: e.vs, vsL: e.vsL, ok: e.ok, crit: !!e.crit, adv: e.adv || 0, who: e.who }, extra || {}));
   }
   function blessD4(t, parts) { if (t && t.cond && t.cond.bless) parts.push(P('Благословення', R.rnd(4))); }
 
@@ -298,6 +328,7 @@
     const r = R.d20(0), e = rollEntry(i.n, 'Рятівний ' + R.STATS[st].n + (lbl ? ' · ' + lbl : ''), r, parts, dc, 'СЛ', false);
     e.ok = e.tot >= dc;
     log(i.n + ': рятівний кидок ' + R.STATS[st].n, 'roll', { r: e });
+    if (E.G.cb) rollFx([t.x, t.y], e, { t: i.n + ': рятівний ' + R.STATS[st].n });
     return e.ok;
   }
   function dropConc(t, why) {
@@ -308,10 +339,10 @@
     t.conc = null;
     log('✖ ' + info(g, t).n + ' втрачає концентрацію: «' + sp.n + '» зникає' + (why ? ' (' + why + ')' : ''), 'bad');
   }
-  function damage(t, n, crit, src) {
+  function damage(t, n, crit, src, sub) {
     const g = E.G, i = info(g, t);
     if (n <= 0 || i.dead) return;
-    fx({ k: 'float', id: t.id, n: -n, b: [t.x, t.y], txt: (crit ? '💥 ' : '−') + n, c: crit ? 'crit' : 'dmg' });
+    fx({ k: 'float', id: t.id, n: -n, b: [t.x, t.y], txt: (crit ? '💥 ' : '−') + n, c: crit ? 'crit' : 'dmg', sub: sub || '' });
     if (t.cond.sleep) { delete t.cond.sleep; log('😳 ' + i.n + ' прокидається від удару.', 'sys'); }
     if (i.pc) {
       const ch = i.ch;
@@ -369,7 +400,9 @@
     const e = rollEntry(ai.n, ai.n + ' → ' + ti.n + ': ' + (spellLbl || a.n), r, parts, ti.ac, 'КБ', hit, { adv: ac.n, why: ac.adv.map((s) => '▲ ' + s).concat(ac.dis.map((s) => '▼ ' + s)), crit, nat1 });
     log(e.lbl, 'roll', { r: e });
     if (t.hidden) delete t.hidden;
+    const rf = { t: (spellLbl || a.n), nat1 };
     fx({ k: 'aim', a: [t.x, t.y], b: [tgt.x, tgt.y], foe: t.side === 'foe', txt: ai.n + ' → ' + ti.n });
+    rollFx([t.x, t.y], e, rf);
     fx({ k: a.fx || (ac.melee ? 'slash' : (a.spell ? 'bolt' : 'arrow')), a: [t.x, t.y], b: [tgt.x, tgt.y], hit });
     if (!hit) { fx({ k: 'float', b: [tgt.x, tgt.y], txt: nat1 ? 'Нат 1!' : 'Промах', c: 'miss' }); log((nat1 ? 'Натуральна 1 — ' : '') + 'Промах.', 'miss'); return false; }
     const d = R.roll(a.dmg, crit), extra = [];
@@ -381,7 +414,7 @@
     const total = Math.max(0, d.t + extra.reduce((s, x) => s + x[1].t, 0));
     log('Шкода: ' + a.dmg.replace(/d/g, 'к') + (crit ? ' (крит — кубики ×2)' : '') + ' = [' + d.r.join(', ') + ']' + (d.b ? (d.b > 0 ? '+' : '') + d.b : '') +
       extra.map((x) => ' + ' + x[0] + ' [' + x[1].r.join(', ') + ']').join('') + ' = ' + total, crit ? 'crit' : 'dmg');
-    damage(tgt, total, crit, t);
+    damage(tgt, total, crit, t, a.dmg.replace(/(\d)d(\d)/g, '$1к$2') + (crit ? ' ×2' : '') + extra.map((x) => ' +' + (x[0] === 'Підступна атака' ? 'підступ' : 'мітка')).join(''));
     return true;
   }
 
@@ -551,6 +584,7 @@
         t.act = 0; lesson('down');
         const r = R.d20(0), e = rollEntry(ch.n, 'Кидок від смерті', r, [], 10, 'СЛ', r.v >= 10);
         log(e.lbl, 'roll', { r: e });
+        rollFx([t.x, t.y], e, { t: 'Кидок від смерті' });
         if (r.v === 20) { ch.hp = 1; ch.ds = { s: 0, f: 0 }; log('✨ Натуральна 20! ' + ch.n + ' встає з 1 хітом.', 'ok'); }
         else if (r.v === 1) ch.ds.f += 2;
         else if (r.v >= 10) ch.ds.s++; else ch.ds.f++;
@@ -596,7 +630,7 @@
         for (const k in g.chars) {
           const ch = g.chars[k], c = R.CLASSES[ch.cls]; if (ch.dead) continue;
           if (op.kind === 'long') { ch.hp = c.hp; ch.slots = c.slots || 0; ch.uses = { wind: 1, surge: 1 }; ch.ds = { s: 0, f: 0 }; ch.stable = false; }
-          else { const d = R.roll('1d' + c.hd); const h = Math.max(1, d.t + R.mod(c.st.con)); const was = ch.hp; ch.hp = Math.min(c.hp, Math.max(ch.hp, 0) + h); ch.uses = { wind: 1, surge: 1 }; if (was <= 0) { ch.ds = { s: 0, f: 0 }; ch.stable = false; } log(ch.n + ': кістка хітів 1к' + c.hd + ' + Статура = +' + (ch.hp - Math.max(was, 0)), 'ok'); }
+          else { const d = R.roll('1d' + c.hd); const h = Math.max(1, d.t + R.mod(c.st.con)); const was = ch.hp; ch.hp = Math.min(c.hp, Math.max(ch.hp, 0) + h); ch.uses = { wind: 1, surge: 1 }; if (was <= 0) { ch.ds = { s: 0, f: 0 }; ch.stable = false; } log(ch.n + ': ' + (was >= c.hp ? 'хіти вже повні' : 'кістка хітів 1к' + c.hd + ' + Статура = +' + (ch.hp - Math.max(was, 0))), 'ok'); }
         }
         log(op.kind === 'long' ? '🌙 Довгий відпочинок (8 год): усі хіти й комірки відновлено.' : '☕ Короткий відпочинок (1 год): кожен витратив кістку хітів, Друге дихання й Сплеск дій відновлено.', 'sys');
         break;
@@ -701,7 +735,7 @@
   Object.assign(E, {
     W, H, uid, keyOf, C, skillB, saveB, passive, wAtk, spellAtk, spellDC, newChar, info, alive, active, dist, toks, cur, attacks,
     tile, blocksMove, blocksLos, occ, reach, pathTo, los, coneCells, sphereCells, enemyNear, atkCheck, checkName, checkParts,
-    blank, apply, syncChars, autoTurn, log, botRolls, isBotTurn,
+    blank, apply, syncChars, autoTurn, log, botRolls, isBotTurn, attackPreview, dstat, hitChance, saveFail,
   });
   window.DNDE = E;
 })();

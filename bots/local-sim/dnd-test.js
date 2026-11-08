@@ -54,7 +54,7 @@ const dmSet = (dm, fn, arg) => dm.evaluate(([src, arg]) => { const E = DNDGame.E
   await dm.screenshot({ path: __dirname + "/shots/dnd-dm-scene.png", fullPage: false }).catch(() => {});
   const breakdown = await lisa.evaluate(() => document.getElementById("modalSheet").textContent);
   check("у запиті видно стат і складність", /Проникливість/.test(breakdown) && /Мудрість \+1/.test(breakdown) && /Складність 12/.test(breakdown));
-  check("Корвіну перевірка не прийшла", await kor.evaluate(() => document.getElementById("modal").hidden));
+  check("Корвіну не треба кидати — він бачить, як кидає Ліса", !!(await until(() => kor.evaluate(() => !document.getElementById("modal").hidden && !document.getElementById("rollBtn2") && /Кидає Ліса/.test(document.getElementById("modalSheet").textContent)))));
   await lisa.click("#rollBtn2");
   const res = await until(() => dm.evaluate(() => { const ck = DNDGame.E.G.ck; return ck && ck.done && ck.res["ліса"]; }));
   check("кидок дійшов до майстра і перевірку завершено", !!res, res && `к20=${res.v}, разом ${res.tot}`);
@@ -107,7 +107,7 @@ const dmSet = (dm, fn, arg) => dm.evaluate(([src, arg]) => { const E = DNDGame.E
   await lisa.waitForTimeout(300);
   await tap(lisa, 4, 3);
   const conf = await until(() => lisa.evaluate(() => !!document.querySelector('[data-a="fire"]')));
-  check("обрано лук — ціль підсвічено, є кнопка «Атака»", !!conf);
+  check("обрано лук — ціль підсвічено, є кнопка «Атака» і прогноз шкоди", !!conf && (await lisa.evaluate(() => /шанс влучити/.test(document.getElementById("act").textContent))));
   await lisa.screenshot({ path: __dirname + "/shots/dnd-aim.png" }).catch(() => {});
   await lisa.click('[data-a="fire"]');
   const shot = await until(() => dm.evaluate(() => DNDGame.E.G.log.some((e) => e.r && /Короткий лук/.test(e.r.lbl))));

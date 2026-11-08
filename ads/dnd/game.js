@@ -754,38 +754,53 @@
     }
     if (!t) {
       const i = cur && E.info(G, cur);
-      h += '<p class="hint">Зараз ходить: <b>' + (i ? i.ic + ' ' + esc(i.n) : '—') + '</b>' + (ME.role === 'pl' && G.chars[ME.key] ? ' · ти — ' + esc(G.chars[ME.key].n) : '') + '</p>';
+      if (ME.role === 'dm' || !cb.tk['p_' + ME.key]) h += '<p class="hint">Зараз ходить: <b>' + (i ? i.ic + ' ' + esc(i.n) : '—') + '</b></p>';
       if (ME.role === 'dm' && cur && cur.ch && G.chars[cur.ch].bot) h += '<p class="hint">🤖 Бот ходить сам…</p><button class="btn2" type="button" data-a="override">Сходити за нього</button> ';
       else if (ME.role === 'dm' && cur && cur.ch) h += '<p class="hint">Гравець ' + esc(i.n) + ' ходить зі свого телефона.</p><button class="btn2" type="button" data-a="override">Діяти за гравця</button> ';
-      if (ME.role === 'pl') h += '<p class="hint">Поки чекаєш: торкнись будь-кого на мапі, щоб подивитись. Подумай, що зробиш у свій хід.</p>';
+      const mine = ME.role === 'pl' && cb.tk['p_' + ME.key];
+      if (mine && !E.info(G, mine).dead) h += actPanel(mine, true);
+      else if (ME.role === 'pl') h += '<p class="hint">Торкнись будь-кого на мапі, щоб подивитись.</p>';
     } else h += actPanel(t);
     if (ME.role === 'dm') h += '<div class="row" style="margin-top:8px"><button class="btn2 sm ' + (cb.auto ? 'on' : '') + '" type="button" data-a="autoall">🤖 Монстри самі: ' + (cb.auto ? 'так' : 'ні') + '</button><button class="btn2 sm" type="button" data-a="fightend">Завершити бій</button></div>';
     $('act').innerHTML = h;
   }
   function chip(txt, used) { return '<span class="chip' + (used ? ' used' : '') + '">' + txt + '</span>'; }
-  function actPanel(t) {
-    const i = E.info(G, t), atks = E.attacks(G, t);
-    let h = '<div class="res"><b style="margin-right:4px">' + i.ic + ' ' + esc(i.n) + '</b>' + chip('🚶 ' + t.mv + ' кл', t.mv <= 0) + chip('Дія', !canAction(t) && t.atkLeft <= 0) + chip('Бонусна', t.bon <= 0) + (t.atkLeft > 0 ? chip('ще атак: ' + t.atkLeft) : '') + chip('Реакція', t.react <= 0) + '</div>';
+  /* смуга ресурсів як у BG3: дія ●, бонусна ▲, реакція ↺, рух, комірки ◆, заряди вмінь */
+  function resBar(t, off) {
+    const i = E.info(G, t);
+    const act = off ? 1 : (t.act > 0 || t.atkLeft > 0 ? 1 : 0), bon = off ? 1 : t.bon > 0 ? 1 : 0, react = t.react > 0 ? 1 : 0;
+    const sp = Math.max(0, i.sp - (t.cond.slow || 0)), mv = off ? sp : t.mv, mvMax = Math.max(sp, mv);
+    const pip = (cls, sym, on, lbl) => '<div class="rb"><span class="rpip ' + cls + (on ? '' : ' used') + '">' + sym + '</span><small>' + lbl + '</small></div>';
+    let h = '<div class="rbar">' + pip('a', '●', act, t.atkLeft > 0 ? 'ще ' + t.atkLeft : 'Дія') + pip('b', '▲', bon, 'Бонус') + pip('r', '↺', react, 'Реакція');
+    h += '<div class="rb rmove"><div class="mvt">' + Array.from({ length: mvMax }, (_, k) => '<i class="' + (k < mv ? 'on' : '') + '"></i>').join('') + '</div><small>🚶 ' + mv + '/' + sp + ' кл · ' + (mv * 1.5) + ' м</small></div>';
+    if (i.pc && i.c.slots) h += '<div class="rb"><span class="rslots">' + Array.from({ length: i.c.slots }, (_, k) => '<i class="' + (k < i.ch.slots ? 'on' : '') + '">◆</i>').join('') + '</span><small>Комірки</small></div>';
+    if (i.pc && i.ch.cls === 'fighter') h += '<div class="rb"><span class="ruses"><i class="' + (i.ch.uses.wind ? 'on' : '') + '">💨</i><i class="' + (i.ch.uses.surge ? 'on' : '') + '">⚡</i></span><small>Заряди</small></div>';
+    if (t.conc) h += '<div class="rb"><span class="ruses"><i class="on">◎</i></span><small>' + esc(R.SPELLS[t.conc].n.split(' ')[0]) + '</small></div>';
+    return h + '</div>';
+  }
+  function actPanel(t, off) {
+    const i = E.info(G, t), atks = E.attacks(G, t), cur = E.cur(G), ci = cur && E.info(G, cur);
+    let h = off ? '<p class="hint" style="margin:0 0 6px">Зараз ходить: <b>' + (ci ? ci.ic + ' ' + esc(ci.n) : '—') + '</b> — твої дії стануть доступні у твій хід.</p>' : '<p class="hint" style="margin:0 0 6px"><b>' + i.ic + ' ' + esc(i.n) + '</b> — твій хід</p>';
+    h += resBar(t, off);
     if (i.down) {
-      return h + '<p class="hint">Ти без тями. Кидок від смерті: 10+ — успіх, менше — провал. ✔' + i.ch.ds.s + '/3 ✖' + i.ch.ds.f + '/3. Тебе можуть підняти лікуванням.</p><div class="agrid"><button class="ab" type="button" data-a="death"' + (t.act > 0 ? '' : ' disabled') + '><b>🎲</b>Кидок від смерті</button><button class="ab end" type="button" data-a="end"><b>⏭</b>Кінець ходу</button></div>';
+      return h + '<p class="hint">Ти без тями. Кидок від смерті: 10+ — успіх, менше — провал. ✔' + i.ch.ds.s + '/3 ✖' + i.ch.ds.f + '/3. Тебе можуть підняти лікуванням.</p><div class="agrid"><button class="ab" type="button" data-a="death"' + (!off && t.act > 0 ? '' : ' disabled') + '><b>🎲</b>Кидок від смерті</button><button class="ab end" type="button" data-a="end"' + (off ? ' disabled' : '') + '><b>⏭</b>Кінець ходу</button></div>';
     }
-    // підтвердження
-    const conf = confirmHtml(t);
-    if (conf) h += conf;
-    h += '<p class="hint">' + hintTxt(t) + '</p>';
-    const b = [];
-    b.push(['move', '🚶', 'Рух', t.mv + ' кл · ' + (t.mv * 1.5) + ' м', t.mv <= 0, U.mode === 'move']);
-    atks.forEach((a, k) => b.push(['w' + k, a.range && !a.reach ? '🏹' : a.spell ? '🔥' : '⚔️', a.n, sgn(a.b) + ' · ' + kd(a.dmg), !(t.atkLeft > 0 || t.act > 0), U.mode === 'atk' && U.wi === k]));
-    if (i.pc && i.c.spells) i.c.spells.forEach((s) => { const sp = R.SPELLS[s]; b.push(['s' + s, '🪄', sp.n, (sp.lvl ? 'комірка ' + i.ch.slots : 'замовляння') + (sp.time === 'b' ? ' · бонус' : ''), (sp.time === 'b' ? t.bon <= 0 : !canAction(t)) || (sp.lvl > 0 && i.ch.slots <= 0), U.mode === 'spell' && U.sp === s]); });
-    b.push(['dash', '🏃', 'Ривок', '+' + i.sp + ' кл, дія', !canAction(t)]);
-    b.push(['dis', '↩️', 'Відступ', 'без атак при нагоді', !canAction(t)]);
-    b.push(['dodge', '🛡️', 'Ухилення', 'атаки по тобі з ▼', !canAction(t)]);
-    if (E.toks(G).some((o) => o.side === t.side && o.cond.sleep && E.dist(o, t) <= 1)) b.push(['wake', '👋', 'Розбудити', 'сусіда, дія', !canAction(t), U.mode === 'wake']);
-    if (i.pc && i.ch.cls === 'fighter') { b.push(['wind', '💨', 'Друге дихання', 'бонус · ' + (i.ch.uses.wind ? '1к10+2' : 'витрачено'), t.bon <= 0 || !i.ch.uses.wind]); b.push(['surge', '⚡', 'Сплеск дій', i.ch.uses.surge ? '+1 дія' : 'витрачено', !i.ch.uses.surge]); }
-    if (i.pc && i.ch.cls === 'rogue') { b.push(['cdash', '🏃', 'Хитрий ривок', 'бонус', t.bon <= 0]); b.push(['cdis', '↩️', 'Хитрий відступ', 'бонус', t.bon <= 0]); b.push(['chide', '🫥', 'Сховатись', 'бонус · Скритність', t.bon <= 0]); }
-    if (!i.pc && ME.role === 'dm') b.push(['auto', '🤖', 'Авто-хід', 'гра сходить сама', false]);
-    b.push(['end', '⏭️', 'Кінець ходу', '', false]);
-    h += '<div class="agrid">' + b.map((x) => '<button type="button" class="ab' + (x[5] ? ' on' : '') + (x[0] === 'end' ? ' end' : '') + '" data-a="' + x[0] + '"' + (x[4] ? ' disabled' : '') + '><b>' + x[1] + '</b>' + esc(x[2]) + (x[3] ? '<small>' + esc(x[3]) + '</small>' : '') + '</button>').join('') + '</div>';
+    if (!off) { const conf = confirmHtml(t); if (conf) h += conf; else h += '<p class="hint">' + hintTxt(t) + '</p>'; }
+    const b = []; // [id, ікона, назва, підпис, вимкнено, обрано, ціна]
+    const mvShow = off ? Math.max(0, i.sp - (t.cond.slow || 0)) : t.mv;
+    b.push(['move', '🚶', 'Рух', mvShow + ' кл · ' + (mvShow * 1.5) + ' м', t.mv <= 0, U.mode === 'move', 'm']);
+    atks.forEach((a, k) => b.push(['w' + k, a.range && !a.reach ? '🏹' : a.spell ? '🔥' : '⚔️', a.n, sgn(a.b) + ' · ' + kd(a.dmg), !(t.atkLeft > 0 || t.act > 0), U.mode === 'atk' && U.wi === k, 'a']));
+    if (i.pc && i.c.spells) i.c.spells.forEach((s) => { const sp = R.SPELLS[s]; b.push(['s' + s, '🪄', sp.n, sp.lvl ? '1 коло' : 'замовляння', (sp.time === 'b' ? t.bon <= 0 : !canAction(t)) || (sp.lvl > 0 && i.ch.slots <= 0), U.mode === 'spell' && U.sp === s, (sp.time === 'b' ? 'b' : 'a') + (sp.lvl ? 's' : '')]); });
+    b.push(['dash', '🏃', 'Ривок', '+' + i.sp + ' кл', !canAction(t), false, 'a']);
+    b.push(['dis', '↩️', 'Відступ', 'без атак при нагоді', !canAction(t), false, 'a']);
+    b.push(['dodge', '🛡️', 'Ухилення', 'атаки по тобі з ▼', !canAction(t), false, 'a']);
+    if (E.toks(G).some((o) => o.side === t.side && o.cond.sleep && E.dist(o, t) <= 1)) b.push(['wake', '👋', 'Розбудити', 'сусіда', !canAction(t), U.mode === 'wake', 'a']);
+    if (i.pc && i.ch.cls === 'fighter') { b.push(['wind', '💨', 'Друге дихання', i.ch.uses.wind ? '1к10+2 хітів' : 'витрачено', t.bon <= 0 || !i.ch.uses.wind, false, 'b']); b.push(['surge', '⚡', 'Сплеск дій', i.ch.uses.surge ? '+1 дія' : 'витрачено', !i.ch.uses.surge, false, '']); }
+    if (i.pc && i.ch.cls === 'rogue') { b.push(['cdash', '🏃', 'Хитрий ривок', '+' + i.sp + ' кл', t.bon <= 0, false, 'b']); b.push(['cdis', '↩️', 'Хитрий відступ', '', t.bon <= 0, false, 'b']); b.push(['chide', '🫥', 'Сховатись', 'Скритність', t.bon <= 0, false, 'b']); }
+    if (!i.pc && ME.role === 'dm') b.push(['auto', '🤖', 'Авто-хід', 'гра сходить сама', false, false, '']);
+    b.push(['end', '⏭️', 'Кінець ходу', '', false, false, '']);
+    const cost = (c) => (c ? '<span class="cost">' + c.split('').map((x) => '<i class="' + x + '">' + ({ a: '●', b: '▲', s: '◆', m: '' }[x]) + '</i>').join('') + '</span>' : '');
+    h += '<div class="agrid' + (off ? ' off' : '') + '">' + b.map((x) => '<button type="button" class="ab' + (x[5] && !off ? ' on' : '') + (x[0] === 'end' ? ' end' : '') + '" data-a="' + x[0] + '"' + (x[4] || off ? ' disabled' : '') + '>' + cost(x[6]) + '<b>' + x[1] + '</b>' + esc(x[2]) + (x[3] ? '<small>' + esc(x[3]) + '</small>' : '') + '</button>').join('') + '</div>';
     return h;
   }
   function hintTxt(t) {
@@ -812,18 +827,54 @@
     if (U.mode === 'atk' && U.tgt) {
       const a = E.attacks(G, t)[U.wi], tg = G.cb.tk[U.tgt], c = E.atkCheck(G, t, a, tg);
       if (!c.ok) return '';
-      return '<div class="confirm"><span class="grow">' + esc(a.n) + ' → <b>' + esc(E.info(G, tg).n) + '</b><br>' + (c.adv.concat(c.dis).length ? c.adv.map((s) => '<span class="ok">▲ ' + esc(s) + '</span>').concat(c.dis.map((s) => '<span class="bad">▼ ' + esc(s) + '</span>')).join(' · ') + (c.adv.length && c.dis.length ? ' → взаємно гасяться' : '') : '<span class="muted">звичайний кидок</span>') + '</span><button class="btn" type="button" data-a="fire">Атака</button></div>';
+      const pv = E.attackPreview(t, a, tg, G), ti = E.info(G, tg);
+      return '<div class="confirm"><span class="grow">' + esc(a.n) + ' → <b>' + esc(ti.n) + '</b><br>' + (c.adv.concat(c.dis).length ? c.adv.map((s) => '<span class="ok">▲ ' + esc(s) + '</span>').concat(c.dis.map((s) => '<span class="bad">▼ ' + esc(s) + '</span>')).join(' · ') + (c.adv.length && c.dis.length ? ' → взаємно гасяться' : '') : '<span class="muted">звичайний кидок</span>') +
+        (pv ? attackInfoHtml(pv, ti) : '') + '</span><button class="btn" type="button" data-a="fire">Атака</button></div>';
     }
     if (U.mode === 'spell') {
       const sp = R.SPELLS[U.sp];
       let ready = false, txt = '';
-      if (['atk', 'save1', 'heal', 'mark'].includes(sp.kind) && U.tgt) { ready = true; txt = '→ <b>' + esc(E.info(G, G.cb.tk[U.tgt]).n) + '</b>'; if (sp.kind === 'atk') { const c = E.atkCheck(G, t, { b: 0, reach: 0, range: sp.range, long: sp.range }, G.cb.tk[U.tgt]); if (c.ok && c.dis.length) txt += '<br><span class="bad">▼ ' + c.dis.map(esc).join(', ') + '</span>'; if (c.ok && c.adv.length) txt += '<br><span class="ok">▲ ' + c.adv.map(esc).join(', ') + '</span>'; } }
-      if ((sp.kind === 'darts' || sp.kind === 'buff') && U.tgts.length) { ready = sp.kind === 'buff' || U.tgts.length === 3; txt = U.tgts.map((id) => esc(E.info(G, G.cb.tk[id]).n)).join(', ') + (sp.kind === 'darts' ? ' (' + U.tgts.length + '/3)' : ''); }
-      if ((sp.kind === 'area' || sp.kind === 'sleep') && U.sel) { ready = true; const n = previewCells(t).filter(([x, y]) => E.occ(G, x, y)).length; txt = 'У зоні: ' + n + ' ' + (n === 1 ? 'істота' : 'істот'); }
+      if (['atk', 'save1', 'heal', 'mark'].includes(sp.kind) && U.tgt) { ready = true; txt = '→ <b>' + esc(E.info(G, G.cb.tk[U.tgt]).n) + '</b>'; if (sp.kind === 'atk') { const c = E.atkCheck(G, t, { b: 0, reach: 0, range: sp.range, long: sp.range }, G.cb.tk[U.tgt]); if (c.ok && c.dis.length) txt += '<br><span class="bad">▼ ' + c.dis.map(esc).join(', ') + '</span>'; if (c.ok && c.adv.length) txt += '<br><span class="ok">▲ ' + c.adv.map(esc).join(', ') + '</span>'; }
+        const tg = G.cb.tk[U.tgt], pv = previewFor(t, tg);
+        if (pv) txt += attackInfoHtml(pv, E.info(G, tg));
+        if (sp.kind === 'heal') { const d = E.dstat(sp.dmg), bonus = R.mod(E.info(G, t).st[E.info(G, t).c.cast]) + (E.info(G, t).ch.cls === 'cleric' ? 3 : 0), ti = E.info(G, tg); txt += '<div class="pv"><span>Лікує <b>' + (d.min + bonus) + '–' + (d.max + bonus) + '</b> (сер. ' + r1(d.avg + bonus) + ')</span><span>Хіти ' + Math.max(0, ti.hp) + '/' + ti.mhp + '</span></div>'; }
+      }
+      if ((sp.kind === 'darts' || sp.kind === 'buff') && U.tgts.length) {
+        ready = sp.kind === 'buff' || U.tgts.length === 3; txt = U.tgts.map((id) => esc(E.info(G, G.cb.tk[id]).n)).join(', ') + (sp.kind === 'darts' ? ' (' + U.tgts.length + '/3)' : '');
+        if (sp.kind === 'darts') { const d = E.dstat(sp.dmg), cnt = {}; U.tgts.forEach((id) => { cnt[id] = (cnt[id] || 0) + 1; }); txt += '<div class="pv"><span>Кожен снаряд <b>' + d.min + '–' + d.max + '</b></span><span>Разом <b>' + d.min * 3 + '–' + d.max * 3 + '</b> (сер. ' + r1(d.avg * 3) + ')</span><span><b>100%</b> влучання</span></div>' +
+          '<div class="why">' + Object.keys(cnt).map((id) => { const ti = E.info(G, G.cb.tk[id]); return esc(ti.n) + ': ' + cnt[id] + '× → ' + d.min * cnt[id] + '–' + d.max * cnt[id] + (d.min * cnt[id] >= ti.hp ? ' (точно добʼє)' : d.max * cnt[id] >= ti.hp ? ' (може добити, ' + ti.hp + ' хітів)' : ''); }).join(' · ') + '</div>'; }
+      }
+      if ((sp.kind === 'area' || sp.kind === 'sleep') && U.sel) {
+        ready = true; const inZ = previewCells(t).map(([x, y]) => E.occ(G, x, y)).filter((o) => o && o !== t), n = inZ.length; txt = 'У зоні: ' + n + ' ' + (n === 1 ? 'істота' : 'істот');
+        const d = E.dstat(sp.kind === 'sleep' ? sp.pool : sp.dmg);
+        if (sp.kind === 'area') txt += '<div class="pv"><span>Кожному <b>' + d.min + '–' + d.max + '</b> (сер. ' + r1(d.avg) + ')</span><span>успіх рятівного — половина</span></div><div class="why">' +
+          inZ.map((o) => { const pf = E.saveFail(o, sp.save, E.spellDC(E.info(G, t).c), G); return (o.side === t.side ? '⚠ ' : '') + esc(E.info(G, o).n) + ': ' + pct(pf) + ' провалить, ≈' + r1(pf * d.avg + (1 - pf) * Math.floor(d.avg / 2)); }).join(' · ') + '</div>';
+        else { let left = d.avg; const sorted = inZ.filter((o) => E.active(G, o)).sort((a, b) => E.info(G, a).hp - E.info(G, b).hp);
+          txt += '<div class="pv"><span>Приспить <b>' + d.min + '–' + d.max + '</b> хітів істот (сер. ' + r1(d.avg) + ')</span></div><div class="why">' + sorted.map((o) => { const h = E.info(G, o).hp, ok = h <= left; if (ok) left -= h; return (o.side === t.side ? '⚠ ' : '') + esc(E.info(G, o).n) + ' (' + h + ') — ' + (ok ? 'ймовірно засне' : h <= d.max ? 'може заснути' : 'не засне'); }).join(' · ') + '</div>'; }
+      }
       if (!txt) return '';
       return '<div class="confirm"><span class="grow">🪄 ' + esc(sp.n) + ' ' + txt + '</span>' + (sp.kind === 'darts' || sp.kind === 'buff' ? '<button class="btn2 sm" type="button" data-a="untgt">Скинути</button>' : '') + '<button class="btn" type="button" data-a="cast"' + (ready ? '' : ' disabled') + '>Читати</button></div>';
     }
     return '';
+  }
+  /* прогноз: шанс і шкода */
+  const pct = (p) => Math.round(p * 100) + '%';
+  const r1 = (x) => (Math.round(x * 10) / 10).toString().replace('.', ',');
+  const spellAtkObj = (t, sp) => ({ n: sp.n, b: E.spellAtk(E.info(G, t).c), dmg: sp.dmg, reach: 0, range: sp.range, long: sp.range, spell: true });
+  function previewFor(t, tgt) { // для підпису над ціллю: {p, min, max} або null
+    if (U.mode === 'atk') return E.attackPreview(t, E.attacks(G, t)[U.wi], tgt, G);
+    if (U.mode === 'spell') {
+      const sp = R.SPELLS[U.sp];
+      if (sp.kind === 'atk') return E.attackPreview(t, spellAtkObj(t, sp), tgt, G);
+      if (sp.kind === 'save1') { const d = E.dstat(sp.dmg), pf = E.saveFail(tgt, sp.save, E.spellDC(E.info(G, t).c), G); return { p: pf, min: d.min, max: d.max, avg: d.avg, expected: pf * d.avg, save: true }; }
+      if (sp.kind === 'darts') { const d = E.dstat(sp.dmg); return { p: 1, min: d.min, max: d.max, avg: d.avg, expected: d.avg }; }
+    }
+    return null;
+  }
+  function attackInfoHtml(pv, ti) {
+    return '<div class="pv"><span><b>' + pct(pv.p) + '</b> ' + (pv.save ? 'провалить рятівний' : 'шанс влучити') + '</span><span>Шкода <b>' + pv.min + '–' + pv.max + '</b> (сер. ' + r1(pv.avg) + ')</span><span>Очікувано <b>≈' + r1(pv.expected) + '</b></span></div>' +
+      '<div class="why">' + (pv.save ? '' : 'к20 ' + sgn(pv.bonus) + ' проти КБ ' + pv.ac + (pv.autoCrit ? ' · впритул по сплячому — гарантований крит' : ' · 20 — крит (кубики ×2)') + (pv.extra && pv.extra.length ? ' · + ' + pv.extra.join(', ') : '')) +
+      (ti && pv.kills ? ' · <b class="ok">точно добʼє</b>' : ti && pv.mayKill ? ' · <span class="ok">може добити (' + ti.hp + ' хітів)</span>' : '') + '</div>';
   }
   function oaList(t, path) {
     if (t.dis) return [];
@@ -920,6 +971,21 @@
   function ring(x, y, col, w, dash) { const [X, Y] = cellXY(x, y); cx.strokeStyle = col; cx.lineWidth = w || 2.5; cx.setLineDash(dash || []); cx.beginPath(); cx.arc(X + CS / 2, Y + CS / 2, CS * 0.48, 0, 7); cx.stroke(); cx.setLineDash([]); }
   function center(x, y) { return [OX + (x + 0.5) * CS, OY + (y + 0.5) * CS]; }
 
+  function drawLabels(t, list) { // сусіди в одному ряду — по черзі над і під токеном
+    list.sort((a, b) => a.y - b.y || a.x - b.x);
+    let prev = null, below = false;
+    for (const o of list) { below = prev && prev.y === o.y && o.x - prev.x <= 2 ? !below : false; tgtLabel(o, previewFor(t, o), below); prev = o; }
+  }
+  function tgtLabel(o, pv, below) { // «65% · 4–11» над ціллю
+    if (!pv) return;
+    const C0 = center(o.x, o.y), txt = pct(pv.p) + '·' + pv.min + '–' + pv.max;
+    cx.save(); cx.font = '800 ' + Math.max(9, Math.round(CS * 0.27)) + 'px Rubik, sans-serif';
+    const w = cx.measureText(txt).width + 8, hh = Math.max(14, CS * 0.38), y = below ? C0[1] + CS * 0.98 : C0[1] - CS * 0.92;
+    cx.fillStyle = pv.p >= 0.6 ? 'rgba(30,110,60,.92)' : pv.p >= 0.35 ? 'rgba(150,110,20,.92)' : 'rgba(140,30,40,.92)';
+    roundRect(C0[0] - w / 2, y - hh / 2, w, hh, hh / 2); cx.fill();
+    cx.fillStyle = '#fff'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText(txt, C0[0], y + 0.5);
+    cx.restore();
+  }
   function previewCells(t) {
     const sp = R.SPELLS[U.sp]; if (!sp || !U.sel) return [];
     if (sp.kind === 'area') return E.coneCells(t, U.sel[0], U.sel[1], sp.size);
@@ -950,7 +1016,9 @@
       const snow = G.cb.theme === 'snow';
       if (a.range) { tint(rangeCells(t, Math.min(a.long, 30)).filter(([x, y]) => Math.max(Math.abs(x - t.x), Math.abs(y - t.y)) > a.range), snow ? 'rgba(255,130,30,.26)' : 'rgba(255,154,60,.16)'); tint(rangeCells(t, a.range), snow ? 'rgba(40,130,255,.28)' : 'rgba(98,184,255,.2)'); }
       if (a.reach) tint(rangeCells(t, a.reach), 'rgba(255,80,80,.3)');
-      E.toks(G).forEach((o) => { if (o.side !== t.side && E.alive(G, o) && E.atkCheck(G, t, a, o).ok) ring(o.x, o.y, '#FFD36A', 2.5, [4, 3]); });
+      const lab = [];
+      E.toks(G).forEach((o) => { if (o.side !== t.side && E.alive(G, o) && E.atkCheck(G, t, a, o).ok) { ring(o.x, o.y, '#FFD36A', 2.5, [4, 3]); lab.push(o); } });
+      drawLabels(t, lab);
     }
     if (U.mode === 'spell') {
       const sp = R.SPELLS[U.sp];
@@ -965,7 +1033,9 @@
         if (['atk', 'save1', 'mark', 'darts'].includes(sp.kind)) return o.side !== t.side && d <= sp.range && E.los(G, t, o);
         return false;
       };
-      E.toks(G).forEach((o) => { if (okT(o)) ring(o.x, o.y, sp.kind === 'heal' || sp.kind === 'buff' ? '#5DD27A' : '#C5A8FF', 2.5, [4, 3]); });
+      const lab = [];
+      E.toks(G).forEach((o) => { if (okT(o)) { ring(o.x, o.y, sp.kind === 'heal' || sp.kind === 'buff' ? '#5DD27A' : '#C5A8FF', 2.5, [4, 3]); if (o.side !== t.side) lab.push(o); } });
+      drawLabels(t, lab);
       U.tgts.forEach((id, k) => { const o = G.cb.tk[id]; if (o) { ring(o.x, o.y, '#FFFFFF', 3.5); const [X, Y] = cellXY(o.x, o.y); cx.fillStyle = '#fff'; cx.font = 'bold ' + Math.round(CS * 0.36) + 'px sans-serif'; cx.fillText(String(U.tgts.filter((x) => x === id).length), X + CS * 0.88, Y + CS * 0.14 + k * 0); } });
     }
     if (U.tgt && G.cb.tk[U.tgt]) {
@@ -1015,7 +1085,7 @@
   /* ---------- анімації ефектів ---------- */
   const ANIM = {
     q: [], cur: null, t0: 0, floats: [], banner: null,
-    dur(f) { return f.k === 'move' ? Math.max(300, (f.path.length - 1) * 260) : { aim: 700, slash: 650, arrow: 800, bolt: 900, ray: 900, darts: 1150, fire: 1250, sleep: 1500, pillar: 1050, heal: 950, bless: 1050, mark: 750 }[f.k] || 600; },
+    dur(f) { return f.k === 'move' ? Math.max(300, (f.path.length - 1) * 260) : { aim: 700, roll: 1700, slash: 650, arrow: 800, bolt: 900, ray: 900, darts: 1150, fire: 1250, sleep: 1500, pillar: 1050, heal: 950, bless: 1050, mark: 750 }[f.k] || 600; },
     pendHp(id) { let n = 0; for (const f of this.q) if (f.k === 'float' && f.id === id && f.n) n += f.n; return n; },
     pos(t) {
       const f = this.cur;
@@ -1035,6 +1105,7 @@
         const f = this.q.shift();
         if (f.k === 'float') { this.floats.push({ f, t0: now }); if (f.c !== 'heal') { const c = f.c === 'miss' ? 'miss' : 'hit'; beep(f.c === 'crit' ? 'crit' : c); } continue; }
         this.cur = f; this.t0 = now;
+        if (f.k === 'roll') beep('dice');
         if (f.k === 'aim') this.banner = { txt: String(f.txt).replace(/ \(бот\)/g, ''), foe: f.foe, t0: now };
       }
       this.floats = this.floats.filter((x) => now - x.t0 < 1400);
@@ -1050,6 +1121,7 @@
         cx.lineWidth = Math.max(3, size / 5); cx.strokeStyle = 'rgba(10,6,14,.85)';
         const y = C0[1] - CS * 0.55 - p * CS * 0.9;
         cx.strokeText(x.f.txt, C0[0], y); cx.fillStyle = col; cx.fillText(x.f.txt, C0[0], y);
+        if (x.f.sub) { const fs = Math.max(9, Math.round(CS * 0.26)); cx.font = '700 ' + fs + 'px Rubik, sans-serif'; cx.lineWidth = 3; cx.strokeText(x.f.sub, C0[0], y + size * 0.7); cx.fillStyle = '#F1ECE2'; cx.fillText(x.f.sub, C0[0], y + size * 0.7); }
         cx.restore();
       }
       const bn = this.banner;
@@ -1067,6 +1139,7 @@
       const p = Math.min(1, (now - this.t0) / this.dur(f));
       const A = f.a && center(f.a[0], f.a[1]), B = f.b && center(f.b[0], f.b[1]);
       cx.save();
+      if (f.k === 'roll') { drawRoll(f, p, now); cx.restore(); return; }
       if (f.k === 'aim' && A && B) {
         const col = f.foe ? '255,80,80' : '255,210,90', pulse = 0.55 + 0.45 * Math.sin(p * Math.PI * 4);
         cx.strokeStyle = 'rgba(' + col + ',' + (0.35 + pulse * 0.5) + ')'; cx.lineWidth = Math.max(2, CS / 12); cx.setLineDash([CS / 4, CS / 6]); cx.lineDashOffset = -p * CS * 2;
@@ -1113,6 +1186,48 @@
     ANIM.draw(now);
     ANIM.drawFloats(now);
   }
+  /* панель кидка на мапі: к20 крутиться ~45% часу, потім число, розклад і вердикт */
+  function hexPath(x, y, r) { cx.beginPath(); for (let i = 0; i < 6; i++) { const a = Math.PI / 3 * i - Math.PI / 2; cx[i ? 'lineTo' : 'moveTo'](x + r * Math.cos(a), y + r * Math.sin(a)); } cx.closePath(); }
+  function drawDie(x, y, r, n, rot, col, dim) {
+    cx.save(); cx.translate(x, y); cx.rotate(rot); cx.globalAlpha *= dim ? 0.4 : 1;
+    hexPath(0, 0, r); cx.fillStyle = col || '#ECE6DA'; cx.fill(); cx.lineWidth = Math.max(2, r / 10); cx.strokeStyle = '#9C8C70'; cx.stroke();
+    cx.beginPath(); cx.moveTo(0, -r * 0.55); cx.lineTo(r * 0.5, r * 0.32); cx.lineTo(-r * 0.5, r * 0.32); cx.closePath(); cx.lineWidth = 1.5; cx.stroke();
+    cx.rotate(-rot); cx.fillStyle = '#1B1622'; cx.font = '800 ' + Math.round(r * 0.85) + 'px "Baloo 2", sans-serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText(String(n), 0, r * 0.06);
+    if (dim) { cx.strokeStyle = '#FF6464'; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(-r * 0.6, -r * 0.6); cx.lineTo(r * 0.6, r * 0.6); cx.stroke(); }
+    cx.restore();
+  }
+  function drawRoll(f, p, now) {
+    const W0 = Math.min(CS * E.W - 16, CS * 9), H0 = CS * 2.3, X0 = OX + (CS * E.W - W0) / 2, Y0 = OY + Math.max(CS * 1.0, 30);
+    const fade = p < 0.08 ? p / 0.08 : p > 0.9 ? (1 - p) / 0.1 : 1, rolling = p < 0.45;
+    cx.globalAlpha = fade;
+    cx.fillStyle = 'rgba(16,12,22,.93)'; roundRect(X0, Y0, W0, H0, 16); cx.fill();
+    cx.strokeStyle = rolling ? 'rgba(255,255,255,.18)' : f.crit || (f.v === 20) ? '#E9B949' : f.ok ? '#5DD27A' : '#FF6464'; cx.lineWidth = 2; cx.stroke();
+    const r = H0 * 0.34, dx = X0 + r + 14, dy = Y0 + H0 / 2;
+    const two = f.d && f.d.length > 1, used = two ? f.d.indexOf(f.v) : 0;
+    if (rolling) {
+      const k = Math.floor(now / 70);
+      if (two) { drawDie(dx - r * 0.35, dy - r * 0.15, r * 0.8, 1 + (k * 7) % 20, Math.sin(now / 60) * 0.6); drawDie(dx + r * 0.45, dy + r * 0.2, r * 0.8, 1 + (k * 13) % 20, -Math.sin(now / 55) * 0.6); }
+      else drawDie(dx, dy, r, 1 + (k * 7) % 20, Math.sin(now / 60) * 0.7);
+    } else {
+      const col = f.v === 20 ? '#E9B949' : f.v === 1 ? '#FF7B7B' : '#ECE6DA', q = Math.min(1, (p - 0.45) / 0.1), sc = 1 + (1 - q) * 0.25;
+      if (two) { drawDie(dx - r * 0.35, dy - r * 0.15, r * 0.8 * (used === 0 ? sc : 1), f.d[0], 0, used === 0 ? col : null, used !== 0); drawDie(dx + r * 0.45, dy + r * 0.2, r * 0.8 * (used === 1 ? sc : 1), f.d[1], 0, used === 1 ? col : null, used !== 1); }
+      else drawDie(dx, dy, r * sc, f.v, 0, col);
+    }
+    const tx = dx + r + 14, fs = Math.max(11, Math.round(CS * 0.34));
+    cx.textAlign = 'left'; cx.textBaseline = 'alphabetic';
+    cx.fillStyle = '#B9B0A3'; cx.font = '600 ' + Math.round(fs * 0.9) + 'px Rubik, sans-serif';
+    const title = (String(f.who || '').replace(/ \(бот\)$/, '') + (f.t ? ' · ' + f.t : '')) + (two ? (f.adv > 0 ? ' · перевага' : ' · перешкода') : '');
+    cx.fillText(fitText(title, X0 + W0 - tx - 10), tx, Y0 + H0 * 0.3);
+    cx.fillStyle = '#F1ECE2'; cx.font = '700 ' + fs + 'px Rubik, sans-serif';
+    const math = rolling ? 'к20 ' + sgn(f.b) + (f.vs != null ? ' проти ' + f.vsL + ' ' + f.vs : '') : f.v + ' ' + sgn(f.b) + ' = ' + f.tot + (f.vs != null ? '  проти ' + f.vsL + ' ' + f.vs : '');
+    cx.fillText(fitText(math, X0 + W0 - tx - 10), tx, Y0 + H0 * 0.58);
+    if (!rolling) {
+      const verdict = f.vsL === 'КБ' ? (f.crit ? '💥 КРИТ!' : f.ok ? 'Влучання!' : f.nat1 ? 'Нат 1 — промах' : 'Промах') : (f.ok ? 'Успіх' : 'Провал');
+      cx.fillStyle = f.crit ? '#E9B949' : f.ok ? '#5DD27A' : '#FF6464'; cx.font = '800 ' + Math.round(fs * 1.2) + 'px "Baloo 2", sans-serif';
+      cx.fillText(verdict, tx, Y0 + H0 * 0.88);
+    }
+  }
+  function fitText(t, w) { if (cx.measureText(t).width <= w) return t; while (t.length > 3 && cx.measureText(t + '…').width > w) t = t.slice(0, -1); return t + '…'; }
   function roundRect(x, y, w, h, r) { cx.beginPath(); cx.moveTo(x + r, y); cx.arcTo(x + w, y, x + w, y + h, r); cx.arcTo(x + w, y + h, x, y + h, r); cx.arcTo(x, y + h, x, y, r); cx.arcTo(x, y, x + w, y, r); cx.closePath(); }
   requestAnimationFrame(frame);
 

@@ -241,18 +241,21 @@
     if (spec === 'thief') { const t = alive.filter((k) => R.CLASSES[g.chars[k].cls].skills.includes('thieves')); return t.length ? [t.includes(me) ? me : t[0]] : []; }
     return alive.includes(me) ? [me] : alive.length ? [best()] : [];
   }
-  function startCk(E, s) {
+  function startCk(E, s, force) { // force: {who: [k], adv, help, tried} — повторна спроба
     const g = E.G, o = src(g.bd, s), c = typeof o.ck === 'string' ? CK(o.ck) : o.ck;
     if (!c) return false;
-    const def = ckDef(c), spec = o.who || 'me', ks = who(E, spec, def);
+    const def = ckDef(c), spec = force ? 'one' : o.who || 'me', ks = force ? force.who : who(E, spec, def);
     if (!ks.length) return false;
     let why = c.why || '';
     if (spec === 'best' && ks[0] !== g.bd.me) why += ' Кидає ' + g.chars[ks[0]].n + ' — у цій групі це виходить найкраще.';
-    E.apply({ t: 'ck', cfg: Object.assign({}, def, { dc: c.dc, t: c.t, why, show: true, adv: fn(o.adv, g.bd.flags, g) || 0, who: ks, mode: spec === 'group' ? 'group' : 'one', sid: typeof o.ck === 'string' ? o.ck : null }) }, null, true);
-    g.bd.pend = { type: 'ck', s };
+    if (force) why = 'Друга спроба: ' + g.chars[ks[0]].n + ' пробує сам.' + (force.help ? ' ' + g.chars[force.help].n + ' допомагає — це дія «Допомога», вона дає перевагу.' : '') + ' ' + (c.why || '');
+    E.apply({ t: 'ck', cfg: Object.assign({}, def, { dc: c.dc, t: c.t + (force ? ' — ще спроба' : ''), why, show: true, adv: force ? (force.adv || 0) : fn(o.adv, g.bd.flags, g) || 0, who: ks, mode: spec === 'group' ? 'group' : 'one', sid: typeof o.ck === 'string' ? o.ck : null }) }, null, true);
+    g.bd.pend = { type: 'ck', s, tried: force ? force.tried : [] };
     return true;
   }
   const COST = { r_cold: '3', r_climb: '1d4', r_acro: '1d4' };
+  /* після провалу можна дати спробувати іншому: фізичне, пошук, знання. Соціальне — ні (людину двічі не вмовиш). */
+  const RETRY = { t_force: 'Гуркіт луною котиться храмом.', t_hist: '', d_arcana: '', d_relig: '', r_note: '', t_inv: '', dr_arc: '', d_med: '', seal: '', peek: '', d_street: '', d_crowd: '', d_listen: '', dr_words: '' };
   function resolveCk(E) {
     const g = E.G, b = g.bd, ck = g.ck, s = b.pend.s, o = src(b, s), c = typeof o.ck === 'string' ? CK(o.ck) : o.ck;
     const id = o.flag || (typeof o.ck === 'string' ? o.ck : o.id);
@@ -273,9 +276,13 @@
     const nat20 = ck.who.some((k) => ck.res[k].v === 20) && ck.kind !== 'sv';
     const tip = nat20 ? 'Натуральна 20 — найкращий результат, але лише з того, що можливо в цій ситуації.' : (!ok && ck.mode !== 'group' && !b.tipFail ? 'Провал не зупиняє історію — він лише має ціну.' : '');
     if (tip && !nat20) b.tipFail = 1;
+    const tried = (b.pend.tried || []).concat(ck.who);
     b.pend = null;
-    push(E, { t, sp: o.sp && s.o ? o.sp : '', tip });
+    const alive = Object.keys(g.chars).filter((k) => !g.chars[k].dead && !tried.includes(k));
+    const canRetry = !ok && ck.mode === 'one' && ck.who.length === 1 && id in RETRY && alive.length;
+    push(E, { t, sp: o.sp && s.o ? o.sp : '', tip: canRetry ? '' : tip });
     eff(E, o, ok ? 'ok' : 'fail');
+    if (canRetry) { b.retry = { s, tried, id }; return; }
     if (o.fin) b.fin = fn(o.fin, b.flags, g);
     if (s.o && o.end && b.ch) b.ch.close = 1;
   }
@@ -299,6 +306,7 @@
     const t0 = now(); if (!BD.fast && t0 < BD.at) return;
     if (b.q.length) return;
     if (b.fin) { const v = b.fin; b.fin = null; finale(E, v); return; }
+    if (b.retry) return;
     if (b.start) { const s = b.start; b.start = null; if (!startCk(E, s)) { push(E, 'Ніхто в групі цього не вміє.'); if (s.o && b.ch && src(b, s).end) b.ch.close = 1; } return; }
     if (b.pend) {
       if (b.pend.type === 'ck') {
@@ -362,6 +370,20 @@
       if (!b.q.length) return;
       b.q.shift(); BD.at = 0;
       if (!b.q.length && g.ck && g.ck.done && !b.pend) E.apply({ t: 'ckclose' }, null, true);
+    } else if (o.t === 'dmpick' && b.retry) {
+      if (b.q.length || b.pend) return;
+      const m = /^retry:([^:]+)(?::(.+))?$/.exec(o.o || ''); if (!m || !g.chars[m[1]]) return;
+      const r = b.retry; b.retry = null;
+      E.log('🧝 ' + (m[2] ? g.chars[m[1]].n + ' пробує, ' + g.chars[m[2]].n + ' допомагає' : g.chars[m[1]].n + ' пробує ще раз'), 'sys');
+      if (RETRY[r.id]) push(E, RETRY[r.id]);
+      b.start = null;
+      if (!startCk(E, r.s, { who: [m[1]], adv: m[2] ? 1 : 0, help: m[2] || null, tried: r.tried })) b.retry = r;
+      if (m[2]) E.apply({ t: 'teach', k: 'adv' }, null, true);
+    } else if (o.t === 'dmdone' && b.retry) {
+      if (b.q.length || b.pend) return;
+      const r = b.retry, so = src(b, r.s); b.retry = null;
+      if (so.fin) b.fin = fn(so.fin, b.flags, g);
+      if (r.s.o && so.end && b.ch) b.ch.close = 1;
     } else if (o.t === 'dmpick') {
       if (!b.ch || b.q.length || b.pend || b.start) return;
       const st = beats(b.sc)[b.i], opt = st && st.opts && st.opts.find((x) => x.id === o.o);
@@ -388,6 +410,16 @@
     if (b.end) return { k: 'end' };
     if (b.pend && b.pend.type === 'ck') return { k: 'ck' };
     if (b.pend && b.pend.type === 'fight') return { k: 'fight' };
+    if (b.retry) { // хто ще спробує
+      const r = b.retry, o = src(b, r.s), c = typeof o.ck === 'string' ? CK(o.ck) : o.ck, def = ckDef(c);
+      const bon = (k) => E0.checkParts(g.chars[k], def).reduce((a, p) => a + p[1], 0);
+      const cand = Object.keys(g.chars).filter((k) => !g.chars[k].dead && !r.tried.includes(k)).sort((a, z) => bon(z) - bon(a));
+      const nm = (k) => g.chars[k].n.replace(/ \(бот\)$/, '');
+      const opts = cand.map((k) => ({ i: 'retry:' + k, t: nm(k) + ' пробує (' + (bon(k) >= 0 ? '+' : '') + bon(k) + ')' }));
+      const helper = Object.keys(g.chars).find((k) => !g.chars[k].dead && k !== cand[0]);
+      if (cand.length && helper) opts.unshift({ i: 'retry:' + cand[0] + ':' + helper, t: nm(cand[0]) + ' пробує, ' + nm(helper) + ' допомагає — перевага (' + (bon(cand[0]) >= 0 ? '+' : '') + bon(cand[0]) + ', 2к20)' });
+      return { k: 'choice', ask: 'Не вийшло. Хай спробує ще хтось?', done: 'Ні, йдемо далі', opts, used: [], retry: 1 };
+    }
     if (b.ch) {
       const st = beats(b.sc)[b.i]; if (!st || !st.opts) return null;
       return { k: 'choice', ask: st.ask || 'Що робиш?', done: doneOk(st, b, g) ? st.done : '', opts: visible(st, b, g).map((o) => ({ i: o.id, t: o.t, ck: !!o.ck, nr: !!o.noroll })),
@@ -396,5 +428,6 @@
     return { k: 'wait' };
   }
 
-  window.DNDBotDM = { init, step, op, view, BD, SCRIPT, beats, NPC };
+  let E0 = window.DNDE;
+  window.DNDBotDM = { init, step, op, view, BD, SCRIPT, beats, NPC, RETRY };
 })();
