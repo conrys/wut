@@ -40,6 +40,47 @@
     $('btnResume').hidden = false;
     $('btnResume').textContent = '↺ Продовжити гру ' + save.code + ' — ' + (S.SCENES[save.g.sc] || S.SCENES[0]).t;
   }
+  const soloSave = LS.get('dnd_solo', null);
+  if (soloSave && soloSave.g && soloSave.g.bd && !soloSave.g.bd.end) {
+    $('btnSoloResume').hidden = false;
+    $('btnSoloResume').textContent = '↺ Продовжити соло — ' + (S.SCENES[soloSave.g.sc] || S.SCENES[0]).t;
+  }
+  $('btnSolo').addEventListener('click', () => { startErr(''); const n = nickFrom('plName'); if (!n) return; openSoloSetup(n); });
+  $('btnSoloResume').addEventListener('click', () => {
+    const s0 = LS.get('dnd_solo', null); if (!s0) return;
+    Object.assign(ME, { role: 'pl', solo: true, nick: s0.nick, key: s0.key, code: 'соло', q: [] });
+    E.G = s0.g; E.G.fx = []; E.busy = false; G = E.G; U.joinedAt = performance.now(); render(true);
+  });
+  function openSoloSetup(n) {
+    U.solo = U.solo || { cls: 'fighter', mates: ['wizard', 'cleric'] };
+    const f = U.solo;
+    f.mates = f.mates.filter((c) => c !== f.cls);
+    openModal('solo', '<p class="eyebrow">Соло з ботом-майстром</p><h2>Твій герой</h2><div class="classes" style="margin-top:8px">' +
+      R.CLASS_IDS.map((id) => { const c = R.CLASSES[id]; return '<button type="button" class="cls' + (f.cls === id ? ' on' : '') + '" data-scls="' + id + '"><span class="avatar" style="background:' + c.col + '">' + c.ic + '</span><span class="grow"><b>' + c.n + '</b><small>' + esc(c.bio) + '</small></span></button>'; }).join('') +
+      '</div><p class="eyebrow" style="margin-top:12px">Супутники-боти (можна жодного)</p><div class="chips">' +
+      R.CLASS_IDS.filter((id) => id !== f.cls).map((id) => '<button type="button" data-smate="' + id + '" class="' + (f.mates.includes(id) ? 'on' : '') + '">' + R.CLASSES[id].ic + ' ' + R.CLASSES[id].n + '</button>').join('') +
+      '</div><p class="muted">Радимо 2 супутники: сам на сам храм дуже небезпечний.</p><div class="row"><button class="btn2" type="button" data-sclose="1">Назад</button><button class="btn grow" type="button" data-sgo="1">Почати</button></div>');
+    $('modalSheet').onclick = (e) => {
+      const b = e.target.closest('button'); if (!b || U.modalKind !== 'solo') return;
+      if (b.dataset.scls) f.cls = b.dataset.scls;
+      else if (b.dataset.smate) f.mates = f.mates.includes(b.dataset.smate) ? f.mates.filter((c) => c !== b.dataset.smate) : f.mates.concat(b.dataset.smate);
+      else if (b.dataset.sclose) { closeModal(); return; }
+      else if (b.dataset.sgo) { $('modalSheet').onclick = null; closeModal(); startSolo(n, f.cls, f.mates); return; }
+      openSoloSetup(n);
+    };
+  }
+  function startSolo(n, cls, mates) {
+    Object.assign(ME, { role: 'pl', solo: true, nick: n, key: E.keyOf(n), code: 'соло', cls, q: [] });
+    E.G = E.blank(); E.G.dm = '🤖 Бот-майстер';
+    E.G.chars[ME.key] = E.newChar(n, cls);
+    mates.forEach((c) => E.apply({ t: 'bot', cls: c }, null, true));
+    E.apply({ t: 'start' }, null, true);
+    window.DNDBotDM.init(E, ME.key);
+    E.dirty = false; E.G.v++; G = E.G; U.joinedAt = performance.now(); U.tab = 'story';
+    persistSolo(); render(true);
+  }
+  function persistSolo() { if (ME.solo && E.G) LS.set('dnd_solo', { nick: ME.nick, key: ME.key, g: E.G, at: Date.now() }); }
+
   (async () => {
     const t = window.HNS_TRANSPORT;
     try { AVAIL = t && await t.ready() ? t : null; } catch (e) { AVAIL = null; }
@@ -88,7 +129,7 @@
   if (/^#[A-Z]{4}$/.test(location.hash)) $('plCode').value = location.hash.slice(1);
   $('lobLeave').addEventListener('click', leave);
   function leave() {
-    if (NET) NET.leave(); NET = null; ME.role = null; G = null; E.G = null; location.hash = '';
+    if (NET) NET.leave(); NET = null; ME.role = null; ME.solo = false; G = null; E.G = null; location.hash = '';
     $('lobby').hidden = true; $('app').hidden = true; $('start').hidden = false; closeModal();
   }
   $('mute').addEventListener('click', () => { muted = !muted; LS.set('dnd_mute', muted); $('mute').textContent = muted ? '🔇' : '🔊'; });
@@ -100,13 +141,17 @@
   const online = (k) => plPeers().some((p) => E.keyOf(p.presence.n) === k);
   function persist() { if (ME.role === 'dm' && E.G) LS.set('dnd_save', { code: ME.code, nick: ME.nick, g: E.G, at: Date.now() }); }
   function pushG() {
+    if (ME.solo && E.G) { E.G.v++; E.dirty = false; persistSolo(); return; }
     if (!E.G || !NET) return;
     E.G.v++; E.dirty = false;
     NET.presence({ g: E.G }); persist();
   }
   E.onChange = () => { if (E.dirty) pushG(); G = E.G; render(); };
   function send(op) {
-    if (ME.role === 'dm') { E.apply(op, null, true); if (E.dirty) pushG(); G = E.G; }
+    if (ME.solo) {
+      if (/^dm(next|pick|done)$/.test(op.t)) window.DNDBotDM.op(E, op); else E.apply(op, ME.key, false);
+      if (E.dirty) pushG(); G = E.G;
+    } else if (ME.role === 'dm') { E.apply(op, null, true); if (E.dirty) pushG(); G = E.G; }
     else {
       op.i = E.uid(); ME.q.push(op); if (ME.q.length > 10) ME.q.shift();
       if (NET) NET.presence({ q: ME.q });
@@ -114,6 +159,18 @@
     clearSel(); U.ver++; render();
   }
   function tick() {
+    if (ME.solo && E.G) {
+      if (E.G.ck && !E.G.ck.done && performance.now() > (U.botAt || 0)) { if (E.botRolls()) U.botAt = performance.now() + 700; }
+      const cb = E.G.cb, t = E.cur(E.G);
+      if (cb && t && (!t.ch || E.isBotTurn(E.G)) && !E.busy && !cb.won && !cb.lost) {
+        const key = cb.round + ':' + cb.turn;
+        if (U.autoKey !== key) { U.autoKey = key; U.autoAt = performance.now() + 700; }
+        else if (performance.now() > U.autoAt) { U.autoAt = Infinity; E.autoTurn(); }
+      }
+      window.DNDBotDM.step(E);
+      if (E.dirty) pushG();
+      G = E.G; render(); return;
+    }
     if (!NET) return;
     peers = NET.peers();
     if (ME.role === 'dm') {
@@ -155,7 +212,7 @@
     if (!started) { $('app').hidden = true; $('lobby').hidden = false; renderLobby(); return; }
     $('lobby').hidden = true; $('app').hidden = false;
     onG();
-    const sig = [G.v, U.ver, U.tab, peers.map((p) => p.presence && (p.presence.n + p.presence.r)).join('|'), ME.role === 'pl' && !dmPeer() ? 'nodm' : ''].join('#');
+    const sig = [G.v, U.ver, U.tab, peers.map((p) => p.presence && (p.presence.n + p.presence.r)).join('|'), ME.role === 'pl' && !ME.solo && !dmPeer() ? 'nodm' : ''].join('#');
     if (!force && sig === U.sig) return;
     U.sig = sig;
     renderApp();
@@ -244,7 +301,7 @@
     if (!U.tab || !tabs.some((t) => t[0] === U.tab)) U.tab = tabs[0][0];
     const sc = S.SCENES[G.sc] || S.SCENES[0];
     $('topTitle').textContent = G.cb ? '⚔️ ' + S.FIGHTS[G.cb.f].n + ' · раунд ' + G.cb.round : sc.icon + ' ' + sc.t;
-    $('topCode').textContent = ME.code;
+    $('topCode').textContent = ME.solo ? '🤖 соло' : ME.code;
     const ckDot = ME.role === 'dm' ? !!G.ck : G.ck && G.ck.who.includes(ME.key) && !G.ck.res[ME.key];
     const myTurn = !!ctl();
     $('tabs').innerHTML = tabs.map((t) => '<button type="button" data-tab="' + t[0] + '" class="' + (U.tab === t[0] ? 'on' : '') + '"><b>' + t[1] + '</b>' + t[2] +
@@ -254,7 +311,7 @@
     if (isMap) { renderOrder(); renderAct(); resizeMap(); if (!$('lesson').hidden) placeLesson(); return; }
     const sc0 = $('main').scrollTop;
     let h = '';
-    if (ME.role === 'pl' && !dmPeer()) h += '<div class="card" style="border-color:var(--red)"><b>Майстер не на звʼязку.</b><p class="muted" style="margin:4px 0 0">Можливо, згас екран. Гра збережена в нього — чекаємо.</p></div>';
+    if (ME.role === 'pl' && !ME.solo && !dmPeer()) h += '<div class="card" style="border-color:var(--red)"><b>Майстер не на звʼязку.</b><p class="muted" style="margin:4px 0 0">Можливо, згас екран. Гра збережена в нього — чекаємо.</p></div>';
     if (ME.role === 'pl' && !G.chars[ME.key]) h += '<div class="card"><b>Твого героя ще немає.</b><p class="muted">Обери героя — майстер побачить і додасть тебе в гру.</p><div class="classes">' + R.CLASS_IDS.map((id) => { const c = R.CLASSES[id]; return '<button type="button" class="cls" data-latecls="' + id + '"><span class="avatar" style="background:' + c.col + '">' + c.ic + '</span><span class="grow"><b>' + c.n + ' · ' + c.who + '</b></span></button>'; }).join('') + '</div></div>';
     if (U.tab === 'story') h += viewStory();
     else if (U.tab === 'hero') h += viewHero();
@@ -284,15 +341,28 @@
     const items = (G.log || []).slice(-n).reverse();
     return '<ul class="log">' + items.map((e) => '<li class="' + esc(e.c) + '">' + (e.r ? rollLine(e.r) : esc(e.t)) + '</li>').join('') + '</ul>';
   }
+  function dmCard() {
+    const v = window.DNDBotDM && ME.solo ? window.DNDBotDM.view(G) : null; if (!v) return '';
+    let h = '<div id="dmCard" style="margin-bottom:12px">';
+    if (v.k === 'msg') h += (v.read ? '<div class="read"><p class="eyebrow">Майстер читає</p><p>' + esc(v.t) + '</p></div>' : '<div class="card" style="margin:0;border-color:var(--violet)"><p class="eyebrow">🤖 Майстер</p><p style="margin:0;font-size:16px">' + esc(v.t) + '</p></div>') +
+      (v.tip ? '<div class="tip">💡 ' + esc(v.tip) + '</div>' : '') + '<button class="btn wide" type="button" data-dm="next" style="margin-top:10px">Далі ▸</button>';
+    else if (v.k === 'choice') h += '<div class="card" style="margin:0;border-color:var(--gold)"><p class="eyebrow">🤖 Майстер питає</p><b style="font-size:16px">' + esc(v.ask) + '</b>' +
+      v.opts.map((o) => '<button type="button" class="opt' + (o.used ? ' used' : '') + '" data-dmpick="' + o.i + '"' + (o.used ? ' disabled' : '') + '>' + (o.used ? '✔ ' : '▸ ') + esc(o.t) + '</button>').join('') +
+      (v.multi ? '<button class="btn wide" type="button" data-dm="done" style="margin-top:12px">' + esc(v.done) + '</button>' : '') + '</div>';
+    else if (v.k === 'ck') h += G.ck && G.ck.who.includes(ME.key) && !G.ck.res[ME.key] ? '<button class="btn wide" data-openck="1" type="button">🎲 Кинути: ' + esc(E.checkName(G.ck)) + '</button>' : '<div class="card" style="margin:0"><p class="muted" style="margin:0">Кидають інші…</p></div>';
+    else if (v.k === 'fight') h += '<button class="btn wide" type="button" data-tab="map">⚔️ До бою</button>';
+    else if (v.k === 'end') h += '<div class="card" style="margin:0;border-color:var(--gold)"><h3>Кінець пригоди</h3><button class="btn2" type="button" data-soloagain="1">Зіграти ще раз</button></div>';
+    return h + '</div>';
+  }
   function viewStory() {
     const sc = S.SCENES[G.sc];
-    let h = '<div class="card"><p class="eyebrow">Сцена ' + (G.sc + 1) + ' з ' + S.SCENES.length + '</p><h2>' + sc.icon + ' ' + esc(sc.t) + '</h2>' +
+    let h = dmCard() + '<div class="card"><p class="eyebrow">Сцена ' + (G.sc + 1) + ' з ' + S.SCENES.length + '</p><h2>' + sc.icon + ' ' + esc(sc.t) + '</h2>' +
       '<details><summary>Текст сцени (майстер читає вголос)</summary><div class="read" style="margin-top:8px">' + sc.read.map((p) => '<p>' + esc(p) + '</p>').join('') + '</div></details></div>';
     if (G.end) h += '<div class="card" style="border-color:var(--gold)"><h3>' + (G.end === 'a' ? '🕯️ Кінець: Череп знищено' : '💀 Кінець: жезл ваш') + '</h3><p class="muted">Дякуємо за гру! Ти щойно зіграв свою першу пригоду.</p></div>';
     const ch = G.chars[ME.key];
     if (ch) { const c = R.CLASSES[ch.cls]; h += '<div class="card"><div class="sheet-h"><span class="avatar" style="background:' + c.col + '">' + c.ic + '</span><div class="grow"><b>' + esc(ch.n) + '</b> · ' + c.n + statusTxt(ch) + '<div class="bar"><i style="width:' + Math.max(0, ch.hp / c.hp * 100) + '%;background:' + hpCol(ch.hp / c.hp) + '"></i></div><span class="muted">' + ch.hp + '/' + c.hp + ' хітів' + (c.slots ? ' · комірки ' + ch.slots + '/' + c.slots : '') + '</span></div></div></div>'; }
     if (G.ck && !G.ck.who.includes(ME.key)) h += '<div class="card"><p class="eyebrow">Зараз кидають</p><b>' + esc(E.checkName(G.ck)) + '</b><p class="muted">' + G.ck.who.map((k) => esc(G.chars[k].n) + (G.ck.res[k] ? ' — ' + G.ck.res[k].tot + (G.ck.res[k].ok ? ' ✔' : ' ✖') : ' …')).join(', ') + '</p></div>';
-    if (G.ck && G.ck.who.includes(ME.key) && !U.ckOpen) h += '<button class="btn wide" data-openck="1" type="button" style="margin-bottom:12px">🎲 Перевірка: ' + esc(E.checkName(G.ck)) + '</button>';
+    if (G.ck && G.ck.who.includes(ME.key) && !U.ckOpen && !ME.solo) h += '<button class="btn wide" data-openck="1" type="button" style="margin-bottom:12px">🎲 Перевірка: ' + esc(E.checkName(G.ck)) + '</button>';
     h += '<p class="eyebrow">Що відбувалось</p>' + logHtml(36);
     return h;
   }
@@ -433,6 +503,10 @@
     if (d.spell) return popSpell(d.spell);
     if (d.info && INFO[d.info]) return pop('<h3>' + INFO[d.info][0] + '</h3><p>' + esc(INFO[d.info][1]) + '</p>');
     if (d.openck) { U.ckOpen = true; return openCheckPrompt(); }
+    if (d.dm) return send({ t: d.dm === 'next' ? 'dmnext' : 'dmdone' });
+    if (d.dmpick) return send({ t: 'dmpick', o: +d.dmpick });
+    if (d.tab) { U.tab = d.tab; U.ver++; return render(); }
+    if (d.soloagain) { try { localStorage.removeItem('dnd_solo'); } catch (e) {} leave(); $('btnSoloResume').hidden = true; return; }
     if (d.latecls) { ME.cls = d.latecls; if (NET) NET.presence({ cls: ME.cls }); return; }
     if (d.scene != null && d.scene !== undefined && b.hasAttribute('data-scene')) return send({ t: 'scene', sc: +d.scene });
     if (b.hasAttribute('data-ask')) return openCheckCfg(d.ask);
@@ -474,8 +548,8 @@
   $('popSheet').addEventListener('click', (e) => { const b = e.target.closest('[data-mhp]'); if (b) { send({ t: 'mhp', tok: b.dataset.mhp, d: +b.dataset.d }); $('pop').hidden = true; } });
 
   /* ---------- модалки перевірок ---------- */
-  function openModal(kind, html) { U.modalKind = kind; $('modalSheet').innerHTML = html; $('modal').hidden = false; }
-  function closeModal() { U.modalKind = null; $('modal').hidden = true; }
+  function openModal(kind, html) { U.modalKind = kind; $('modalSheet').innerHTML = html; $('modal').hidden = false; if (!$('lesson').hidden) placeLesson(); }
+  function closeModal() { U.modalKind = null; $('modal').hidden = true; if (!$('lesson').hidden) placeLesson(); }
   function d20Svg(n, cls) {
     return '<div class="big20 ' + (cls || '') + '"><svg viewBox="0 0 100 100"><polygon points="50,3 93,27 93,73 50,97 7,73 7,27" fill="#ECE6DA" stroke="#B9A98C" stroke-width="3"/><polygon points="50,18 79,66 21,66" fill="none" stroke="#B9A98C" stroke-width="2"/></svg><span>' + n + '</span></div>';
   }
@@ -484,7 +558,7 @@
     const r = ck.res[ME.key], parts = E.checkParts(ch, ck);
     const info = ck.kind === 'sk' ? R.SKILLS[ck.key].d : ck.kind === 'st' ? R.STATS[ck.key].d : R.SAVES[ck.key];
     const dcInfo = R.DC.slice().reverse().find((d) => ck.dc >= d.v) || R.DC[0];
-    let h = '<p class="eyebrow">' + (ck.kind === 'sv' ? 'Рятівний кидок' : 'Майстер просить перевірку') + '</p><h2>' + esc(E.checkName(ck)) + '</h2>' + (ck.t ? '<p class="muted">' + esc(ck.t) + '</p>' : '') + '<p style="margin:6px 0">' + esc(info) + '</p>';
+    let h = '<p class="eyebrow">' + (ck.kind === 'sv' ? 'Рятівний кидок' : 'Майстер просить перевірку') + '</p><h2>' + esc(E.checkName(ck)) + '</h2>' + (ck.t ? '<p class="muted">' + esc(ck.t) + '</p>' : '') + '<p style="margin:6px 0">' + esc(info) + '</p>' + (ck.why ? '<div class="tip">Чому так: ' + esc(ck.why) + '</div>' : '');
     h += '<div class="parts"><span>к20</span>' + parts.map((p) => '<span>' + esc(p[0]) + ' ' + sgn(p[1]) + '</span>').join('') + (ck.gd ? '<span>Настанова +1к4</span>' : '') + (ck.kind === 'sk' && !E.skillB(ch, ck.key).p ? '<span class="muted">не твоя навичка — без майстерності</span>' : '') + '</div>';
     if (ck.adv) h += '<p style="text-align:center"><span class="chip ' + (ck.adv > 0 ? 'gold' : 'red') + '">' + (ck.adv > 0 ? '▲ Перевага: 2к20, береш більше' : '▼ Перешкода: 2к20, береш менше') + '</span></p>';
     h += '<p style="text-align:center" class="muted">' + (ck.show ? 'Складність ' + ck.dc + ' — ' + dcInfo.n.toLowerCase() : 'Складність прихована — майстер скаже, чи вийшло') + (ck.mode === 'group' ? ' · групова' : '') + '</p>';
@@ -552,8 +626,9 @@
 
   /* ---------- уроки й тости ---------- */
   function placeLesson() { // на мапі — над панеллю дій, щоб не закривати кнопки
-    const map = !$('mapBox').hidden;
-    $('lesson').style.bottom = map ? ($('act').getBoundingClientRect().height + $('tabs').getBoundingClientRect().height + 8) + 'px' : '';
+    const map = !$('mapBox').hidden, modal = !$('modal').hidden;
+    $('lesson').style.top = modal ? 'calc(env(safe-area-inset-top,0px) + 50px)' : '';
+    $('lesson').style.bottom = modal ? 'auto' : map ? ($('act').getBoundingClientRect().height + $('tabs').getBoundingClientRect().height + 8) + 'px' : '';
   }
   function nextLesson() {
     const k = U.lesQ.shift(), L = k && R.LESSONS[k]; if (!L) return;

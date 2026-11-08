@@ -169,7 +169,7 @@
   function checkStart(cfg) {
     const g = E.G;
     g.ck = { id: uid(), t: cfg.t || '', kind: cfg.kind, key: cfg.key, dc: +cfg.dc || 10, show: cfg.show !== false, adv: +cfg.adv || 0, gd: !!cfg.gd,
-      who: (cfg.who || []).filter((k) => g.chars[k]), mode: cfg.mode || 'one', sid: cfg.sid || null, res: {}, done: false };
+      who: (cfg.who || []).filter((k) => g.chars[k]), mode: cfg.mode || 'one', sid: cfg.sid || null, why: cfg.why || '', res: {}, done: false };
     if (!g.ck.who.length) { g.ck = null; return; }
     if (g.ck.who.length < 2 && g.ck.mode === 'group') g.ck.mode = 'one';
     log('Майстер просить: ' + checkName(g.ck) + ' (' + g.ck.who.map((k) => g.chars[k].n).join(', ') + ')', 'ck');
