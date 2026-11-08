@@ -163,7 +163,8 @@
   }
   function tick() {
     if (ME.solo && E.G) {
-      if (E.G.ck && !E.G.ck.done && performance.now() > (U.botAt || 0)) { if (E.botRolls()) U.botAt = performance.now() + 700; }
+      if (E.G.ck && E.G.ck.id !== U.botCk) { U.botCk = E.G.ck.id; U.botAt = performance.now() + 1600; }
+      if (E.G.ck && !E.G.ck.done && performance.now() > (U.botAt || 0)) { if (E.botRolls()) U.botAt = performance.now() + 1400; }
       const cb = E.G.cb, t = E.cur(E.G);
       if (cb && t && (!t.ch || E.isBotTurn(E.G)) && !E.busy && !cb.won && !cb.lost) {
         const key = cb.round + ':' + cb.turn;
@@ -188,7 +189,8 @@
         }
       }
       // боти кидають перевірки (з паузою, щоб було видно)
-      if (E.G.ck && !E.G.ck.done && performance.now() > (U.botAt || 0)) { if (E.botRolls()) U.botAt = performance.now() + 700; }
+      if (E.G.ck && E.G.ck.id !== U.botCk) { U.botCk = E.G.ck.id; U.botAt = performance.now() + 1600; }
+      if (E.G.ck && !E.G.ck.done && performance.now() > (U.botAt || 0)) { if (E.botRolls()) U.botAt = performance.now() + 1400; }
       // монстри (якщо ввімкнено) і боти-гравці ходять самі
       const cb = E.G.cb, t = E.cur(E.G);
       if (cb && t && ((cb.auto && !t.ch) || E.isBotTurn(E.G)) && !E.busy && !cb.won && !cb.lost) {
@@ -288,6 +290,9 @@
     const ck = G.ck;
     if (ME.role === 'pl' && ck && ck.who.includes(ME.key) && U.ckSeen !== ck.id) { U.ckSeen = ck.id; U.ckOpen = true; }
     if (U.modalKind === 'ck' && (!ck || !U.ckOpen)) closeModal();
+    if (U.modalKind === 'watch' && (!ck || !U.watchOpen)) closeModal();
+    if (ME.role === 'pl' && ck && !ck.who.includes(ME.key) && U.watchSeen !== ck.id && U.modalKind !== 'cfg') { U.watchSeen = ck.id; U.watchOpen = true; }
+    if (ME.role === 'pl' && ck && U.watchOpen && !ck.who.includes(ME.key)) openWatch();
     if (ME.role === 'pl' && ck && U.ckOpen && ck.who.includes(ME.key)) openCheckPrompt();
   }
 
@@ -584,6 +589,48 @@
   function d20Svg(n, cls) {
     return '<div class="big20 ' + (cls || '') + '"><svg viewBox="0 0 100 100"><polygon points="50,3 93,27 93,73 50,97 7,73 7,27" fill="#ECE6DA" stroke="#B9A98C" stroke-width="3"/><polygon points="50,18 79,66 21,66" fill="none" stroke="#B9A98C" stroke-width="2"/></svg><span>' + n + '</span></div>';
   }
+  /* кидки інших учасників тієї самої перевірки */
+  function othersHtml(ck) {
+    const oth = ck.who.filter((k) => k !== ME.key); if (!oth.length) return '';
+    return '<div class="others"><p class="eyebrow" style="margin:6px 0 4px">' + (ck.mode === 'group' ? 'Групова — рахуються всі' : 'Кидають також') + '</p>' + oth.map((k) => {
+      const ch = G.chars[k], c = R.CLASSES[ch.cls], r = ck.res[k];
+      return '<div class="oth"><span class="avatar" style="width:28px;height:28px;font-size:15px;background:' + c.col + '">' + c.ic + '</span><span class="grow">' + esc(ch.n.replace(/ \(бот\)$/, '')) + '</span>' +
+        (r ? dieHtml(r) + '<b class="' + (r.ok ? 'ok' : 'bad') + '">' + r.tot + (r.ok ? ' ✔' : ' ✖') + '</b>' : '<span class="die rolling">?</span>') + '</div>';
+    }).join('') + '</div>';
+  }
+  const bonusOf = (ch, ck) => E.checkParts(ch, ck).reduce((a, p) => a + p[1], 0);
+  /* дивимось, як кидає хтось інший */
+  function openWatch() {
+    const ck = G.ck; if (!ck) return;
+    const main = ck.who[0], ch = G.chars[main], c = ch && R.CLASSES[ch.cls]; if (!ch) return;
+    const me = G.chars[ME.key], nm = (x) => esc(x.n.replace(/ \(бот\)$/, ''));
+    const why = String(ck.why || '').replace(/ ?Кидає .*? — у цій групі це виходить найкраще\.?/, '');
+    let h = '<p class="eyebrow">' + (ck.kind === 'sv' ? 'Рятівний кидок' : 'Перевірка') + '</p>';
+    if (ck.who.length === 1) {
+      h += '<div class="sheet-h" style="margin:4px 0 8px"><span class="avatar" style="background:' + c.col + '">' + c.ic + '</span><div class="grow"><h2 style="margin:0">Кидає ' + nm(ch) + '</h2><span class="muted">' + esc(E.checkName(ck)) + (ck.t ? ' · ' + esc(ck.t) : '') + '</span></div></div>';
+      if (me) {
+        const hb = bonusOf(ch, ck), mb = bonusOf(me, ck);
+        h += '<div class="gm"><b>Чому ' + nm(ch) + ', а не ти?</b> ' + (hb > mb ? '<br>' + nm(ch) + ': <b>' + sgn(hb) + '</b> (' + E.checkParts(ch, ck).map((p) => esc(p[0]) + ' ' + sgn(p[1])).join(', ') + ')<br>Ти: <b>' + sgn(mb) + '</b><br>Майстер дає кидок тому, хто вміє це найкраще.' : 'Так склалась історія — зараз діє саме цей герой.') + '</div>';
+      }
+    } else h += '<h2>' + esc(E.checkName(ck)) + '</h2>' + (ck.t ? '<p class="muted">' + esc(ck.t) + '</p>' : '');
+    if (why) h += '<div class="tip">Чому ця перевірка: ' + esc(why) + '</div>';
+    h += '<p style="text-align:center" class="muted">' + (ck.show ? 'Складність ' + ck.dc : 'Складність прихована') + (ck.adv ? (ck.adv > 0 ? ' · ▲ перевага' : ' · ▼ перешкода') : '') + '</p>';
+    if (ck.who.length === 1) {
+      const r = ck.res[main];
+      if (!r) h += d20Svg('?', 'rolling') + '<p class="muted" style="text-align:center">' + nm(ch) + ' кидає к20…</p>';
+      else {
+        h += d20Svg(r.v, U.watchAnim === ck.id ? '' : 'spin') + (r.d.length > 1 ? '<p class="muted" style="text-align:center">к20: ' + r.d.join(' і ') + ' → ' + r.v + '</p>' : '') +
+          '<p style="text-align:center;font-size:17px">' + r.v + ' ' + r.parts.map((p) => sgn(p[1])).join(' ') + ' = <b style="font-size:24px">' + r.tot + '</b>' + (ck.show ? ' проти ' + ck.dc : '') + '</p>' +
+          '<div class="parts">' + r.parts.map((p) => '<span>' + esc(p[0]) + ' ' + sgn(p[1]) + '</span>').join('') + '</div>' +
+          '<p class="verdict ' + (r.ok ? 'ok' : 'bad') + '">' + (r.ok ? 'Успіх!' : 'Провал') + '</p>';
+        if (U.watchAnim !== ck.id) { U.watchAnim = ck.id; beep('dice'); }
+      }
+    } else h += othersHtml(Object.assign({}, ck, { who: ck.who.concat(ME.key).filter((k, i, a) => a.indexOf(k) === i) })).replace('Кидають також', 'Кидають');
+    if (ck.mode === 'group' && ck.done) h += '<p class="verdict ' + (ck.gok ? 'ok' : 'bad') + '" style="font-size:20px">Група: ' + (ck.gok ? 'успіх' : 'провал') + '</p>';
+    h += '<button class="btn2" type="button" id="watchOk" style="width:100%;margin-top:10px">' + (ck.done ? 'Ок' : 'Сховати') + '</button>';
+    openModal('watch', h);
+    $('watchOk').onclick = () => { U.watchOpen = false; closeModal(); U.ver++; render(); };
+  }
   function openCheckPrompt() {
     const ck = G.ck, ch = G.chars[ME.key]; if (!ck || !ch) return;
     const r = ck.res[ME.key], parts = E.checkParts(ch, ck);
@@ -601,7 +648,7 @@
         '<p class="verdict ' + (r.ok ? 'ok' : 'bad') + '">' + (ck.show || ck.done ? (r.ok ? 'Успіх!' : 'Провал') : 'Чекай слова майстра') + '</p>' +
         (r.v === 20 ? '<p class="muted" style="text-align:center">Натуральна 20! Найкраще з можливого — але лише з можливого.</p>' : '') +
         (ck.mode === 'group' && ck.done ? '<p class="verdict ' + (ck.gok ? 'ok' : 'bad') + '" style="font-size:20px">Група: ' + (ck.gok ? 'успіх' : 'провал') + '</p>' : '') +
-        (!ck.done ? '<p class="muted" style="text-align:center">Чекаємо інших…</p>' : '') + '<button class="btn2" type="button" id="ckOk" style="width:100%;margin-top:8px">Ок</button>';
+        othersHtml(ck) + '<button class="btn2" type="button" id="ckOk" style="width:100%;margin-top:8px">Ок</button>';
       if (U.ckAnim !== ck.id) { U.ckAnim = ck.id; beep('dice'); }
     }
     openModal('ck', h);
