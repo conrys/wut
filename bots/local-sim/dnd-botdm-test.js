@@ -60,7 +60,7 @@ const scnId = (i) => S.SCENES[i].id;
   }
   // ланцюжок: «чи не договорює» недоступне, поки не поговорили з жерцем
   E.G = E.blank(); E.G.chars['я'] = E.newChar('Я', 'rogue'); E.apply({ t: 'start' }, null, true); BOT.init(E, 'я');
-  const g = E.G; let seenHideEarly = false, seenTalk = false, seenName = false, guard = 0;
+  const g = E.G; let seenHideEarly = false, seenTalk = false, seenName = false, staleMed = false, guard = 0;
   while (guard++ < 400 && g.bd.sc < 2) {
     BOT.step(E); while (E.botRolls());
     if (g.ck && !g.ck.done && g.ck.who.includes('я') && !g.ck.res['я']) { E.apply({ t: 'roll' }, 'я', false); continue; }
@@ -69,12 +69,14 @@ const scnId = (i) => S.SCENES[i].id;
     if (v.k === 'choice') {
       const ids = v.opts.map((o) => o.i);
       if (ids.includes('hide') && !g.bd.flags.evasive) seenHideEarly = true;
+      if (g.bd.flags.vaer && (ids.includes('med') || ids.includes('mist'))) staleMed = true;
       const o = ['talk', 'doing', 'how', 'hide', 'go', 'bar', 'what', 'who', 'work', 'yes'].find((x) => ids.includes(x));
       if (o === 'talk') seenTalk = true;
       if (o) BOT.op(E, { t: 'dmpick', o }); else BOT.op(E, { t: 'dmdone' });
     }
   }
   ok(!seenHideEarly, 'варіант «чи не договорює» зʼявляється лише після розмови');
+  ok(!staleMed, 'після того як Ерандур розбудив шахтаря, «оглянути шахтаря» і «туман» зникають');
   ok(!seenName, 'імʼя Ерандура не звучить до розмови з ним');
   console.log((fails ? '✖ ' : '✔ ') + (n - fails) + '/' + n + ' перевірок бота-майстра');
   process.exit(fails ? 1 : 0);
