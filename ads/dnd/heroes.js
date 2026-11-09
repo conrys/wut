@@ -17,6 +17,14 @@
   const cache = {}, uploaded = {};
   const H = { onImg: null };
   function seedLocal() { for (const h of load()) { if (h.ip && h.p) cache[h.ip] = { url: h.p }; if (h.ii && h.i) cache[h.ii] = { url: h.i }; } }
+  // картинки сцен від майстра: копія на телефоні (до 8 останніх) + в базі для гравців
+  function seedScenes() { try { const m = JSON.parse(localStorage.getItem('dnd_scimg') || '{}'); for (const k in m) cache[k] = cache[k] || { url: m[k] }; } catch (e) {} }
+  seedScenes();
+  function put(id, u) {
+    cache[id] = { url: u };
+    try { const m = JSON.parse(localStorage.getItem('dnd_scimg') || '{}'); m[id] = u; const ks = Object.keys(m); while (ks.length > 8) delete m[ks.shift()]; localStorage.setItem('dnd_scimg', JSON.stringify(m)); } catch (e) {}
+    return upload({ ip: id, p: u });
+  }
   seedLocal();
   function url(id) {
     if (!id) return null;
@@ -188,6 +196,6 @@
     }).join('');
   }
 
-  Object.assign(H, { load, get, compact, open, url, image, upload, avatarHtml, pickHtml, seedLocal });
+  Object.assign(H, { load, get, compact, open, url, image, upload, put, rid: () => rid(), avatarHtml, pickHtml, seedLocal });
   window.DNDHeroes = H;
 })();

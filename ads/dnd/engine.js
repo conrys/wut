@@ -610,7 +610,7 @@
     const g = E.G;
     switch (op.t) {
       case 'start': g.started = true; g.sc = 0; log('Пригода «' + S.title + '» починається!', 'sys'); break;
-      case 'scene': g.sc = Math.max(0, Math.min(S.SCENES.length - 1, +op.sc)); log(S.SCENES[g.sc].icon + ' Сцена: ' + S.SCENES[g.sc].t, 'scene'); if (S.SCENES[g.sc].goal && S.GOALS) setGoal(S.SCENES[g.sc].goal); break;
+      case 'scene': g.mus = null; g.sc = Math.max(0, Math.min(S.SCENES.length - 1, +op.sc)); log(S.SCENES[g.sc].icon + ' Сцена: ' + S.SCENES[g.sc].t, 'scene'); if (S.SCENES[g.sc].goal && S.GOALS) setGoal(S.SCENES[g.sc].goal); break;
       case 'lore': [].concat(op.k).forEach((k) => { if (S.LORE[k] && !(g.lore = g.lore || []).includes(k)) { g.lore.push(k); log('📖 Новий запис у лорі: ' + S.LORE[k].t, 'lore'); } }); break;
       case 'journal': [].concat(op.k).forEach((k) => { if (S.JOURNAL[k] && !(g.journal = g.journal || []).includes(k)) { g.journal.push(k); log('📝 Журнал: ' + S.JOURNAL[k], 'lore'); } }); break;
       case 'goal': setGoal(op.k); break;
@@ -647,6 +647,8 @@
       case 'finale': g.end = op.v || null; if (op.v && S.ENDINGS && S.ENDINGS[op.v]) log(S.ENDINGS[op.v].log, 'scene'); break;
       case 'adv': if (!g.started && window.DND_ADV[op.id]) { window.DND_USE(op.id); g.adv = op.id; g.tut = op.tut != null ? !!op.tut : !!S.tutorial; g.lessonsOn = g.tut; } break;
       case 'tut': g.tut = !!op.on; g.lessonsOn = g.tut; break;
+      case 'mus': g.mus = op.v && /^[a-z]+$/.test(op.v) ? op.v : null; break; // ручний вибір музики майстром (null — авто за сценою)
+      case 'art': { const sc = S.SCENES[g.sc]; if (!sc) break; g.art = g.art || {}; if (op.id && /^[\w-]{4,40}$/.test(op.id)) g.art[sc.id] = op.id; else delete g.art[sc.id]; break; }
       case 'kick': delete g.chars[op.k]; break;
       case 'bot': {
         const c = R.CLASSES[op.cls]; if (!c) break;

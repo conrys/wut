@@ -19,9 +19,11 @@
   let NET = null, AVAIL = null, G = null, peers = [], dmSeenAt = 0;
 
   /* ---------- звук ---------- */
-  let AC = null, muted = LS.get('dnd_mute', false);
+  // звук: all — музика й ефекти, sfx — лише ефекти, off — тиша
+  let AC = null, snd = LS.get('dnd_snd', LS.get('dnd_mute', false) ? 'off' : 'all');
+  const MU = window.DNDMusic || { play() {}, setOn() {}, unlock() {} };
   function beep(kind) {
-    if (muted) return;
+    if (snd === 'off') return;
     try {
       AC = AC || new (window.AudioContext || window.webkitAudioContext)();
       const t = AC.currentTime, o = AC.createOscillator(), gn = AC.createGain();
@@ -198,11 +200,27 @@
   else { const last = LS.get('dnd_last', null); if (last && last.code && Date.now() - last.at < 60 * 864e5) $('plCode').value = last.code; }
   $('lobLeave').addEventListener('click', leave);
   function leave() {
-    if (NET) NET.leave(); NET = null; ME.role = null; ME.solo = false; ME.hero = null; G = null; E.G = null; location.hash = '';
+    MU.play(null, 'fade'); musWas = null; if (NET) NET.leave(); NET = null; ME.role = null; ME.solo = false; ME.hero = null; G = null; E.G = null; location.hash = '';
     $('lobby').hidden = true; $('app').hidden = true; $('start').hidden = false; closeModal();
   }
-  $('mute').addEventListener('click', () => { muted = !muted; LS.set('dnd_mute', muted); $('mute').textContent = muted ? '🔇' : '🔊'; });
-  $('mute').textContent = muted ? '🔇' : '🔊';
+  const SND_IC = { all: '🔊', sfx: '🔈', off: '🔇' }, SND_T = { all: 'Музика й звуки', sfx: 'Лише звуки, без музики', off: 'Без звуку' };
+  function setSnd(v) { snd = v; LS.set('dnd_snd', v); $('mute').textContent = SND_IC[v]; MU.setOn(v === 'all'); }
+  $('mute').addEventListener('click', () => { setSnd({ all: 'sfx', sfx: 'off', off: 'all' }[snd]); MU.unlock(); toast(SND_IC[snd] + ' ' + SND_T[snd]); U.sig = ''; render(); });
+  setSnd(snd);
+  /* музика сцени: зміна сцени — плавно, початок бою — різко */
+  function musicFor() {
+    if (!G || !G.started || !ME.role) return null;
+    if (G.cb) return 'battle';
+    if (G.mus) return G.mus;
+    const sc = S.SCENES[G.sc], a = sc && (S.sceneArt || {})[sc.id];
+    return a ? a[1] : null;
+  }
+  let musWas = null;
+  function syncMusic() {
+    const id = musicFor();
+    if (id === musWas) return;
+    MU.play(id, id === 'battle' ? 'cut' : 'fade'); musWas = id;
+  }
 
   /* ---------- мережа ---------- */
   const dmPeer = () => peers.filter((p) => p.presence && p.presence.r === 'dm' && p.presence.g).sort((a, b) => (+a.presence.h || 0) - (+b.presence.h || 0))[0];
@@ -296,6 +314,7 @@
 
   /* ---------- рендер ---------- */
   function render(force) {
+    syncMusic();
     if (!ME.role) return;
     const started = G && G.started;
     $('start').hidden = true;
@@ -513,9 +532,48 @@
     return h + '</div>';
   }
   const SCENE_BG = new Proxy({}, { get: (o, k) => (S.sceneBg || {})[k] });
+  function sceneArtHtml(sc) {
+    const own = G.art && G.art[sc.id], u = own && HR.url(own);
+    if (u) return '<img class="scene-art" alt="" src="' + u + '">';
+    const a = (S.sceneArt || {})[sc.id];
+    return window.DNDArt && a ? window.DNDArt.svg(a[0], G.sc + 1) : '';
+  }
+  function musChip() {
+    const id = musicFor(), T = (MU.THEMES || {})[id];
+    if (!T) return '';
+    return '<button type="button" class="scene-mus" data-sndtoggle="1">' + (snd === 'all' ? '🎵 ' + T.n : '🔈 музику вимкнено') + '</button>';
+  }
   function sceneBanner(sc, n) {
-    return '<div class="scene-ban" style="background:linear-gradient(135deg,' + (SCENE_BG[sc.id] || '#333,#111') + ')"><span class="scene-ic">' + sc.icon + '</span><div><p class="eyebrow" style="color:rgba(255,255,255,.65);margin:0">Сцена ' + (n + 1) + ' з ' + S.SCENES.length + '</p><h2 style="margin:0">' + esc(sc.t) + '</h2>' +
-      (G.goal && S.GOALS[G.goal] ? '<div class="scene-goal">🎯 ' + esc(S.GOALS[G.goal]) + '</div>' : '') + '</div></div>';
+    return '<div class="scene-ban" style="background:linear-gradient(135deg,' + (SCENE_BG[sc.id] || '#333,#111') + ')">' + sceneArtHtml(sc) + musChip() + '<div class="scene-txt"><span class="scene-ic">' + sc.icon + '</span><div><p class="eyebrow" style="color:rgba(255,255,255,.75);margin:0">Сцена ' + (n + 1) + ' з ' + S.SCENES.length + '</p><h2 style="margin:0">' + esc(sc.t) + '</h2>' +
+      (G.goal && S.GOALS[G.goal] ? '<div class="scene-goal">🎯 ' + esc(S.GOALS[G.goal]) + '</div>' : '') + '</div></div></div>';
+  }
+  function pickSceneArt() {
+    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
+    inp.onchange = () => {
+      const f = inp.files && inp.files[0]; if (!f) return;
+      const rd = new FileReader();
+      rd.onload = () => { const img = new Image(); img.onload = async () => {
+        let side = 1024, u = '';
+        do { // база приймає до ~400 КБ — зменшуємо, доки не влізе
+          const k = Math.min(1, side / img.naturalWidth, side / img.naturalHeight), cv = document.createElement('canvas');
+          cv.width = Math.round(img.naturalWidth * k); cv.height = Math.round(img.naturalHeight * k); cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+          u = cv.toDataURL('image/webp', 0.75); if (!u.startsWith('data:image/webp')) u = cv.toDataURL('image/jpeg', 0.78);
+          side = Math.round(side * 0.8);
+        } while (u.length > 380000 && side > 200);
+        const id = 'sc' + HR.rid(); toast('Завантажуємо картинку…');
+        await HR.put(id, u); send({ t: 'art', id }); toast('🖼️ Картинку сцени показано всім');
+      }; img.onerror = () => toast('Не вдалося відкрити цю картинку'); img.src = rd.result; };
+      rd.readAsDataURL(f);
+    };
+    inp.click();
+  }
+  function sceneMediaCard(sc) { // майстер: картинка і музика сцени
+    const a = (S.sceneArt || {})[sc.id] || [], auto = a[1], TH = MU.THEMES || {}, cur = G.mus || '';
+    return '<div class="card"><h3>🎨 Картинка й музика</h3><p class="muted">Музика грає на всіх телефонах. Нова сцена — плавний перехід, початок бою — різко бойова тема.</p>' +
+      '<div class="tags mus">' + '<button type="button" class="tag' + (cur ? '' : ' on') + '" data-mus="">Авто' + (TH[auto] ? ': ' + TH[auto].n : '') + '</button>' +
+      Object.keys(TH).filter((k) => k !== 'battle').map((k) => '<button type="button" class="tag' + (cur === k ? ' on' : '') + '" data-mus="' + k + '">' + TH[k].n + '</button>').join('') + '<button type="button" class="tag' + (cur === 'none' ? ' on' : '') + '" data-mus="none">Тиша</button></div>' +
+      '<div class="row" style="margin-top:10px"><button type="button" class="btn2 grow" data-artup="1">🖼️ ' + (G.art && G.art[sc.id] ? 'Замінити картинку' : 'Своя картинка сцени') + '</button>' + (G.art && G.art[sc.id] ? '<button type="button" class="btn2" data-artdel="1">↺ Стандартна</button>' : '') + '</div>' +
+      '<p class="muted" style="margin:6px 0 0;font-size:12.5px">Наприклад, мапа з Watabou чи арт зі Скайриму. Зберігається в кампанії.</p></div>';
   }
   function viewStory() {
     const sc = S.SCENES[G.sc];
@@ -606,6 +664,7 @@
     const sc = S.SCENES[G.sc];
     let h = viewActiveCheck();
     h += '<div class="row" style="margin-bottom:10px"><button class="btn2" data-scene="' + (G.sc - 1) + '" ' + (G.sc ? '' : 'disabled') + ' type="button">◀</button><div class="grow" style="text-align:center"><p class="eyebrow" style="margin:0">Сцена ' + (G.sc + 1) + ' з ' + S.SCENES.length + '</p><b style="font-family:var(--display);font-size:20px">' + sc.icon + ' ' + esc(sc.t) + '</b></div><button class="btn2" data-scene="' + (G.sc + 1) + '" ' + (G.sc < S.SCENES.length - 1 ? '' : 'disabled') + ' type="button">▶</button></div>';
+    h += sceneBanner(sc, G.sc) + sceneMediaCard(sc);
     h += '<div class="read" style="margin-bottom:12px"><p class="eyebrow">Читай вголос</p>' + sc.read.map((p) => '<p>' + esc(p) + '</p>').join('') + '</div>';
     h += '<div class="card"><h3>🔒 Знаєш лише ти</h3>' + sc.gm.map((g) => '<div class="gm">' + esc(g) + '</div>').join('') + (sc.npc ? sc.npc.map((n) => '<div class="gm"><b>' + esc(n.n) + '</b> — ' + esc(n.d) + '</div>').join('') : '') + '</div>';
     h += '<div class="card"><h3>🧭 Як вести цю сцену</h3>' + sc.tips.map((t) => '<div class="tip">' + esc(t) + '</div>').join('') + '</div>';
@@ -677,6 +736,10 @@
   $('main').addEventListener('click', (e) => {
     const b = e.target.closest('button,[data-info]'); if (!b) return;
     const d = b.dataset;
+    if (d.sndtoggle) { setSnd(snd === 'all' ? 'sfx' : 'all'); MU.unlock(); U.sig = ''; return render(); }
+    if (d.mus != null && ME.role === 'dm') { send({ t: 'mus', v: d.mus || null }); return; }
+    if (d.artdel && ME.role === 'dm') { send({ t: 'art', id: null }); return; }
+    if (d.artup && ME.role === 'dm') return pickSceneArt();
     if (d.stat) return popStat(d.stat);
     if (d.skill) { const s = R.SKILLS[d.skill], ch = G.chars[ME.key], bb = E.skillB(ch, d.skill); return pop('<h3>' + s.n + '</h3><p class="muted">' + R.STATS[s.st].n + (s.tool ? ' · інструменти' : '') + '</p><p>' + esc(s.d) + '</p><div class="parts"><span>' + R.STATS[s.st].n + ' ' + sgn(bb.m) + '</span>' + (bb.p ? '<span>' + (bb.p > 2 ? 'Експертність' : 'Майстерність') + ' +' + bb.p + '</span>' : '<span>не твоя навичка</span>') + '</div>'); }
     if (d.save) return pop('<h3>Рятівний: ' + R.STATS[d.save].n + '</h3><p>' + esc(R.SAVES[d.save]) + '</p>');
