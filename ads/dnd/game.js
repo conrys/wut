@@ -71,7 +71,7 @@
   }
   function startSolo(n, cls, mates) {
     Object.assign(ME, { role: 'pl', solo: true, nick: n, key: E.keyOf(n), code: 'соло', cls, q: [] });
-    E.G = E.blank(); E.G.dm = '🤖 Бот-майстер';
+    E.G = E.blank(); E.G.dm = '🤖 Бот-майстер'; E.G.gid = E.uid();
     E.G.chars[ME.key] = E.newChar(n, cls);
     mates.forEach((c) => E.apply({ t: 'bot', cls: c }, null, true));
     E.apply({ t: 'start' }, null, true);
@@ -365,7 +365,52 @@
         (v.done ? '<button class="btn wide" type="button" data-dm="done" style="margin-top:12px">' + esc(v.done) + '</button>' : '') + '</div>';
     } else if (v.k === 'ck') h += G.ck && G.ck.who.includes(ME.key) && !G.ck.res[ME.key] ? '<button class="btn wide" data-openck="1" type="button">🎲 Кинути: ' + esc(E.checkName(G.ck)) + '</button>' : '<div class="card" style="margin:0"><p class="muted" style="margin:0">Кидають інші…</p></div>';
     else if (v.k === 'fight') h += '<button class="btn wide" type="button" data-tab="map">⚔️ До бою</button>';
-    else if (v.k === 'end') h += '<div class="card" style="margin:0;border-color:var(--gold)"><h3>Кінець пригоди</h3><p class="muted">Загляни у «Журнал» — там уся історія, яку ви відкрили.</p><button class="btn2" type="button" data-soloagain="1">Зіграти ще раз</button></div>';
+    else if (v.k === 'end') h += '<div class="card" style="margin:0 0 12px;border-color:var(--gold)"><h3>' + (G.end === 'a' ? '🕯️ Кінець: Череп знищено' : G.end === 'b' ? '💀 Кінець: жезл ваш' : 'Кінець пригоди') + '</h3><p class="muted">Загляни у «Журнал» — там уся історія, яку ви відкрили.</p><button class="btn2" type="button" data-soloagain="1">Зіграти ще раз</button></div>' + feedbackHtml();
+    return h + '</div>';
+  }
+  /* ---------- відгук наприкінці: оцінка, сподобалось, робити ще, коментар → RTDB feedback/dnd ---------- */
+  const FB = LS.get('dnd_fb', { r: 0, liked: false, more: false, c: '' });
+  const fbKey = () => 'dnd_fb_sent_' + (ME.solo ? 'solo_' + (G.gid || 'x') : ME.code + '_' + ME.key);
+  function feedbackHtml() {
+    if (LS.get(fbKey(), false)) return '<div class="card fb"><h3>💛 Дякуємо за відгук!</h3><p class="muted" style="margin:0">Він допоможе зробити наступні пригоди кращими.</p></div>';
+    return '<div class="card fb"><h3>Як вам пригода?</h3>' +
+      '<div class="stars" role="radiogroup" aria-label="Оцінка">' + [1, 2, 3, 4, 5].map((n) => '<button type="button" role="radio" aria-checked="' + (FB.r === n) + '" aria-label="' + n + ' з 5" data-fbr="' + n + '" class="' + (FB.r >= n ? 'on' : '') + '">★</button>').join('') + '</div>' +
+      '<label class="cb"><input type="checkbox" id="fbLiked"' + (FB.liked ? ' checked' : '') + '> Сподобалось</label>' +
+      '<label class="cb"><input type="checkbox" id="fbMore"' + (FB.more ? ' checked' : '') + '> Хочу ще таких пригод</label>' +
+      '<label class="f" style="margin-top:8px">Коментар (необовʼязково)<textarea id="fbC" maxlength="1000" rows="3" placeholder="Що сподобалось, що ні, що додати?">' + esc(FB.c) + '</textarea></label>' +
+      '<button class="btn wide" type="button" data-fbsend="1"' + (FB.r ? '' : ' disabled') + '>Надіслати</button>' + (FB.r ? '' : '<p class="muted" style="text-align:center;margin:6px 0 0">Спершу постав оцінку</p>') + (U.fbErr ? '<p class="err">' + esc(U.fbErr) + '</p>' : '') + '</div>';
+  }
+  function fbSync() { const l = $('fbLiked'), m = $('fbMore'), c = $('fbC'); if (l) FB.liked = l.checked; if (m) FB.more = m.checked; if (c) FB.c = c.value.slice(0, 1000); LS.set('dnd_fb', FB); }
+  $('main').addEventListener('input', (e) => { if (e.target.closest('.fb')) fbSync(); });
+  $('main').addEventListener('change', (e) => { if (e.target.closest('.fb')) fbSync(); });
+  async function fbSend() {
+    fbSync(); if (!FB.r) return;
+    const rec = { r: FB.r, liked: !!FB.liked, more: !!FB.more, c: FB.c.trim().slice(0, 1000), n: ME.nick.slice(0, 40), mode: ME.solo ? 'solo' : ME.role, end: G.end || '', at: Date.now() };
+    U.fbErr = '';
+    try {
+      if (!(window.HNS_TRANSPORT && await window.HNS_TRANSPORT.ready())) throw new Error('offline');
+      await firebase.database().ref('feedback/dnd').push().set(rec); // не await push(rec): у тестовому моку then посилається сам на себе
+      LS.set(fbKey(), true); LS.set('dnd_fb', { r: 0, liked: false, more: false, c: '' }); Object.assign(FB, { r: 0, liked: false, more: false, c: '' });
+    } catch (e) { U.fbErr = 'Не вдалося надіслати — перевір інтернет і спробуй ще раз.'; }
+    U.ver++; U.sig = ''; render(true);
+  }
+  async function loadFeedback() { // для майстра у «Памʼятці»
+    U.fbList = 'loading'; U.ver++; render();
+    try { const snap = await firebase.database().ref('feedback/dnd').limitToLast(30).get(); const v = snap.val() || {}; U.fbList = Object.values(v).sort((a, b) => b.at - a.at); }
+    catch (e) { U.fbList = 'error'; }
+    U.ver++; U.sig = ''; render(true);
+  }
+  function feedbackListHtml() {
+    let h = '<div class="card"><h3>💬 Відгуки гравців</h3>';
+    if (!U.fbList) h += '<button class="btn2" type="button" data-fbload="1">Показати відгуки</button>';
+    else if (U.fbList === 'loading') h += '<p class="muted">Завантажуємо…</p>';
+    else if (U.fbList === 'error') h += '<p class="err">Не вдалося завантажити.</p><button class="btn2" type="button" data-fbload="1">Ще раз</button>';
+    else if (!U.fbList.length) h += '<p class="muted">Поки немає.</p>';
+    else {
+      const avg = U.fbList.reduce((s0, x) => s0 + x.r, 0) / U.fbList.length;
+      h += '<p class="muted">Середня оцінка <b>' + avg.toFixed(1).replace('.', ',') + '</b> з ' + U.fbList.length + ' · сподобалось ' + U.fbList.filter((x) => x.liked).length + ' · хочуть ще ' + U.fbList.filter((x) => x.more).length + '</p>' +
+        U.fbList.map((x) => '<div class="jr"><b>' + '★'.repeat(x.r) + '<span style="opacity:.25">' + '★'.repeat(5 - x.r) + '</span></b> ' + esc(x.n || '') + ' <span class="muted">· ' + new Date(x.at).toLocaleDateString('uk-UA') + (x.mode === 'solo' ? ' · соло' : '') + (x.liked ? ' · 👍' : '') + (x.more ? ' · ще!' : '') + '</span>' + (x.c ? '<div style="margin-top:4px">' + esc(x.c) + '</div>' : '') + '</div>').join('');
+    }
     return h + '</div>';
   }
   const SCENE_BG = { intro: '#3B2E5A,#1E1830', dawnstar: '#2E4A66,#16202C', road: '#5B7894,#1C2633', temple: '#3E2E52,#17121F', dream: '#5A2E7A,#1A0F26', shrine: '#5E1F45,#1A0C16' };
@@ -376,7 +421,7 @@
   function viewStory() {
     const sc = S.SCENES[G.sc];
     let h = sceneBanner(sc, G.sc) + dmCard() + (ME.solo ? '' : '<div class="card"><details><summary>Текст сцени (майстер читає вголос)</summary><div class="read" style="margin-top:8px">' + sc.read.map((p) => '<p>' + esc(p) + '</p>').join('') + '</div></details></div>');
-    if (G.end) h += '<div class="card" style="border-color:var(--gold)"><h3>' + (G.end === 'a' ? '🕯️ Кінець: Череп знищено' : '💀 Кінець: жезл ваш') + '</h3><p class="muted">Дякуємо за гру! Ти щойно зіграв свою першу пригоду.</p></div>';
+    if (G.end && !ME.solo) h += '<div class="card" style="border-color:var(--gold)"><h3>' + (G.end === 'a' ? '🕯️ Кінець: Череп знищено' : '💀 Кінець: жезл ваш') + '</h3><p class="muted">Дякуємо за гру! Пригоду «Кошмар наяву» пройдено.</p></div>' + feedbackHtml();
     const ch = G.chars[ME.key];
     if (ch) { const c = R.CLASSES[ch.cls]; h += '<div class="card"><div class="sheet-h"><span class="avatar" style="background:' + c.col + '">' + c.ic + '</span><div class="grow"><b>' + esc(ch.n) + '</b> · ' + c.n + statusTxt(ch) + '<div class="bar"><i style="width:' + Math.max(0, ch.hp / c.hp * 100) + '%;background:' + hpCol(ch.hp / c.hp) + '"></i></div><span class="muted">' + ch.hp + '/' + c.hp + ' хітів' + (c.slots ? ' · комірки ' + ch.slots + '/' + c.slots : '') + '</span></div></div></div>'; }
     if (G.ck && !G.ck.who.includes(ME.key)) h += '<div class="card"><p class="eyebrow">Зараз кидають</p><b>' + esc(E.checkName(G.ck)) + '</b><p class="muted">' + G.ck.who.map((k) => esc(G.chars[k].n) + (G.ck.res[k] ? ' — ' + G.ck.res[k].tot + (G.ck.res[k].ok ? ' ✔' : ' ✖') : ' …')).join(', ') + '</p></div>';
@@ -522,6 +567,7 @@
     h += '<div class="card"><h3>Складність</h3>' + R.DC.map((d) => '<div class="sk"><b style="margin:0;width:34px">' + d.v + '</b>' + d.n + ' <em>' + esc(d.d) + '</em></div>').join('') + '</div>';
     h += '<div class="card"><h3>Уроки для гравців</h3><div class="row" style="margin-bottom:8px"><span class="grow muted">Показувати урок, коли правило трапляється вперше</span><button class="btn2 sm ' + (G.lessonsOn ? 'on' : '') + '" data-lessons="' + (G.lessonsOn ? 0 : 1) + '" type="button">' + (G.lessonsOn ? 'Увімкнено' : 'Вимкнено') + '</button></div><div class="chips">' +
       Object.keys(R.LESSONS).map((k) => '<button type="button" data-teach="' + k + '">' + (G.seen.includes(k) ? '✔ ' : '') + R.LESSONS[k].t + '</button>').join('') + '</div><p class="muted">Торкнись уроку — і він зʼявиться на всіх телефонах.</p></div>';
+    h += feedbackListHtml();
     h += viewRules();
     h += '<div class="card"><h3>Гра</h3><p class="muted">Стан гри зберігається на цьому телефоні. Якщо щось закрилось — «Продовжити гру» на старті.</p><button class="btn2" type="button" data-leave="1">Вийти з гри</button></div>';
     return h;
@@ -537,6 +583,9 @@
     if (d.spell) return popSpell(d.spell);
     if (d.info && INFO[d.info]) return pop('<h3>' + INFO[d.info][0] + '</h3><p>' + esc(INFO[d.info][1]) + '</p>');
     if (d.openck) { U.ckOpen = true; return openCheckPrompt(); }
+    if (d.fbr) { fbSync(); FB.r = +d.fbr; LS.set('dnd_fb', FB); U.ver++; U.sig = ''; return render(true); }
+    if (d.fbsend) return fbSend();
+    if (d.fbload) return loadFeedback();
     if (d.dm) return send({ t: d.dm === 'next' ? 'dmnext' : 'dmdone' });
     if (d.dmpick) return send({ t: 'dmpick', o: d.dmpick });
     if (d.tab) { U.tab = d.tab; U.ver++; return render(); }

@@ -76,6 +76,15 @@
         }
       }
     },
+    "feedback": {
+      "$game": {
+        ".read": "auth != null",
+        "$id": {
+          ".write": "auth != null && !data.exists()",
+          ".validate": "newData.hasChildren(['r','at']) && newData.child('r').isNumber() && newData.child('r').val() >= 1 && newData.child('r').val() <= 5 && (!newData.child('c').exists() || (newData.child('c').isString() && newData.child('c').val().length <= 1000)) && (!newData.child('n').exists() || (newData.child('n').isString() && newData.child('n').val().length <= 40))"
+        }
+      }
+    },
     "dnd": {
       "$code": {
         ".read": "auth != null",
