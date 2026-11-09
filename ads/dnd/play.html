@@ -246,6 +246,14 @@ details.lore p{margin:4px 0 4px;font-size:14px;color:var(--ink)}
   <div class="hero">
     <div class="logo">DnD</div>
     <p class="sub">Пригода «Кошмар наяву» в «Підземеллях і драконах». Грай соло з ботом-майстром або з друзями: один веде гру, решта — герої, кожен зі свого телефона.</p>
+    <div class="card" style="border-color:var(--gold);box-shadow:0 0 0 1px rgba(233,185,73,.25),0 8px 24px rgba(0,0,0,.35)">
+      <h3>🎓 Навчальна кампанія — соло</h3>
+      <p class="muted">Спробуй себе в ролі гравця. Бот-майстер веде історію, пропонує дії й пояснює правила, а з тобою — команда героїв-ботів. Інтернет не потрібен.</p>
+      <label class="f">Твоє імʼя<input id="soloName" maxlength="16" placeholder="Як тебе звати?"></label>
+      <button class="btn wide" id="btnSolo" type="button">Почати навчання</button>
+      <button class="btn2" id="btnSoloResume" type="button" hidden style="width:100%;margin-top:10px"></button>
+    </div>
+    <p class="eyebrow" style="text-align:center;margin:4px 0 8px">Або грайте разом — кожен зі свого телефона</p>
     <div class="card">
       <h3>Я майстер</h3>
       <p class="muted">Ведеш історію: читаєш сцени, просиш кидки, керуєш монстрами. Гра підказує, що й коли.</p>
@@ -258,12 +266,6 @@ details.lore p{margin:4px 0 4px;font-size:14px;color:var(--ink)}
       <label class="f">Імʼя героя<input id="plName" maxlength="16" placeholder="Як тебе звати?"></label>
       <label class="f">Код гри<input id="plCode" maxlength="4" autocapitalize="characters" placeholder="ABCD" style="text-transform:uppercase;letter-spacing:.2em;font-weight:800"></label>
       <button class="btn wide" id="btnPl" type="button">Увійти</button>
-    </div>
-    <div class="card" style="border-color:var(--violet)">
-      <h3>🤖 Соло з ботом-майстром</h3>
-      <p class="muted">Подивитись гру очима гравця. Майстер — бот: читає сцени, пропонує дії, просить кидки й веде бої. Інтернет не потрібен.</p>
-      <button class="btn wide" id="btnSolo" type="button">Грати соло</button>
-      <button class="btn2" id="btnSoloResume" type="button" hidden style="width:100%;margin-top:10px"></button>
     </div>
     <p class="err" id="startErr" role="alert" hidden></p>
     <p class="muted" id="netNote" style="text-align:center">Підключаємось…</p>

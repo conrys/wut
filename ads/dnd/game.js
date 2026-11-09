@@ -34,7 +34,7 @@
   /* ---------- старт ---------- */
   function sessionName() { try { const s = JSON.parse(localStorage.getItem('games41_session') || 'null'); return s && s.username ? String(s.username) : ''; } catch (e) { return ''; } }
   const savedNick = LS.get('dnd_nick', '') || sessionName();
-  $('dmName').value = savedNick; $('plName').value = savedNick;
+  $('dmName').value = savedNick; $('plName').value = savedNick; $('soloName').value = savedNick;
   const save = LS.get('dnd_save', null);
   if (save && save.code && save.g && save.g.started) {
     $('btnResume').hidden = false;
@@ -45,7 +45,7 @@
     $('btnSoloResume').hidden = false;
     $('btnSoloResume').textContent = '↺ Продовжити соло — ' + (S.SCENES[soloSave.g.sc] || S.SCENES[0]).t;
   }
-  $('btnSolo').addEventListener('click', () => { startErr(''); const n = nickFrom('plName'); if (!n) return; openSoloSetup(n); });
+  $('btnSolo').addEventListener('click', () => { startErr(''); if ($('soloName').value.trim().length < 2) $('soloName').value = 'Герой'; const n = nickFrom('soloName'); if (!n) return; openSoloSetup(n); });
   $('btnSoloResume').addEventListener('click', () => {
     const s0 = LS.get('dnd_solo', null); if (!s0) return;
     Object.assign(ME, { role: 'pl', solo: true, nick: s0.nick, key: s0.key, code: 'соло', q: [] });
@@ -55,7 +55,7 @@
     U.solo = U.solo || { cls: 'fighter', mates: ['wizard', 'cleric'] };
     const f = U.solo;
     f.mates = f.mates.filter((c) => c !== f.cls);
-    openModal('solo', '<p class="eyebrow">Соло з ботом-майстром</p><h2>Твій герой</h2><div class="classes" style="margin-top:8px">' +
+    openModal('solo', '<p class="eyebrow">Навчальна кампанія — соло</p><h2>Ким граєш?</h2><p class="muted">Обери героя. Не знаєш — бери Воїна: найпростіший для старту.</p><div class="classes" style="margin-top:8px">' +
       R.CLASS_IDS.map((id) => { const c = R.CLASSES[id]; return '<button type="button" class="cls' + (f.cls === id ? ' on' : '') + '" data-scls="' + id + '"><span class="avatar" style="background:' + c.col + '">' + c.ic + '</span><span class="grow"><b>' + c.n + '</b><small>' + esc(c.bio) + '</small></span></button>'; }).join('') +
       '</div><p class="eyebrow" style="margin-top:12px">Супутники-боти (можна жодного)</p><div class="chips">' +
       R.CLASS_IDS.filter((id) => id !== f.cls).map((id) => '<button type="button" data-smate="' + id + '" class="' + (f.mates.includes(id) ? 'on' : '') + '">' + R.CLASSES[id].ic + ' ' + R.CLASSES[id].n + '</button>').join('') +
@@ -423,7 +423,7 @@
     let h = sceneBanner(sc, G.sc) + dmCard() + (ME.solo ? '' : '<div class="card"><details><summary>Текст сцени (майстер читає вголос)</summary><div class="read" style="margin-top:8px">' + sc.read.map((p) => '<p>' + esc(p) + '</p>').join('') + '</div></details></div>');
     if (G.end && !ME.solo) h += '<div class="card" style="border-color:var(--gold)"><h3>' + (G.end === 'a' ? '🕯️ Кінець: Череп знищено' : '💀 Кінець: жезл ваш') + '</h3><p class="muted">Дякуємо за гру! Пригоду «Кошмар наяву» пройдено.</p></div>' + feedbackHtml();
     const ch = G.chars[ME.key];
-    if (ch) { const c = R.CLASSES[ch.cls]; h += '<div class="card"><div class="sheet-h"><span class="avatar" style="background:' + c.col + '">' + c.ic + '</span><div class="grow"><b>' + esc(ch.n) + '</b> · ' + c.n + statusTxt(ch) + '<div class="bar"><i style="width:' + Math.max(0, ch.hp / c.hp * 100) + '%;background:' + hpCol(ch.hp / c.hp) + '"></i></div><span class="muted">' + ch.hp + '/' + c.hp + ' хітів' + (c.slots ? ' · комірки ' + ch.slots + '/' + c.slots : '') + '</span></div></div></div>'; }
+    if (ch) { const c = E.C(ch); h += '<div class="card"><div class="sheet-h"><span class="avatar" style="background:' + c.col + '">' + c.ic + '</span><div class="grow"><b>' + esc(ch.n) + '</b> · ' + c.n + statusTxt(ch) + '<div class="bar"><i style="width:' + Math.max(0, ch.hp / c.hp * 100) + '%;background:' + hpCol(ch.hp / c.hp) + '"></i></div><span class="muted">' + ch.hp + '/' + c.hp + ' хітів' + (c.slots ? ' · комірки ' + ch.slots + '/' + c.slots : '') + '</span></div></div></div>'; }
     if (G.ck && !G.ck.who.includes(ME.key)) h += '<div class="card"><p class="eyebrow">Зараз кидають</p><b>' + esc(E.checkName(G.ck)) + '</b><p class="muted">' + G.ck.who.map((k) => esc(G.chars[k].n) + (G.ck.res[k] ? ' — ' + G.ck.res[k].tot + (G.ck.res[k].ok ? ' ✔' : ' ✖') : ' …')).join(', ') + '</p></div>';
     if (G.ck && G.ck.who.includes(ME.key) && !U.ckOpen && !ME.solo) h += '<button class="btn wide" data-openck="1" type="button" style="margin-bottom:12px">🎲 Перевірка: ' + esc(E.checkName(G.ck)) + '</button>';
     h += '<p class="eyebrow">Що відбувалось</p>' + logHtml(36);
@@ -434,7 +434,7 @@
 
   function viewHero() {
     const ch = G.chars[ME.key]; if (!ch) return '';
-    const c = R.CLASSES[ch.cls];
+    const c = E.C(ch);
     let h = '<div class="card"><div class="sheet-h"><span class="avatar" style="background:' + c.col + '">' + c.ic + '</span><div class="grow"><h2 style="margin:0">' + esc(ch.n) + '</h2><span class="muted">' + c.n + ' 2 рівня' + statusTxt(ch) + '</span></div></div>' +
       '<p class="muted" style="margin:8px 0 0">' + esc(c.bio) + '</p>' +
       '<div class="bar" style="height:14px;margin-top:10px"><i style="width:' + Math.max(0, ch.hp / c.hp * 100) + '%;background:' + hpCol(ch.hp / c.hp) + '"></i></div><span class="muted">Хіти ' + ch.hp + ' з ' + c.hp + ' — скільки ударів витримаєш. На 0 падаєш без тями.</span>' +
@@ -538,7 +538,7 @@
     let h = '<div class="card"><h2>Гравці</h2><p class="muted">Хіти міняй тут, коли сцена каже «−3 хіти» тощо. У бою шкода рахується сама.</p></div>';
     if (!keys.length) h += '<p class="muted">Поки нікого.</p>';
     for (const k of keys) {
-      const ch = G.chars[k], c = R.CLASSES[ch.cls];
+      const ch = G.chars[k], c = E.C(ch);
       h += '<div class="card"><div class="sheet-h"><span class="avatar" style="background:' + c.col + '">' + c.ic + '</span><div class="grow"><b>' + esc(ch.n) + '</b> · ' + c.n + (ch.bot ? ' <span class="chip">🤖 бот</span>' : ' <span class="chip ' + (online(k) ? '' : 'red') + '">' + (online(k) ? 'в мережі' : 'не в мережі') + '</span>') + statusTxt(ch) +
         '<div class="bar"><i style="width:' + Math.max(0, ch.hp / c.hp * 100) + '%;background:' + hpCol(ch.hp / c.hp) + '"></i></div></div></div>' +
         '<div class="row" style="margin-top:8px"><span class="grow"><b>' + ch.hp + '/' + c.hp + '</b> хітів</span>' + [-5, -1, 1, 5].map((d) => '<button class="btn2 sm" type="button" data-hp="' + k + '" data-d="' + d + '">' + (d > 0 ? '+' : '') + d + '</button>').join('') + '</div>' +
@@ -613,7 +613,7 @@
   function pop(html) { $('popSheet').innerHTML = html + '<button class="btn wide" type="button" data-popclose="1" style="margin-top:12px">Зрозуміло</button>'; $('pop').hidden = false; }
   $('pop').addEventListener('click', (e) => { if (e.target.id === 'pop' || e.target.closest('[data-popclose]')) $('pop').hidden = true; });
   function popStat(s) {
-    const ch = G.chars[ME.key], c = ch && R.CLASSES[ch.cls];
+    const ch = G.chars[ME.key], c = ch && E.C(ch);
     pop('<h3>' + R.STATS[s].n + (c ? ' ' + c.st[s] + ' (' + sgn(R.mod(c.st[s])) + ')' : '') + '</h3><p>' + esc(R.STATS[s].d) + '</p><p class="muted">Модифікатор = (значення − 10) ÷ 2, вниз. Саме модифікатор додається до к20.</p>' +
       '<p class="eyebrow">Навички цього стату</p>' + (R.SKILL_ORDER.filter((k) => R.SKILLS[k].st === s).map((k) => '<div class="sk">' + R.SKILLS[k].n + ' <em>' + esc(R.SKILLS[k].d) + '</em>' + (ch ? '<b>' + sgn(E.skillB(ch, k).m + E.skillB(ch, k).p) + '</b>' : '') + '</div>').join('') || '<p class="muted">Немає. Перевірку Статури просять «чисто»: витримати холод, не спати всю ніч, перепити орка.</p>') +
       '<p class="eyebrow" style="margin-top:8px">Рятівний кидок</p><p class="muted">' + esc(R.SAVES[s]) + '</p>');
@@ -642,7 +642,7 @@
   function othersHtml(ck) {
     const oth = ck.who.filter((k) => k !== ME.key); if (!oth.length) return '';
     return '<div class="others"><p class="eyebrow" style="margin:6px 0 4px">' + (ck.mode === 'group' ? 'Групова — рахуються всі' : 'Кидають також') + '</p>' + oth.map((k) => {
-      const ch = G.chars[k], c = R.CLASSES[ch.cls], r = ck.res[k];
+      const ch = G.chars[k], c = E.C(ch), r = ck.res[k];
       return '<div class="oth"><span class="avatar" style="width:28px;height:28px;font-size:15px;background:' + c.col + '">' + c.ic + '</span><span class="grow">' + esc(ch.n.replace(/ \(бот\)$/, '')) + '</span>' +
         (r ? dieHtml(r) + '<b class="' + (r.ok ? 'ok' : 'bad') + '">' + r.tot + (r.ok ? ' ✔' : ' ✖') + '</b>' : '<span class="die rolling">?</span>') + '</div>';
     }).join('') + '</div>';
@@ -651,7 +651,7 @@
   /* дивимось, як кидає хтось інший */
   function openWatch() {
     const ck = G.ck; if (!ck) return;
-    const main = ck.who[0], ch = G.chars[main], c = ch && R.CLASSES[ch.cls]; if (!ch) return;
+    const main = ck.who[0], ch = G.chars[main], c = ch && E.C(ch); if (!ch) return;
     const me = G.chars[ME.key], nm = (x) => esc(x.n.replace(/ \(бот\)$/, ''));
     const why = String(ck.why || '').replace(/ ?Кидає .*? — у цій групі це виходить найкраще\.?/, '');
     let h = '<p class="eyebrow">' + (ck.kind === 'sv' ? 'Рятівний кидок' : 'Перевірка') + '</p>';
@@ -728,7 +728,7 @@
       (dcd ? '<p class="muted" style="margin-top:-6px">' + dcd.n + ': ' + esc(dcd.d) + '</p>' : '') +
       '<div class="seg">' + [[0, 'Звичайно'], [1, '▲ Перевага'], [-1, '▼ Перешкода']].map((k) => '<button type="button" data-adv="' + k[0] + '" class="' + (f.adv === k[0] ? 'on' : '') + '">' + k[1] + '</button>').join('') + '</div>' +
       '<div class="chips"><button type="button" data-show="1" class="' + (f.show ? 'on' : '') + '">' + (f.show ? '👁 Складність видно' : '🙈 Складність прихована') + '</button><button type="button" data-gd="1" class="' + (f.gd ? 'on' : '') + '">Настанова жриці +1к4</button></div>' +
-      '<p class="eyebrow">Хто кидає</p><div class="chips">' + all.map((k) => '<button type="button" data-who="' + k + '" class="' + (f.who.includes(k) ? 'on' : '') + '">' + R.CLASSES[G.chars[k].cls].ic + ' ' + esc(G.chars[k].n) + '</button>').join('') + '<button type="button" data-whoall="1">Усі</button></div>' +
+      '<p class="eyebrow">Хто кидає</p><div class="chips">' + all.map((k) => '<button type="button" data-who="' + k + '" class="' + (f.who.includes(k) ? 'on' : '') + '">' + E.C(G.chars[k]).ic + ' ' + esc(G.chars[k].n) + '</button>').join('') + '<button type="button" data-whoall="1">Усі</button></div>' +
       (f.who.length > 1 ? '<div class="seg">' + [['one', 'Кожен окремо'], ['group', 'Групова']].map((k) => '<button type="button" data-mode="' + k[0] + '" class="' + (f.mode === k[0] ? 'on' : '') + '">' + k[1] + '</button>').join('') + '</div>' : '') +
       '<div class="row"><button class="btn2" type="button" data-cfgclose="1">Скасувати</button><button class="btn grow" type="button" data-cfgsend="1"' + (f.who.length ? '' : ' disabled') + '>Попросити кинути</button></div>';
     openModal('cfg', h);

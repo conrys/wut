@@ -61,8 +61,8 @@
   /* 5 героїв, 2 рівень, майстерність +2. ac — клас броні, sp — швидкість у клітинках (6 = 9 м). */
   const CLASSES = {
     fighter: {
-      n: 'Воїн', who: 'Бйорн', ic: '⚔️', col: '#E2654B',
-      bio: 'Найманець із Віндгельму. Важкий обладунок, щит і довгий меч. Стоїть попереду й тримає ворогів на собі.',
+      n: 'Воїн', who: 'Фаркас', ic: '⚔️', col: '#E2654B',
+      bio: 'Соратник із Вайтрану. Важкий обладунок, щит і довгий меч. Стоїть попереду й тримає ворогів на собі.',
       st: { str: 16, dex: 12, con: 15, int: 8, wis: 13, cha: 10 },
       saves: ['str', 'con'], skills: ['athletics', 'intimidation', 'perception', 'survival'],
       hp: 20, ac: 18, sp: 6, hd: 10,
@@ -76,8 +76,8 @@
       ],
     },
     rogue: {
-      n: 'Злодійка', who: 'Ліса', ic: '🗡️', col: '#9B7BEA',
-      bio: 'Злодійка з Рифтену. Тиха, швидка, бʼє туди, де болить, особливо коли ворог відволікся на когось іншого.',
+      n: 'Злодійка', who: 'Дженасса', ic: '🗡️', col: '#9B7BEA',
+      bio: 'Найманка, темна ельфійка. Тиха, швидка, бʼє туди, де болить, особливо коли ворог відволікся на когось іншого.',
       st: { str: 8, dex: 16, con: 14, int: 13, wis: 12, cha: 12 },
       saves: ['dex', 'int'], skills: ['acrobatics', 'stealth', 'sleight', 'perception', 'investigation', 'deception', 'thieves'],
       expert: ['stealth', 'thieves'],
@@ -92,8 +92,8 @@
       ],
     },
     wizard: {
-      n: 'Маг', who: 'Корвін', ic: '🔮', col: '#4FA8F0',
-      bio: 'Учень Колегії Вінтерхолду. Слабкий у ближньому бою, але одне заклинання може вирішити весь бій.',
+      n: 'Маг', who: 'Маркуріо', ic: '🔮', col: '#4FA8F0',
+      bio: 'Маг-найманець із Ріфтену. Слабкий у ближньому бою, але одне заклинання може вирішити весь бій.',
       st: { str: 8, dex: 14, con: 13, int: 16, wis: 12, cha: 10 },
       saves: ['int', 'wis'], skills: ['arcana', 'history', 'investigation', 'insight'],
       hp: 12, ac: 12, sp: 6, hd: 6, cast: 'int', slots: 3,
@@ -102,8 +102,8 @@
       feats: [],
     },
     cleric: {
-      n: 'Жриця', who: 'Мара', ic: '✨', col: '#F2C14E',
-      bio: 'Жриця з храму Мари в Ріфтені. Лікує, благословляє і бʼє булавою не гірше за воїна.',
+      n: 'Жриця', who: 'Бреліна', ic: '✨', col: '#F2C14E',
+      bio: 'Бреліна з Колегії Вінтерхолду, що обрала шлях цілительки. Лікує, благословляє і бʼє булавою не гірше за воїна.',
       st: { str: 14, dex: 10, con: 14, int: 10, wis: 16, cha: 12 },
       saves: ['wis', 'cha'], skills: ['medicine', 'religion', 'insight', 'persuasion'],
       hp: 17, ac: 18, sp: 6, hd: 8, cast: 'wis', slots: 3,
@@ -207,5 +207,33 @@
     const b = rnd(20); return { d: [a, b], v: adv > 0 ? Math.max(a, b) : Math.min(a, b) };
   }
 
-  window.DND = { STATS, STAT_IDS, SKILLS, SKILL_ORDER, SAVES, DC, CLASSES, CLASS_IDS, SPELLS, MONSTERS, LESSONS, mod, sgn, rnd, roll, d20, parse, PROF: 2 };
+  /* ---------- створення героя: просто й з підказками ----------
+     Новий гравець обирає лише клас і походження. Характеристики — за класом,
+     навички — клас + походження, хіти й КБ рахуються самі. */
+  const CLASS_HINT = {
+    fighter: { cn: 'Воїн', hint: 'Любиш бути в центрі бою й захищати інших. Найпростіший клас для старту.', play: 'Стій попереду, бий мечем, тримай ворогів на собі.' },
+    rogue: { cn: 'Злодій', hint: 'Хочеш діяти хитро: підкрадатись, відмикати замки, бити в спину.', play: 'Тримайся поруч із союзником — тоді твій удар найсильніший.' },
+    wizard: { cn: 'Маг', hint: 'Любиш магію й знання. Слабкий у ближньому бою, але чари вирішують бої.', play: 'Тримайся позаду і чаклуй. Комірки чар — обмежені, бережи їх.' },
+    cleric: { cn: 'Жрець', hint: 'Хочеш лікувати й підтримувати друзів, але й сам не слабак.', play: 'Піднімай тих, хто впав, і благословляй команду.' },
+    ranger: { cn: 'Слідопит', hint: 'Мисливець і лучник. Знає природу, бачить далеко, стріляє влучно.', play: 'Стріляй здалеку й позначай ціль Міткою мисливця.' },
+  };
+  const BACKGROUNDS = {
+    soldier: { n: 'Солдат', ic: '🛡️', sk: ['athletics', 'intimidation'], d: 'Служив у війську. Знає, як тримати стрій і змусити ворога відступити.' },
+    criminal: { n: 'Злочинець', ic: '🗝️', sk: ['deception', 'stealth'], d: 'Жив по той бік закону. Вміє брехати й ходити тихо.' },
+    sage: { n: 'Мудрець', ic: '📚', sk: ['arcana', 'history'], d: 'Роки провів над книгами. Знає легенди й розуміється на чарах.' },
+    acolyte: { n: 'Служитель храму', ic: '🕯️', sk: ['insight', 'religion'], d: 'Виріс при храмі. Знає богів і бачить людей наскрізь.' },
+    outlander: { n: 'Мандрівник', ic: '🧭', sk: ['survival', 'athletics'], d: 'Ходив дикими землями. Не загубиться в горах і не замерзне.' },
+    entertainer: { n: 'Артист', ic: '🎭', sk: ['performance', 'acrobatics'], d: 'Виступав на ярмарках. Вміє зачарувати натовп і не впасти з канату.' },
+  };
+  const BG_IDS = Object.keys(BACKGROUNDS);
+  /* Відмінності героя від шаблону класу (зберігаються в персонажі як ch.h). */
+  function buildHero(def) {
+    const c = CLASSES[def.cls], bg = BACKGROUNDS[def.bg];
+    if (!c) return null;
+    const skills = c.skills.slice();
+    if (bg) bg.sk.forEach((k) => { if (!skills.includes(k)) skills.push(k); });
+    return { skills, bg: bg ? def.bg : '' };
+  }
+
+  window.DND = { STATS, STAT_IDS, SKILLS, SKILL_ORDER, SAVES, DC, CLASSES, CLASS_IDS, SPELLS, MONSTERS, LESSONS, CLASS_HINT, BACKGROUNDS, BG_IDS, buildHero, mod, sgn, rnd, roll, d20, parse, PROF: 2 };
 })();

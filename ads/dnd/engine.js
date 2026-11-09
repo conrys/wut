@@ -8,7 +8,8 @@
   const keyOf = (n) => String(n || '').trim().toLowerCase();
 
   /* ---------- герой: похідні числа ---------- */
-  const C = (ch) => R.CLASSES[ch.cls];
+  // клас героя з урахуванням власного героя (ch.h — навички походження тощо)
+  const C = (ch) => (ch && ch.h ? Object.assign({}, R.CLASSES[ch.cls], ch.h) : R.CLASSES[ch.cls]);
   function skillB(ch, sk) {
     const c = C(ch), s = R.SKILLS[sk];
     let p = 0;
@@ -25,9 +26,15 @@
   }
   const spellAtk = (c) => R.mod(c.st[c.cast]) + R.PROF;
   const spellDC = (c) => 8 + R.PROF + R.mod(c.st[c.cast]);
-  function newChar(n, cls) {
+  function newChar(n, cls, hero) { // hero: {n, bg, look, story, ip, ii} — власний герой гравця
     const c = R.CLASSES[cls];
-    return { n: String(n).slice(0, 16), cls, hp: c.hp, slots: c.slots || 0, uses: { wind: 1, surge: 1 }, ds: { s: 0, f: 0 }, stable: false, dead: false };
+    const ch = { n: String(hero && hero.n ? hero.n : n).slice(0, 20), cls, hp: c.hp, slots: c.slots || 0, uses: { wind: 1, surge: 1 }, ds: { s: 0, f: 0 }, stable: false, dead: false };
+    if (hero) {
+      const h = R.buildHero({ cls, bg: hero.bg });
+      if (h) ch.h = { skills: h.skills };
+      ch.hero = { bg: h ? h.bg : '', look: String(hero.look || '').slice(0, 300), story: String(hero.story || '').slice(0, 500), ip: hero.ip || '', ii: hero.ii || '', id: hero.id || '' };
+    }
+    return ch;
   }
 
   /* ---------- токени ---------- */
@@ -618,17 +625,17 @@
         break;
       case 'hp': {
         const ch = g.chars[op.k]; if (!ch) break;
-        const mhp = R.CLASSES[ch.cls].hp, was = ch.hp;
+        const mhp = C(ch).hp, was = ch.hp;
         if (op.d < 0 && g.cb && g.cb.tk['p_' + op.k]) damage(g.cb.tk['p_' + op.k], -op.d, false, null);
         else if (op.d > 0 && g.cb && g.cb.tk['p_' + op.k]) heal(g.cb.tk['p_' + op.k], op.d);
         else { ch.hp = Math.max(0, Math.min(mhp, ch.hp + op.d)); if (was <= 0 && ch.hp > 0) { ch.ds = { s: 0, f: 0 }; ch.stable = false; } if (ch.dead && op.d > 0) ch.dead = false; }
         break;
       }
       case 'mhp': { const t = g.cb && g.cb.tk[op.tok]; if (t && t.mt) { t.hp = Math.max(0, Math.min(t.mhp, t.hp + op.d)); endCheck(); } break; }
-      case 'slot': { const ch = g.chars[op.k]; if (ch) ch.slots = Math.max(0, Math.min(R.CLASSES[ch.cls].slots || 0, ch.slots + op.d)); break; }
+      case 'slot': { const ch = g.chars[op.k]; if (ch) ch.slots = Math.max(0, Math.min(C(ch).slots || 0, ch.slots + op.d)); break; }
       case 'rest':
         for (const k in g.chars) {
-          const ch = g.chars[k], c = R.CLASSES[ch.cls]; if (ch.dead) continue;
+          const ch = g.chars[k], c = C(ch); if (ch.dead) continue;
           if (op.kind === 'long') { ch.hp = c.hp; ch.slots = c.slots || 0; ch.uses = { wind: 1, surge: 1 }; ch.ds = { s: 0, f: 0 }; ch.stable = false; }
           else { const d = R.roll('1d' + c.hd); const h = Math.max(1, d.t + R.mod(c.st.con)); const was = ch.hp; ch.hp = Math.min(c.hp, Math.max(ch.hp, 0) + h); ch.uses = { wind: 1, surge: 1 }; if (was <= 0) { ch.ds = { s: 0, f: 0 }; ch.stable = false; } log(ch.n + ': ' + (was >= c.hp ? 'хіти вже повні' : 'кістка хітів 1к' + c.hd + ' + Статура = +' + (ch.hp - Math.max(was, 0))), 'ok'); }
         }
@@ -662,13 +669,14 @@
   function setGoal(k) { const g = E.G; if (!S.GOALS[k] || g.goal === k) return; g.goal = k; log('🎯 Мета: ' + S.GOALS[k], 'lore'); }
 
   /* ---------- синхронізація героїв із лобі ---------- */
-  function syncChars(players) { // players: [{n, cls}]
+  const heroSig = (h) => (h ? [h.id, h.rev || 0, h.n, h.bg, h.ip, h.ii].join('|') : '');
+  function syncChars(players) { // players: [{n, cls, hero?}] — hero: власний герой гравця
     const g = E.G; let ch = false;
     for (const p of players) {
       const k = keyOf(p.n); if (!k || !p.cls || !R.CLASSES[p.cls]) continue;
-      const c = g.chars[k];
-      if (!c) { g.chars[k] = newChar(p.n, p.cls); ch = true; }
-      else if (!g.started && c.cls !== p.cls) { g.chars[k] = newChar(p.n, p.cls); ch = true; }
+      const c = g.chars[k], sig = heroSig(p.hero);
+      if (!c || (!g.started && (c.cls !== p.cls || (c.hsig || '') !== sig))) { g.chars[k] = Object.assign(newChar(p.n, p.cls, p.hero), { hsig: sig, pn: String(p.n).slice(0, 16) }); ch = true; }
+      else if (g.started && c.hero && p.hero && (c.hero.ip !== (p.hero.ip || '') || c.hero.ii !== (p.hero.ii || ''))) { c.hero.ip = p.hero.ip || ''; c.hero.ii = p.hero.ii || ''; ch = true; } // нова картинка посеред гри
     }
     if (!g.started) for (const k of Object.keys(g.chars)) if (!g.chars[k].bot && !players.some((p) => keyOf(p.n) === k)) { delete g.chars[k]; ch = true; }
     if (ch) E.dirty = true;

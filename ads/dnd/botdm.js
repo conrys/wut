@@ -6,7 +6,7 @@
 (function () {
   const S = window.DND_STORY, R = window.DND;
   const CK = (id) => S.SCENES.flatMap((s) => s.checks).find((c) => c.id === id);
-  const hasThief = (g) => Object.values(g.chars).some((c) => !c.dead && R.CLASSES[c.cls].skills.includes('thieves'));
+  const hasThief = (g) => Object.values(g.chars).some((c) => !c.dead && window.DNDE.C(c).skills.includes('thieves'));
   const NPC = { 'Торінг': '🍺', 'Ерандур': '🕯️', 'Жрець': '🕯️', 'Вартовий': '🛡️', 'Перехожа': '🐟', 'Верен': '🧙', 'Голос': '💀', 'Шахтар': '⛏️', 'Хтось у натовпі': '👥', 'Управитель ярла': '📜', 'Привид': '👻' };
 
   /* Бiти:
@@ -238,7 +238,7 @@
     const best = () => alive.slice().sort((a, b) => bonus(b) - bonus(a) || (a === me ? -1 : b === me ? 1 : 0))[0];
     if (spec === 'all' || spec === 'group') return alive;
     if (spec === 'best') return alive.length ? [best()] : [];
-    if (spec === 'thief') { const t = alive.filter((k) => R.CLASSES[g.chars[k].cls].skills.includes('thieves')); return t.length ? [t.includes(me) ? me : t[0]] : []; }
+    if (spec === 'thief') { const t = alive.filter((k) => E.C(g.chars[k]).skills.includes('thieves')); return t.length ? [t.includes(me) ? me : t[0]] : []; }
     return alive.includes(me) ? [me] : alive.length ? [best()] : [];
   }
   function startCk(E, s, force) { // force: {who: [k], adv, help, tried} — повторна спроба
