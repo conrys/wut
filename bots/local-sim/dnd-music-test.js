@@ -46,9 +46,9 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     const cv = document.createElement("canvas"); cv.width = 64; cv.height = 32; const c = cv.getContext("2d"); c.fillStyle = "#c33"; c.fillRect(0, 0, 64, 32);
     const id = "sc" + DNDHeroes.rid(); await DNDHeroes.put(id, cv.toDataURL("image/png")); DNDGame.send({ t: "art", id });
   });
-  check("своя картинка замінює ілюстрацію", !!(await until(() => dm.evaluate(() => !!document.querySelector(".scene-ban img.scene-art")))));
+  check("своя картинка замінює ілюстрацію", !!(await until(() => dm.evaluate(() => (document.querySelector(".scene-ban img.scene-art") || {}).src && document.querySelector(".scene-ban img.scene-art").src.startsWith("data:")))));
   await dm.evaluate(() => document.querySelector("[data-artdel]").click());
-  check("«Стандартна» повертає ілюстрацію", !!(await until(() => dm.evaluate(() => !document.querySelector(".scene-ban img.scene-art") && !!document.querySelector(".scene-ban svg")))));
+  check("«Стандартна» повертає ілюстрацію", !!(await until(() => dm.evaluate(() => /img\/scene_/.test((document.querySelector(".scene-ban img.scene-art") || {}).src || "") && !!document.querySelector(".scene-ban svg")))));
   // усі теми грають без помилок
   for (const id of Object.keys(await dm.evaluate(() => DNDMusic.THEMES))) { await dm.evaluate((i) => DNDMusic.play(i, "cut"), id); await wait(900); }
   check("усі 8 тем грають без помилок", warns.length === 0 && (await dm.evaluate(() => DNDMusic.current)) === "battle", warns.join(" | "));

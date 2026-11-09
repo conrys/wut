@@ -132,7 +132,11 @@
     if (!cache[key]) cache[key] = '<svg class="scene-art" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid slice" aria-hidden="true">' + css + '<defs><filter id="' + fid + '" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="16"/></filter></defs>' + ART[k](rng((seed || 7) * 977 + k.length * 31)).replace(/<circle class="glow"(?! style)( cx="[\d.]+" cy="[\d.]+" r="(\d{2,})")/g, '<circle class="glow" filter="url(#' + fid + ')"$1') + '</svg>';
     return cache[key];
   }
-  window.DNDArt = { svg, kinds: Object.keys(ART) };
+  // намальовані картинки (Gemini), лежать в ads/dnd/img/. Немає файлу — лишається SVG вище.
+  const PIC = ['tavern', 'town', 'stone', 'road', 'trail', 'temple', 'dream', 'cave', 'fort', 'grove', 'letter'];
+  const MON = ['cultist', 'wolf', 'orc', 'veren', 'thorek', 'thug'];
+  const pic = (kind) => (PIC.includes(kind) ? 'img/scene_' + kind + '.webp' : null);
+  window.DNDArt = { svg, pic, kinds: Object.keys(ART), MON };
 
   /* яку картинку й музику має кожна сцена пригоди */
   const A = window.DND_ADV || {};

@@ -205,6 +205,7 @@
     }).join('');
   }
 
+  H.reg = (id, u) => { cache[id] = cache[id] || { url: u }; };
   Object.assign(H, { load, get, compact, open, url, image, upload, put, iconId, portId, rid: () => rid(), avatarHtml, pickHtml, seedLocal });
   window.DNDHeroes = H;
 })();

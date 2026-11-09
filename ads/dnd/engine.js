@@ -45,7 +45,7 @@
       return { n: ch.n, ic: c.ic, col: c.col, hp: ch.hp, mhp: c.hp, ac: c.ac, sp: c.sp, st: c.st, down: ch.hp <= 0 && !ch.dead, dead: !!ch.dead, pc: true, ch, c };
     }
     const m = R.MONSTERS[t.mt];
-    return { n: t.n, ic: m.ic, col: m.col, hp: t.hp, mhp: t.mhp, ac: m.ac, sp: m.sp, st: m.st, down: false, dead: t.hp <= 0, pc: false, m };
+    return { n: t.n, ic: m.ic, col: m.col, hp: t.hp, mhp: t.mhp, ac: m.ac, sp: m.sp, st: m.st, down: false, dead: t.hp <= 0, pc: false, m, mt: t.mt };
   }
   const alive = (g, t) => !info(g, t).dead;
   const active = (g, t) => { const i = info(g, t); return !i.dead && !i.down && !t.cond.sleep; };

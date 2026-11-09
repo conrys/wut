@@ -9,7 +9,7 @@
   const HR = window.DNDHeroes;
   const av = (ch, px, kind) => HR.avatarHtml(ch, px || 54, kind); // іконка героя або емодзі класу
   const clsName = (ch) => (ch.hero ? R.CLASS_HINT[ch.cls].cn : R.CLASSES[ch.cls].n);
-  const ordIc = (i) => { const u = i.pc && HR.url(HR.iconId(i.ch)); return '<i style="background:' + i.col + '">' + (u ? '<img alt="" src="' + u + '">' : i.ic) + '</i>'; };
+  const ordIc = (i) => { const u = HR.url(tokImg(i)); return '<i style="background:' + i.col + '">' + (u ? '<img alt="" src="' + u + '">' : i.ic) + '</i>'; };
   const kd = (s) => String(s).replace(/(\d)d(\d)/g, '$1к$2');
   const LS = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } } };
 
@@ -617,12 +617,15 @@
     }
     return h + '</div>';
   }
+  const tokImg = (i) => (i.pc ? HR.iconId(i.ch) : i.mt && (window.DNDArt.MON || []).includes(i.mt) ? 'm_' + i.mt : null);
+  (window.DNDArt.MON || []).forEach((k) => HR.reg('m_' + k, 'img/mon_' + k + '.webp'));
   const SCENE_BG = new Proxy({}, { get: (o, k) => (S.sceneBg || {})[k] });
   function sceneArtHtml(sc) {
     const own = G.art && G.art[sc.id], u = own && HR.url(own);
     if (u) return '<img class="scene-art" alt="" src="' + u + '">';
-    const a = (S.sceneArt || {})[sc.id];
-    return window.DNDArt && a ? window.DNDArt.svg(a[0], G.sc + 1) : '';
+    const a = (S.sceneArt || {})[sc.id], A = window.DNDArt; if (!A || !a) return '';
+    const p = A.pic(a[0]); // SVG під картинкою — видно, поки картинка вантажиться
+    return A.svg(a[0], G.sc + 1) + (p ? '<img class="scene-art" alt="" src="' + p + '">' : '');
   }
   function musChip() {
     const id = musicFor(), T = (MU.THEMES || {})[id];
@@ -1397,7 +1400,7 @@
       const f = Math.max(0, shownHp / i.mhp);
       cx.strokeStyle = 'rgba(0,0,0,.45)'; cx.lineWidth = Math.max(3, CS / 9); cx.beginPath(); cx.arc(X, Y, r + cx.lineWidth / 2, 0, 7); cx.stroke();
       cx.strokeStyle = hpCol(f); cx.beginPath(); cx.arc(X, Y, r + cx.lineWidth / 2, -Math.PI / 2, -Math.PI / 2 + f * Math.PI * 2); cx.stroke();
-      cx.font = Math.round(CS * 0.48) + 'px serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; const himg = i.pc && HR.image(HR.iconId(i.ch));
+      cx.font = Math.round(CS * 0.48) + 'px serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; const himg = HR.image(tokImg(i));
       if (himg && !(i.dead && !lag)) { cx.save(); cx.beginPath(); cx.arc(X, Y, r - 1, 0, 7); cx.clip(); if ((i.down || i.dead) && !lag) cx.filter = 'grayscale(1) brightness(.6)'; cx.drawImage(himg, X - r, Y - r, r * 2, r * 2); cx.restore(); }
       else cx.fillText(i.dead && !lag ? '💀' : i.ic, X, Y + 1);
       cx.globalAlpha = 1;
