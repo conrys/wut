@@ -57,10 +57,19 @@
       catch (e) { uploaded[id] = 1; } // уже є в базі — правило не дає перезаписати
     }
   }
-  /* аватар: іконка героя або емодзі класу */
+  /* стандартні портрети класів: файли в ads/dnd/img/ (портрет 3:4 і кругла іконка).
+     Додаємо сюди, коли картинки готові, — без файлу лишається емодзі класу. */
+  const DEF_FILES = {
+    // fighter: { p: 'img/fighter_p.webp', i: 'img/fighter_i.webp' },
+  };
+  for (const cls in DEF_FILES) for (const k of ['p', 'i']) if (DEF_FILES[cls][k]) cache['d' + k + cls] = { url: DEF_FILES[cls][k] };
+  const defId = (cls, k) => (DEF_FILES[cls] && DEF_FILES[cls][k] ? 'd' + k + cls : null);
+  function iconId(ch) { const h = (ch && ch.hero) || {}; return h.ii || h.ip || defId(ch && ch.cls, 'i') || defId(ch && ch.cls, 'p'); }
+  function portId(ch) { const h = (ch && ch.hero) || {}; return h.ip || defId(ch && ch.cls, 'p') || h.ii || defId(ch && ch.cls, 'i'); }
+  /* аватар: іконка героя, стандартна іконка класу або емодзі класу */
   function avatarHtml(ch, px, kind) {
-    const c = R.CLASSES[ch.cls] || { col: '#3A3346', ic: '?' }, h = ch.hero || {};
-    const u = kind === 'p' ? url(h.ip) || url(h.ii) : url(h.ii) || url(h.ip);
+    const c = R.CLASSES[ch.cls] || { col: '#3A3346', ic: '?' };
+    const u = kind === 'p' ? url(portId(ch)) : url(iconId(ch));
     const st = 'width:' + px + 'px;height:' + px + 'px;';
     if (u) return '<img class="avatar av-img" alt="" src="' + u + '" style="' + st + 'background:' + c.col + '">';
     return '<span class="avatar" style="' + st + 'font-size:' + Math.round(px * 0.52) + 'px;background:' + c.col + '">' + c.ic + '</span>';
@@ -196,6 +205,6 @@
     }).join('');
   }
 
-  Object.assign(H, { load, get, compact, open, url, image, upload, put, rid: () => rid(), avatarHtml, pickHtml, seedLocal });
+  Object.assign(H, { load, get, compact, open, url, image, upload, put, iconId, portId, rid: () => rid(), avatarHtml, pickHtml, seedLocal });
   window.DNDHeroes = H;
 })();

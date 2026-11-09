@@ -1,0 +1,47 @@
+// DnD: бард у лобі, «Своя дія» гравця → рішення майстра → «Хроніка». node dnd-ideas-test.js (симулятор: node server.js)
+const { launch, phone, BASE } = require("./harness");
+const URL_ = BASE + "/ads/dnd/play.html";
+const results = [];
+function check(name, ok, extra) { results.push(ok); console.log(`${ok ? "✅" : "❌"} ${name}${extra ? " — " + extra : ""}`); }
+const until = async (fn, ms = 15000) => { const end = Date.now() + ms; while (Date.now() < end) { const r = await fn().catch(() => null); if (r) return r; await new Promise((x) => setTimeout(x, 200)); } return null; };
+(async () => {
+  const b = await launch();
+  const dm = await phone(b, "dm_ideas", { lite: true });
+  await dm.goto(URL_);
+  await until(() => dm.evaluate(() => !document.getElementById("btnDm").disabled));
+  await dm.fill("#dmName", "Влад"); await dm.click("#btnDm");
+  const code = await until(() => dm.evaluate(() => { const c = document.getElementById("lobCode").textContent; return /^[A-Z]{4}$/.test(c) && c; }));
+  const p = await phone(b, "u_bard", { lite: true });
+  await p.goto(URL_);
+  await until(() => p.evaluate(() => !document.getElementById("btnPl").disabled));
+  await p.fill("#plName", "Свен"); await p.fill("#plCode", code); await p.click("#btnPl");
+  check("бард є серед героїв", !!(await until(() => p.evaluate(() => !!document.querySelector('[data-cls="bard"]')))));
+  await p.click('[data-cls="bard"]');
+  await until(() => dm.evaluate(() => !document.getElementById("lobStart").disabled && Object.keys(DNDGame.E.G.chars).length === 1));
+  await dm.click("#lobStart");
+  await until(() => p.evaluate(() => !document.getElementById("app").hidden));
+  check("у барда Натхнення й Знущання в листі героя", await p.evaluate(() => { const c = DNDGame.E.C(DNDGame.G.chars["свен"]); return c.spells.includes("insp") && c.spells.includes("mock") && c.jack; }));
+  await p.evaluate(() => document.querySelector('[data-tab="story"]') && document.querySelector('[data-tab="story"]').click());
+  await until(() => p.evaluate(() => !!document.querySelector("[data-idea]")));
+  await p.evaluate(() => document.querySelector("[data-idea]").click());
+  await p.fill("#ideaTxt", "Заспівати велетню колискову");
+  await p.evaluate(() => document.querySelector("[data-ideago]").click());
+  check("гравець бачить, що майстер думає", !!(await until(() => p.evaluate(() => /Майстер думає/.test(document.getElementById("main").textContent)))));
+  await dm.evaluate(() => document.querySelector('[data-tab="scene"]').click());
+  check("майстер бачить ідею", !!(await until(() => dm.evaluate(() => /колискову/.test((document.querySelector("[data-ideayes]") || {}).closest ? document.querySelector("[data-ideayes]").closest(".ck").textContent : "")))));
+  await dm.evaluate(() => document.querySelector("[data-ideack]").click());
+  check("«Кидок» відкриває свою перевірку з текстом ідеї", !!(await until(() => dm.evaluate(() => DNDGame.U.cfg && DNDGame.U.cfg.idea && /колискову/.test(DNDGame.U.cfg.t)))));
+  await dm.evaluate(() => { DNDGame.U.cfg.key = "performance"; document.querySelector("[data-cfgsend]").click(); });
+  await until(() => p.evaluate(() => DNDGame.G.ck && DNDGame.G.ck.who.includes("свен")));
+  await p.evaluate(() => DNDGame.send({ t: "roll" }));
+  const deed = await until(() => p.evaluate(() => (DNDGame.G.deeds || [])[0]));
+  check("результат потрапив у хроніку на телефоні гравця", !!deed && /колискову/.test(deed.t) && /ok|fail/.test(deed.r), deed && deed.r);
+  await p.evaluate(() => document.querySelector('[data-tab="journal"]').click());
+  check("«Хроніка» у журналі гравця", !!(await until(() => p.evaluate(() => /Хроніка/.test(document.getElementById("main").textContent) && /колискову/.test(document.getElementById("main").textContent)))));
+  await dm.evaluate(() => { document.getElementById("deedTxt").value = "Свен продав козу двічі"; document.querySelector("[data-deedadd]").click(); });
+  check("майстер записує подію вручну", !!(await until(() => p.evaluate(() => (DNDGame.G.deeds || []).some((d) => /козу двічі/.test(d.t))))));
+  check("жодної JS-помилки", dm.errors.length + p.errors.length === 0, dm.errors.concat(p.errors).slice(0, 4).join(" || "));
+  const okN = results.filter(Boolean).length;
+  console.log(`\n${okN}/${results.length} перевірок`);
+  await b.close(); process.exit(okN === results.length ? 0 : 1);
+})().catch((e) => { console.error(e); process.exit(1); });

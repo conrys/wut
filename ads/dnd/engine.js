@@ -15,6 +15,7 @@
     let p = 0;
     if (c.skills.includes(sk)) p = R.PROF;
     if ((c.expert || []).includes(sk)) p = R.PROF * 2;
+    if (!p && c.jack) p = Math.floor(R.PROF / 2); // бард: майстер на всі руки
     return { m: R.mod(c.st[s.st]), p, st: s.st };
   }
   const saveB = (ch, st) => { const c = C(ch); return { m: R.mod(c.st[st]), p: c.saves.includes(st) ? R.PROF : 0 }; };
@@ -28,7 +29,7 @@
   const spellDC = (c) => 8 + R.PROF + R.mod(c.st[c.cast]);
   function newChar(n, cls, hero) { // hero: {n, bg, look, story, ip, ii} — власний герой гравця
     const c = R.CLASSES[cls];
-    const ch = { n: String(hero && hero.n ? hero.n : n).slice(0, 20), cls, hp: c.hp, slots: c.slots || 0, uses: { wind: 1, surge: 1 }, ds: { s: 0, f: 0 }, stable: false, dead: false };
+    const ch = { n: String(hero && hero.n ? hero.n : n).slice(0, 20), cls, hp: c.hp, slots: c.slots || 0, uses: { wind: 1, surge: 1, insp: 3 }, ds: { s: 0, f: 0 }, stable: false, dead: false };
     if (hero) {
       const h = R.buildHero({ cls, bg: hero.bg });
       if (h) ch.h = { skills: h.skills };
@@ -144,6 +145,7 @@
     if (!melee && d > a.range) dis.push('далека дистанція');
     if (!melee && enemyNear(g, t)) dis.push('стріляєш, коли ворог поруч');
     if (tgt.cond.dodge && !helpless) dis.push('ціль ухиляється');
+    if (t.cond.mock) dis.push('висміяний бардом');
     const m = !info(g, t).pc && info(g, t).m;
     if (m && m.pack && toks(g).some((o) => o.id !== t.id && o.side === t.side && active(g, o) && dist(o, tgt) <= 1)) adv.push('тактика зграї');
     return { ok: true, melee, adv, dis, n: (adv.length ? 1 : 0) - (dis.length ? 1 : 0), autoCrit: helpless && d <= 1 };
@@ -206,13 +208,20 @@
   function checkStart(cfg) {
     const g = E.G;
     g.ck = { id: uid(), t: cfg.t || '', kind: cfg.kind, key: cfg.key, dc: +cfg.dc || 10, show: cfg.show !== false, adv: +cfg.adv || 0, gd: !!cfg.gd,
-      who: (cfg.who || []).filter((k) => g.chars[k]), mode: cfg.mode || 'one', sid: cfg.sid || null, why: cfg.why || '', res: {}, done: false };
+      who: (cfg.who || []).filter((k) => g.chars[k]), mode: cfg.mode || 'one', sid: cfg.sid || null, why: cfg.why || '', res: {}, done: false, idea: cfg.idea || null };
+    if (g.ck.idea) g.ideas = (g.ideas || []).filter((x) => x.i !== g.ck.idea.i);
     if (!g.ck.who.length) { g.ck = null; return; }
     if (g.ck.who.length < 2 && g.ck.mode === 'group') g.ck.mode = 'one';
     log('Майстер просить: ' + checkName(g.ck) + ' (' + g.ck.who.map((k) => g.chars[k].n).join(', ') + ')', 'ck');
     lesson(cfg.kind === 'sv' ? 'save' : 'check');
     if (g.ck.mode === 'group') lesson('group');
     if (g.ck.adv) lesson('adv');
+  }
+  /* хроніка: власні рішення героїв, які майстер прийняв (з кидком чи без) — лишаються в кампанії назавжди */
+  function deed(k, t, r) {
+    const g = E.G, ch = g.chars[k];
+    g.deeds = (g.deeds || []).concat({ i: uid(), k: k || '', n: ch ? ch.n : '', t: String(t).slice(0, 200), r: r || '', sc: g.sc, at: Date.now() }).slice(-80);
+    log('📜 У хроніку: ' + (ch ? ch.n + ' — ' : '') + t + (r === 'ok' ? ' ✔' : r === 'fail' ? ' ✖' : ''), 'lore');
   }
   function checkName(ck) {
     if (ck.kind === 'sk') return R.SKILLS[ck.key].n + ' (' + R.STATS[R.SKILLS[ck.key].st].n + ')';
@@ -224,7 +233,7 @@
     if (ck.kind === 'sk') {
       const b = skillB(ch, ck.key);
       parts.push(P(R.STATS[b.st].n, b.m));
-      if (b.p) parts.push(P(b.p > R.PROF ? 'Експертність' : 'Майстерність', b.p));
+      if (b.p) parts.push(P(b.p > R.PROF ? 'Експертність' : b.p < R.PROF ? 'Майстер на всі руки' : 'Майстерність', b.p));
     } else if (ck.kind === 'st') parts.push(P(R.STATS[ck.key].n, R.mod(C(ch).st[ck.key])));
     else { const b = saveB(ch, ck.key); parts.push(P(R.STATS[ck.key].n, b.m)); if (b.p) parts.push(P('Майстерність', b.p)); }
     return parts;
@@ -246,6 +255,7 @@
         ck.gok = okN * 2 >= ck.who.length;
         log('Групова перевірка: ' + okN + ' з ' + ck.who.length + ' — ' + (ck.gok ? 'успіх' : 'провал'), ck.gok ? 'ok' : 'bad');
       }
+      if (ck.idea) deed(ck.idea.k, ck.idea.t, (ck.mode === 'group' ? ck.gok : ck.who.some((w) => ck.res[w].ok)) ? 'ok' : 'fail');
     }
   }
 
@@ -289,6 +299,7 @@
   function startTurn(t) {
     const i = info(g0(), t);
     t.mv = Math.max(0, i.sp - (t.cond.slow || 0)); if (t.cond.slow) t.cond.slowEnd = true;
+    if (t.cond.mock) t.cond.mockEnd = true;
     t.act = 1; t.bon = 1; t.react = 1; t.atkLeft = 0; t.sneak = false; t.dis = false;
     delete t.cond.dodge;
     if (i.pc) lesson('turn');
@@ -313,6 +324,7 @@
   function endTurn(t) {
     t.dis = false; t.act = 0; t.bon = 0; t.mv = 0;
     if (t.cond.slowEnd) { delete t.cond.slow; delete t.cond.slowEnd; }
+    if (t.cond.mockEnd) { delete t.cond.mock; delete t.cond.mockEnd; }
     if (endCheck()) return;
     nextTurn();
   }
@@ -333,7 +345,9 @@
     const parts = [P(R.STATS[st].n, R.mod(i.st[st]))];
     if (i.pc && i.c.saves.includes(st)) parts.push(P('Майстерність', R.PROF));
     blessD4(t, parts);
-    const r = R.d20(0), e = rollEntry(i.n, 'Рятівний ' + R.STATS[st].n + (lbl ? ' · ' + lbl : ''), r, parts, dc, 'СЛ', false);
+    const r = R.d20(0), pre = r.v + parts.reduce((s, p) => s + p[1], 0);
+    if (t.cond.insp && pre < dc && pre + 6 >= dc) { parts.push(P('🎻 Натхнення', R.rnd(6))); delete t.cond.insp; }
+    const e = rollEntry(i.n, 'Рятівний ' + R.STATS[st].n + (lbl ? ' · ' + lbl : ''), r, parts, dc, 'СЛ', false);
     e.ok = e.tot >= dc;
     log(i.n + ': рятівний кидок ' + R.STATS[st].n, 'roll', { r: e });
     if (E.G.cb) rollFx([t.x, t.y], e, { t: i.n + ': рятівний ' + R.STATS[st].n });
@@ -402,7 +416,9 @@
     const parts = [P('бонус атаки', a.b)]; blessD4(t, parts);
     const r = R.d20(ac.n);
     const nat20 = r.v === 20, nat1 = r.v === 1;
-    const tot = r.v + parts.reduce((s, p) => s + p[1], 0);
+    let tot = r.v + parts.reduce((s, p) => s + p[1], 0);
+    if (t.cond.mock) { delete t.cond.mock; delete t.cond.mockEnd; }
+    if (t.cond.insp && !nat1 && !nat20 && tot < ti.ac && tot + 6 >= ti.ac) { const d = R.rnd(6); parts.push(P('🎻 Натхнення', d)); tot += d; delete t.cond.insp; }
     const hit = !nat1 && (nat20 || tot >= ti.ac), crit = hit && (nat20 || ac.autoCrit);
     if (nat20) lesson('nat20'); if (nat1) lesson('nat1');
     const e = rollEntry(ai.n, ai.n + ' → ' + ti.n + ': ' + (spellLbl || a.n), r, parts, ti.ac, 'КБ', hit, { adv: ac.n, why: ac.adv.map((s) => '▲ ' + s).concat(ac.dis.map((s) => '▼ ' + s)), crit, nat1 });
@@ -477,14 +493,16 @@
     const T = (id) => g.cb.tk[id];
     const inRange = (o) => dist(t, o) <= Math.max(1, sp.range) && (sp.range <= 1 || los(g, t, o));
     let tgt = op.tgt ? T(op.tgt) : null, tgts = (op.tgts || []).map(T).filter(Boolean);
-    if ((sp.kind === 'atk' || sp.kind === 'save1' || sp.kind === 'heal' || sp.kind === 'mark') && (!tgt || !alive(g, tgt) || !inRange(tgt))) return;
+    if ((sp.kind === 'atk' || sp.kind === 'save1' || sp.kind === 'heal' || sp.kind === 'mark' || sp.kind === 'insp') && (!tgt || !alive(g, tgt) || !inRange(tgt))) return;
+    if (sp.kind === 'insp' && (tgt.id === t.id || tgt.side !== t.side || !((i.ch.uses || {}).insp > 0) || tgt.cond.insp)) return;
     if ((sp.kind === 'darts' || sp.kind === 'buff') && (!tgts.length || tgts.some((o) => !alive(g, o) || !inRange(o)))) return;
     if (sp.kind === 'sleep' && (op.x == null || Math.max(Math.abs(op.x - t.x), Math.abs(op.y - t.y)) > sp.range)) return;
     if (sp.kind === 'area' && op.x == null) return;
     if (sp.time === 'b') { if (t.bon <= 0) return; t.bon--; } else if (!useAction(t)) return;
     if (sp.lvl > 0) i.ch.slots--;
+    if (sp.kind === 'insp') i.ch.uses.insp--;
     if (sp.conc) { if (t.conc) dropConc(t, 'нові чари'); t.conc = op.sp; lesson('conc'); }
-    log('🪄 ' + i.n + ' читає «' + sp.n + '»' + (sp.lvl ? ' (комірка, лишилось ' + i.ch.slots + ')' : ''), 'spell');
+    if (sp.kind !== 'insp') log('🪄 ' + i.n + ' читає «' + sp.n + '»' + (sp.lvl ? ' (комірка, лишилось ' + i.ch.slots + ')' : ''), 'spell');
     const dc = spellDC(i.c), mod = R.mod(i.c.st[i.c.cast]);
     if (sp.kind === 'atk') {
       const hit = attack(t, { n: sp.n, b: spellAtk(i.c), dmg: sp.dmg, reach: 0, range: sp.range, long: sp.range, spell: true, fx: sp.fx }, tgt, sp.n);
@@ -513,11 +531,18 @@
       }
       if (inA.length && !inA[0].cond.sleep) log('Ніхто не заснув — найслабший у колі має більше хітів, ніж випало.', 'miss');
       lesson('sleep');
+    } else if (sp.kind === 'insp') {
+      tgt.cond.insp = 1;
+      fx({ k: 'bless', a: [t.x, t.y], bs: [[tgt.x, tgt.y]] });
+      log('🎻 ' + i.n + ' надихає ' + info(g, tgt).n + ': кістка натхнення к6 (лишилось ' + i.ch.uses.insp + ')', 'ok');
     } else if (sp.kind === 'save1') {
-      fx({ k: 'pillar', a: [t.x, t.y], b: [tgt.x, tgt.y] });
+      fx({ k: sp.fx || 'pillar', a: [t.x, t.y], b: [tgt.x, tgt.y] });
       lesson('save');
-      if (!saveRoll(tgt, sp.save, dc, sp.n)) { const d = R.roll(sp.dmg); log('Шкода: ' + sp.dmg.replace(/d/g, 'к') + ' = ' + d.t, 'dmg'); damage(tgt, d.t, false, t); }
-      else log(info(g, tgt).n + ' ухилився від полумʼя.', 'miss');
+      if (!saveRoll(tgt, sp.save, dc, sp.n)) {
+        const d = R.roll(sp.dmg); log('Шкода: ' + sp.dmg.replace(/d/g, 'к') + ' = ' + d.t, 'dmg'); damage(tgt, d.t, false, t);
+        if (sp.mock && alive(g, tgt)) { tgt.cond.mock = true; delete tgt.cond.mockEnd; log(info(g, tgt).n + ' аж скипить: наступна атака з перешкодою.', 'sys'); }
+      } else if (sp.half) { const d = R.roll(sp.dmg), h = Math.floor(d.t / 2); log(info(g, tgt).n + ' ' + (sp.miss || 'частково ухиляється') + ': половина шкоди ' + h, 'dmg'); if (h) damage(tgt, h, false, t); }
+      else log(info(g, tgt).n + ' ' + (sp.miss || 'ухилився від полумʼя') + '.', 'miss');
     } else if (sp.kind === 'heal') {
       fx({ k: 'heal', a: [t.x, t.y], b: [tgt.x, tgt.y] });
       const d = R.roll(sp.dmg), bonus = mod + (i.ch.cls === 'cleric' ? 3 : 0);
@@ -602,6 +627,12 @@
         break;
       }
       case 'end': { const t = T(op.tok); if (canAct(t, from, isDM)) endTurn(t); break; }
+      case 'idea': { // гравець пропонує свою дію (будь-яку, навіть ідіотську)
+        const k = from || (isDM && op.k), txt = String(op.txt || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+        if (!g.chars[k] || txt.length < 2) break;
+        g.ideas = (g.ideas || []).concat({ i: uid(), k, t: txt, at: Date.now() }).slice(-8);
+        log('💡 ' + g.chars[k].n + ' пропонує: «' + txt + '»', 'sys'); break;
+      }
       default: if (isDM) dmOp(op);
     }
     E.dirty = true;
@@ -616,6 +647,14 @@
       case 'journal': [].concat(op.k).forEach((k) => { if (S.JOURNAL[k] && !(g.journal = g.journal || []).includes(k)) { g.journal.push(k); log('📝 Журнал: ' + S.JOURNAL[k], 'lore'); } }); break;
       case 'goal': setGoal(op.k); break;
       case 'ck': checkStart(op.cfg); break;
+      case 'ideaok': { // майстер: yes — так і стається, no — не вийде
+        const it = (g.ideas || []).find((x) => x.i === op.i); if (!it) break;
+        g.ideas = g.ideas.filter((x) => x !== it);
+        if (op.v === 'yes') deed(it.k, it.t, ''); else log('Майстер: «' + it.t + '» — так не вийде.', 'sys');
+        break;
+      }
+      case 'deed': if (op.txt && String(op.txt).trim().length > 1) deed(op.k || '', String(op.txt).trim(), op.r || ''); break;
+      case 'deeddel': g.deeds = (g.deeds || []).filter((x) => x.i !== op.i); break;
       case 'ckclose': if (g.ck) { if (!g.ck.done) log('Майстер закрив перевірку.', 'sys'); g.ck = null; } break;
       case 'fight': fightStart(op.f, op.surp); break;
       case 'fightend':
@@ -637,8 +676,8 @@
       case 'rest':
         for (const k in g.chars) {
           const ch = g.chars[k], c = C(ch); if (ch.dead) continue;
-          if (op.kind === 'long') { ch.hp = c.hp; ch.slots = c.slots || 0; ch.uses = { wind: 1, surge: 1 }; ch.ds = { s: 0, f: 0 }; ch.stable = false; }
-          else { const d = R.roll('1d' + c.hd); const h = Math.max(1, d.t + R.mod(c.st.con)); const was = ch.hp; ch.hp = Math.min(c.hp, Math.max(ch.hp, 0) + h); ch.uses = { wind: 1, surge: 1 }; if (was <= 0) { ch.ds = { s: 0, f: 0 }; ch.stable = false; } log(ch.n + ': ' + (was >= c.hp ? 'хіти вже повні' : 'кістка хітів 1к' + c.hd + ' + Статура = +' + (ch.hp - Math.max(was, 0))), 'ok'); }
+          if (op.kind === 'long') { ch.hp = c.hp; ch.slots = c.slots || 0; ch.uses = { wind: 1, surge: 1, insp: 3 }; ch.ds = { s: 0, f: 0 }; ch.stable = false; }
+          else { const d = R.roll('1d' + c.hd); const h = Math.max(1, d.t + R.mod(c.st.con)); const was = ch.hp; ch.hp = Math.min(c.hp, Math.max(ch.hp, 0) + h); ch.uses = Object.assign({}, ch.uses, { wind: 1, surge: 1 }); if (was <= 0) { ch.ds = { s: 0, f: 0 }; ch.stable = false; } log(ch.n + ': ' + (was >= c.hp ? 'хіти вже повні' : 'кістка хітів 1к' + c.hd + ' + Статура = +' + (ch.hp - Math.max(was, 0))), 'ok'); }
         }
         log(op.kind === 'long' ? '🌙 Довгий відпочинок (8 год): усі хіти й комірки відновлено.' : '☕ Короткий відпочинок (1 год): кожен витратив кістку хітів, Друге дихання й Сплеск дій відновлено.', 'sys');
         break;
@@ -705,6 +744,14 @@
         if (sp.includes('hword') && ch.slots > 0) { // жриця піднімає того, хто впав
           const down = toks(g).find((o) => o.ch && o.side === t.side && info(g, o).down && dist(t, o) <= 12 && los(g, t, o));
           if (down) { apply({ t: 'spell', tok: t.id, sp: 'hword', tgt: down.id }, t.ch, false); push(); await E.wait(E.delay); }
+        }
+        if (sp.includes('insp') && t.bon > 0 && ch.uses.insp > 0) { // бард надихає того, хто бʼється впритул
+          const al = toks(g).filter((o) => o.ch && o.id !== t.id && o.side === t.side && active(g, o) && !o.cond.insp && dist(t, o) <= 12 && los(g, t, o) && enemyNear(g, o))[0];
+          if (al) { apply({ t: 'spell', tok: t.id, sp: 'insp', tgt: al.id }, t.ch, false); push(); await E.wait(E.delay); }
+        }
+        if (sp.includes('mock') && !enemyNear(g, t)) { // бард дражнить найсильнішого ворога здалеку
+          const foes = toks(g).filter((o) => o.side !== t.side && active(g, o) && dist(t, o) <= 12 && los(g, t, o)).sort((a, b) => info(g, b).hp - info(g, a).hp);
+          if (foes.length && t.act > 0) { apply({ t: 'spell', tok: t.id, sp: foes[0].mt && R.MONSTERS[foes[0].mt].boss && ch.slots > 1 ? 'whisper' : 'mock', tgt: foes[0].id }, t.ch, false); push(); await E.wait(E.delay); if (g.cb && cur(g) === t) endTurn(t); push(); return; }
         }
         if (sp.includes('firebolt')) { // маг стріляє вогнем, а не б'є посохом
           const foes = toks(g).filter((o) => o.side !== t.side && active(g, o) && dist(t, o) <= 24 && los(g, t, o)).sort((a, b) => info(g, a).hp - info(g, b).hp);

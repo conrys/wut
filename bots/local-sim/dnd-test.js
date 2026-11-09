@@ -29,7 +29,7 @@ const dmSet = (dm, fn, arg) => dm.evaluate(([src, arg]) => { const E = DNDGame.E
     await p.goto(URL_);
     await until(() => p.evaluate(() => !document.getElementById("btnPl").disabled));
     await p.fill("#plName", name); await p.fill("#plCode", code); await p.click("#btnPl");
-    await until(() => p.evaluate(() => !document.getElementById("lobby").hidden && document.querySelectorAll("[data-cls]").length === 5));
+    await until(() => p.evaluate(() => !document.getElementById("lobby").hidden && document.querySelectorAll("[data-cls]").length === 6));
     await p.click(`[data-cls="${cls}"]`);
     pls.push(p);
   }

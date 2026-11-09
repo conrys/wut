@@ -168,6 +168,36 @@ for (const k in S.MAPS) {
   ok(gb.cb.won || gb.cb.lost, 'боти й монстри довоювали фінальний бій самі за ' + gg + ' ходів (' + (gb.cb.won ? 'перемога' : 'поразка') + ')');
   ok(gb.log.some((e) => e.r && /Вогняна стріла/.test(e.r.lbl)), 'бот-маг стріляє Вогняною стрілою');
   ok(JSON.stringify(g).length < 30000, 'стан вміщається в запис бази (' + JSON.stringify(g).length + ')');
+  // бард: майстер на всі руки, натхнення, знущання; ідеї гравців і хроніка
+  {
+    const g = fresh([{ n: 'Свен', cls: 'bard' }, { n: 'Бйорн', cls: 'fighter' }]);
+    ok(E.skillB(g.chars['свен'], 'athletics').p === 1 && E.skillB(g.chars['свен'], 'performance').p === 2, 'бард: +1 до чужих навичок, +2 до своїх');
+    E.apply({ t: 'fight', f: 'hall' }, null, true);
+    const tk = g.cb.tk, bard = tk['p_свен'], ftr = tk['p_бйорн'], foe = Object.values(tk).find((t) => t.side === 'foe');
+    g.cb.turn = g.cb.order.indexOf(bard.id); bard.act = 1; bard.bon = 1; ftr.x = bard.x + 1; ftr.y = bard.y;
+    E.apply({ t: 'spell', tok: bard.id, sp: 'insp', tgt: ftr.id }, 'свен', false);
+    ok(ftr.cond.insp && g.chars['свен'].uses.insp === 2 && bard.bon === 0, 'натхнення: союзник отримав к6, лишилось 2, бонусну дію витрачено');
+    bard.bon = 1; E.apply({ t: 'spell', tok: bard.id, sp: 'insp', tgt: bard.id }, 'свен', false);
+    ok(g.chars['свен'].uses.insp === 2, 'себе надихнути не можна');
+    foe.x = bard.x + 3; foe.y = bard.y; foe.cond = {};
+    let mocked = false;
+    for (let k = 0; k < 40 && !mocked; k++) { bard.act = 1; delete foe.cond.mock; foe.hp = foe.mhp; E.apply({ t: 'spell', tok: bard.id, sp: 'mock', tgt: foe.id }, 'свен', false); mocked = !!foe.cond.mock; }
+    ok(mocked, 'знущання: на провалі ворог висміяний');
+    ok(E.atkCheck(g, foe, { b: 3, reach: 1, range: 0 }, { ...ftr, x: foe.x + 1, y: foe.y }).dis.includes('висміяний бардом'), 'висміяний атакує з перешкодою');
+    E.apply({ t: 'fightend' }, null, true);
+    E.apply({ t: 'idea', txt: 'Заспівати велетню колискову' }, 'бйорн', false);
+    ok(g.ideas.length === 1, 'гравець пропонує свою дію');
+    E.apply({ t: 'ideaok', i: g.ideas[0].i, v: 'yes' }, 'бйорн', false);
+    ok(g.ideas.length === 1, 'гравець сам собі не схвалює');
+    E.apply({ t: 'ideaok', i: g.ideas[0].i, v: 'yes' }, null, true);
+    ok(!g.ideas.length && g.deeds.length === 1 && g.deeds[0].n === 'Бйорн', 'майстер схвалив — подія в хроніці');
+    E.apply({ t: 'idea', txt: 'Стрибнути з люстри' }, 'свен', false);
+    const it = g.ideas[0];
+    E.apply({ t: 'ck', cfg: { kind: 'sk', key: 'acrobatics', dc: 12, who: ['свен'], idea: { i: it.i, k: it.k, t: it.t } } }, null, true);
+    ok(!g.ideas.length, 'ідея пішла в перевірку');
+    E.apply({ t: 'roll' }, 'свен', false);
+    ok(g.deeds.length === 2 && /ok|fail/.test(g.deeds[1].r), 'результат кидка записано в хроніку');
+  }
   console.log((fails ? '✖ ' : '✔ ') + (n - fails) + '/' + n + ' перевірок рушія');
   process.exit(fails ? 1 : 0);
 })();

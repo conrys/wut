@@ -9,7 +9,7 @@
   const HR = window.DNDHeroes;
   const av = (ch, px, kind) => HR.avatarHtml(ch, px || 54, kind); // іконка героя або емодзі класу
   const clsName = (ch) => (ch.hero ? R.CLASS_HINT[ch.cls].cn : R.CLASSES[ch.cls].n);
-  const ordIc = (i) => { const u = i.pc && i.ch.hero && HR.url(i.ch.hero.ii); return '<i style="background:' + i.col + '">' + (u ? '<img alt="" src="' + u + '">' : i.ic) + '</i>'; };
+  const ordIc = (i) => { const u = i.pc && HR.url(HR.iconId(i.ch)); return '<i style="background:' + i.col + '">' + (u ? '<img alt="" src="' + u + '">' : i.ic) + '</i>'; };
   const kd = (s) => String(s).replace(/(\d)d(\d)/g, '$1к$2');
   const LS = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } } };
 
@@ -291,7 +291,7 @@
     if (!confirm('Завантажити сейв «' + it.l + '» (' + cpWhen(it.at) + ')?\nУсе, що сталося після нього, зникне.')) return;
     const g = JSON.parse(it.g), was = E.G;
     window.DND_USE(g.adv || 'nightmare');
-    g.v = (was.v || 0) + 1; g.lid = E.uid(); g.fx = []; g.les = []; g.dm = was.dm;
+    g.v = (was.v || 0) + 1; g.lid = E.uid(); g.fx = []; g.les = []; g.dm = was.dm; g.pid = (was.pid || []).slice(); // старі запити гравців не виконуємо вдруге
     E.G = g; E.busy = false; G = g; cpSc = (g.adv || '') + ':' + g.sc;
     const BD = window.DNDBotDM && window.DNDBotDM.BD; if (BD) { BD.at = 0; BD.fightAt = 0; BD.ckAt = 0; }
     E.log('⏪ Завантажено сейв: ' + it.l + ' (' + cpWhen(it.at) + '). Спробуйте ще раз!', 'sys');
@@ -321,7 +321,10 @@
     else if (d.cplist) openModal('cp', cpHtml() + '<button class="btn2 wide" type="button" data-cpclose="1">Закрити</button>');
     else if (d.cpgo && ME.solo && E.G.cb) { E.G.cb.goOn = true; pushG(); render(true); }
   });
-  document.addEventListener('click', (e) => { if (e.target.closest('[data-cpclose]')) closeModal(); });
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('[data-cpclose]') || e.target.closest('[data-ideax]')) closeModal();
+    if (e.target.closest('[data-ideago]')) { const v = ($('ideaTxt').value || '').trim(); if (v.length < 2) { toast('Напиши, що робить герой'); return; } closeModal(); send({ t: 'idea', txt: v }); toast('💡 Надіслано майстру'); }
+  });
   // авто-хід чекає, поки догра анімація, — щоб було видно, хто що зробив
   const animIdle = () => !ANIM.cur && !ANIM.q.length;
   E.wait = (ms) => new Promise((r) => { const t0 = performance.now(); const f = () => ((performance.now() - t0 >= ms && animIdle()) || performance.now() - t0 > 7000 ? r() : setTimeout(f, 80)); f(); });
@@ -460,6 +463,11 @@
       if (!ME.solo && ME.role === 'pl') toast('⏪ Майстер завантажив сейв');
     }
     U.lid = G.lid; U.lidInit = true;
+    if (ME.role === 'dm') { // нова ідея від гравця
+      const ids = (G.ideas || []).map((x) => x.i);
+      if (U.ideaSeen) ids.filter((i) => !U.ideaSeen.includes(i)).forEach((i) => { const x = G.ideas.find((y) => y.i === i); toast('💡 ' + ((G.chars[x.k] || {}).n || 'Гравець') + ': ' + x.t.slice(0, 60)); beep('turn'); });
+      U.ideaSeen = ids;
+    }
     // уроки (черга: за одну дію може відкритись кілька)
     const les = Array.isArray(G.les) ? G.les : [];
     if (!U.lesIds) U.lesIds = new Set(les.map((l) => l.i));
@@ -661,8 +669,32 @@
     if (ch) { const c = E.C(ch); h += '<div class="card"><div class="sheet-h">' + av(ch, 54) + '<div class="grow"><b>' + esc(ch.n) + '</b> · ' + clsName(ch) + statusTxt(ch) + '<div class="bar"><i style="width:' + Math.max(0, ch.hp / c.hp * 100) + '%;background:' + hpCol(ch.hp / c.hp) + '"></i></div><span class="muted">' + ch.hp + '/' + c.hp + ' хітів' + (c.slots ? ' · комірки ' + ch.slots + '/' + c.slots : '') + '</span></div></div></div>'; }
     if (G.ck && !G.ck.who.includes(ME.key)) h += '<div class="card"><p class="eyebrow">Зараз кидають</p><b>' + esc(E.checkName(G.ck)) + '</b><p class="muted">' + G.ck.who.map((k) => esc(G.chars[k].n) + (G.ck.res[k] ? ' — ' + G.ck.res[k].tot + (G.ck.res[k].ok ? ' ✔' : ' ✖') : ' …')).join(', ') + '</p></div>';
     if (G.ck && G.ck.who.includes(ME.key) && !U.ckOpen && !ME.solo) h += '<button class="btn wide" data-openck="1" type="button" style="margin-bottom:12px">🎲 Перевірка: ' + esc(E.checkName(G.ck)) + '</button>';
+    if (!ME.solo && ME.role === 'pl' && G.chars[ME.key]) h += ideaBtnHtml();
     h += '<p class="eyebrow">Що відбувалось</p>' + logHtml(36);
     return h;
+  }
+  /* ---------- власні рішення гравців і хроніка ---------- */
+  function ideaBtnHtml() {
+    const mine = (G.ideas || []).filter((x) => x.k === ME.key);
+    return '<div class="card idea"><button class="btn2 wide" type="button" data-idea="1">💡 Своя дія — що завгодно</button>' +
+      (mine.length ? mine.map((x) => '<p class="muted" style="margin:8px 0 0">⏳ Майстер думає: «' + esc(x.t) + '»</p>').join('') : '<p class="muted" style="margin:6px 0 0;font-size:12.5px">Не бачиш потрібного варіанта? Напиши, що робить твій герой. Майстер вирішить: так, ні чи кидок. Вдалі (і невдалі) рішення потраплять у «Хроніку».</p>') + '</div>';
+  }
+  function openIdea() {
+    openModal('idea', '<h2>💡 Що робить твій герой?</h2><p class="muted">Будь-що. Майстер вирішить, чи вийде, і чи треба кидати кубик.</p>' +
+      '<textarea id="ideaTxt" maxlength="200" rows="3" style="width:100%;box-sizing:border-box;border-radius:12px;padding:10px;font:inherit;background:var(--card2);color:var(--ink);border:1px solid var(--line)" placeholder="Наприклад: заспівати велетню колискову, поки інші крадуть козу"></textarea>' +
+      '<div class="row" style="margin-top:10px"><button class="btn2" type="button" data-ideax="1">Скасувати</button><button class="btn grow" type="button" data-ideago="1">Запропонувати майстру</button></div>');
+    setTimeout(() => { const t = $('ideaTxt'); if (t) t.focus(); }, 50);
+  }
+  function ideasDmHtml() { // майстер: нові ідеї гравців
+    const list = G.ideas || []; if (!list.length) return '';
+    return '<div class="card" style="border-color:var(--gold)"><h3>💡 Ідеї гравців</h3><p class="muted">Вирішуй: «Так» — стається без кидка, «Кидок» — обери навичку й складність, «Ні» — не вийде. Прийняті потрапляють у «Хроніку».</p>' +
+      list.map((x) => '<div class="ck"><b>' + esc((G.chars[x.k] || {}).n || '?') + ':</b> ' + esc(x.t) + '<div class="row" style="margin-top:6px"><button class="btn2 sm grow" type="button" data-ideack="' + x.i + '">🎲 Кидок</button><button class="btn2 sm" type="button" data-ideayes="' + x.i + '">✔ Так</button><button class="btn2 sm" type="button" data-ideano="' + x.i + '">✖ Ні</button></div></div>').join('') + '</div>';
+  }
+  function chronicleHtml() {
+    const list = (G.deeds || []).slice().reverse(), dm = ME.role === 'dm';
+    return '<div class="card"><h3>📜 Хроніка</h3><p class="muted">Що герої вигадали й накоїли самі, понад сценарій. Лишається в кампанії назавжди.</p>' +
+      (list.length ? list.map((x) => '<div class="jr">' + (x.r === 'ok' ? '✔ ' : x.r === 'fail' ? '✖ ' : '• ') + (x.n ? '<b>' + esc(x.n) + ':</b> ' : '') + esc(x.t) + ' <span class="muted">· ' + esc((S.SCENES[x.sc] || {}).t || '') + '</span>' + (dm ? ' <button class="btn2 sm" type="button" data-deeddel="' + x.i + '" aria-label="Прибрати">✕</button>' : '') + '</div>').join('') : '<p class="muted">Поки порожньо.</p>') +
+      (dm ? '<div class="row" style="margin-top:8px"><input id="deedTxt" maxlength="200" placeholder="Записати подію: «Фаркас продав козу двічі»" style="flex:1;min-width:0;border-radius:10px;padding:8px;background:var(--card2);color:var(--ink);border:1px solid var(--line);font:inherit"><button class="btn2" type="button" data-deedadd="1">＋</button></div>' : '') + '</div>';
   }
   function statusTxt(ch) { return ch.dead ? ' · <b class="bad">загинув</b>' : ch.hp <= 0 ? (ch.stable ? ' · <b>без тями, стабільний</b>' : ' · <b class="bad">без тями ✔' + ch.ds.s + ' ✖' + ch.ds.f + '</b>') : ''; }
   const hpCol = (f) => (f > 0.6 ? '#5DD27A' : f > 0.3 ? '#E9B949' : '#FF6464');
@@ -670,7 +702,7 @@
   function viewHero() {
     const ch = G.chars[ME.key]; if (!ch) return '';
     const c = E.C(ch);
-    const hb = ch.hero, bgr = hb && R.BACKGROUNDS[hb.bg], por = hb && HR.url(hb.ip);
+    const hb = ch.hero, bgr = hb && R.BACKGROUNDS[hb.bg], por = HR.url(HR.portId(ch));
     let h = '<div class="card">' + (por ? '<div class="portrait"><img alt="" src="' + por + '"></div>' : '') + '<div class="sheet-h">' + (por ? '' : av(ch, 54)) + '<div class="grow"><h2 style="margin:0">' + esc(ch.n) + '</h2><span class="muted">' + clsName(ch) + ' 2 рівня' + (bgr ? ' · ' + bgr.n : '') + statusTxt(ch) + '</span></div></div>' +
       (hb ? (hb.look ? '<p style="margin:8px 0 0">' + esc(hb.look) + '</p>' : '') + (hb.story ? '<p class="muted" style="margin:6px 0 0;font-style:italic">' + esc(hb.story) + '</p>' : '') + (bgr ? '<p class="muted" style="margin:6px 0 0">' + bgr.ic + ' ' + esc(bgr.d) + '</p>' : '') : '<p class="muted" style="margin:8px 0 0">' + esc(c.bio) + '</p>') +
       '<div class="bar" style="height:14px;margin-top:10px"><i style="width:' + Math.max(0, ch.hp / c.hp * 100) + '%;background:' + hpCol(ch.hp / c.hp) + '"></i></div><span class="muted">Хіти ' + ch.hp + ' з ' + c.hp + ' — скільки ударів витримаєш. На 0 падаєш без тями.</span>' +
@@ -683,7 +715,7 @@
     h += '<div class="card"><h3>Рятівні кидки</h3><p class="muted">Коли щось стається з тобою: вибух, отрута, чари.</p>' +
       R.STAT_IDS.map((s) => { const b = E.saveB(ch, s); return '<button type="button" class="sk" data-save="' + s + '"><span class="pt' + (b.p ? ' on' : '') + '"></span>' + R.STATS[s].n + '<b>' + sgn(b.m + b.p) + '</b></button>'; }).join('') + '</div>';
     h += '<div class="card"><h3>Атаки</h3>' + c.weapons.map((w) => { const a = E.wAtk(c, w); return '<div class="sk"><span>⚔</span>' + w.n + ' <em>' + (w.reach && !w.range ? 'впритул' : w.range ? (w.thrown ? 'впритул або ' : '') + w.range + '/' + w.long + ' кл' : '') + '</em><b>' + sgn(a.b) + ' · ' + kd(w.dmg) + sgn(a.m) + '</b></div>'; }).join('') + '<p class="muted">Перше число — бонус до к20, друге — шкода.</p></div>';
-    if (c.spells) h += '<div class="card"><h3>Заклинання</h3><p class="muted">Атака чарами ' + sgn(E.spellAtk(c)) + ' · складність рятівного ' + E.spellDC(c) + ' · комірок ' + ch.slots + '/' + c.slots + '</p>' + c.spells.map((s) => { const sp = R.SPELLS[s]; return '<button type="button" class="sk" data-spell="' + s + '"><span>🪄</span>' + sp.n + ' <em>' + (sp.lvl ? '1 коло' : 'замовляння') + (sp.time === 'b' ? ' · бонусна' : '') + '</em><b>›</b></button>'; }).join('') + '</div>';
+    if (c.spells) h += '<div class="card"><h3>Заклинання</h3><p class="muted">Атака чарами ' + sgn(E.spellAtk(c)) + ' · складність рятівного ' + E.spellDC(c) + ' · комірок ' + ch.slots + '/' + c.slots + '</p>' + c.spells.map((s) => { const sp = R.SPELLS[s]; return '<button type="button" class="sk" data-spell="' + s + '"><span>' + (sp.ability ? '🎻' : '🪄') + '</span>' + sp.n + ' <em>' + (sp.ability ? 'ще ' + ((ch.uses || {}).insp || 0) + ' з 3' : sp.lvl ? '1 коло' : 'замовляння') + (sp.time === 'b' ? ' · бонусна' : '') + '</em><b>›</b></button>'; }).join('') + '</div>';
     h += '<div class="card"><h3>Особливості</h3>' + c.feats.map((f) => '<div class="gm"><b>' + f.n + '</b> — ' + esc(f.d) + (f.uses ? ' <span class="chip">' + ((ch.uses || {})[f.id] ? 'є' : 'витрачено') + '</span>' : '') + '</div>').join('') + '</div>';
     return h;
   }
@@ -695,6 +727,7 @@
     h += '<div class="card"><h3>📖 Загальний лор</h3><p class="muted">Хто є хто й що є що у світі. Відкривається, коли герої про щось дізнаються.</p>' +
       (lore.length ? lore.map((k) => { const L = S.LORE[k]; return '<details class="lore"><summary>' + L.ic + ' ' + esc(L.t) + '</summary><p>' + esc(L.d) + '</p></details>'; }).join('') : '<p class="muted">Ще нічого не відкрито.</p>') +
       (Object.keys(S.LORE).length > lore.length ? '<p class="muted" style="margin-top:8px">Ще не відкрито: ' + (Object.keys(S.LORE).length - lore.length) + '</p>' : '') + '</div>';
+    if (!ME.solo) h += chronicleHtml();
     if (ME.solo) h += cpHtml();
     return h;
   }
@@ -741,7 +774,7 @@
   }
   function viewScene() {
     const sc = S.SCENES[G.sc];
-    let h = viewActiveCheck();
+    let h = ideasDmHtml() + viewActiveCheck();
     h += '<div class="row" style="margin-bottom:10px"><button class="btn2" data-scene="' + (G.sc - 1) + '" ' + (G.sc ? '' : 'disabled') + ' type="button">◀</button><div class="grow" style="text-align:center"><p class="eyebrow" style="margin:0">Сцена ' + (G.sc + 1) + ' з ' + S.SCENES.length + '</p><b style="font-family:var(--display);font-size:20px">' + sc.icon + ' ' + esc(sc.t) + '</b></div><button class="btn2" data-scene="' + (G.sc + 1) + '" ' + (G.sc < S.SCENES.length - 1 ? '' : 'disabled') + ' type="button">▶</button></div>';
     h += sceneBanner(sc, G.sc) + sceneMediaCard(sc);
     h += '<div class="read" style="margin-bottom:12px"><p class="eyebrow">Читай вголос</p>' + sc.read.map((p) => '<p>' + esc(p) + '</p>').join('') + '</div>';
@@ -761,6 +794,7 @@
       h += '</div>';
     }
     if (sc.lessons && sc.lessons.length) h += '<div class="card"><h3>📖 Показати урок усім</h3><div class="chips">' + sc.lessons.map((k) => '<button type="button" data-teach="' + k + '">' + (G.seen.includes(k) ? '✔ ' : '') + R.LESSONS[k].t + '</button>').join('') + '</div></div>';
+    h += chronicleHtml();
     return h;
   }
   function fightStartHtml(fid) {
@@ -815,12 +849,18 @@
   $('main').addEventListener('click', (e) => {
     const b = e.target.closest('button,[data-info]'); if (!b) return;
     const d = b.dataset;
+    if (d.idea) return openIdea();
+    if (d.ideack && ME.role === 'dm') { const it = (G.ideas || []).find((x) => x.i === d.ideack); if (!it) return; openCheckCfg(''); Object.assign(U.cfg, { t: it.t, who: G.chars[it.k] ? [it.k] : [], idea: { i: it.i, k: it.k, t: it.t } }); renderCfg(); return; }
+    if (d.ideayes && ME.role === 'dm') { send({ t: 'ideaok', i: d.ideayes, v: 'yes' }); return; }
+    if (d.ideano && ME.role === 'dm') { send({ t: 'ideaok', i: d.ideano, v: 'no' }); return; }
+    if (d.deeddel && ME.role === 'dm') { send({ t: 'deeddel', i: d.deeddel }); return; }
+    if (d.deedadd && ME.role === 'dm') { const v = $('deedTxt').value.trim(); if (v.length > 1) send({ t: 'deed', txt: v }); return; }
     if (d.sndtoggle) { setSnd(snd === 'all' ? 'sfx' : 'all'); MU.unlock(); U.sig = ''; return render(); }
     if (d.mus != null && ME.role === 'dm') { send({ t: 'mus', v: d.mus || null }); return; }
     if (d.artdel && ME.role === 'dm') { send({ t: 'art', id: null }); return; }
     if (d.artup && ME.role === 'dm') return pickSceneArt();
     if (d.stat) return popStat(d.stat);
-    if (d.skill) { const s = R.SKILLS[d.skill], ch = G.chars[ME.key], bb = E.skillB(ch, d.skill); return pop('<h3>' + s.n + '</h3><p class="muted">' + R.STATS[s.st].n + (s.tool ? ' · інструменти' : '') + '</p><p>' + esc(s.d) + '</p><div class="parts"><span>' + R.STATS[s.st].n + ' ' + sgn(bb.m) + '</span>' + (bb.p ? '<span>' + (bb.p > 2 ? 'Експертність' : 'Майстерність') + ' +' + bb.p + '</span>' : '<span>не твоя навичка</span>') + '</div>'); }
+    if (d.skill) { const s = R.SKILLS[d.skill], ch = G.chars[ME.key], bb = E.skillB(ch, d.skill); return pop('<h3>' + s.n + '</h3><p class="muted">' + R.STATS[s.st].n + (s.tool ? ' · інструменти' : '') + '</p><p>' + esc(s.d) + '</p><div class="parts"><span>' + R.STATS[s.st].n + ' ' + sgn(bb.m) + '</span>' + (bb.p ? '<span>' + (bb.p > 2 ? 'Експертність' : bb.p === 1 ? 'Майстер на всі руки' : 'Майстерність') + ' +' + bb.p + '</span>' : '<span>не твоя навичка</span>') + '</div>'); }
     if (d.save) return pop('<h3>Рятівний: ' + R.STATS[d.save].n + '</h3><p>' + esc(R.SAVES[d.save]) + '</p>');
     if (d.spell) return popSpell(d.spell);
     if (d.info && INFO[d.info]) return pop('<h3>' + INFO[d.info][0] + '</h3><p>' + esc(INFO[d.info][1]) + '</p>');
@@ -1082,7 +1122,7 @@
     const mvShow = off ? Math.max(0, i.sp - (t.cond.slow || 0)) : t.mv;
     b.push(['move', '🚶', 'Рух', mvShow + ' кл · ' + (mvShow * 1.5) + ' м', t.mv <= 0, U.mode === 'move', 'm']);
     atks.forEach((a, k) => b.push(['w' + k, a.range && !a.reach ? '🏹' : a.spell ? '🔥' : '⚔️', a.n, sgn(a.b) + ' · ' + kd(a.dmg), !(t.atkLeft > 0 || t.act > 0), U.mode === 'atk' && U.wi === k, 'a']));
-    if (i.pc && i.c.spells) i.c.spells.forEach((s) => { const sp = R.SPELLS[s]; b.push(['s' + s, '🪄', sp.n, sp.lvl ? '1 коло' : 'замовляння', (sp.time === 'b' ? t.bon <= 0 : !canAction(t)) || (sp.lvl > 0 && i.ch.slots <= 0), U.mode === 'spell' && U.sp === s, (sp.time === 'b' ? 'b' : 'a') + (sp.lvl ? 's' : '')]); });
+    if (i.pc && i.c.spells) i.c.spells.forEach((s) => { const sp = R.SPELLS[s], iu = (i.ch.uses || {}).insp || 0; b.push(['s' + s, sp.ability ? '🎻' : sp.mock || sp.kind === 'save1' && sp.dt === 'психічна' ? '🎶' : '🪄', sp.n, sp.ability ? 'ще ' + iu + ' з 3' : sp.lvl ? '1 коло' : 'замовляння', (sp.time === 'b' ? t.bon <= 0 : !canAction(t)) || (sp.lvl > 0 && i.ch.slots <= 0) || (sp.ability && iu <= 0), U.mode === 'spell' && U.sp === s, (sp.time === 'b' ? 'b' : 'a') + (sp.lvl ? 's' : '')]); });
     b.push(['dash', '🏃', 'Ривок', '+' + i.sp + ' кл', !canAction(t), false, 'a']);
     b.push(['dis', '↩️', 'Відступ', 'без атак при нагоді', !canAction(t), false, 'a']);
     b.push(['dodge', '🛡️', 'Ухилення', 'атаки по тобі з ▼', !canAction(t), false, 'a']);
@@ -1105,6 +1145,7 @@
       if (sp.kind === 'darts') return 'Торкайся цілей: 3 снаряди, можна в одну. ' + U.tgts.length + '/3';
       if (sp.kind === 'buff') return 'Торкнись до 3 союзників (себе теж можна). ' + U.tgts.length + '/3';
       if (sp.kind === 'heal') return sp.range === 1 ? 'Торкнись союзника поруч (або себе).' : 'Торкнись союзника в межах 12 клітинок.';
+      if (sp.kind === 'insp') return 'Торкнись союзника (не себе) у межах 12 клітинок. Найкраще — того, хто бʼється впритул.';
       return 'Торкнись цілі.';
     }
     if (U.mode === 'wake') return 'Торкнись сплячого союзника поруч.';
@@ -1126,7 +1167,7 @@
     if (U.mode === 'spell') {
       const sp = R.SPELLS[U.sp];
       let ready = false, txt = '';
-      if (['atk', 'save1', 'heal', 'mark'].includes(sp.kind) && U.tgt) { ready = true; txt = '→ <b>' + esc(E.info(G, G.cb.tk[U.tgt]).n) + '</b>'; if (sp.kind === 'atk') { const c = E.atkCheck(G, t, { b: 0, reach: 0, range: sp.range, long: sp.range }, G.cb.tk[U.tgt]); if (c.ok && c.dis.length) txt += '<br><span class="bad">▼ ' + c.dis.map(esc).join(', ') + '</span>'; if (c.ok && c.adv.length) txt += '<br><span class="ok">▲ ' + c.adv.map(esc).join(', ') + '</span>'; }
+      if (['atk', 'save1', 'heal', 'mark', 'insp'].includes(sp.kind) && U.tgt) { ready = true; txt = '→ <b>' + esc(E.info(G, G.cb.tk[U.tgt]).n) + '</b>'; if (sp.kind === 'atk') { const c = E.atkCheck(G, t, { b: 0, reach: 0, range: sp.range, long: sp.range }, G.cb.tk[U.tgt]); if (c.ok && c.dis.length) txt += '<br><span class="bad">▼ ' + c.dis.map(esc).join(', ') + '</span>'; if (c.ok && c.adv.length) txt += '<br><span class="ok">▲ ' + c.adv.map(esc).join(', ') + '</span>'; }
         const tg = G.cb.tk[U.tgt], pv = previewFor(t, tg);
         if (pv) txt += attackInfoHtml(pv, E.info(G, tg));
         if (sp.kind === 'heal') { const d = E.dstat(sp.dmg), bonus = R.mod(E.info(G, t).st[E.info(G, t).c.cast]) + (E.info(G, t).ch.cls === 'cleric' ? 3 : 0), ti = E.info(G, tg); txt += '<div class="pv"><span>Лікує <b>' + (d.min + bonus) + '–' + (d.max + bonus) + '</b> (сер. ' + r1(d.avg + bonus) + ')</span><span>Хіти ' + Math.max(0, ti.hp) + '/' + ti.mhp + '</span></div>'; }
@@ -1158,7 +1199,7 @@
     if (U.mode === 'spell') {
       const sp = R.SPELLS[U.sp];
       if (sp.kind === 'atk') return E.attackPreview(t, spellAtkObj(t, sp), tgt, G);
-      if (sp.kind === 'save1') { const d = E.dstat(sp.dmg), pf = E.saveFail(tgt, sp.save, E.spellDC(E.info(G, t).c), G); return { p: pf, min: d.min, max: d.max, avg: d.avg, expected: pf * d.avg, save: true }; }
+      if (sp.kind === 'save1') { const d = E.dstat(sp.dmg), pf = E.saveFail(tgt, sp.save, E.spellDC(E.info(G, t).c), G); return { p: pf, min: d.min, max: d.max, avg: d.avg, expected: pf * d.avg + (sp.half ? (1 - pf) * d.avg / 2 : 0), save: true }; }
       if (sp.kind === 'darts') { const d = E.dstat(sp.dmg); return { p: 1, min: d.min, max: d.max, avg: d.avg, expected: d.avg }; }
     }
     return null;
@@ -1323,12 +1364,13 @@
       const okT = (o) => {
         if (!E.alive(G, o)) return false;
         const d = E.dist(t, o);
+        if (sp.kind === 'insp') return o.side === t.side && o.id !== t.id && !o.cond.insp && d <= sp.range && E.los(G, t, o);
         if (sp.kind === 'heal' || sp.kind === 'buff') return o.side === t.side && d <= Math.max(1, sp.range) && (sp.range <= 1 || E.los(G, t, o));
         if (['atk', 'save1', 'mark', 'darts'].includes(sp.kind)) return o.side !== t.side && d <= sp.range && E.los(G, t, o);
         return false;
       };
       const lab = [];
-      E.toks(G).forEach((o) => { if (okT(o)) { ring(o.x, o.y, sp.kind === 'heal' || sp.kind === 'buff' ? '#5DD27A' : '#C5A8FF', 2.5, [4, 3]); if (o.side !== t.side) lab.push(o); } });
+      E.toks(G).forEach((o) => { if (okT(o)) { ring(o.x, o.y, sp.kind === 'heal' || sp.kind === 'buff' || sp.kind === 'insp' ? '#5DD27A' : '#C5A8FF', 2.5, [4, 3]); if (o.side !== t.side) lab.push(o); } });
       drawLabels(t, lab);
       U.tgts.forEach((id, k) => { const o = G.cb.tk[id]; if (o) { ring(o.x, o.y, '#FFFFFF', 3.5); const [X, Y] = cellXY(o.x, o.y); cx.fillStyle = '#fff'; cx.font = 'bold ' + Math.round(CS * 0.36) + 'px sans-serif'; cx.fillText(String(U.tgts.filter((x) => x === id).length), X + CS * 0.88, Y + CS * 0.14 + k * 0); } });
     }
@@ -1355,7 +1397,7 @@
       const f = Math.max(0, shownHp / i.mhp);
       cx.strokeStyle = 'rgba(0,0,0,.45)'; cx.lineWidth = Math.max(3, CS / 9); cx.beginPath(); cx.arc(X, Y, r + cx.lineWidth / 2, 0, 7); cx.stroke();
       cx.strokeStyle = hpCol(f); cx.beginPath(); cx.arc(X, Y, r + cx.lineWidth / 2, -Math.PI / 2, -Math.PI / 2 + f * Math.PI * 2); cx.stroke();
-      cx.font = Math.round(CS * 0.48) + 'px serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; const himg = i.pc && i.ch.hero && HR.image(i.ch.hero.ii);
+      cx.font = Math.round(CS * 0.48) + 'px serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; const himg = i.pc && HR.image(HR.iconId(i.ch));
       if (himg && !(i.dead && !lag)) { cx.save(); cx.beginPath(); cx.arc(X, Y, r - 1, 0, 7); cx.clip(); if ((i.down || i.dead) && !lag) cx.filter = 'grayscale(1) brightness(.6)'; cx.drawImage(himg, X - r, Y - r, r * 2, r * 2); cx.restore(); }
       else cx.fillText(i.dead && !lag ? '💀' : i.ic, X, Y + 1);
       cx.globalAlpha = 1;
@@ -1381,7 +1423,7 @@
   /* ---------- анімації ефектів ---------- */
   const ANIM = {
     q: [], cur: null, t0: 0, floats: [], banner: null,
-    dur(f) { return f.k === 'move' ? Math.max(300, (f.path.length - 1) * 260) : { aim: 700, roll: 1700, slash: 650, arrow: 800, bolt: 900, ray: 900, darts: 1150, fire: 1250, sleep: 1500, pillar: 1050, heal: 950, bless: 1050, mark: 750 }[f.k] || 600; },
+    dur(f) { return f.k === 'move' ? Math.max(300, (f.path.length - 1) * 260) : { aim: 700, roll: 1700, slash: 650, arrow: 800, bolt: 900, ray: 900, darts: 1150, fire: 1250, sleep: 1500, pillar: 1050, mock: 1100, heal: 950, bless: 1050, mark: 750 }[f.k] || 600; },
     pendHp(id) { let n = 0; for (const f of this.q) if (f.k === 'float' && f.id === id && f.n) n += f.n; return n; },
     pos(t) {
       const f = this.cur;
@@ -1462,6 +1504,7 @@
       });
       if (f.k === 'fire' && f.cells) { cx.globalAlpha = 1 - p; f.cells.forEach(([x, y], k) => { const [X, Y] = cellXY(x, y); cx.fillStyle = k % 2 ? '#FF7A1A' : '#FFC23A'; cx.fillRect(X + 2, Y + 2, CS - 4, CS - 4); }); }
       if (f.k === 'sleep' && f.c) { cx.globalAlpha = 0.6 * (1 - p); tint(f.cells, '#A06EFF'); cx.globalAlpha = 1 - p; cx.font = Math.round(CS * 0.6) + 'px serif'; const C0 = center(f.c[0], f.c[1]); cx.fillText('💤', C0[0], C0[1] - p * CS); }
+      if (f.k === 'mock' && B) { cx.globalAlpha = 1 - p; cx.font = Math.round(CS * 0.5) + 'px serif'; cx.textAlign = 'center'; cx.fillText('🎶', B[0] - CS * 0.25, B[1] - p * CS); cx.fillText('😝', B[0] + CS * 0.3, B[1] - CS * 0.3 - p * CS * 0.6); cx.globalAlpha = 1; }
       if (f.k === 'pillar' && B) { const g = cx.createLinearGradient(B[0], B[1] - CS * 2, B[0], B[1]); g.addColorStop(0, 'rgba(255,240,180,0)'); g.addColorStop(1, 'rgba(255,240,180,' + (1 - p) + ')'); cx.fillStyle = g; cx.fillRect(B[0] - CS * 0.35, B[1] - CS * 2.2, CS * 0.7, CS * 2.5); }
       if ((f.k === 'heal' || f.k === 'mark') && B) { cx.globalAlpha = 1 - p; cx.font = Math.round(CS * 0.55) + 'px serif'; cx.fillText(f.k === 'heal' ? '💚' : '🎯', B[0], B[1] - p * CS * 0.9); }
       if (f.k === 'bless') (f.bs || []).forEach((b) => { const C0 = center(b[0], b[1]); cx.globalAlpha = 1 - p; cx.font = Math.round(CS * 0.5) + 'px serif'; cx.fillText('✨', C0[0], C0[1] - p * CS); });
@@ -1553,7 +1596,7 @@
       else if (sp.kind === 'sleep') { if (Math.max(Math.abs(x - t.x), Math.abs(y - t.y)) > sp.range) { toast('Задалеко: Сон — до 18 клітинок.'); return; } U.sel = [x, y]; }
       else if (o) {
         const ally = o.side === t.side, d = E.dist(t, o), rng = Math.max(1, sp.range);
-        if (sp.kind === 'heal' || sp.kind === 'buff') { if (!ally) { toast('Це для союзників.'); return; } }
+        if (sp.kind === 'heal' || sp.kind === 'buff' || sp.kind === 'insp') { if (!ally) { toast('Це для союзників.'); return; } if (sp.kind === 'insp' && o.id === t.id) { toast('Натхнення — для друзів, не для себе.'); return; } }
         else if (ally) { toast('Це союзник.'); return; }
         if (d > rng) { toast(sp.range <= 1 ? 'Треба стояти поруч — це дотик.' : 'Задалеко: ' + sp.n + ' — до ' + sp.range + ' клітинок.'); return; }
         if (sp.range > 1 && !E.los(G, t, o)) { toast('Не видно — заважає стіна.'); return; }
