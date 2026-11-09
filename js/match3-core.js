@@ -39,6 +39,15 @@
     { key: 'shuffle', title: 'Перемішування', text: 'Нова розкладка без витрати ходу', price: 15, step: 5 },
   ];
   const COIN_LEVEL = 6, COIN_MOVE = 1, COIN_MOVE_CAP = 10, COIN_GOLD = 5, COIN_FUSE = 3;
+  const COIN_RATE = 0.7;   // загальний множник доходу; дробова частина чекає в G.coinBank
+
+  function earn(G, n) {
+    const total = (G.coinBank || 0) + n * COIN_RATE;
+    const whole = Math.floor(total + 1e-9);
+    G.coinBank = total - whole;
+    G.coins = (G.coins || 0) + whole;
+    return whole;
+  }
 
   const idx = (x, y) => y * N + x;
   const X = (i) => i % N;
@@ -194,8 +203,8 @@
       removed.push({ i, id: c.id, c: c.c, d });
       if (!inGroup.has(i)) raw += 12;
       if (c.c >= 0) G.collected[c.c] = (G.collected[c.c] || 0) + 1;
-      if (c.gold) { gold = true; G.coins = (G.coins || 0) + COIN_GOLD; }
-      if (c.fuse) { raw += 50; G.defused = (G.defused || 0) + 1; G.coins = (G.coins || 0) + COIN_FUSE; }
+      if (c.gold) { gold = true; earn(G, COIN_GOLD); }
+      if (c.fuse) { raw += 50; G.defused = (G.defused || 0) + 1; earn(G, COIN_FUSE); }
       if (G.ice[i] > 0) { G.ice[i]--; raw += 20; iceEv.push({ i, hp: G.ice[i] }); }
       G.cells[i] = null;
     });
@@ -433,8 +442,7 @@
   // Залишок ходів згорає смугами: це фінальний салют і головне джерело балів за вправну гру.
   function finishLevel(G) {
     const events = [];
-    const coins = COIN_LEVEL + Math.min(G.moves, COIN_MOVE_CAP) * COIN_MOVE;
-    G.coins = (G.coins || 0) + coins;
+    const coins = earn(G, COIN_LEVEL + Math.min(G.moves, COIN_MOVE_CAP) * COIN_MOVE);
     const fire = Math.min(G.moves, 8);
     for (let n = 0; n < fire; n++) {
       const gems = [];
