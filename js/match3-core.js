@@ -25,12 +25,20 @@
   const CHEST_POOL = [
     { key: 'hammer', title: 'Два молоти', text: 'Розбивають будь-яку клітинку' },
     { key: 'shuffle', title: 'Два перемішування', text: 'Нова розкладка без витрати ходу' },
-    { key: 'plus', title: 'Запас ходів', text: 'Ще один набір +5 ходів' },
+    { key: 'plus', title: 'Запас ходів', text: 'Два набори +5 ходів' },
     { key: 'moves', title: 'Довгий подих', text: '+1 хід на кожному рівні', perk: 1 },
     { key: 'line', title: 'Смуга на старт', text: 'Кожен рівень починається зі смугою', perk: 1 },
     { key: 'bomb', title: 'Бомба на старт', text: 'Кожен рівень починається з бомбою', perk: 1 },
     { key: 'greed', title: 'Щедрість', text: '+15% балів до кінця забігу', perk: 1 },
   ];
+
+  // Монети живуть лише в межах забігу, тож рекорди лишаються порівнянними.
+  const SHOP = [
+    { key: 'plus', title: '+5 ходів', text: 'Набір запасних ходів', price: 40, step: 20 },
+    { key: 'hammer', title: 'Молот', text: 'Розбиває будь-яку клітинку', price: 25, step: 10 },
+    { key: 'shuffle', title: 'Перемішування', text: 'Нова розкладка без витрати ходу', price: 15, step: 5 },
+  ];
+  const COIN_LEVEL = 6, COIN_MOVE = 1, COIN_MOVE_CAP = 10, COIN_GOLD = 5, COIN_FUSE = 3;
 
   const idx = (x, y) => y * N + x;
   const X = (i) => i % N;
@@ -186,8 +194,8 @@
       removed.push({ i, id: c.id, c: c.c, d });
       if (!inGroup.has(i)) raw += 12;
       if (c.c >= 0) G.collected[c.c] = (G.collected[c.c] || 0) + 1;
-      if (c.gold) gold = true;
-      if (c.fuse) { raw += 50; G.defused = (G.defused || 0) + 1; }
+      if (c.gold) { gold = true; G.coins = (G.coins || 0) + COIN_GOLD; }
+      if (c.fuse) { raw += 50; G.defused = (G.defused || 0) + 1; G.coins = (G.coins || 0) + COIN_FUSE; }
       if (G.ice[i] > 0) { G.ice[i]--; raw += 20; iceEv.push({ i, hp: G.ice[i] }); }
       G.cells[i] = null;
     });
@@ -425,6 +433,8 @@
   // Залишок ходів згорає смугами: це фінальний салют і головне джерело балів за вправну гру.
   function finishLevel(G) {
     const events = [];
+    const coins = COIN_LEVEL + Math.min(G.moves, COIN_MOVE_CAP) * COIN_MOVE;
+    G.coins = (G.coins || 0) + coins;
     const fire = Math.min(G.moves, 8);
     for (let n = 0; n < fire; n++) {
       const gems = [];
@@ -439,7 +449,7 @@
     G.score += clearBonus;
     G.moves = 0;
     G.status = 'cleared';
-    events.push({ type: 'bonus', pts: clearBonus });
+    events.push({ type: 'bonus', pts: clearBonus, coins });
     if (G.level % CHEST_EVERY === 0) G.chest = rollChest(G);
     return events;
   }
@@ -453,9 +463,23 @@
     if (!G.chest || !G.chest.includes(key)) return false;
     const o = chestOption(key);
     if (o.perk) G.perks[key]++;
-    else if (key === 'plus') G.boosters.plus++;
     else G.boosters[key] += 2;
     G.chest = null;
+    return true;
+  }
+
+  // Ціна росте лише в межах рівня: так не вийде викупити безнадійний рівень нескінченно.
+  function shopPrice(G, key) {
+    const o = SHOP.find((x) => x.key === key);
+    return o.price + ((G.bought && G.bought[key]) || 0) * o.step;
+  }
+  function buy(G, key) {
+    const price = shopPrice(G, key);
+    if ((G.coins || 0) < price) return false;
+    G.coins -= price;
+    G.bought = G.bought || {};
+    G.bought[key] = (G.bought[key] || 0) + 1;
+    G.boosters[key]++;
     return true;
   }
 
@@ -532,6 +556,7 @@
     G.kind = plan.kind;
     G.levelRaw = 0;
     G.collected = {};
+    G.bought = {};
     G.status = 'play';
     fillBoard(G, plan);
     return G;
@@ -542,7 +567,7 @@
     const G = {
       v: 1, diff, seed: seed | 0, nextId: 0, colors: d.colors, level: 1, score: 0, moves: 0,
       boosters: { ...d.boosters }, perks: { moves: 0, line: 0, bomb: 0, greed: 0 },
-      goals: [], cells: [], ice: [], collected: {}, levelRaw: 0, status: 'play', chest: null,
+      goals: [], cells: [], ice: [], collected: {}, levelRaw: 0, status: 'play', chest: null, coins: 0, bought: {},
     };
     return startLevel(G, 1);
   }
@@ -551,6 +576,6 @@
   return {
     N, DIFF, TUNE, CHEST_EVERY, FUSE_PENALTY, X, Y, idx, adjacent, isGem,
     newGame, nextLevel, startLevel, playSwap, useHammer, useShuffle, usePlus, finishLevel,
-    listMoves, hint, goalState, goalsDone, findGroups, validSwap, pickChest, chestOption, pointsMul,
+    listMoves, hint, goalState, goalsDone, findGroups, validSwap, pickChest, chestOption, pointsMul, SHOP, shopPrice, buy,
   };
 });

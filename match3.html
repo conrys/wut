@@ -49,7 +49,7 @@
   .banner b { display: block; font: 700 24px/1.15 var(--display); }
   .banner span { display: block; margin-top: 4px; font: 700 15px/1.3 var(--body); color: var(--muted); }
 
-  .tools { display: flex; justify-content: center; gap: 22px; padding-top: 2px; }
+  .tools { display: flex; justify-content: center; gap: 16px; padding-top: 2px; }
   .tool { position: relative; width: 56px; height: 56px; padding: 0; border-radius: 50%; border: 0; cursor: pointer; display: grid; place-items: center; color: var(--ivory); background: rgba(246,232,204,.11); touch-action: manipulation; }
   .tool svg { width: 27px; height: 27px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   .tool .n { position: absolute; right: -3px; top: -3px; min-width: 22px; height: 22px; padding: 0 5px; border-radius: 11px; background: var(--ochre); color: var(--dark); font: 800 13px/22px var(--body); text-align: center; }
@@ -77,6 +77,8 @@
   .opt span { display: block; margin-top: 2px; font: 600 14px/1.3 var(--body); color: var(--muted); }
   .opt.main { background: var(--ochre); color: var(--dark); }
   .opt.main span { color: #5b4208; }
+  .opt[disabled] { opacity: .45; cursor: default; }
+  .opt em { flex: none; font: 700 21px/1 var(--display); font-style: normal; color: var(--ochre); }
   .link { justify-self: center; min-height: 44px; padding: 0 14px; border: 0; background: none; color: var(--muted); font: 700 15px var(--body); cursor: pointer; }
   @media (max-height: 620px) { .score { font-size: 24px; } .moves b { font-size: 28px; } .tool { width: 48px; height: 48px; } .task { min-height: 42px; } .goal img { width: 28px; height: 28px; } .hero img { width: 64px; height: 64px; } }
 </style>
@@ -93,13 +95,14 @@
       <button class="tool" id="hammer" type="button" aria-label="Молот: розбити клітинку"><svg viewBox="0 0 24 24"><path d="M14 4l6 6-3 3-6-6zM12.5 8.5L4 17a2 2 0 0 0 3 3l8.5-8.5"/></svg><span class="n">0</span></button>
       <button class="tool" id="shuffle" type="button" aria-label="Перемішати поле"><svg viewBox="0 0 24 24"><path d="M3 7h4c5 0 5 10 10 10h4M3 17h4c1.700 0 2.900-1.200 4-2.800M21 7h-4c-1.700 0-2.900 1.200-4 2.800M18 4l3 3-3 3M18 14l3 3-3 3"/></svg><span class="n">0</span></button>
       <button class="tool" id="plus" type="button" aria-label="Додати 5 ходів"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span class="n">0</span></button>
+      <button class="tool" id="shop" type="button" aria-label="Крамниця"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.500"/><path d="M12 7.500v9M9.500 9.500h3.700a1.700 1.700 0 0 1 0 3.400h-2.400a1.700 1.700 0 0 0 0 3.400h3.700"/></svg><span class="n">0</span></button>
     </div>
   </div>
 </div>
 <div id="ov"><div class="card" id="card"></div></div>
 
-<script src="js/match3-core.js?v=20261109"></script>
-<script src="js/match3-game.js?v=20261109"></script>
+<script src="js/match3-core.js?v=20261109b"></script>
+<script src="js/match3-game.js?v=20261109b"></script>
 <script src="./vendor/firebase/10.13.0/firebase-app-compat.js"></script>
 <script src="./vendor/firebase/10.13.0/firebase-auth-compat.js"></script>
 <script src="./vendor/firebase/10.13.0/firebase-firestore-compat.js"></script>

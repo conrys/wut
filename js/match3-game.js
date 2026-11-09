@@ -339,6 +339,8 @@
   const fmt = (n) => Math.round(n).toLocaleString('uk-UA').replace(/,/g, ' ');
   function plural(n) { const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? 'хід' : a >= 2 && a <= 4 && (b < 12 || b > 14) ? 'ходи' : 'ходів'; }
 
+  function coinWord(n) { const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? 'монета' : a >= 2 && a <= 4 && (b < 12 || b > 14) ? 'монети' : 'монет'; }
+
   function renderGoals() {
     const gs = C.goalState(G);
     view.have = gs.map((g) => g.have);
@@ -368,6 +370,7 @@
     [['hammer', G.boosters.hammer], ['shuffle', G.boosters.shuffle], ['plus', G.boosters.plus]].forEach(([id, n]) => {
       const b = $(id); b.querySelector('.n').textContent = n; b.disabled = n <= 0;
     });
+    $('shop').querySelector('.n').textContent = G.coins || 0;
     $('hammer').classList.toggle('on', armed);
     cv.classList.toggle('armed', armed);
   }
@@ -415,7 +418,7 @@
         await wait(320);
       } else if (e.type === 'hammer') { shake = 7; tone(150, 0.14, 0.14, 0, 'square'); await wait(90); }
       else if (e.type === 'finale') { view.moves = e.left; updateHud(); }
-      else if (e.type === 'bonus') { view.score += e.pts; updateHud(); pop('+' + fmt(e.pts), side / 2, side / 2, Math.round(cell * 0.9), '#ffd76b', 1.1); tone(784, 0.2, 0.1); tone(1047, 0.3, 0.1, 0.12); await wait(650); }
+      else if (e.type === 'bonus') { view.score += e.pts; updateHud(); pop('+' + fmt(e.pts), side / 2, side / 2, Math.round(cell * 0.9), '#ffd76b', 1.1); tone(784, 0.2, 0.1); tone(1047, 0.3, 0.1, 0.12); if (e.coins) banner(`+${e.coins} ${coinWord(e.coins)}`, '', 800); await wait(650); }
     }
     syncView();
   }
@@ -603,6 +606,8 @@
   $('shuffle').addEventListener('click', () => { if (busy || !G || G.status !== 'play') return; armed = false; runBooster(C.useShuffle(G)); });
   $('plus').addEventListener('click', () => { if (busy || !G || G.status !== 'play') return; armed = false; runBooster(C.usePlus(G)); });
 
+  $('shop').addEventListener('click', () => { if (busy || !G || G.status !== 'play') return; armed = false; updateHud(); showShop(); });
+
   function ensureAudio() {
     try {
       if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
@@ -667,9 +672,32 @@
       C.nextLevel(G); save(); startBoard();
     }; });
   }
+  function showShop() {
+    const coins = G.coins || 0;
+    card.innerHTML = `<h2>Крамниця</h2><p>У тебе ${coins} ${coinWord(coins)}. Монети дають за пройдені рівні, ходи в запасі, золоті фішки й знешкоджені вибухи.</p>` + C.SHOP.map((o) => {
+      const price = C.shopPrice(G, o.key);
+      return `<button class="opt" data-b="${o.key}" type="button"${coins < price ? ' disabled' : ''}><div><b>${esc(o.title)}</b><span>${esc(o.text)}. Є: ${G.boosters[o.key]}</span></div><em>${price}</em></button>`;
+    }).join('') + '<button class="link" id="back" type="button">Повернутись до гри</button>';
+    ov.hidden = false;
+    card.querySelectorAll('[data-b]').forEach((b) => { b.onclick = () => {
+      if (!C.buy(G, b.dataset.b)) return;
+      save(); tone(880, 0.12, 0.08); updateHud(); showShop();
+    }; });
+    $('back').onclick = () => { ov.hidden = true; idleStart(); };
+  }
   function showLost() {
     const canPlus = G.boosters.plus > 0;
-    if (!canPlus) return gameOver();
+    if (!canPlus) {
+      const price = C.shopPrice(G, 'plus');
+      if ((G.coins || 0) < price) return gameOver();
+      card.innerHTML = `<h2>Ходи скінчились</h2><p>У тебе ${G.coins} ${coinWord(G.coins)}. Купи запасні ходи й доведи рівень до кінця.</p>
+        <button class="opt main" id="more" type="button"><div><b>Купити 5 ходів</b></div><em style="color:inherit">${price}</em></button>
+        <button class="link" id="stop" type="button">Завершити забіг</button>`;
+      ov.hidden = false;
+      $('more').onclick = () => { C.buy(G, 'plus'); ov.hidden = true; runBooster(C.usePlus(G)); };
+      $('stop').onclick = gameOver;
+      return;
+    }
     card.innerHTML = `<h2>Ходи скінчились</h2><p>Додай запасні ходи й доведи рівень до кінця.</p>
       <button class="opt main" id="more" type="button"><div><b>Додати 5 ходів</b><span>Лишилось наборів: ${G.boosters.plus}</span></div></button>
       <button class="link" id="stop" type="button">Завершити забіг</button>`;
