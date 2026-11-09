@@ -207,6 +207,14 @@ textarea{font:inherit;font-size:16px;padding:9px 11px;border-radius:12px;border:
 .crop-frame{border-radius:12px;overflow:hidden;touch-action:none;box-shadow:0 0 0 2px rgba(255,255,255,.3)}
 .crop-frame.round{border-radius:12px}
 .crop-frame canvas{display:block;touch-action:none;cursor:grab}
+.camps{display:grid;gap:6px;margin-top:10px}
+.camp{display:flex;gap:6px;align-items:stretch}
+.camp .btn2.grow{text-align:left}
+.camp small{display:block;font-weight:400;color:var(--mute);font-size:12px;margin-top:2px}
+.adv{background:var(--card2);border-radius:14px;padding:10px;margin-top:8px}
+.adv-h{display:flex;gap:10px;align-items:center;margin-bottom:8px}
+.adv-ic{font-size:30px}
+.adv small{display:block;color:var(--mute);font-size:12.5px}
 .others{background:var(--card2);border-radius:12px;padding:6px 10px;margin-top:8px}
 .oth{display:flex;align-items:center;gap:8px;padding:4px 0}
 .oth b{font-family:var(--display);font-size:16px;min-width:44px;text-align:right}
@@ -275,13 +283,21 @@ details.lore p{margin:4px 0 4px;font-size:14px;color:var(--ink)}
       <button class="btn wide" id="btnSolo" type="button">Почати навчання</button>
       <button class="btn2" id="btnSoloResume" type="button" hidden style="width:100%;margin-top:10px"></button>
     </div>
+    <div class="card">
+      <h3>🗺️ Кампанії — соло</h3>
+      <p class="muted">Повноцінні пригоди без підказок. Можна грати своїм героєм.</p>
+      <div id="advList"></div>
+    </div>
     <p class="eyebrow" style="text-align:center;margin:4px 0 8px">Або грайте разом — кожен зі свого телефона</p>
     <div class="card">
       <h3>Я майстер</h3>
       <p class="muted">Ведеш історію: читаєш сцени, просиш кидки, керуєш монстрами. Гра підказує, що й коли.</p>
       <label class="f">Твоє імʼя<input id="dmName" maxlength="16" placeholder="Влад"></label>
       <button class="btn wide" id="btnDm" type="button">Створити гру</button>
-      <button class="btn2" id="btnResume" type="button" hidden style="width:100%;margin-top:10px"></button>
+      <div id="campList" class="camps" hidden></div>
+      <details style="margin-top:10px"><summary class="muted" style="font-weight:600">Відновити кампанію за кодом (з хмари)</summary>
+        <div class="row" style="margin-top:8px"><input id="restoreCode" maxlength="4" autocapitalize="characters" placeholder="ABCD" style="text-transform:uppercase;letter-spacing:.2em;font-weight:800;flex:1"><button class="btn2" id="btnRestore" type="button">Відновити</button></div>
+        <p class="muted" style="font-size:12.5px;margin:6px 0 0">Кожна кампанія автоматично зберігається в хмарі — на випадок, якщо телефон очистився або ведеш з іншого.</p></details>
     </div>
     <div class="card">
       <h3>Я гравець</h3>
@@ -305,6 +321,7 @@ details.lore p{margin:4px 0 4px;font-size:14px;color:var(--ink)}
     <p class="eyebrow" style="text-align:center">Код гри</p>
     <div class="code" id="lobCode">----</div>
     <p class="sub" id="lobSub">Гравці вводять цей код на своїх телефонах.</p>
+    <div class="card" id="lobAdv" hidden></div>
     <div class="card" id="lobPick" hidden>
       <h3>Обери героя</h3>
       <p class="muted">Усі герої 2-го рівня й готові до бою. Торкнись, щоб обрати.</p>
@@ -350,6 +367,7 @@ details.lore p{margin:4px 0 4px;font-size:14px;color:var(--ink)}
 <script src="../net-firebase.js" data-root="dnd"></script>
 <script src="rules.js" charset="utf-8"></script>
 <script src="story.js" charset="utf-8"></script>
+<script src="sanguine.js" charset="utf-8"></script>
 <script src="engine.js" charset="utf-8"></script>
 <script src="botdm.js" charset="utf-8"></script>
 <script src="heroes.js" charset="utf-8"></script>

@@ -1,13 +1,14 @@
 // Кошмар наяву: бот-майстер проводить усю пригоду різними стилями гри. node bots/local-sim/dnd-botdm-test.js
 const path = require('path');
 global.window = {};
-for (const f of ['rules.js', 'story.js', 'engine.js', 'botdm.js']) require(path.join(__dirname, '../../ads/dnd', f));
+for (const f of ['rules.js', 'story.js', 'sanguine.js', 'engine.js', 'botdm.js']) require(path.join(__dirname, '../../ads/dnd', f));
 const R = window.DND, S = window.DND_STORY, E = window.DNDE, BOT = window.DNDBotDM;
 E.delay = 0; BOT.BD.fast = true;
 let fails = 0, n = 0;
 const ok = (c, msg) => { n++; if (!c) { fails++; console.log('✖ ' + msg); } };
 
-async function play(cls, mates, pick) {
+async function play(cls, mates, pick, adv) {
+  window.DND_USE(adv || 'nightmare');
   E.G = E.blank();
   E.G.chars['я'] = E.newChar('Я', cls);
   mates.forEach((c) => E.apply({ t: 'bot', cls: c }, null, true));
@@ -58,6 +59,18 @@ const scnId = (i) => S.SCENES[i].id;
     }
     console.log('  ' + name + ': ' + r.msgs + ' повідомлень, ' + r.picks.length + ' виборів, повторних спроб ' + r.retries + ', лор ' + r.g.lore.length + ', журнал ' + r.g.journal.length + ', фінал ' + r.g.end);
   }
+  // «Ніч, яку не забути»: без підказок, вільний порядок слідів
+  for (const [name, cls, mates, pick] of [['Сангвін цікавий (маг+2)', 'wizard', ['fighter', 'rogue'], curious], ['Сангвін поспішний (воїн соло)', 'fighter', [], hasty], ['Сангвін випадковий', 'cleric', ['ranger'], random], ['Сангвін випадковий 2', 'rogue', ['fighter', 'cleric'], random]]) {
+    const r = await play(cls, mates, pick, 'sanguine');
+    ok(!r.bad, name + ': ' + r.bad);
+    ok(r.g.bd.end && r.g.adv === 'sanguine', name + ': дійшов до кінця (' + r.guard + ' кроків, сцена ' + window.DND_STORY.SCENES[r.g.bd.sc].id + ', біт ' + r.g.bd.i + ')');
+    ok(r.scenes.size === 5, name + ': 5 сцен (' + r.scenes.size + ')');
+    ok(r.g.end === 'a' || r.g.end === 'b', name + ': фінал ' + r.g.end);
+    ok(r.g.tut === false && !r.g.seen.length, name + ': без уроків (' + r.g.seen.join(',') + ')');
+    ok(r.g.bd.flags.rdone && r.g.bd.flags.wdone, name + ': обидва сліди пройдено');
+    console.log('  ' + name + ': ' + r.msgs + ' повідомлень, ' + r.picks.length + ' виборів, бої: ' + [...r.fights].join(',') + ', лор ' + r.g.lore.length + ', фінал ' + r.g.end);
+  }
+  window.DND_USE('nightmare');
   // ланцюжок: «чи не договорює» недоступне, поки не поговорили з жерцем
   E.G = E.blank(); E.G.chars['я'] = E.newChar('Я', 'rogue'); E.apply({ t: 'start' }, null, true); BOT.init(E, 'я');
   const g = E.G; let seenHideEarly = false, seenTalk = false, seenName = false, staleMed = false, guard = 0;

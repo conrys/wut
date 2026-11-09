@@ -11,7 +11,7 @@
   const clsName = (ch) => (ch.hero ? R.CLASS_HINT[ch.cls].cn : R.CLASSES[ch.cls].n);
   const ordIc = (i) => { const u = i.pc && i.ch.hero && HR.url(i.ch.hero.ii); return '<i style="background:' + i.col + '">' + (u ? '<img alt="" src="' + u + '">' : i.ic) + '</i>'; };
   const kd = (s) => String(s).replace(/(\d)d(\d)/g, '$1к$2');
-  const LS = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} } };
+  const LS = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } } };
 
   const ME = { role: null, nick: '', key: '', cls: null, code: '', q: [] };
   const U = { tab: null, mode: 'move', sel: null, tgt: null, tgts: [], wi: -1, sp: null, lesQ: [], rollSeen: null, fxSeen: null,
@@ -39,51 +39,102 @@
   function sessionName() { try { const s = JSON.parse(localStorage.getItem('games41_session') || 'null'); return s && s.username ? String(s.username) : ''; } catch (e) { return ''; } }
   const savedNick = LS.get('dnd_nick', '') || sessionName();
   $('dmName').value = savedNick; $('plName').value = savedNick; $('soloName').value = savedNick;
-  const save = LS.get('dnd_save', null);
-  if (save && save.code && save.g && save.g.started) {
-    $('btnResume').hidden = false;
-    $('btnResume').textContent = '↺ Продовжити гру ' + save.code + ' — ' + (S.SCENES[save.g.sc] || S.SCENES[0]).t;
+  /* ---------- збереження: кампанії майстра (кілька, нічого не перезаписується) + хмарна копія ---------- */
+  const ADVS = window.DND_ADV, advOf = (g) => ADVS[(g && g.adv) || 'nightmare'] || ADVS.nightmare;
+  const camps = () => LS.get('dnd_camps', {});
+  (function migrate() { // старі збереження — у нові сховища
+    const old = LS.get('dnd_save', null), c = camps();
+    if (old && old.code && old.g && !c[old.code]) { c[old.code] = { code: old.code, nick: old.nick, g: old.g, at: old.at || Date.now() }; LS.set('dnd_camps', c); }
+    if (old) { try { localStorage.removeItem('dnd_save'); } catch (e) {} }
+    const os = LS.get('dnd_solo', null);
+    if (os && os.g && !LS.get('dnd_solo_nightmare', null)) LS.set('dnd_solo_nightmare', os);
+    if (os) { try { localStorage.removeItem('dnd_solo'); } catch (e) {} }
+  })();
+  const sceneOf = (g) => { const a = advOf(g); return (a.SCENES[g.sc] || a.SCENES[0]).t; };
+  const ago = (t) => { const d = Math.round((Date.now() - t) / 864e5); return d <= 0 ? 'сьогодні' : d === 1 ? 'вчора' : d + ' дн. тому'; };
+  function renderCamps() {
+    const list = Object.values(camps()).sort((a, b) => b.at - a.at);
+    $('campList').innerHTML = list.map((c) => '<div class="camp"><button type="button" class="btn2 grow" data-camp="' + c.code + '">↺ <b>' + c.code + '</b> · ' + esc(advOf(c.g).title) + '<small>' + (c.g.started ? esc(sceneOf(c.g)) : 'лобі') + ' · ' + Object.keys(c.g.chars || {}).length + ' героїв · ' + ago(c.at) + '</small></button><button type="button" class="btn2 sm" data-campdel="' + c.code + '" aria-label="Видалити">🗑</button></div>').join('');
+    $('campList').hidden = !list.length;
   }
-  const soloSave = LS.get('dnd_solo', null);
-  if (soloSave && soloSave.g && soloSave.g.bd && !soloSave.g.bd.end) {
-    $('btnSoloResume').hidden = false;
-    $('btnSoloResume').textContent = '↺ Продовжити соло — ' + (S.SCENES[soloSave.g.sc] || S.SCENES[0]).t;
+  function soloKey(adv) { return 'dnd_solo_' + adv; }
+  function renderSoloCards() {
+    const t = LS.get(soloKey('nightmare'), null);
+    $('btnSoloResume').hidden = !(t && t.g && t.g.bd && !t.g.bd.end);
+    if (!$('btnSoloResume').hidden) $('btnSoloResume').textContent = '↺ Продовжити навчання — ' + sceneOf(t.g);
+    $('advList').innerHTML = Object.values(ADVS).filter((a) => !a.tutorial).map((a) => {
+      const sv = LS.get(soloKey(a.id), null), can = sv && sv.g && sv.g.bd && !sv.g.bd.end;
+      return '<div class="adv"><div class="adv-h"><span class="adv-ic">' + a.icon + '</span><div class="grow"><b>' + esc(a.title) + '</b><small>' + esc(a.sub) + '</small></div></div><div class="row"><button class="btn grow" type="button" data-advsolo="' + a.id + '">' + (can ? 'Почати заново' : 'Грати соло') + '</button>' + (can ? '<button class="btn2" type="button" data-advresume="' + a.id + '">↺ ' + esc(sceneOf(sv.g)) + '</button>' : '') + '</div></div>';
+    }).join('') || '<p class="muted">Скоро.</p>';
   }
-  $('btnSolo').addEventListener('click', () => { startErr(''); if ($('soloName').value.trim().length < 2) $('soloName').value = 'Герой'; const n = nickFrom('soloName'); if (!n) return; openSoloSetup(n); });
-  $('btnSoloResume').addEventListener('click', () => {
-    const s0 = LS.get('dnd_solo', null); if (!s0) return;
+  renderCamps(); renderSoloCards();
+  $('btnSolo').addEventListener('click', () => { startErr(''); if ($('soloName').value.trim().length < 2) $('soloName').value = 'Герой'; const n = nickFrom('soloName'); if (!n) return; if (!confirmRestart('nightmare')) return; openSoloSetup(n, 'nightmare'); });
+  $('btnSoloResume').addEventListener('click', () => resumeSolo('nightmare'));
+  $('advList').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-advsolo],[data-advresume]'); if (!b) return;
+    if (b.dataset.advresume) return resumeSolo(b.dataset.advresume);
+    if ($('soloName').value.trim().length < 2) $('soloName').value = 'Герой';
+    const n = nickFrom('soloName'); if (!n || !confirmRestart(b.dataset.advsolo)) return; openSoloSetup(n, b.dataset.advsolo);
+  });
+  function confirmRestart(adv) { const sv = LS.get(soloKey(adv), null); return !(sv && sv.g && sv.g.bd && !sv.g.bd.end) || confirm('Почати заново? Збережений прогрес цієї кампанії буде втрачено.'); }
+  function resumeSolo(adv) {
+    const s0 = LS.get(soloKey(adv), null); if (!s0) return;
+    window.DND_USE(s0.g.adv || adv);
     Object.assign(ME, { role: 'pl', solo: true, nick: s0.nick, key: s0.key, code: 'соло', q: [] });
     E.G = s0.g; E.G.fx = []; E.busy = false; G = E.G; U.joinedAt = performance.now(); render(true);
+  }
+  $('campList').addEventListener('click', (e) => {
+    const d = e.target.closest('[data-campdel]'); if (d) { const c = camps(); if (confirm('Видалити кампанію ' + d.dataset.campdel + '? Це не можна скасувати.')) { delete c[d.dataset.campdel]; LS.set('dnd_camps', c); renderCamps(); } return; }
+    const b = e.target.closest('[data-camp]'); if (b) resumeCamp(b.dataset.camp);
   });
-  function openSoloSetup(n) {
-    U.solo = U.solo || { cls: 'fighter', mates: ['wizard', 'cleric'] };
-    const f = U.solo;
-    f.mates = f.mates.filter((c) => c !== f.cls);
-    openModal('solo', '<p class="eyebrow">Навчальна кампанія — соло</p><h2>Ким граєш?</h2><p class="muted">Обери героя. Не знаєш — бери Воїна: найпростіший для старту.</p><div class="classes" style="margin-top:8px">' +
-      R.CLASS_IDS.map((id) => { const c = R.CLASSES[id]; return '<button type="button" class="cls' + (f.cls === id ? ' on' : '') + '" data-scls="' + id + '"><span class="avatar" style="background:' + c.col + '">' + c.ic + '</span><span class="grow"><b>' + c.n + '</b><small>' + esc(c.bio) + '</small></span></button>'; }).join('') +
+  $('btnRestore').addEventListener('click', async () => {
+    startErr(''); const code = $('restoreCode').value.trim().toUpperCase();
+    if (!/^[A-Z]{4}$/.test(code)) { startErr('Код кампанії — 4 літери.'); return; }
+    try {
+      if (!(AVAIL && await AVAIL.ready())) throw new Error('offline');
+      const v = (await firebase.database().ref('dnd_saves/' + code).get()).val();
+      if (!v || !v.g) { startErr('Хмарної копії з кодом ' + code + ' не знайдено.'); return; }
+      const c = camps(); c[code] = { code, nick: v.nick || $('dmName').value || 'Майстер', g: JSON.parse(v.g), at: v.at || Date.now() }; LS.set('dnd_camps', c);
+      renderCamps(); resumeCamp(code);
+    } catch (e) { startErr('Не вдалося завантажити. Перевір інтернет.'); }
+  });
+  function openSoloSetup(n, adv) {
+    U.solo = U.solo || { cls: 'fighter', mates: ['wizard', 'cleric'], hero: null };
+    const f = U.solo, A = ADVS[adv] || ADVS.nightmare, presets = !!A.presetsOnly;
+    if (presets) f.hero = null;
+    const hcls = f.hero && HR.get(f.hero) ? HR.get(f.hero).cls : f.cls;
+    f.mates = f.mates.filter((c) => c !== hcls);
+    openModal('solo', '<p class="eyebrow">' + (presets ? 'Навчальна кампанія — соло' : esc(A.icon + ' ' + A.title) + ' — соло') + '</p><h2>Ким граєш?</h2><p class="muted">' + (presets ? 'Обери героя. Не знаєш — бери Воїна: найпростіший для старту.' : 'Свій герой або готовий. Підказок і уроків у цій кампанії немає.') + '</p>' +
+      (presets ? '' : '<div class="classes" style="margin-top:8px">' + HR.pickHtml(f.hero, 'shero') + '<button type="button" class="btn2" data-snew="1">＋ Створити свого героя</button></div><p class="eyebrow" style="margin-top:10px">Або готовий герой</p>') + '<div class="classes" style="margin-top:8px">' +
+      R.CLASS_IDS.map((id) => { const c = R.CLASSES[id]; return '<button type="button" class="cls' + (!f.hero && f.cls === id ? ' on' : '') + '" data-scls="' + id + '"><span class="avatar" style="background:' + c.col + '">' + c.ic + '</span><span class="grow"><b>' + c.n + '</b><small>' + esc(c.bio) + '</small></span></button>'; }).join('') +
       '</div><p class="eyebrow" style="margin-top:12px">Супутники-боти (можна жодного)</p><div class="chips">' +
-      R.CLASS_IDS.filter((id) => id !== f.cls).map((id) => '<button type="button" data-smate="' + id + '" class="' + (f.mates.includes(id) ? 'on' : '') + '">' + R.CLASSES[id].ic + ' ' + R.CLASSES[id].n + '</button>').join('') +
+      R.CLASS_IDS.filter((id) => id !== hcls).map((id) => '<button type="button" data-smate="' + id + '" class="' + (f.mates.includes(id) ? 'on' : '') + '">' + R.CLASSES[id].ic + ' ' + R.CLASSES[id].n + '</button>').join('') +
       '</div><p class="muted">Радимо 2 супутники: сам на сам храм дуже небезпечний.</p><div class="row"><button class="btn2" type="button" data-sclose="1">Назад</button><button class="btn grow" type="button" data-sgo="1">Почати</button></div>');
     $('modalSheet').onclick = (e) => {
       const b = e.target.closest('button'); if (!b || U.modalKind !== 'solo') return;
-      if (b.dataset.scls) f.cls = b.dataset.scls;
+      if (b.dataset.scls) { f.cls = b.dataset.scls; f.hero = null; }
+      else if (b.dataset.shero) f.hero = b.dataset.shero;
+      else if (b.dataset.snew) { $('modalSheet').onclick = null; closeModal(); HR.open(null, (id) => { if (id) f.hero = id; openSoloSetup(n, adv); }); return; }
       else if (b.dataset.smate) f.mates = f.mates.includes(b.dataset.smate) ? f.mates.filter((c) => c !== b.dataset.smate) : f.mates.concat(b.dataset.smate);
       else if (b.dataset.sclose) { closeModal(); return; }
-      else if (b.dataset.sgo) { $('modalSheet').onclick = null; closeModal(); startSolo(n, f.cls, f.mates); return; }
-      openSoloSetup(n);
+      else if (b.dataset.sgo) { $('modalSheet').onclick = null; closeModal(); startSolo(n, f.cls, f.mates, adv, presets ? null : f.hero); return; }
+      openSoloSetup(n, adv);
     };
   }
-  function startSolo(n, cls, mates) {
+  function startSolo(n, cls, mates, adv, heroId) {
+    window.DND_USE(adv || 'nightmare');
+    const h = heroId && HR.get(heroId);
+    if (h) cls = h.cls;
     Object.assign(ME, { role: 'pl', solo: true, nick: n, key: E.keyOf(n), code: 'соло', cls, q: [] });
     E.G = E.blank(); E.G.dm = '🤖 Бот-майстер'; E.G.gid = E.uid();
-    E.G.chars[ME.key] = E.newChar(n, cls);
+    E.G.chars[ME.key] = E.newChar(n, cls, h ? HR.compact(h) : null);
     mates.forEach((c) => E.apply({ t: 'bot', cls: c }, null, true));
     E.apply({ t: 'start' }, null, true);
     window.DNDBotDM.init(E, ME.key);
     E.dirty = false; E.G.v++; G = E.G; U.joinedAt = performance.now(); U.tab = 'story';
     persistSolo(); render(true);
   }
-  function persistSolo() { if (ME.solo && E.G) LS.set('dnd_solo', { nick: ME.nick, key: ME.key, g: E.G, at: Date.now() }); }
+  function persistSolo() { if (ME.solo && E.G) LS.set(soloKey(E.G.adv || 'nightmare'), { nick: ME.nick, key: ME.key, g: E.G, at: Date.now() }); }
 
   (async () => {
     const t = window.HNS_TRANSPORT;
@@ -106,26 +157,31 @@
   $('btnDm').addEventListener('click', async () => {
     startErr(''); const n = nickFrom('dmName'); if (!n || !AVAIL) return;
     ME.role = 'dm'; ME.nick = n; ME.key = E.keyOf(n);
+    window.DND_USE('nightmare');
     E.G = E.blank(); E.G.dm = n;
-    if (!(await join(newCode()))) { ME.role = null; return; }
+    let code = newCode(); while (camps()[code]) code = newCode();
+    if (!(await join(code))) { ME.role = null; return; }
     NET.presence({ r: 'dm', n, g: E.G, h: Date.now() }); persist();
     render(true);
   });
-  $('btnResume').addEventListener('click', async () => {
-    startErr(''); const s = LS.get('dnd_save', null); if (!s || !AVAIL) return;
+  async function resumeCamp(code) {
+    startErr(''); const s = camps()[code]; if (!s) return;
+    if (!AVAIL) { startErr('Для гри з друзями потрібен інтернет.'); return; }
+    window.DND_USE((s.g && s.g.adv) || 'nightmare');
     ME.role = 'dm'; ME.nick = s.nick || $('dmName').value || 'Майстер'; ME.key = E.keyOf(ME.nick);
     E.G = s.g; E.G.fx = []; E.busy = false;
     if (!(await join(s.code))) { ME.role = null; return; }
-    E.log('Майстер повернувся.', 'sys'); E.G.v++;
-    NET.presence({ r: 'dm', n: ME.nick, g: E.G, h: Date.now() });
+    E.log('Майстер повернувся. Гравці — заходьте з тим самим кодом і імʼям.', 'sys'); E.G.v++;
+    NET.presence({ r: 'dm', n: ME.nick, g: E.G, h: Date.now() }); persist();
     render(true);
-  });
+  }
   $('btnPl').addEventListener('click', async () => {
     startErr(''); const n = nickFrom('plName'); if (!n || !AVAIL) return;
     const code = $('plCode').value.trim().toUpperCase();
     if (!/^[A-Z]{4}$/.test(code)) { startErr('Код — 4 літери, його видно на телефоні майстра.'); return; }
     ME.role = 'pl'; ME.nick = n; ME.key = E.keyOf(n); ME.q = [];
     if (!(await join(code))) { ME.role = null; return; }
+    LS.set('dnd_last', { code, n, at: Date.now() });
     NET.presence({ r: 'pl', n, cls: null, q: [] });
     render(true);
   });
@@ -139,6 +195,7 @@
   HR.onImg = () => { if (ME.role) { U.sig = ''; U.ver++; render(true); } else renderHeroList(); };
   $('plCode').addEventListener('input', () => { $('plCode').value = $('plCode').value.toUpperCase().replace(/[^A-Z]/g, ''); });
   if (/^#[A-Z]{4}$/.test(location.hash)) $('plCode').value = location.hash.slice(1);
+  else { const last = LS.get('dnd_last', null); if (last && last.code && Date.now() - last.at < 60 * 864e5) $('plCode').value = last.code; }
   $('lobLeave').addEventListener('click', leave);
   function leave() {
     if (NET) NET.leave(); NET = null; ME.role = null; ME.solo = false; ME.hero = null; G = null; E.G = null; location.hash = '';
@@ -151,7 +208,23 @@
   const dmPeer = () => peers.filter((p) => p.presence && p.presence.r === 'dm' && p.presence.g).sort((a, b) => (+a.presence.h || 0) - (+b.presence.h || 0))[0];
   const plPeers = () => peers.filter((p) => p.presence && p.presence.r === 'pl' && p.presence.n);
   const online = (k) => plPeers().some((p) => E.keyOf(p.presence.n) === k);
-  function persist() { if (ME.role === 'dm' && E.G) LS.set('dnd_save', { code: ME.code, nick: ME.nick, g: E.G, at: Date.now() }); }
+  function persist() {
+    if (ME.role !== 'dm' || !E.G) return;
+    const c = camps(); c[ME.code] = { code: ME.code, nick: ME.nick, g: E.G, at: Date.now() };
+    if (!LS.set('dnd_camps', c)) { /* місце скінчилось — хмарна копія все одно є */ }
+    cloudSave();
+  }
+  let cloudT = 0, cloudPend = false;
+  function cloudSave() { // хмарна копія не частіше ніж раз на 8 с (і обовʼязково останній стан)
+    if (cloudT) { cloudPend = true; return; }
+    const doSave = () => {
+      if (ME.role !== 'dm' || !E.G || !ME.code) return;
+      const g = Object.assign({}, E.G, { fx: [], les: [], pid: [] });
+      try { firebase.database().ref('dnd_saves/' + ME.code).set({ g: JSON.stringify(g), nick: ME.nick.slice(0, 40), adv: E.G.adv || 'nightmare', at: Date.now() }).catch(() => {}); } catch (e) {}
+    };
+    doSave();
+    cloudT = setTimeout(() => { cloudT = 0; if (cloudPend) { cloudPend = false; cloudSave(); } }, 8000);
+  }
   function pushG() {
     if (ME.solo && E.G) { E.G.v++; E.dirty = false; persistSolo(); return; }
     if (!E.G || !NET) return;
@@ -214,7 +287,7 @@
       G = E.G;
     } else {
       const dm = dmPeer();
-      if (dm) { G = dm.presence.g; dmSeenAt = performance.now(); }
+      if (dm) { G = dm.presence.g; dmSeenAt = performance.now(); if (G && G.adv && G.adv !== S.id && ADVS[G.adv]) { window.DND_USE(G.adv); U.sig = ''; } }
       if (ME.role === 'pl' && G && G.started && G.chars && !G.chars[ME.key] && plPeers().some((p) => p.isMe && p.presence.cls)) { /* чекаємо, поки майстер створить героя */ }
     }
     render();
@@ -241,11 +314,17 @@
     const mine = pls.find((p) => p.isMe);
     const bots = G && G.chars ? Object.keys(G.chars).filter((k) => G.chars[k].bot).map((k) => Object.assign({ k }, G.chars[k])) : [];
     const taken = pls.filter((p) => !p.isMe && p.presence.cls && !p.presence.hero).map((p) => p.presence.cls).concat(bots.map((b) => b.cls));
-    const sig = 'L' + ME.code + JSON.stringify(pls.map((p) => [p.presence.n, p.presence.cls, p.isMe, p.presence.hero && [p.presence.hero.id, p.presence.hero.rev, HR.url(p.presence.hero.ii) ? 1 : 0]])) + JSON.stringify(bots.map((b) => b.k)) + (dm ? dm.presence.n : '-') + ME.cls + (ME.hero || '') + HR.load().length;
+    const sig = 'L' + (G ? G.adv + G.tut : '') + ME.code + JSON.stringify(pls.map((p) => [p.presence.n, p.presence.cls, p.isMe, p.presence.hero && [p.presence.hero.id, p.presence.hero.rev, HR.url(p.presence.hero.ii) ? 1 : 0]])) + JSON.stringify(bots.map((b) => b.k)) + (dm ? dm.presence.n : '-') + ME.cls + (ME.hero || '') + HR.load().length;
     if (sig === U.sig) return; U.sig = sig;
     $('lobPlayers').innerHTML = (dm ? '<li><span class="avatar" style="width:30px;height:30px;font-size:16px;background:#3A3346">🎲</span><b class="grow">' + esc(dm.presence.n) + '</b><span class="chip gold">майстер</span></li>' : '<li class="muted">Майстра ще немає… Перевір код.</li>') +
       bots.map((b) => { const c = R.CLASSES[b.cls]; return '<li><span class="avatar" style="width:30px;height:30px;font-size:16px;background:' + c.col + '">' + c.ic + '</span><b class="grow">' + esc(b.n) + '</b><span class="muted">' + c.n + '</span>' + (ME.role === 'dm' ? '<button class="btn2 sm" type="button" data-unbot="' + esc(b.k) + '">✕</button>' : '') + '</li>'; }).join('') +
       pls.map((p) => { const c = R.CLASSES[p.presence.cls], hh = p.presence.hero; return '<li>' + (c ? av({ cls: p.presence.cls, hero: hh }, 30) : '<span class="avatar" style="width:30px;height:30px;font-size:16px;background:#3A3346">…</span>') + '<b class="grow">' + esc(hh ? hh.n : p.presence.n) + (hh ? ' <span class="muted" style="font-weight:400">(' + esc(p.presence.n) + ')</span>' : '') + (p.isMe ? ' (ти)' : '') + '</b><span class="muted">' + (c ? (hh ? R.CLASS_HINT[p.presence.cls].cn : c.n) : 'обирає героя') + '</span></li>'; }).join('');
+    const A0 = advOf(G), tutTxt = G && G.tut === false ? 'без підказок' : 'з підказками й уроками';
+    $('lobAdv').hidden = false;
+    if (ME.role === 'dm') {
+      $('lobAdv').innerHTML = '<h3>Пригода</h3><div class="classes">' + Object.values(ADVS).map((a) => '<button type="button" class="cls' + (A0.id === a.id ? ' on' : '') + '" data-adv="' + a.id + '"><span class="avatar" style="background:#3A3346">' + a.icon + '</span><span class="grow"><b>' + esc(a.title) + '</b><small>' + esc(a.sub) + '</small></span></button>').join('') + '</div>' +
+        '<label class="cb" style="margin-top:6px"><input type="checkbox" id="lobTut"' + (G && G.tut !== false ? ' checked' : '') + '> Навчальний режим: уроки правил і пояснення «чому ця перевірка»</label>';
+    } else $('lobAdv').innerHTML = '<p class="eyebrow" style="margin:0">Пригода</p><b>' + A0.icon + ' ' + esc(A0.title) + '</b><p class="muted" style="margin:2px 0 0">' + esc(A0.sub) + ' · ' + tutTxt + '</p>';
     if (ME.role === 'dm') {
       $('lobPick').hidden = true; $('lobWait').hidden = true; $('lobStart').hidden = false;
       $('lobStart').disabled = !pls.some((p) => p.presence.cls) && !bots.length;
@@ -271,6 +350,8 @@
     const b = e.target.closest('[data-cls]'); if (!b || b.disabled || !NET) return;
     ME.cls = b.dataset.cls; ME.hero = null; NET.presence({ cls: ME.cls, hero: null }); U.sig = ''; renderLobby();
   });
+  $('lobAdv').addEventListener('click', (e) => { const b = e.target.closest('[data-adv]'); if (!b || ME.role !== 'dm') return; send({ t: 'adv', id: b.dataset.adv }); U.sig = ''; renderLobby(); });
+  $('lobAdv').addEventListener('change', (e) => { if (e.target.id === 'lobTut' && ME.role === 'dm') { send({ t: 'tut', on: e.target.checked }); U.sig = ''; renderLobby(); } });
   $('lobby').addEventListener('click', (e) => {
     const b = e.target.closest('[data-bot],[data-unbot]'); if (!b || b.disabled || ME.role !== 'dm') return;
     if (b.dataset.bot) send({ t: 'bot', cls: b.dataset.bot }); else send({ t: 'unbot', k: b.dataset.unbot });
@@ -381,9 +462,9 @@
         (v.used.length ? '<div class="muted" style="margin-top:6px;font-size:12.5px">Уже: ' + v.used.map(esc).join(' · ') + '</div>' : '') +
         v.opts.map((o) => '<button type="button" class="opt" data-dmpick="' + esc(o.i) + '">▸ ' + esc(o.t) + '</button>').join('') +
         (v.done ? '<button class="btn wide" type="button" data-dm="done" style="margin-top:12px">' + esc(v.done) + '</button>' : '') + '</div>';
-    } else if (v.k === 'ck') h += G.ck && G.ck.who.includes(ME.key) && !G.ck.res[ME.key] ? '<button class="btn wide" data-openck="1" type="button">🎲 Кинути: ' + esc(E.checkName(G.ck)) + '</button>' : '<div class="card" style="margin:0"><p class="muted" style="margin:0">Кидають інші…</p></div>';
+    } else if (v.k === 'ck') h += G.ck && G.ck.who.includes(ME.key) && !G.ck.res[ME.key] ? '<button class="btn wide" data-openck="1" type="button">🎲 Кинути: ' + esc(E.checkName(G.ck)) + '</button>' : '<div class="card" style="margin:0"><p class="muted" style="margin:0">' + (G.ck && G.ck.who.some((k) => !G.ck.res[k]) ? 'Кидають інші…' : 'Майстер оцінює кидок…') + '</p></div>';
     else if (v.k === 'fight') h += '<button class="btn wide" type="button" data-tab="map">⚔️ До бою</button>';
-    else if (v.k === 'end') h += '<div class="card" style="margin:0 0 12px;border-color:var(--gold)"><h3>' + (G.end === 'a' ? '🕯️ Кінець: Череп знищено' : G.end === 'b' ? '💀 Кінець: жезл ваш' : 'Кінець пригоди') + '</h3><p class="muted">Загляни у «Журнал» — там уся історія, яку ви відкрили.</p><button class="btn2" type="button" data-soloagain="1">Зіграти ще раз</button></div>' + feedbackHtml();
+    else if (v.k === 'end') h += '<div class="card" style="margin:0 0 12px;border-color:var(--gold)"><h3>' + ((S.ENDINGS && S.ENDINGS[G.end] && S.ENDINGS[G.end].t) || 'Кінець пригоди') + '</h3><p class="muted">Загляни у «Журнал» — там уся історія, яку ви відкрили.</p><button class="btn2" type="button" data-soloagain="1">Зіграти ще раз</button></div>' + feedbackHtml();
     return h + '</div>';
   }
   /* ---------- відгук наприкінці: оцінка, сподобалось, робити ще, коментар → RTDB feedback/dnd ---------- */
@@ -431,7 +512,7 @@
     }
     return h + '</div>';
   }
-  const SCENE_BG = { intro: '#3B2E5A,#1E1830', dawnstar: '#2E4A66,#16202C', road: '#5B7894,#1C2633', temple: '#3E2E52,#17121F', dream: '#5A2E7A,#1A0F26', shrine: '#5E1F45,#1A0C16' };
+  const SCENE_BG = new Proxy({}, { get: (o, k) => (S.sceneBg || {})[k] });
   function sceneBanner(sc, n) {
     return '<div class="scene-ban" style="background:linear-gradient(135deg,' + (SCENE_BG[sc.id] || '#333,#111') + ')"><span class="scene-ic">' + sc.icon + '</span><div><p class="eyebrow" style="color:rgba(255,255,255,.65);margin:0">Сцена ' + (n + 1) + ' з ' + S.SCENES.length + '</p><h2 style="margin:0">' + esc(sc.t) + '</h2>' +
       (G.goal && S.GOALS[G.goal] ? '<div class="scene-goal">🎯 ' + esc(S.GOALS[G.goal]) + '</div>' : '') + '</div></div>';
@@ -439,7 +520,7 @@
   function viewStory() {
     const sc = S.SCENES[G.sc];
     let h = sceneBanner(sc, G.sc) + dmCard() + (ME.solo ? '' : '<div class="card"><details><summary>Текст сцени (майстер читає вголос)</summary><div class="read" style="margin-top:8px">' + sc.read.map((p) => '<p>' + esc(p) + '</p>').join('') + '</div></details></div>');
-    if (G.end && !ME.solo) h += '<div class="card" style="border-color:var(--gold)"><h3>' + (G.end === 'a' ? '🕯️ Кінець: Череп знищено' : '💀 Кінець: жезл ваш') + '</h3><p class="muted">Дякуємо за гру! Пригоду «Кошмар наяву» пройдено.</p></div>' + feedbackHtml();
+    if (G.end && !ME.solo) h += '<div class="card" style="border-color:var(--gold)"><h3>' + ((S.ENDINGS && S.ENDINGS[G.end] && S.ENDINGS[G.end].t) || 'Кінець пригоди') + '</h3><p class="muted">Дякуємо за гру! Пригоду «' + esc(S.title) + '» пройдено.</p></div>' + feedbackHtml();
     const ch = G.chars[ME.key];
     if (ch) { const c = E.C(ch); h += '<div class="card"><div class="sheet-h">' + av(ch, 54) + '<div class="grow"><b>' + esc(ch.n) + '</b> · ' + clsName(ch) + statusTxt(ch) + '<div class="bar"><i style="width:' + Math.max(0, ch.hp / c.hp * 100) + '%;background:' + hpCol(ch.hp / c.hp) + '"></i></div><span class="muted">' + ch.hp + '/' + c.hp + ' хітів' + (c.slots ? ' · комірки ' + ch.slots + '/' + c.slots : '') + '</span></div></div></div>'; }
     if (G.ck && !G.ck.who.includes(ME.key)) h += '<div class="card"><p class="eyebrow">Зараз кидають</p><b>' + esc(E.checkName(G.ck)) + '</b><p class="muted">' + G.ck.who.map((k) => esc(G.chars[k].n) + (G.ck.res[k] ? ' — ' + G.ck.res[k].tot + (G.ck.res[k].ok ? ' ✔' : ' ✖') : ' …')).join(', ') + '</p></div>';
@@ -534,7 +615,7 @@
       const F = S.FIGHTS[sc.fight];
       h += '<div class="card"><h3>⚔️ ' + esc(F.n) + '</h3><p class="muted">' + esc(F.intro) + '</p>' + (G.cb ? '<p>Бій триває — вкладка «Бій».</p>' : fightStartHtml(sc.fight)) + '</div>';
     }
-    if (sc.id === 'shrine') h += '<div class="card"><h3>Фінал</h3><p class="muted">Коли гравці вирішать долю Черепа:</p><div class="row"><button class="btn2" data-finale="a" type="button">🕯️ Череп знищено</button><button class="btn2" data-finale="b" type="button">💀 Жезл забрали</button></div></div>';
+    if (sc.id === S.finaleScene && S.ENDINGS) h += '<div class="card"><h3>Фінал</h3><p class="muted">' + esc(S.finaleAsk || 'Коли гравці зроблять вибір:') + '</p><div class="row">' + Object.keys(S.ENDINGS).map((v) => '<button class="btn2" data-finale="' + v + '" type="button">' + esc(S.ENDINGS[v].t.replace(/^(\S+) Кінець: /, '$1 ')) + '</button>').join('') + '</div></div>';
     if ((sc.lore && sc.lore.length) || (sc.journal && sc.journal.length)) {
       h += '<div class="card"><h3>📓 Відкрити гравцям</h3><p class="muted">Коли герої про щось дізнались — торкнись, і запис зʼявиться в їхньому «Журналі».</p>';
       if (sc.lore && sc.lore.length) h += '<p class="eyebrow">Лор</p><div class="chips">' + sc.lore.map((k) => '<button type="button" data-lore="' + k + '" class="' + ((G.lore || []).includes(k) ? 'on' : '') + '">' + ((G.lore || []).includes(k) ? '✔ ' : '') + S.LORE[k].ic + ' ' + esc(S.LORE[k].t) + '</button>').join('') + '</div>';
@@ -676,12 +757,12 @@
     let h = '<p class="eyebrow">' + (ck.kind === 'sv' ? 'Рятівний кидок' : 'Перевірка') + '</p>';
     if (ck.who.length === 1) {
       h += '<div class="sheet-h" style="margin:4px 0 8px">' + av(ch, 54) + '<div class="grow"><h2 style="margin:0">Кидає ' + nm(ch) + '</h2><span class="muted">' + esc(E.checkName(ck)) + (ck.t ? ' · ' + esc(ck.t) : '') + '</span></div></div>';
-      if (me) {
+      if (me && G.tut !== false) {
         const hb = bonusOf(ch, ck), mb = bonusOf(me, ck);
         h += '<div class="gm"><b>Чому ' + nm(ch) + ', а не ти?</b> ' + (hb > mb ? '<br>' + nm(ch) + ': <b>' + sgn(hb) + '</b> (' + E.checkParts(ch, ck).map((p) => esc(p[0]) + ' ' + sgn(p[1])).join(', ') + ')<br>Ти: <b>' + sgn(mb) + '</b><br>Майстер дає кидок тому, хто вміє це найкраще.' : 'Так склалась історія — зараз діє саме цей герой.') + '</div>';
       }
     } else h += '<h2>' + esc(E.checkName(ck)) + '</h2>' + (ck.t ? '<p class="muted">' + esc(ck.t) + '</p>' : '');
-    if (why) h += '<div class="tip">Чому ця перевірка: ' + esc(why) + '</div>';
+    if (why && G.tut !== false) h += '<div class="tip">Чому ця перевірка: ' + esc(why) + '</div>';
     h += '<p style="text-align:center" class="muted">' + (ck.show ? 'Складність ' + ck.dc : 'Складність прихована') + (ck.adv ? (ck.adv > 0 ? ' · ▲ перевага' : ' · ▼ перешкода') : '') + '</p>';
     if (ck.who.length === 1) {
       const r = ck.res[main];
@@ -704,7 +785,7 @@
     const r = ck.res[ME.key], parts = E.checkParts(ch, ck);
     const info = ck.kind === 'sk' ? R.SKILLS[ck.key].d : ck.kind === 'st' ? R.STATS[ck.key].d : R.SAVES[ck.key];
     const dcInfo = R.DC.slice().reverse().find((d) => ck.dc >= d.v) || R.DC[0];
-    let h = '<p class="eyebrow">' + (ck.kind === 'sv' ? 'Рятівний кидок' : 'Майстер просить перевірку') + '</p><h2>' + esc(E.checkName(ck)) + '</h2>' + (ck.t ? '<p class="muted">' + esc(ck.t) + '</p>' : '') + '<p style="margin:6px 0">' + esc(info) + '</p>' + (ck.why ? '<div class="tip">Чому так: ' + esc(ck.why) + '</div>' : '');
+    let h = '<p class="eyebrow">' + (ck.kind === 'sv' ? 'Рятівний кидок' : 'Майстер просить перевірку') + '</p><h2>' + esc(E.checkName(ck)) + '</h2>' + (ck.t ? '<p class="muted">' + esc(ck.t) + '</p>' : '') + '<p style="margin:6px 0">' + esc(info) + '</p>' + (ck.why && G.tut !== false ? '<div class="tip">Чому так: ' + esc(ck.why) + '</div>' : '');
     h += '<div class="parts"><span>к20</span>' + parts.map((p) => '<span>' + esc(p[0]) + ' ' + sgn(p[1]) + '</span>').join('') + (ck.gd ? '<span>Настанова +1к4</span>' : '') + (ck.kind === 'sk' && !E.skillB(ch, ck.key).p ? '<span class="muted">не твоя навичка — без майстерності</span>' : '') + '</div>';
     if (ck.adv) h += '<p style="text-align:center"><span class="chip ' + (ck.adv > 0 ? 'gold' : 'red') + '">' + (ck.adv > 0 ? '▲ Перевага: 2к20, береш більше' : '▼ Перешкода: 2к20, береш менше') + '</span></p>';
     h += '<p style="text-align:center" class="muted">' + (ck.show ? 'Складність ' + ck.dc + ' — ' + dcInfo.n.toLowerCase() : 'Складність прихована — майстер скаже, чи вийшло') + (ck.mode === 'group' ? ' · групова' : '') + '</p>';
@@ -817,7 +898,7 @@
     let h = '';
     if (cb.won || cb.lost) {
       h += '<p class="verdict ' + (cb.won ? 'ok' : 'bad') + '">' + (cb.won ? '🏆 Перемога!' : '☠️ Усі герої впали') + '</p>';
-      h += ME.role === 'dm' ? '<p class="hint">' + (cb.won ? 'Розкажи, що вони знаходять. Порада: короткий відпочинок у вкладці «Гравці».' : 'Вирішуй: Ерандур витягає їх, полон культистів або кінець. Хіти можна підняти у вкладці «Гравці».') + '</p><button class="btn wide" type="button" data-a="fightend">Завершити бій</button>' : '<p class="hint" style="text-align:center">Чекаємо майстра.</p>';
+      h += ME.role === 'dm' ? '<p class="hint">' + (cb.won ? 'Розкажи, що вони знаходять. Порада: короткий відпочинок у вкладці «Гравці».' : (S.loseHint || 'Вирішуй: порятунок, полон або кінець. Хіти можна підняти у вкладці «Гравці».')) + '</p><button class="btn wide" type="button" data-a="fightend">Завершити бій</button>' : '<p class="hint" style="text-align:center">Чекаємо майстра.</p>';
       $('act').innerHTML = h; return;
     }
     if (!t) {
@@ -1004,6 +1085,7 @@
     snow: { a: '#E4EAF2', b: '#DCE3EC', road: '#CDBFA6', grid: 'rgba(40,60,90,.08)' },
     stone: { a: '#3A3344', b: '#352F3F', road: '#3A3344', grid: 'rgba(0,0,0,.18)' },
     shrine: { a: '#33283F', b: '#2E2439', road: '#33283F', grid: 'rgba(0,0,0,.2)' },
+    town: { a: '#6B6A5C', b: '#646355', road: '#8A7F68', grid: 'rgba(0,0,0,.14)' },
   };
   function cellXY(x, y) { return [OX + x * CS, OY + y * CS]; }
   function drawTiles(cb) {

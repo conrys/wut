@@ -92,6 +92,13 @@
         ".validate": "newData.isString() && newData.val().beginsWith('data:image/') && newData.val().length < 400000"
       }
     },
+    "dnd_saves": {
+      "$code": {
+        ".read": "auth != null",
+        ".write": "auth != null && $code.matches(/^[A-Z]{4}$/)",
+        ".validate": "newData.hasChildren(['g','at']) && newData.child('g').isString() && newData.child('g').val().length < 300000"
+      }
+    },
     "dnd": {
       "$code": {
         ".read": "auth != null",

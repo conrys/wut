@@ -381,5 +381,27 @@
     done: 'Пригоду завершено.',
   };
 
-  window.DND_STORY = { MAPS, FIGHTS, LETTER, SCENES, LORE, JOURNAL, GOALS, title: 'Кошмар наяву' };
+  /* ---------- реєстр пригод ----------
+     window.DND_STORY — «активна» пригода: той самий обʼєкт, у який DND_USE копіює
+     дані обраної. Рушій, бот-майстер та інтерфейс читають його, тож перемикання
+     пригоди не потребує перезавантаження. */
+  const ADV = window.DND_ADV = window.DND_ADV || {};
+  ADV.nightmare = {
+    id: 'nightmare', title: 'Кошмар наяву', icon: '🌀', tutorial: true, presetsOnly: true,
+    sub: 'Навчальна: Данстар, де ніхто не спить, і жезл «Череп порчі».',
+    MAPS, FIGHTS, LETTER, SCENES, LORE, JOURNAL, GOALS,
+    ENDINGS: { a: { t: '🕯️ Кінець: Череп знищено', log: '🕯️ Ерандур розбиває Череп порчі. Кошмари в Данстарі зникають.' }, b: { t: '💀 Кінець: жезл ваш', log: '💀 Жезл «Череп порчі» тепер ваш. Але в Данстарі досі не сплять…' } },
+    finaleScene: 'shrine', finaleAsk: 'Коли гравці вирішать долю Черепа:',
+    loseHint: 'Вирішуй: Ерандур витягає їх, полон культистів або кінець. Хіти можна підняти у вкладці «Гравці».',
+    sceneBg: { intro: '#3B2E5A,#1E1830', dawnstar: '#2E4A66,#16202C', road: '#5B7894,#1C2633', temple: '#3E2E52,#17121F', dream: '#5A2E7A,#1A0F26', shrine: '#5E1F45,#1A0C16' },
+  };
+  window.DND_STORY = window.DND_STORY || {};
+  window.DND_USE = function (id) {
+    const a = ADV[id] || ADV.nightmare, S = window.DND_STORY;
+    if (S.id === a.id && S.script === a.script) return S;
+    for (const k of Object.keys(S)) delete S[k];
+    Object.assign(S, a);
+    return S;
+  };
+  window.DND_USE('nightmare');
 })();

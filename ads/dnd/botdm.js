@@ -203,7 +203,7 @@
 
   const BD = { at: 0, fightAt: 0, ckAt: 0, fast: false };
   const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
-  const beats = (sc) => SCRIPT[S.SCENES[sc].id] || [];
+  const beats = (sc) => ((S.script || {})[S.SCENES[sc].id]) || []; // сценарій активної пригоди
   const ckDef = (c) => (c.sk ? { kind: 'sk', key: c.sk } : c.st ? { kind: 'st', key: c.st } : { kind: 'sv', key: c.sv });
   const fn = (v, f, g) => (typeof v === 'function' ? v(f, g) : v);
 
@@ -212,9 +212,11 @@
     E.apply({ t: 'scene', sc: 0 }, null, true);
     E.dirty = true;
   }
+  function teach(E, k) { if (E.G.tut !== false) E.apply({ t: 'teach', k }, null, true); } // без навчання — без уроків
   function norm(x, sp) { return [].concat(x).filter(Boolean).map((m) => (typeof m === 'string' ? { t: m, sp: sp || '' } : Object.assign({ sp: sp || '' }, m))); }
   function push(E, msgs, tip) {
     const b = E.G.bd, list = norm(msgs);
+    if (E.G.tut === false) { tip = ''; list.forEach((m) => { m.tip = ''; }); } // без навчання — без підказок
     if (tip && list.length) list[list.length - 1].tip = tip;
     for (const m of list) {
       b.q.push({ t: m.t, sp: m.sp || '', tip: m.tip || '', read: !!m.read });
@@ -229,7 +231,7 @@
     if (o[k('lore')]) E.apply({ t: 'lore', k: o[k('lore')] }, null, true);
     if (o[k('journal')]) E.apply({ t: 'journal', k: o[k('journal')] }, null, true);
     if (o[k('goal')]) E.apply({ t: 'goal', k: o[k('goal')] }, null, true);
-    if (!pre && o.lesson) E.apply({ t: 'teach', k: o.lesson }, null, true);
+    if (!pre && o.lesson) teach(E, o.lesson);
   }
   function src(b, s) { const bt = beats(s.sc)[s.i]; return s.o ? bt && bt.opts.find((o) => o.id === s.o) : bt; }
   function who(E, spec, def) {
@@ -246,9 +248,9 @@
     if (!c) return false;
     const def = ckDef(c), spec = force ? 'one' : o.who || 'me', ks = force ? force.who : who(E, spec, def);
     if (!ks.length) return false;
-    let why = c.why || '';
-    if (spec === 'best' && ks[0] !== g.bd.me) why += ' Кидає ' + g.chars[ks[0]].n + ' — у цій групі це виходить найкраще.';
-    if (force) why = 'Друга спроба: ' + g.chars[ks[0]].n + ' пробує сам.' + (force.help ? ' ' + g.chars[force.help].n + ' допомагає — це дія «Допомога», вона дає перевагу.' : '') + ' ' + (c.why || '');
+    let why = g.tut === false ? '' : c.why || '';
+    if (g.tut !== false && spec === 'best' && ks[0] !== g.bd.me) why += ' Кидає ' + g.chars[ks[0]].n + ' — у цій групі це виходить найкраще.';
+    if (force && g.tut !== false) why = 'Друга спроба: ' + g.chars[ks[0]].n + ' пробує сам.' + (force.help ? ' ' + g.chars[force.help].n + ' допомагає — це дія «Допомога», вона дає перевагу.' : '') + ' ' + (c.why || '');
     E.apply({ t: 'ck', cfg: Object.assign({}, def, { dc: c.dc, t: c.t + (force ? ' — ще спроба' : ''), why, show: true, adv: force ? (force.adv || 0) : fn(o.adv, g.bd.flags, g) || 0, who: ks, mode: spec === 'group' ? 'group' : 'one', sid: typeof o.ck === 'string' ? o.ck : null }) }, null, true);
     g.bd.pend = { type: 'ck', s, tried: force ? force.tried : [] };
     return true;
@@ -268,18 +270,19 @@
     else if (ck.who.length > 1) t = (okK.length ? '✔ ' + names(okK) + ': ' + okT + ' ' : '') + (badK.length ? '✖ ' + names(badK) + ': ' + failT : '');
     else t = (ok ? '✔ Успіх. ' : '✖ Провал. ') + (ok ? okT : failT);
     const cid = typeof o.ck === 'string' ? o.ck : '';
-    if (COST[cid] && badK.length) {
-      const lost = badK.map((k) => { const d = COST[cid].includes('d') ? R.roll(COST[cid]).t : +COST[cid]; E.apply({ t: 'hp', k, d: -d }, null, true); return g.chars[k].n + ' −' + d; });
+    const CST = S.cost || {};
+    if (CST[cid] && badK.length) {
+      const lost = badK.map((k) => { const d = CST[cid].includes('d') ? R.roll(CST[cid]).t : +CST[cid]; E.apply({ t: 'hp', k, d: -d }, null, true); return g.chars[k].n + ' −' + d; });
       t += ' (хіти: ' + lost.join(', ') + ')';
     }
-    if (cid === 'dr_words' && !ok) { const lost = Object.keys(g.chars).filter((k) => !g.chars[k].dead).map((k) => { const d = R.roll('1d4').t; E.apply({ t: 'hp', k, d: -d }, null, true); return g.chars[k].n + ' −' + d; }); t += ' (' + lost.join(', ') + ')'; }
+    if ((S.costAll || {})[cid] && !ok) { const lost = Object.keys(g.chars).filter((k) => !g.chars[k].dead).map((k) => { const d = R.roll(S.costAll[cid]).t; E.apply({ t: 'hp', k, d: -d }, null, true); return g.chars[k].n + ' −' + d; }); t += ' (' + lost.join(', ') + ')'; }
     const nat20 = ck.who.some((k) => ck.res[k].v === 20) && ck.kind !== 'sv';
     const tip = nat20 ? 'Натуральна 20 — найкращий результат, але лише з того, що можливо в цій ситуації.' : (!ok && ck.mode !== 'group' && !b.tipFail ? 'Провал не зупиняє історію — він лише має ціну.' : '');
     if (tip && !nat20) b.tipFail = 1;
     const tried = (b.pend.tried || []).concat(ck.who);
     b.pend = null;
     const alive = Object.keys(g.chars).filter((k) => !g.chars[k].dead && !tried.includes(k));
-    const canRetry = !ok && ck.mode === 'one' && ck.who.length === 1 && id in RETRY && alive.length;
+    const canRetry = !ok && ck.mode === 'one' && ck.who.length === 1 && id in (S.retry || {}) && alive.length;
     push(E, { t, sp: o.sp && s.o ? o.sp : '', tip: canRetry ? '' : tip });
     eff(E, o, ok ? 'ok' : 'fail');
     if (canRetry) { b.retry = { s, tried, id }; return; }
@@ -297,8 +300,11 @@
     const g = E.G, f = g.bd.flags;
     E.apply({ t: 'finale', v }, null, true);
     E.apply({ t: 'goal', k: 'done' }, null, true);
-    push(E, EPI[v]);
-    if (v === 'a' && f.reward) push(E, { sp: 'Торінг', t: 'Ярл Скальд дотримує слова й щедро платить. А Торінг ставить мед — безкоштовно, як і обіцяв: «До кінця віку, памʼятаєте?»' });
+    if (S.botFinale) S.botFinale(E, v, push, f); else if (S.epi && S.epi[v]) push(E, S.epi[v]);
+  }
+  function nightmareFinale(E, v, say, f) {
+    say(E, EPI[v]);
+    if (v === 'a' && f.reward) say(E, { sp: 'Торінг', t: 'Ярл Скальд дотримує слова й щедро платить. А Торінг ставить мед — безкоштовно, як і обіцяв: «До кінця віку, памʼятаєте?»' });
   }
 
   function step(E) {
@@ -328,7 +334,7 @@
         if (won) push(E, '🏆 ' + (win || 'Перемога!'));
         else {
           for (const k in g.chars) { const ch = g.chars[k]; ch.dead = false; if (ch.hp <= 0) { ch.hp = 1; ch.ds = { s: 0, f: 0 }; ch.stable = false; } }
-          push(E, 'Темрява… Ви приходите до тями — Ерандур витягнув вас із бою й перевʼязав рани. Вороги відступили. Але час втрачено.', 'Поразка в DnD — не обовʼязково кінець гри. Майстер може продовжити історію з ціною.');
+          push(E, S.botLose || 'Темрява… Ви приходите до тями — хтось витягнув вас із бою. Вороги відступили. Але час втрачено.', 'Поразка в DnD — не обовʼязково кінець гри. Майстер може продовжити історію з ціною.');
         }
         return;
       }
@@ -354,11 +360,11 @@
     else if (st.passive) {
       const ks = Object.keys(g.chars).filter((k) => !g.chars[k].dead).sort((a, c) => E.passive(g.chars[c]) - E.passive(g.chars[a])), top = ks[0], pv = top ? E.passive(g.chars[top]) : 0;
       b.flags.t_perc = pv >= st.passive;
-      E.apply({ t: 'teach', k: 'passive' }, null, true);
+      teach(E, 'passive');
       push(E, b.flags.t_perc ? g.chars[top].n + ' помічає: одна плита підлоги трохи вища за інші, і навколо неї чисто від пилу.' : 'Звичайний коридор. Ніхто нічого не помітив.',
         'Я не просив кидати — інакше ви б здогадались, що тут щось є. Подивився на пасивне сприйняття: найвище в групі ' + pv + (b.flags.t_perc ? ' ≥ ' : ' < ') + st.passive + '.');
     } else if (st.next) b.i = list.length;
-    else if (st.end) { b.end = true; push(E, 'Кінець пригоди «Кошмар наяву». Ви пройшли всю історію: розслідування в Данстарі, дорогу в горах, храм, чужий сон і фінальний бій — а долю Черепа вирішили самі.', 'Фінальний бій навмисно важкий: бос у DnD має відчуватись загрозою. Якщо група впала — це теж частина історії. Хочеш спробувати інакше — у грі є режим майстра для друзів.'); }
+    else if (st.end) { b.end = true; const be = S.botEnd || ['Кінець пригоди «' + S.title + '».', '']; push(E, be[0], be[1]); }
     E.dirty = true;
   }
   const visible = (st, b, g) => st.opts.filter((o) => !b.ch.picked.includes(o.id) && (!o.req || o.req(b.flags, g)) && (!o.unless || !o.unless(b.flags, g)));
@@ -375,10 +381,10 @@
       const m = /^retry:([^:]+)(?::(.+))?$/.exec(o.o || ''); if (!m || !g.chars[m[1]]) return;
       const r = b.retry; b.retry = null;
       E.log('🧝 ' + (m[2] ? g.chars[m[1]].n + ' пробує, ' + g.chars[m[2]].n + ' допомагає' : g.chars[m[1]].n + ' пробує ще раз'), 'sys');
-      if (RETRY[r.id]) push(E, RETRY[r.id]);
+      if ((S.retry || {})[r.id]) push(E, S.retry[r.id]);
       b.start = null;
       if (!startCk(E, r.s, { who: [m[1]], adv: m[2] ? 1 : 0, help: m[2] || null, tried: r.tried })) b.retry = r;
-      if (m[2]) E.apply({ t: 'teach', k: 'adv' }, null, true);
+      if (m[2]) teach(E, 'adv');
     } else if (o.t === 'dmdone' && b.retry) {
       if (b.q.length || b.pend) return;
       const r = b.retry, so = src(b, r.s); b.retry = null;
@@ -406,7 +412,7 @@
   /* що показати гравцю зараз */
   function view(g) {
     const b = g && g.bd; if (!b) return null;
-    if (b.q && b.q.length) { const m = b.q[0]; return { k: 'msg', t: m.t, tip: m.tip, read: m.read, sp: m.sp, ic: NPC[m.sp] || '🗣️', more: b.q.length - 1 }; }
+    if (b.q && b.q.length) { const m = b.q[0]; return { k: 'msg', t: m.t, tip: m.tip, read: m.read, sp: m.sp, ic: (S.npc || {})[m.sp] || '🗣️', more: b.q.length - 1 }; }
     if (b.end) return { k: 'end' };
     if (b.pend && b.pend.type === 'ck') return { k: 'ck' };
     if (b.pend && b.pend.type === 'fight') return { k: 'fight' };
@@ -429,5 +435,10 @@
   }
 
   let E0 = window.DNDE;
+  // дані «Кошмару наяву» для бота — у реєстр пригод
+  Object.assign(window.DND_ADV.nightmare, { script: SCRIPT, npc: NPC, cost: COST, retry: RETRY, costAll: { dr_words: '1d4' }, botFinale: nightmareFinale,
+    botLose: 'Темрява… Ви приходите до тями — Ерандур витягнув вас із бою й перевʼязав рани. Вороги відступили. Але час втрачено.',
+    botEnd: ['Кінець пригоди «Кошмар наяву». Ви пройшли всю історію: розслідування в Данстарі, дорогу в горах, храм, чужий сон і фінальний бій — а долю Черепа вирішили самі.', 'Фінальний бій навмисно важкий: бос у DnD має відчуватись загрозою. Якщо група впала — це теж частина історії. Хочеш спробувати інакше — у грі є режим майстра для друзів.'] });
+  window.DND_USE(S.id || 'nightmare');
   window.DNDBotDM = { init, step, op, view, BD, SCRIPT, beats, NPC, RETRY };
 })();

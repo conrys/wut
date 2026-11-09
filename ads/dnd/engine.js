@@ -180,7 +180,7 @@
   const E = { G: null, dirty: false, busy: false, onChange: null, wait: (ms) => new Promise((r) => setTimeout(r, ms)), delay: 1100 };
 
   function blank() {
-    return { v: 1, started: false, sc: 0, chars: {}, ck: null, cb: null, log: [], seen: [], les: [], lore: [], journal: [], goal: null, pid: [], fx: [], lessonsOn: true, end: null };
+    return { v: 1, started: false, sc: 0, chars: {}, ck: null, cb: null, log: [], seen: [], les: [], lore: [], journal: [], goal: null, adv: S.id, tut: !!S.tutorial, pid: [], fx: [], lessonsOn: !!S.tutorial, end: null };
   }
   function log(t, c, extra) {
     const e = Object.assign({ i: uid(), t, c: c || '' }, extra || {});
@@ -254,7 +254,7 @@
     const g = E.G, F = S.FIGHTS[fid]; if (!F) return;
     const map = S.MAPS[F.map], tk = {}, keys = Object.keys(g.chars).filter((k) => !g.chars[k].dead);
     const spots = {}; // буква → список клітинок
-    map.forEach((row, y) => [...row].forEach((c, x) => { if (/[1-5wocVKE]/.test(c)) (spots[c] = spots[c] || []).push([x, y]); }));
+    map.forEach((row, y) => [...row].forEach((c, x) => { if (/[1-5]/.test(c) || S.LETTER[c]) (spots[c] = spots[c] || []).push([x, y]); }));
     g.cb = { f: fid, map: F.map, theme: F.theme, round: 1, turn: -1, order: [], tk, auto: !!(g.cb && g.cb.auto), won: false, lost: false };
     const free = (x, y) => !blocksMove(map[y][x]) && !Object.values(tk).some((t) => t.x === x && t.y === y);
     const near = (sx, sy) => { for (let r = 0; r < 8; r++) for (let y = sy - r; y <= sy + r; y++) for (let x = sx - r; x <= sx + r; x++) if (x >= 0 && y >= 0 && x < W && y < H && free(x, y)) return [x, y]; return [sx, sy]; };
@@ -319,7 +319,7 @@
     const g = E.G, cb = g.cb; if (!cb || cb.won || cb.lost) return !!cb && (cb.won || cb.lost);
     const all = toks(g);
     if (!all.some((t) => t.side === 'foe' && alive(g, t))) { cb.won = true; log('🏆 Перемога! Усіх ворогів подолано.', 'ok'); return true; }
-    if (!all.some((t) => t.ch && active(g, t))) { cb.lost = true; log('☠️ Усі герої впали. Майстре, вирішуй, що далі: полон, порятунок Ерандуром чи кінець.', 'bad'); return true; }
+    if (!all.some((t) => t.ch && active(g, t))) { cb.lost = true; log('☠️ Усі герої впали. Майстре, вирішуй, що далі: полон, порятунок чи кінець.', 'bad'); return true; }
     return false;
   }
 
@@ -644,7 +644,9 @@
       case 'auto': if (g.cb) g.cb.auto = !!op.on; break;
       case 'lessons': g.lessonsOn = !!op.on; break;
       case 'teach': if (R.LESSONS[op.k]) { g.les = (g.les || []).concat({ i: uid(), k: op.k }).slice(-4); if (!g.seen.includes(op.k)) g.seen.push(op.k); } break;
-      case 'finale': g.end = op.v || null; if (op.v) log(op.v === 'a' ? '🕯️ Ерандур розбиває Череп порчі. Кошмари в Данстарі зникають.' : '💀 Жезл «Череп порчі» тепер ваш. Але в Данстарі досі не сплять…', 'scene'); break;
+      case 'finale': g.end = op.v || null; if (op.v && S.ENDINGS && S.ENDINGS[op.v]) log(S.ENDINGS[op.v].log, 'scene'); break;
+      case 'adv': if (!g.started && window.DND_ADV[op.id]) { window.DND_USE(op.id); g.adv = op.id; g.tut = op.tut != null ? !!op.tut : !!S.tutorial; g.lessonsOn = g.tut; } break;
+      case 'tut': g.tut = !!op.on; g.lessonsOn = g.tut; break;
       case 'kick': delete g.chars[op.k]; break;
       case 'bot': {
         const c = R.CLASSES[op.cls]; if (!c) break;
