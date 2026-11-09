@@ -62,6 +62,7 @@
       .records-row.r2 .rank { background: linear-gradient(135deg, #f1f3f6, #a9b0bb); color: #23262d; }
       .records-row.r3 .rank { background: linear-gradient(135deg, #f0b98a, #b0682f); color: #2e1606; }
       .records-row .player { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+      .records-row .level { font-size: 12px; font-weight: 600; opacity: 0.65; white-space: nowrap; }
       .records-row .score { font-family: 'Space Grotesk', sans-serif; font-weight: 700; color: #ffc93c; font-variant-numeric: tabular-nums; }
       .records-empty { color: #8b909c; font-size: 13px; text-align: center; padding: 20px 0; }
       .records-close { display: block; width: 100%; margin-top: 12px; padding: 12px; border-radius: 12px; text-align: center; font-size: 14px; font-weight: 700; color: #f4f5f1; background: rgba(255,255,255,0.07); cursor: pointer; }
@@ -109,6 +110,7 @@
         <div class="records-row r${i + 1} ${me && r.player === me ? "me" : ""}">
           <span class="rank">${i + 1}</span>
           <span class="player">${escapeHtml(r.player)}</span>
+          ${r.level ? `<span class="level">рів. ${Number(r.level)}</span>` : ""}
           <span class="score">${r.score}</span>
         </div>`
         )

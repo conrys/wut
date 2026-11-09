@@ -57,7 +57,7 @@ service cloud.firestore {
     match /games41_scores/{scoreId} {
       allow read: if true;
       allow create, update: if ownsAccountName(request.resource.data.player)
-        && request.resource.data.keys().hasOnly(['gameName', 'player', 'score', 'ts'])
+        && request.resource.data.keys().hasOnly(['gameName', 'player', 'score', 'ts', 'level'])
         && scoreId == request.resource.data.player + '__' + request.resource.data.gameName
         && request.resource.data.score is number;
       allow delete: if false;

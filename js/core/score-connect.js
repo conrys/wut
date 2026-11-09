@@ -14,7 +14,7 @@
 //   сторінки).
 // ==========================================================================
 (function () {
-  async function sendScore(gameName, score) {
+  async function sendScore(gameName, score, extra) {   // extra.level — рівень, якого досяг гравець (показується в рекордах)
     const session = window.AppAuth && window.AppAuth.getSession();
     if (!session) return { saved: false, reason: "not-logged-in" };
     if (session.guest) return { saved: false, reason: "guest" }; // гості не потрапляють у рекорди
@@ -27,12 +27,18 @@
       const best = snap.exists ? snap.data().score : -Infinity;
       if (score <= best) return { saved: false, reason: "not-a-new-best", best };
 
-      await ref.set({
-        gameName,
-        player: session.username,
-        score,
-        ts: Date.now(),
-      });
+      const doc = { gameName, player: session.username, score, ts: Date.now() };
+      if (extra && Number.isFinite(extra.level)) {
+        try {
+          await ref.set(Object.assign({ level: extra.level }, doc));
+        } catch (e) {
+          // Правила Firestore ще без поля level — рекорд важливіший за підпис до нього.
+          if (e.code !== "permission-denied") throw e;
+          await ref.set(doc);
+        }
+      } else {
+        await ref.set(doc);
+      }
       offerShare(gameName, score, session.username);
       return { saved: true, best: score };
     } catch (e) {
@@ -92,7 +98,7 @@
         const d = doc.data();
         if (!d || !d.gameName || !d.player) return;
         if (allow && !allow.has(d.gameName)) return;
-        (byGame[d.gameName] = byGame[d.gameName] || []).push({ player: d.player, score: d.score, ts: d.ts || null });
+        (byGame[d.gameName] = byGame[d.gameName] || []).push({ player: d.player, score: d.score, ts: d.ts || null, level: d.level });
       });
 
       const trophies = { gold: 0, silver: 0, bronze: 0 };
@@ -105,7 +111,7 @@
         if (rank === 1) trophies.gold++;
         else if (rank === 2) trophies.silver++;
         else if (rank === 3) trophies.bronze++;
-        games.push({ gameName, score: rows[idx].score, rank, total: rows.length, ts: rows[idx].ts });
+        games.push({ gameName, score: rows[idx].score, rank, total: rows.length, ts: rows[idx].ts, level: rows[idx].level });
       });
       games.sort((a, b) => a.rank - b.rank || a.gameName.localeCompare(b.gameName));
 

@@ -312,6 +312,7 @@
     "doodle": "Стрибунець",
     "horde": "Орда",
     "blocks": "Блоки",
+    "match3": "Три в ряд",
     "soliter": "Косинка",
     "roulette": "Рулетка",
     "poker": "Покер",
@@ -377,7 +378,7 @@
   // колекція (games41_wordle_*) і своя механіка стріків, не games41_scores.
   // Дурак — накопичувальний лічильник перемог (як шахи/шашки), тому теж тут.
   const SCORABLE_GAMES = [
-    "tetris", "2048", "sudoku", "miner", "doodle", "horde", "blocks", "soliter", "roulette", "snake", "chess", "checkers", "whoami", "durak",
+    "tetris", "2048", "sudoku", "miner", "doodle", "horde", "blocks", "match3", "soliter", "roulette", "snake", "chess", "checkers", "whoami", "durak",
   ];
 
   function gameLabel(gameName) {
@@ -982,7 +983,7 @@
           <span class="game-icon">${gameIcon(g.gameName)}</span>
           <span class="game-info">
             <span class="game-name">${escapeHtml(gameLabel(g.gameName))}</span>
-            <span class="game-meta">${escapeHtml(meta)}${when ? " · " + escapeHtml(when) : ""}</span>
+            <span class="game-meta">${g.level ? `Рівень ${Number(g.level)} · ` : ""}${escapeHtml(meta)}${when ? " · " + escapeHtml(when) : ""}</span>
           </span>
           <span class="game-score">${g.score}</span>
         </div>`;
