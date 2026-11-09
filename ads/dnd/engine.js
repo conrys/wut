@@ -252,6 +252,7 @@
   /* ---------- бій ---------- */
   function fightStart(fid, surp) {
     const g = E.G, F = S.FIGHTS[fid]; if (!F) return;
+    if (E.onSnap && !E.noSnap && !g.cb) E.onSnap('⚔️ Перед боєм: ' + F.n); // сейв до бою — якщо всі загинуть
     const map = S.MAPS[F.map], tk = {}, keys = Object.keys(g.chars).filter((k) => !g.chars[k].dead);
     const spots = {}; // буква → список клітинок
     map.forEach((row, y) => [...row].forEach((c, x) => { if (/[1-5]/.test(c) || S.LETTER[c]) (spots[c] = spots[c] || []).push([x, y]); }));

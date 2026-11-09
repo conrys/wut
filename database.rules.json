@@ -92,6 +92,15 @@
         ".validate": "newData.isString() && newData.val().beginsWith('data:image/') && newData.val().length < 400000"
       }
     },
+    "dnd_cp": {
+      "$code": {
+        ".read": "auth != null",
+        "$id": {
+          ".write": "auth != null && $code.matches(/^[A-Z]{4}$/) && $id.matches(/^[a-z0-9]{4,40}$/)",
+          ".validate": "newData.hasChildren(['g','at']) && newData.child('g').isString() && newData.child('g').val().length < 300000"
+        }
+      }
+    },
     "dnd_saves": {
       "$code": {
         ".read": "auth != null",

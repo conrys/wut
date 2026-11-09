@@ -171,6 +171,8 @@
       atk: [{ n: 'Короткий лук', bonus: 4, dmg: '1d6+2', range: 16, long: 64 }, { n: 'Ніж', bonus: 4, dmg: '1d4+2', reach: 1 }], d: 'Тримається на відстані й стріляє.' },
     mage: { n: 'Чаклун', ic: '🔥', col: '#A0522D', ac: 11, hp: 12, sp: 6, st: { str: 9, dex: 12, con: 11, int: 15, wis: 11, cha: 10 }, pp: 10, keep: 4,
       atk: [{ n: 'Вогняна стріла', bonus: 4, dmg: '1d10', range: 24, spell: true }, { n: 'Кинджал', bonus: 3, dmg: '1d4+1', reach: 1 }], d: 'Маг-відступник із Морвунскару. Палить здалеку.' },
+    giant: { n: 'Велетень', ic: '🗿', col: '#7A6A52', ac: 13, hp: 55, sp: 8, st: { str: 20, dex: 9, con: 18, int: 6, wis: 10, cha: 7 }, pp: 10, boss: true,
+      atk: [{ n: 'Кийок', bonus: 7, dmg: '2d10+4', reach: 2 }, { n: 'Брила', bonus: 7, dmg: '2d8+4', range: 12, long: 24 }], d: 'Пастух мамонтів, утричі вищий за людину. Кийок дістає на 2 клітинки, а здалеку жбурляє брили. Один удар валить мага.' },
     hagraven: { n: 'Моїра', ic: '🦅', col: '#5B3A5E', ac: 13, hp: 32, sp: 6, st: { str: 14, dex: 13, con: 14, int: 12, wis: 15, cha: 14 }, pp: 13, boss: true, multi: 2,
       atk: [{ n: 'Пазурі', bonus: 5, dmg: '1d8+2', reach: 1 }, { n: 'Вогняна куля', bonus: 5, dmg: '2d6', range: 12, spell: true }], d: 'Карга в весільній фаті з пірʼя. Бʼє двічі за хід.' },
     erandur: { n: 'Ерандур', ic: '🕯️', col: '#E8D9A8', ac: 15, hp: 24, sp: 6, st: { str: 12, dex: 10, con: 14, int: 12, wis: 15, cha: 13 }, pp: 12, ally: true,

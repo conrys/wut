@@ -325,6 +325,7 @@
       if (b.pend.type === 'fight') {
         const cb = g.cb; if (!cb) { b.pend = null; return; }
         if (!(cb.won || cb.lost)) return;
+        if (cb.lost && BD.holdLose && BD.holdLose() && !cb.goOn) return; // є сейв — гравець сам вирішує: завантажити чи йти далі
         if (!BD.fast && !BD.fightAt) { BD.fightAt = t0 + 2200; return; }
         if (!BD.fast && t0 < BD.fightAt) return;
         BD.fightAt = 0;
@@ -353,9 +354,10 @@
     if (st.say) push(E, norm(st.say, st.sp), st.tip);
     eff(E, st, '');
     if (st.hub) { b.ch = { picked: [], n: 0 }; E.dirty = true; return; }
+    if (st.fight && E.onSnap) E.onSnap('⚔️ Перед боєм: ' + S.FIGHTS[st.fight].n); // сейв, поки бій ще попереду
     b.i++;
     if (st.ck) b.start = s;
-    else if (st.fight) { E.apply({ t: 'fight', f: st.fight, surp: st.surp ? st.surp(b.flags) : '' }, null, true); if (g.cb) g.cb.auto = true; b.pend = { type: 'fight', win: st.win || '' }; }
+    else if (st.fight) { E.noSnap = true; E.apply({ t: 'fight', f: st.fight, surp: st.surp ? st.surp(b.flags) : '' }, null, true); E.noSnap = false; if (g.cb) g.cb.auto = true; b.pend = { type: 'fight', win: st.win || '' }; }
     else if (st.rest) { E.apply({ t: 'rest', kind: st.rest }, null, true); push(E, '☕ Ви сідаєте перепочити на годину. Кожен кидає кістку хітів і трохи лікується.', 'Короткий відпочинок — 1 година. Довгий — 8 годин, відновлює все.'); }
     else if (st.passive) {
       const ks = Object.keys(g.chars).filter((k) => !g.chars[k].dead).sort((a, c) => E.passive(g.chars[c]) - E.passive(g.chars[a])), top = ks[0], pv = top ? E.passive(g.chars[top]) : 0;

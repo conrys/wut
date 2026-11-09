@@ -64,7 +64,9 @@
     const t = LS.get(soloKey('nightmare'), null);
     $('btnSoloResume').hidden = !(t && t.g && t.g.bd && !t.g.bd.end);
     if (!$('btnSoloResume').hidden) $('btnSoloResume').textContent = '↺ Продовжити навчання — ' + sceneOf(t.g);
-    $('advList').innerHTML = Object.values(ADVS).filter((a) => !a.tutorial).map((a) => {
+    const soloAdvs = Object.values(ADVS).filter((a) => !a.tutorial && a.solo !== false);
+    $('advCard').hidden = !soloAdvs.length;
+    $('advList').innerHTML = soloAdvs.map((a) => {
       const sv = LS.get(soloKey(a.id), null), can = sv && sv.g && sv.g.bd && !sv.g.bd.end;
       return '<div class="adv"><div class="adv-h"><span class="adv-ic">' + a.icon + '</span><div class="grow"><b>' + esc(a.title) + '</b><small>' + esc(a.sub) + '</small></div></div><div class="row"><button class="btn grow" type="button" data-advsolo="' + a.id + '">' + (can ? 'Почати заново' : 'Грати соло') + '</button>' + (can ? '<button class="btn2" type="button" data-advresume="' + a.id + '">↺ ' + esc(sceneOf(sv.g)) + '</button>' : '') + '</div></div>';
     }).join('') || '<p class="muted">Скоро.</p>';
@@ -86,7 +88,7 @@
     E.G = s0.g; E.G.fx = []; E.busy = false; G = E.G; U.joinedAt = performance.now(); render(true);
   }
   $('campList').addEventListener('click', (e) => {
-    const d = e.target.closest('[data-campdel]'); if (d) { const c = camps(); if (confirm('Видалити кампанію ' + d.dataset.campdel + '? Це не можна скасувати.')) { delete c[d.dataset.campdel]; LS.set('dnd_camps', c); renderCamps(); } return; }
+    const d = e.target.closest('[data-campdel]'); if (d) { const c = camps(); if (confirm('Видалити кампанію ' + d.dataset.campdel + '? Це не можна скасувати.')) { delete c[d.dataset.campdel]; LS.set('dnd_camps', c); try { localStorage.removeItem('dnd_cp_' + d.dataset.campdel); } catch (e) {} renderCamps(); } return; }
     const b = e.target.closest('[data-camp]'); if (b) resumeCamp(b.dataset.camp);
   });
   $('btnRestore').addEventListener('click', async () => {
@@ -97,6 +99,11 @@
       const v = (await firebase.database().ref('dnd_saves/' + code).get()).val();
       if (!v || !v.g) { startErr('Хмарної копії з кодом ' + code + ' не знайдено.'); return; }
       const c = camps(); c[code] = { code, nick: v.nick || $('dmName').value || 'Майстер', g: JSON.parse(v.g), at: v.at || Date.now() }; LS.set('dnd_camps', c);
+      try { // сейви кампанії теж із хмари
+        const cp = (await firebase.database().ref('dnd_cp/' + code).get()).val() || {};
+        const list = Object.keys(cp).map((id) => Object.assign({ id }, cp[id])).filter((x) => typeof x.g === 'string').sort((a, b) => b.at - a.at).slice(0, CP_MAX);
+        if (list.length && !LS.get('dnd_cp_' + code, []).length) LS.set('dnd_cp_' + code, list);
+      } catch (e) {}
       renderCamps(); resumeCamp(code);
     } catch (e) { startErr('Не вдалося завантажити. Перевір інтернет.'); }
   });
@@ -125,6 +132,7 @@
   }
   function startSolo(n, cls, mates, adv, heroId) {
     window.DND_USE(adv || 'nightmare');
+    try { localStorage.removeItem('dnd_cp_solo_' + (adv || 'nightmare')); } catch (e) {} // нова гра — старі сейви не потрібні
     const h = heroId && HR.get(heroId);
     if (h) cls = h.cls;
     Object.assign(ME, { role: 'pl', solo: true, nick: n, key: E.keyOf(n), code: 'соло', cls, q: [] });
@@ -244,11 +252,76 @@
     cloudT = setTimeout(() => { cloudT = 0; if (cloudPend) { cloudPend = false; cloudSave(); } }, 8000);
   }
   function pushG() {
+    if (ME.role === 'dm' || ME.solo) cpScene();
     if (ME.solo && E.G) { E.G.v++; E.dirty = false; persistSolo(); return; }
     if (!E.G || !NET) return;
     E.G.v++; E.dirty = false;
     NET.presence({ g: E.G }); persist();
   }
+  /* ---------- сейви: автоматично на початку сцени й перед кожним боєм, плюс вручну ---------- */
+  const CP_MAX = 12;
+  const cpKey = () => (ME.solo ? 'dnd_cp_solo_' + ((E.G && E.G.adv) || 'nightmare') : 'dnd_cp_' + ME.code);
+  const cpList = () => (ME.role === 'dm' || ME.solo ? LS.get(cpKey(), []) : []);
+  const cpWhen = (t) => new Date(t).toLocaleString('uk-UA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  function cpSnap(label, manual) {
+    if (!E.G || !E.G.started || (ME.role !== 'dm' && !ME.solo)) return;
+    const list = cpList(), last = list[0];
+    if (!manual && last && last.l === label && Date.now() - last.at < 4000) return;
+    const g = JSON.stringify(Object.assign({}, E.G, { fx: [], les: [], pid: [] }));
+    const it = { id: E.uid() + Date.now().toString(36), l: label, at: Date.now(), sc: E.G.sc, m: manual ? 1 : 0, g };
+    list.unshift(it);
+    const drop = list.splice(CP_MAX);
+    while (!LS.set(cpKey(), list) && list.length > 2) drop.push(list.pop()); // місце на телефоні скінчилось — лишаємо новіші
+    if (!ME.solo && ME.code) {
+      try { const db = firebase.database(); db.ref('dnd_cp/' + ME.code + '/' + it.id).set({ g, l: label.slice(0, 80), at: it.at, sc: it.sc, m: it.m }).catch(() => {}); drop.forEach((d) => db.ref('dnd_cp/' + ME.code + '/' + d.id).remove().catch(() => {})); } catch (e) {}
+    }
+    U.sig = '';
+  }
+  E.onSnap = (label) => cpSnap(label);
+  let cpSc = null;
+  function cpScene() { // нова сцена — новий сейв
+    if (!E.G || !E.G.started) { cpSc = null; return; }
+    const k = (E.G.adv || '') + ':' + E.G.sc; if (k === cpSc) return;
+    const first = cpSc === null; cpSc = k;
+    if (first && cpList().length) return; // щойно відкрили збережену гру — не дублюємо
+    const sc = S.SCENES[E.G.sc]; cpSnap('📜 Сцена ' + (E.G.sc + 1) + ': ' + sc.t);
+  }
+  function cpLoad(id) {
+    const it = cpList().find((x) => x.id === id); if (!it) return;
+    if (!confirm('Завантажити сейв «' + it.l + '» (' + cpWhen(it.at) + ')?\nУсе, що сталося після нього, зникне.')) return;
+    const g = JSON.parse(it.g), was = E.G;
+    window.DND_USE(g.adv || 'nightmare');
+    g.v = (was.v || 0) + 1; g.lid = E.uid(); g.fx = []; g.les = []; g.dm = was.dm;
+    E.G = g; E.busy = false; G = g; cpSc = (g.adv || '') + ':' + g.sc;
+    const BD = window.DNDBotDM && window.DNDBotDM.BD; if (BD) { BD.at = 0; BD.fightAt = 0; BD.ckAt = 0; }
+    E.log('⏪ Завантажено сейв: ' + it.l + ' (' + cpWhen(it.at) + '). Спробуйте ще раз!', 'sys');
+    closeModal(); U.tab = null; pushG(); render(true);
+  }
+  if (window.DNDBotDM) window.DNDBotDM.BD.holdLose = () => ME.solo && cpList().length > 0;
+  function cpHtml() {
+    const list = cpList();
+    const row = (x) => '<div class="sk cp"><span>' + (x.m ? '💾' : x.l.slice(0, 2)) + '</span><span class="grow">' + esc(x.m ? x.l : x.l.slice(2).trim()) + '<em style="display:block">' + cpWhen(x.at) + '</em></span><b><button class="btn2 sm" type="button" data-cpload="' + x.id + '">⏪ Завантажити</button></b></div>';
+    return '<div class="card" id="cpCard"><h3>💾 Сейви</h3><p class="muted">Гра зберігається сама на початку кожної сцени й перед кожним боєм. Якщо всі загинули — завантаж сейв і спробуйте ще раз.</p>' +
+      '<button class="btn2 wide" type="button" data-cpsave="1">💾 Зберегти зараз</button>' +
+      (list.length ? '<div style="margin-top:8px">' + list.slice(0, 5).map(row).join('') + (list.length > 5 ? '<details><summary class="muted">Старіші (' + (list.length - 5) + ')</summary>' + list.slice(5).map(row).join('') + '</details>' : '') + '</div>' : '<p class="muted" style="margin:8px 0 0">Поки жодного.</p>') + '</div>';
+  }
+  function cpLostHtml() { // панель після поразки
+    const list = cpList(), pre = list.find((x) => /^⚔️/.test(x.l)) || list[0];
+    if (ME.role === 'pl' && !ME.solo) return '<p class="hint" style="text-align:center">Майстер вирішує: завантажити сейв і спробувати ще раз або йти далі.</p>';
+    let h = pre ? '<button class="btn wide" type="button" data-cpload="' + pre.id + '">⏪ ' + esc(pre.l.replace(/^\S+\s/, '')) + '</button><p class="hint" style="text-align:center;margin:4px 0 8px">Сейв від ' + cpWhen(pre.at) + '</p>' : '';
+    if (list.length > 1) h += '<button class="btn2" type="button" data-cplist="1">Інші сейви</button> ';
+    if (ME.solo && pre) h += '<button class="btn2" type="button" data-cpgo="1">Йти далі без сейва</button>';
+    return h;
+  }
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-cpload],[data-cpsave],[data-cplist],[data-cpgo]'); if (!b || !E.G) return;
+    const d = b.dataset;
+    if (d.cpload) cpLoad(d.cpload);
+    else if (d.cpsave) { const sc = S.SCENES[E.G.sc]; cpSnap('💾 ' + (E.G.cb ? 'Посеред бою: ' + S.FIGHTS[E.G.cb.f].n : 'Сцена ' + (E.G.sc + 1) + ': ' + sc.t), true); toast('💾 Збережено'); render(true); }
+    else if (d.cplist) openModal('cp', cpHtml() + '<button class="btn2 wide" type="button" data-cpclose="1">Закрити</button>');
+    else if (d.cpgo && ME.solo && E.G.cb) { E.G.cb.goOn = true; pushG(); render(true); }
+  });
+  document.addEventListener('click', (e) => { if (e.target.closest('[data-cpclose]')) closeModal(); });
   // авто-хід чекає, поки догра анімація, — щоб було видно, хто що зробив
   const animIdle = () => !ANIM.cur && !ANIM.q.length;
   E.wait = (ms) => new Promise((r) => { const t0 = performance.now(); const f = () => ((performance.now() - t0 >= ms && animIdle()) || performance.now() - t0 > 7000 ? r() : setTimeout(f, 80)); f(); });
@@ -382,6 +455,11 @@
   function onG() {
     if (!G) return;
     if (U.lastGv === G.v) return; U.lastGv = G.v;
+    if (U.lidInit && G.lid !== U.lid) { // майстер завантажив сейв — старі кидки й анімації не повторюємо
+      U.rollSeen = null; U.fxSeen = null; U.lesIds = null; U.ckSeen = null; U.cbKey = '-'; ANIM.q.length = 0; ANIM.cur = null;
+      if (!ME.solo && ME.role === 'pl') toast('⏪ Майстер завантажив сейв');
+    }
+    U.lid = G.lid; U.lidInit = true;
     // уроки (черга: за одну дію може відкритись кілька)
     const les = Array.isArray(G.les) ? G.les : [];
     if (!U.lesIds) U.lesIds = new Set(les.map((l) => l.i));
@@ -617,6 +695,7 @@
     h += '<div class="card"><h3>📖 Загальний лор</h3><p class="muted">Хто є хто й що є що у світі. Відкривається, коли герої про щось дізнаються.</p>' +
       (lore.length ? lore.map((k) => { const L = S.LORE[k]; return '<details class="lore"><summary>' + L.ic + ' ' + esc(L.t) + '</summary><p>' + esc(L.d) + '</p></details>'; }).join('') : '<p class="muted">Ще нічого не відкрито.</p>') +
       (Object.keys(S.LORE).length > lore.length ? '<p class="muted" style="margin-top:8px">Ще не відкрито: ' + (Object.keys(S.LORE).length - lore.length) + '</p>' : '') + '</div>';
+    if (ME.solo) h += cpHtml();
     return h;
   }
   const INFO = {
@@ -694,7 +773,7 @@
   }
   function viewParty() {
     const keys = Object.keys(G.chars);
-    let h = '<div class="card"><h2>Гравці</h2><p class="muted">Хіти міняй тут, коли сцена каже «−3 хіти» тощо. У бою шкода рахується сама.</p></div>';
+    let h = (ME.role === 'dm' ? cpHtml() : '') + '<div class="card"><h2>Гравці</h2><p class="muted">Хіти міняй тут, коли сцена каже «−3 хіти» тощо. У бою шкода рахується сама.</p></div>';
     if (!keys.length) h += '<p class="muted">Поки нікого.</p>';
     for (const k of keys) {
       const ch = G.chars[k], c = E.C(ch);
@@ -961,7 +1040,8 @@
     let h = '';
     if (cb.won || cb.lost) {
       h += '<p class="verdict ' + (cb.won ? 'ok' : 'bad') + '">' + (cb.won ? '🏆 Перемога!' : '☠️ Усі герої впали') + '</p>';
-      h += ME.role === 'dm' ? '<p class="hint">' + (cb.won ? 'Розкажи, що вони знаходять. Порада: короткий відпочинок у вкладці «Гравці».' : (S.loseHint || 'Вирішуй: порятунок, полон або кінець. Хіти можна підняти у вкладці «Гравці».')) + '</p><button class="btn wide" type="button" data-a="fightend">Завершити бій</button>' : '<p class="hint" style="text-align:center">Чекаємо майстра.</p>';
+      if (cb.lost) h += cpLostHtml();
+      h += ME.role === 'dm' ? '<p class="hint">' + (cb.won ? 'Розкажи, що вони знаходять. Порада: короткий відпочинок у вкладці «Гравці».' : 'Або без сейва: ' + (S.loseHint || 'вирішуй — порятунок, полон або кінець. Хіти можна підняти у вкладці «Гравці».')) + '</p><button class="btn' + (cb.lost ? '2' : '') + ' wide" type="button" data-a="fightend">Завершити бій</button>' : (cb.lost && ME.solo ? '' : '<p class="hint" style="text-align:center">Чекаємо майстра.</p>');
       $('act').innerHTML = h; return;
     }
     if (!t) {
@@ -1149,6 +1229,7 @@
     stone: { a: '#3A3344', b: '#352F3F', road: '#3A3344', grid: 'rgba(0,0,0,.18)' },
     shrine: { a: '#33283F', b: '#2E2439', road: '#33283F', grid: 'rgba(0,0,0,.2)' },
     town: { a: '#6B6A5C', b: '#646355', road: '#8A7F68', grid: 'rgba(0,0,0,.14)' },
+    grass: { a: '#5E7A3E', b: '#587338', road: '#8A7A52', grid: 'rgba(0,0,0,.12)' },
   };
   function cellXY(x, y) { return [OX + x * CS, OY + y * CS]; }
   function drawTiles(cb) {
