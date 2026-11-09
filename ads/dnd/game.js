@@ -6,6 +6,10 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const sgn = R.sgn;
+  const HR = window.DNDHeroes;
+  const av = (ch, px, kind) => HR.avatarHtml(ch, px || 54, kind); // іконка героя або емодзі класу
+  const clsName = (ch) => (ch.hero ? R.CLASS_HINT[ch.cls].cn : R.CLASSES[ch.cls].n);
+  const ordIc = (i) => { const u = i.pc && i.ch.hero && HR.url(i.ch.hero.ii); return '<i style="background:' + i.col + '">' + (u ? '<img alt="" src="' + u + '">' : i.ic) + '</i>'; };
   const kd = (s) => String(s).replace(/(\d)d(\d)/g, '$1к$2');
   const LS = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} } };
 
@@ -125,11 +129,19 @@
     NET.presence({ r: 'pl', n, cls: null, q: [] });
     render(true);
   });
+  function renderHeroList() {
+    const list = HR.load();
+    $('heroList').innerHTML = list.length ? HR.pickHtml(null, 'ehero') : '<p class="muted" style="margin:0">Поки нікого. Створи героя — і грай ним із друзями.</p>';
+  }
+  renderHeroList();
+  $('heroList').addEventListener('click', (e) => { const b = e.target.closest('[data-ehero]'); if (b) HR.open(b.dataset.ehero, renderHeroList); });
+  $('btnNewHero').addEventListener('click', () => HR.open(null, renderHeroList));
+  HR.onImg = () => { if (ME.role) { U.sig = ''; U.ver++; render(true); } else renderHeroList(); };
   $('plCode').addEventListener('input', () => { $('plCode').value = $('plCode').value.toUpperCase().replace(/[^A-Z]/g, ''); });
   if (/^#[A-Z]{4}$/.test(location.hash)) $('plCode').value = location.hash.slice(1);
   $('lobLeave').addEventListener('click', leave);
   function leave() {
-    if (NET) NET.leave(); NET = null; ME.role = null; ME.solo = false; G = null; E.G = null; location.hash = '';
+    if (NET) NET.leave(); NET = null; ME.role = null; ME.solo = false; ME.hero = null; G = null; E.G = null; location.hash = '';
     $('lobby').hidden = true; $('app').hidden = true; $('start').hidden = false; closeModal();
   }
   $('mute').addEventListener('click', () => { muted = !muted; LS.set('dnd_mute', muted); $('mute').textContent = muted ? '🔇' : '🔊'; });
@@ -179,7 +191,7 @@
     peers = NET.peers();
     if (ME.role === 'dm') {
       const pls = plPeers().filter((p) => !p.isMe);
-      E.syncChars(pls.map((p) => ({ n: p.presence.n, cls: p.presence.cls })));
+      E.syncChars(pls.map((p) => ({ n: p.presence.n, cls: p.presence.cls, hero: p.presence.hero || null })));
       for (const p of pls) {
         const k = E.keyOf(p.presence.n);
         for (const op of p.presence.q || []) {
@@ -228,12 +240,12 @@
     const pls = plPeers(), dm = ME.role === 'dm' ? { presence: { n: ME.nick } } : dmPeer();
     const mine = pls.find((p) => p.isMe);
     const bots = G && G.chars ? Object.keys(G.chars).filter((k) => G.chars[k].bot).map((k) => Object.assign({ k }, G.chars[k])) : [];
-    const taken = pls.filter((p) => !p.isMe && p.presence.cls).map((p) => p.presence.cls).concat(bots.map((b) => b.cls));
-    const sig = 'L' + ME.code + JSON.stringify(pls.map((p) => [p.presence.n, p.presence.cls, p.isMe])) + JSON.stringify(bots.map((b) => b.k)) + (dm ? dm.presence.n : '-') + ME.cls;
+    const taken = pls.filter((p) => !p.isMe && p.presence.cls && !p.presence.hero).map((p) => p.presence.cls).concat(bots.map((b) => b.cls));
+    const sig = 'L' + ME.code + JSON.stringify(pls.map((p) => [p.presence.n, p.presence.cls, p.isMe, p.presence.hero && [p.presence.hero.id, p.presence.hero.rev, HR.url(p.presence.hero.ii) ? 1 : 0]])) + JSON.stringify(bots.map((b) => b.k)) + (dm ? dm.presence.n : '-') + ME.cls + (ME.hero || '') + HR.load().length;
     if (sig === U.sig) return; U.sig = sig;
     $('lobPlayers').innerHTML = (dm ? '<li><span class="avatar" style="width:30px;height:30px;font-size:16px;background:#3A3346">🎲</span><b class="grow">' + esc(dm.presence.n) + '</b><span class="chip gold">майстер</span></li>' : '<li class="muted">Майстра ще немає… Перевір код.</li>') +
       bots.map((b) => { const c = R.CLASSES[b.cls]; return '<li><span class="avatar" style="width:30px;height:30px;font-size:16px;background:' + c.col + '">' + c.ic + '</span><b class="grow">' + esc(b.n) + '</b><span class="muted">' + c.n + '</span>' + (ME.role === 'dm' ? '<button class="btn2 sm" type="button" data-unbot="' + esc(b.k) + '">✕</button>' : '') + '</li>'; }).join('') +
-      pls.map((p) => { const c = R.CLASSES[p.presence.cls]; return '<li><span class="avatar" style="width:30px;height:30px;font-size:16px;background:' + (c ? c.col : '#3A3346') + '">' + (c ? c.ic : '…') + '</span><b class="grow">' + esc(p.presence.n) + (p.isMe ? ' (ти)' : '') + '</b><span class="muted">' + (c ? c.n : 'обирає героя') + '</span></li>'; }).join('');
+      pls.map((p) => { const c = R.CLASSES[p.presence.cls], hh = p.presence.hero; return '<li>' + (c ? av({ cls: p.presence.cls, hero: hh }, 30) : '<span class="avatar" style="width:30px;height:30px;font-size:16px;background:#3A3346">…</span>') + '<b class="grow">' + esc(hh ? hh.n : p.presence.n) + (hh ? ' <span class="muted" style="font-weight:400">(' + esc(p.presence.n) + ')</span>' : '') + (p.isMe ? ' (ти)' : '') + '</b><span class="muted">' + (c ? (hh ? R.CLASS_HINT[p.presence.cls].cn : c.n) : 'обирає героя') + '</span></li>'; }).join('');
     if (ME.role === 'dm') {
       $('lobPick').hidden = true; $('lobWait').hidden = true; $('lobStart').hidden = false;
       $('lobStart').disabled = !pls.some((p) => p.presence.cls) && !bots.length;
@@ -243,22 +255,28 @@
     } else {
       $('lobPick').hidden = false; $('lobStart').hidden = true; $('lobWait').hidden = false;
       $('lobSub').textContent = dm ? 'Майстер: ' + dm.presence.n : 'Шукаємо гру…';
-      $('lobClasses').innerHTML = R.CLASS_IDS.map((id) => {
-        const c = R.CLASSES[id], on = mine && mine.presence.cls === id, off = taken.includes(id);
+      $('lobClasses').innerHTML = '<p class="eyebrow" style="margin:0">Мої герої</p>' + HR.pickHtml(ME.hero, 'lhero') + '<button type="button" class="btn2" data-lnew="1">＋ Створити свого героя</button><p class="eyebrow" style="margin:8px 0 0">Або готовий герой</p>' + R.CLASS_IDS.map((id) => {
+        const c = R.CLASSES[id], on = mine && mine.presence.cls === id && !ME.hero, off = taken.includes(id);
         return '<button type="button" class="cls' + (on ? ' on' : '') + '" data-cls="' + id + '"' + (off ? ' disabled' : '') + '><span class="avatar" style="background:' + c.col + '">' + c.ic + '</span><span class="grow"><b>' + c.n + ' · ' + c.who + '</b><small>' + esc(c.bio) + '</small><small>КБ ' + c.ac + ' · хіти ' + c.hp + (off ? ' · зайнято' : '') + '</small></span></button>';
       }).join('');
     }
   }
+  function pickHero(id) {
+    const h = HR.get(id); if (!h || !NET) return;
+    ME.hero = id; ME.cls = h.cls; NET.presence({ cls: h.cls, hero: HR.compact(h) }); HR.upload(h); U.sig = ''; renderLobby();
+  }
   $('lobClasses').addEventListener('click', (e) => {
+    const hb = e.target.closest('[data-lhero]'); if (hb) return pickHero(hb.dataset.lhero);
+    if (e.target.closest('[data-lnew]')) return HR.open(null, (id) => { if (id) pickHero(id); else { U.sig = ''; renderLobby(); } });
     const b = e.target.closest('[data-cls]'); if (!b || b.disabled || !NET) return;
-    ME.cls = b.dataset.cls; NET.presence({ cls: ME.cls }); U.sig = ''; renderLobby();
+    ME.cls = b.dataset.cls; ME.hero = null; NET.presence({ cls: ME.cls, hero: null }); U.sig = ''; renderLobby();
   });
   $('lobby').addEventListener('click', (e) => {
     const b = e.target.closest('[data-bot],[data-unbot]'); if (!b || b.disabled || ME.role !== 'dm') return;
     if (b.dataset.bot) send({ t: 'bot', cls: b.dataset.bot }); else send({ t: 'unbot', k: b.dataset.unbot });
     U.sig = ''; renderLobby();
   });
-  $('lobStart').addEventListener('click', () => { E.syncChars(plPeers().filter((p) => !p.isMe).map((p) => ({ n: p.presence.n, cls: p.presence.cls }))); send({ t: 'start' }); U.tab = 'scene'; render(true); });
+  $('lobStart').addEventListener('click', () => { E.syncChars(plPeers().filter((p) => !p.isMe).map((p) => ({ n: p.presence.n, cls: p.presence.cls, hero: p.presence.hero || null }))); send({ t: 'start' }); U.tab = 'scene'; render(true); });
 
   /* реакції на новий стан: уроки, тости, анімації, перемикання вкладок */
   function onG() {
@@ -423,7 +441,7 @@
     let h = sceneBanner(sc, G.sc) + dmCard() + (ME.solo ? '' : '<div class="card"><details><summary>Текст сцени (майстер читає вголос)</summary><div class="read" style="margin-top:8px">' + sc.read.map((p) => '<p>' + esc(p) + '</p>').join('') + '</div></details></div>');
     if (G.end && !ME.solo) h += '<div class="card" style="border-color:var(--gold)"><h3>' + (G.end === 'a' ? '🕯️ Кінець: Череп знищено' : '💀 Кінець: жезл ваш') + '</h3><p class="muted">Дякуємо за гру! Пригоду «Кошмар наяву» пройдено.</p></div>' + feedbackHtml();
     const ch = G.chars[ME.key];
-    if (ch) { const c = E.C(ch); h += '<div class="card"><div class="sheet-h"><span class="avatar" style="background:' + c.col + '">' + c.ic + '</span><div class="grow"><b>' + esc(ch.n) + '</b> · ' + c.n + statusTxt(ch) + '<div class="bar"><i style="width:' + Math.max(0, ch.hp / c.hp * 100) + '%;background:' + hpCol(ch.hp / c.hp) + '"></i></div><span class="muted">' + ch.hp + '/' + c.hp + ' хітів' + (c.slots ? ' · комірки ' + ch.slots + '/' + c.slots : '') + '</span></div></div></div>'; }
+    if (ch) { const c = E.C(ch); h += '<div class="card"><div class="sheet-h">' + av(ch, 54) + '<div class="grow"><b>' + esc(ch.n) + '</b> · ' + clsName(ch) + statusTxt(ch) + '<div class="bar"><i style="width:' + Math.max(0, ch.hp / c.hp * 100) + '%;background:' + hpCol(ch.hp / c.hp) + '"></i></div><span class="muted">' + ch.hp + '/' + c.hp + ' хітів' + (c.slots ? ' · комірки ' + ch.slots + '/' + c.slots : '') + '</span></div></div></div>'; }
     if (G.ck && !G.ck.who.includes(ME.key)) h += '<div class="card"><p class="eyebrow">Зараз кидають</p><b>' + esc(E.checkName(G.ck)) + '</b><p class="muted">' + G.ck.who.map((k) => esc(G.chars[k].n) + (G.ck.res[k] ? ' — ' + G.ck.res[k].tot + (G.ck.res[k].ok ? ' ✔' : ' ✖') : ' …')).join(', ') + '</p></div>';
     if (G.ck && G.ck.who.includes(ME.key) && !U.ckOpen && !ME.solo) h += '<button class="btn wide" data-openck="1" type="button" style="margin-bottom:12px">🎲 Перевірка: ' + esc(E.checkName(G.ck)) + '</button>';
     h += '<p class="eyebrow">Що відбувалось</p>' + logHtml(36);
@@ -435,8 +453,9 @@
   function viewHero() {
     const ch = G.chars[ME.key]; if (!ch) return '';
     const c = E.C(ch);
-    let h = '<div class="card"><div class="sheet-h"><span class="avatar" style="background:' + c.col + '">' + c.ic + '</span><div class="grow"><h2 style="margin:0">' + esc(ch.n) + '</h2><span class="muted">' + c.n + ' 2 рівня' + statusTxt(ch) + '</span></div></div>' +
-      '<p class="muted" style="margin:8px 0 0">' + esc(c.bio) + '</p>' +
+    const hb = ch.hero, bgr = hb && R.BACKGROUNDS[hb.bg], por = hb && HR.url(hb.ip);
+    let h = '<div class="card">' + (por ? '<div class="portrait"><img alt="" src="' + por + '"></div>' : '') + '<div class="sheet-h">' + (por ? '' : av(ch, 54)) + '<div class="grow"><h2 style="margin:0">' + esc(ch.n) + '</h2><span class="muted">' + clsName(ch) + ' 2 рівня' + (bgr ? ' · ' + bgr.n : '') + statusTxt(ch) + '</span></div></div>' +
+      (hb ? (hb.look ? '<p style="margin:8px 0 0">' + esc(hb.look) + '</p>' : '') + (hb.story ? '<p class="muted" style="margin:6px 0 0;font-style:italic">' + esc(hb.story) + '</p>' : '') + (bgr ? '<p class="muted" style="margin:6px 0 0">' + bgr.ic + ' ' + esc(bgr.d) + '</p>' : '') : '<p class="muted" style="margin:8px 0 0">' + esc(c.bio) + '</p>') +
       '<div class="bar" style="height:14px;margin-top:10px"><i style="width:' + Math.max(0, ch.hp / c.hp * 100) + '%;background:' + hpCol(ch.hp / c.hp) + '"></i></div><span class="muted">Хіти ' + ch.hp + ' з ' + c.hp + ' — скільки ударів витримаєш. На 0 падаєш без тями.</span>' +
       '<div class="kv"><div data-info="ac"><b>' + c.ac + '</b><small>Клас броні</small></div><div data-info="speed"><b>' + c.sp + ' кл</b><small>' + (c.sp * 1.5) + ' м за хід</small></div><div data-info="init"><b>' + sgn(R.mod(c.st.dex)) + '</b><small>Ініціатива</small></div></div>' +
       '<div class="kv"><div data-info="passive"><b>' + E.passive(ch) + '</b><small>Пас. сприйняття</small></div><div data-info="prof"><b>+2</b><small>Майстерність</small></div>' + (c.slots ? '<div data-info="slots"><b>' + ch.slots + '/' + c.slots + '</b><small>Комірки чар</small></div>' : '<div><b>' + c.hd + '</b><small>Кістка хітів к' + c.hd + '</small></div>') + '</div>' +
@@ -539,7 +558,7 @@
     if (!keys.length) h += '<p class="muted">Поки нікого.</p>';
     for (const k of keys) {
       const ch = G.chars[k], c = E.C(ch);
-      h += '<div class="card"><div class="sheet-h"><span class="avatar" style="background:' + c.col + '">' + c.ic + '</span><div class="grow"><b>' + esc(ch.n) + '</b> · ' + c.n + (ch.bot ? ' <span class="chip">🤖 бот</span>' : ' <span class="chip ' + (online(k) ? '' : 'red') + '">' + (online(k) ? 'в мережі' : 'не в мережі') + '</span>') + statusTxt(ch) +
+      h += '<div class="card"><div class="sheet-h">' + av(ch, 54) + '<div class="grow"><b>' + esc(ch.n) + '</b> · ' + clsName(ch) + (ch.pn && ch.pn !== ch.n ? ' <span class="muted">(' + esc(ch.pn) + ')</span>' : '') + (ch.bot ? ' <span class="chip">🤖 бот</span>' : ' <span class="chip ' + (online(k) ? '' : 'red') + '">' + (online(k) ? 'в мережі' : 'не в мережі') + '</span>') + statusTxt(ch) +
         '<div class="bar"><i style="width:' + Math.max(0, ch.hp / c.hp * 100) + '%;background:' + hpCol(ch.hp / c.hp) + '"></i></div></div></div>' +
         '<div class="row" style="margin-top:8px"><span class="grow"><b>' + ch.hp + '/' + c.hp + '</b> хітів</span>' + [-5, -1, 1, 5].map((d) => '<button class="btn2 sm" type="button" data-hp="' + k + '" data-d="' + d + '">' + (d > 0 ? '+' : '') + d + '</button>').join('') + '</div>' +
         '<div class="tags" style="margin-top:8px"><span class="tag">КБ ' + c.ac + '</span><span class="tag st">Пас. сприйн. ' + E.passive(ch) + '</span>' + (c.slots ? '<span class="tag sv">Комірки ' + ch.slots + '/' + c.slots + '</span>' : '') + '</div>' +
@@ -643,7 +662,7 @@
     const oth = ck.who.filter((k) => k !== ME.key); if (!oth.length) return '';
     return '<div class="others"><p class="eyebrow" style="margin:6px 0 4px">' + (ck.mode === 'group' ? 'Групова — рахуються всі' : 'Кидають також') + '</p>' + oth.map((k) => {
       const ch = G.chars[k], c = E.C(ch), r = ck.res[k];
-      return '<div class="oth"><span class="avatar" style="width:28px;height:28px;font-size:15px;background:' + c.col + '">' + c.ic + '</span><span class="grow">' + esc(ch.n.replace(/ \(бот\)$/, '')) + '</span>' +
+      return '<div class="oth">' + av(ch, 28) + '<span class="grow">' + esc(ch.n.replace(/ \(бот\)$/, '')) + '</span>' +
         (r ? dieHtml(r) + '<b class="' + (r.ok ? 'ok' : 'bad') + '">' + r.tot + (r.ok ? ' ✔' : ' ✖') + '</b>' : '<span class="die rolling">?</span>') + '</div>';
     }).join('') + '</div>';
   }
@@ -656,7 +675,7 @@
     const why = String(ck.why || '').replace(/ ?Кидає .*? — у цій групі це виходить найкраще\.?/, '');
     let h = '<p class="eyebrow">' + (ck.kind === 'sv' ? 'Рятівний кидок' : 'Перевірка') + '</p>';
     if (ck.who.length === 1) {
-      h += '<div class="sheet-h" style="margin:4px 0 8px"><span class="avatar" style="background:' + c.col + '">' + c.ic + '</span><div class="grow"><h2 style="margin:0">Кидає ' + nm(ch) + '</h2><span class="muted">' + esc(E.checkName(ck)) + (ck.t ? ' · ' + esc(ck.t) : '') + '</span></div></div>';
+      h += '<div class="sheet-h" style="margin:4px 0 8px">' + av(ch, 54) + '<div class="grow"><h2 style="margin:0">Кидає ' + nm(ch) + '</h2><span class="muted">' + esc(E.checkName(ck)) + (ck.t ? ' · ' + esc(ck.t) : '') + '</span></div></div>';
       if (me) {
         const hb = bonusOf(ch, ck), mb = bonusOf(me, ck);
         h += '<div class="gm"><b>Чому ' + nm(ch) + ', а не ти?</b> ' + (hb > mb ? '<br>' + nm(ch) + ': <b>' + sgn(hb) + '</b> (' + E.checkParts(ch, ck).map((p) => esc(p[0]) + ' ' + sgn(p[1])).join(', ') + ')<br>Ти: <b>' + sgn(mb) + '</b><br>Майстер дає кидок тому, хто вміє це найкраще.' : 'Так склалась історія — зараз діє саме цей герой.') + '</div>';
@@ -788,7 +807,7 @@
   }
   function renderOrder() {
     const cb = G.cb, cur = E.cur(G);
-    $('order').innerHTML = cb.order.map((id) => { const t = cb.tk[id], i = E.info(G, t); return '<button type="button" class="oc' + (t === cur ? ' cur' : '') + (i.dead ? ' dead' : '') + '" data-tok="' + id + '"><i style="background:' + i.col + '">' + i.ic + '</i><span>' + esc(i.n.replace(/ \(бот\)$/, ' 🤖')) + (t.cond.sleep ? ' 💤' : '') + (i.down ? ' 🩸' : '') + '</span></button>'; }).join('');
+    $('order').innerHTML = cb.order.map((id) => { const t = cb.tk[id], i = E.info(G, t); return '<button type="button" class="oc' + (t === cur ? ' cur' : '') + (i.dead ? ' dead' : '') + '" data-tok="' + id + '">' + ordIc(i) + '<span>' + esc(i.n.replace(/ \(бот\)$/, ' 🤖')) + (t.cond.sleep ? ' 💤' : '') + (i.down ? ' 🩸' : '') + '</span></button>'; }).join('');
   }
   $('order').addEventListener('click', (e) => { const b = e.target.closest('[data-tok]'); if (b && G.cb) popToken(G.cb.tk[b.dataset.tok]); });
 
@@ -1110,7 +1129,9 @@
       const f = Math.max(0, shownHp / i.mhp);
       cx.strokeStyle = 'rgba(0,0,0,.45)'; cx.lineWidth = Math.max(3, CS / 9); cx.beginPath(); cx.arc(X, Y, r + cx.lineWidth / 2, 0, 7); cx.stroke();
       cx.strokeStyle = hpCol(f); cx.beginPath(); cx.arc(X, Y, r + cx.lineWidth / 2, -Math.PI / 2, -Math.PI / 2 + f * Math.PI * 2); cx.stroke();
-      cx.font = Math.round(CS * 0.48) + 'px serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText(i.dead && !lag ? '💀' : i.ic, X, Y + 1);
+      cx.font = Math.round(CS * 0.48) + 'px serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; const himg = i.pc && i.ch.hero && HR.image(i.ch.hero.ii);
+      if (himg && !(i.dead && !lag)) { cx.save(); cx.beginPath(); cx.arc(X, Y, r - 1, 0, 7); cx.clip(); if ((i.down || i.dead) && !lag) cx.filter = 'grayscale(1) brightness(.6)'; cx.drawImage(himg, X - r, Y - r, r * 2, r * 2); cx.restore(); }
+      else cx.fillText(i.dead && !lag ? '💀' : i.ic, X, Y + 1);
       cx.globalAlpha = 1;
       if (CS >= 24) { // імʼя під токеном
         const n0 = i.n.replace(/ \(бот\)$/, ''), nm = n0.length > 9 ? n0.slice(0, 8) + '…' : n0;

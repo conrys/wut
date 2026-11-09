@@ -85,6 +85,13 @@
         }
       }
     },
+    "dnd_img": {
+      "$id": {
+        ".read": "auth != null",
+        ".write": "auth != null && !data.exists() && $id.matches(/^[a-z0-9]{6,24}$/)",
+        ".validate": "newData.isString() && newData.val().beginsWith('data:image/') && newData.val().length < 400000"
+      }
+    },
     "dnd": {
       "$code": {
         ".read": "auth != null",
