@@ -157,8 +157,8 @@ const dmSet = (dm, fn, arg) => dm.evaluate(([src, arg]) => { const E = DNDGame.E
 
   // ---- майстер перезавантажився — гра продовжується
   await dm.reload();
-  await until(() => dm.evaluate(() => !document.getElementById("btnResume").hidden && !document.getElementById("btnResume").disabled && !document.getElementById("btnDm").disabled));
-  await dm.click("#btnResume");
+  await until(() => dm.evaluate((c) => !document.getElementById("btnDm").disabled && !!document.querySelector('[data-camp="' + c + '"]'), code));
+  await dm.click('[data-camp="' + code + '"]');
   const back = await until(() => lisa.evaluate(() => DNDGame.G && DNDGame.G.log.some((e) => /Майстер повернувся/.test(e.t)) && !!DNDGame.G.cb));
   check("майстер перезапустив сторінку і продовжив гру з тим самим боєм", !!back);
   await dm.evaluate(() => DNDGame.send({ t: "fightend" }));
