@@ -52,20 +52,23 @@
   async function upload(h) { // для гри з друзями
     if (!h) return;
     for (const [id, u] of [[h.ip, h.p], [h.ii, h.i]]) {
-      if (!id || !u || uploaded[id]) continue;
+      if (!id || !u || uploaded[id] || !u.startsWith('data:')) continue; // готові портрети є на кожному телефоні
       try { if (window.HNS_TRANSPORT && await window.HNS_TRANSPORT.ready()) { await firebase.database().ref('dnd_img/' + id).set(u); uploaded[id] = 1; } }
       catch (e) { uploaded[id] = 1; } // уже є в базі — правило не дає перезаписати
     }
   }
-  /* стандартні портрети класів: файли в ads/dnd/img/ (портрет 3:4 і кругла іконка).
-     Додаємо сюди, коли картинки готові, — без файлу лишається емодзі класу. */
-  const DEF_FILES = {
-    // fighter: { p: 'img/fighter_p.webp', i: 'img/fighter_i.webp' },
-  };
-  for (const cls in DEF_FILES) for (const k of ['p', 'i']) if (DEF_FILES[cls][k]) cache['d' + k + cls] = { url: DEF_FILES[cls][k] };
-  const defId = (cls, k) => (DEF_FILES[cls] && DEF_FILES[cls][k] ? 'd' + k + cls : null);
-  function iconId(ch) { const h = (ch && ch.hero) || {}; return h.ii || h.ip || defId(ch && ch.cls, 'i') || defId(ch && ch.cls, 'p'); }
-  function portId(ch) { const h = (ch && ch.hero) || {}; return h.ip || defId(ch && ch.cls, 'p') || h.ii || defId(ch && ch.cls, 'i'); }
+  /* готові портрети: по 2 чоловіки й 2 жінки на клас (набір GCC Vol.1, Georgios Maragkos / Reckoning Web — вільна ліцензія).
+     Файли в ads/dnd/img/por/<id>_p.webp (3:4) і <id>_i.webp (іконка). Готові герої беруть свій, власні — обирають у редакторі. */
+  const PORTRAITS = [];
+  for (const cls of ['fighter', 'rogue', 'wizard', 'cleric', 'ranger', 'bard']) for (const sx of ['m', 'f']) for (const n of [1, 2]) {
+    const id = cls + '_' + sx + n; PORTRAITS.push({ id, cls, sx });
+    cache['pp_' + id] = { url: 'img/por/' + id + '_p.webp' }; cache['pi_' + id] = { url: 'img/por/' + id + '_i.webp' };
+  }
+  const PRESET = { fighter: 'fighter_m1', rogue: 'rogue_f1', wizard: 'wizard_m1', cleric: 'cleric_f1', ranger: 'ranger_f1', bard: 'bard_m1' };
+  const defId = (cls, k) => (PRESET[cls] ? (k === 'p' ? 'pp_' : 'pi_') + PRESET[cls] : null);
+  // власний герой без картинок лишається з емодзі: чуже обличчя (Фаркаса) йому не підставляємо
+  function iconId(ch) { const h = ch && ch.hero; return h ? h.ii || h.ip || null : defId(ch && ch.cls, 'i'); }
+  function portId(ch) { const h = ch && ch.hero; return h ? h.ip || null : defId(ch && ch.cls, 'p'); }
   /* аватар: іконка героя, стандартна іконка класу або емодзі класу */
   function avatarHtml(ch, px, kind) {
     const c = R.CLASSES[ch.cls] || { col: '#3A3346', ic: '?' };
@@ -109,7 +112,9 @@
       R.BG_IDS.map((id) => { const b = R.BACKGROUNDS[id]; return '<button type="button" class="cls' + (ed.bg === id ? ' on' : '') + '" data-hbg="' + id + '"><span class="avatar" style="background:#3A3346">' + b.ic + '</span><span class="grow"><b>' + b.n + '</b><small>' + esc(b.d) + '</small><small class="muted">+ ' + b.sk.map((k) => R.SKILLS[k].n).join(', ') + '</small></span></button>'; }).join('') + '</div></div>';
     h += '<div class="hstep"><b>4. Як виглядає (необовʼязково)</b><small>Портрет — у листі героя. Іконка — твій кружечок на мапі бою.</small><div class="pics">' +
       '<div class="pic"><div class="ppor">' + (ed.p ? '<img alt="" src="' + ed.p + '">' : '<span>' + c.ic + '</span>') + '</div><button class="btn2 sm" type="button" data-hup="p">📷 Портрет</button>' + (ed.p ? '<button class="btn2 sm" type="button" data-hdel="p">✕</button>' : '') + '</div>' +
-      '<div class="pic"><div class="pico" style="background:' + c.col + '">' + (ed.i ? '<img alt="" src="' + ed.i + '">' : '<span>' + c.ic + '</span>') + '</div><button class="btn2 sm" type="button" data-hup="i">📷 Іконка</button>' + (ed.p ? '<button class="btn2 sm" type="button" data-hcut="1">✂️ З портрета</button>' : '') + (ed.i ? '<button class="btn2 sm" type="button" data-hdel="i">✕</button>' : '') + '</div></div></div>';
+      '<div class="pic"><div class="pico" style="background:' + c.col + '">' + (ed.i ? '<img alt="" src="' + ed.i + '">' : '<span>' + c.ic + '</span>') + '</div><button class="btn2 sm" type="button" data-hup="i">📷 Іконка</button>' + (ed.p ? '<button class="btn2 sm" type="button" data-hcut="1">✂️ З портрета</button>' : '') + (ed.i ? '<button class="btn2 sm" type="button" data-hdel="i">✕</button>' : '') + '</div></div>' +
+      '<small style="margin-top:8px">Або обери готовий портрет:</small>' + galHtml(PORTRAITS.filter((x) => x.cls === ed.cls)) +
+      '<details><summary class="muted" style="font-size:12.5px">Портрети інших класів</summary>' + galHtml(PORTRAITS.filter((x) => x.cls !== ed.cls)) + '</details></div>';
     h += '<div class="hstep"><b>5. Кілька слів (необовʼязково)</b><input id="heLook" maxlength="120" placeholder="Зовнішність: високий норд зі шрамом через брову" value="' + esc(ed.look) + '"><textarea id="heStory" maxlength="500" rows="3" placeholder="Чому вирушив у пригоди? Чого боїться?">' + esc(ed.story) + '</textarea><small>Майстрові буде з чим грати, а тобі — кого відігравати.</small></div>';
     h += '<div class="card hsum"><p class="eyebrow">Що вийшло</p><b>' + c.ic + ' ' + ch.cn + (R.BACKGROUNDS[ed.bg] ? ' · ' + R.BACKGROUNDS[ed.bg].n : '') + '</b>' +
       '<div class="tags" style="margin:6px 0"><span class="tag">Хіти ' + c.hp + '</span><span class="tag">КБ ' + c.ac + '</span><span class="tag st">Найсильніше: ' + statTop(c).join(', ') + '</span>' + (c.slots ? '<span class="tag sv">Чари: ' + c.slots + ' комірки</span>' : '') + '</div>' +
@@ -117,6 +122,9 @@
     if (ed.err) h += '<p class="err">' + esc(ed.err) + '</p>';
     h += '<div class="row" style="margin-top:4px">' + (ed.isNew ? '' : '<button class="btn2" type="button" data-hremove="1">🗑</button>') + '<button class="btn2" type="button" data-hcancel="1">Скасувати</button><button class="btn grow" type="button" data-hsave="1">Зберегти</button></div>';
     $('heroEdSheet').innerHTML = h;
+  }
+  function galHtml(list) {
+    return '<div class="pgal">' + list.map((x) => '<button type="button" class="' + (ed.ip === 'pp_' + x.id ? 'on' : '') + '" data-hpre="' + x.id + '" aria-label="Портрет"><img alt="" loading="lazy" src="img/por/' + x.id + '_i.webp"></button>').join('') + '</div>';
   }
   function onInput(e) {
     if (!ed) return;
@@ -129,6 +137,7 @@
     const d = b.dataset, keep = $('heroEdSheet').scrollTop;
     if (d.hcls) ed.cls = d.hcls;
     else if (d.hbg) ed.bg = d.hbg;
+    else if (d.hpre) { const id = d.hpre; Object.assign(ed, { p: 'img/por/' + id + '_p.webp', ip: 'pp_' + id, i: 'img/por/' + id + '_i.webp', ii: 'pi_' + id }); }
     else if (d.hup) { fileKind = d.hup; $('heFile').value = ''; $('heFile').click(); return; }
     else if (d.hcut) { const img = new Image(); img.onload = () => crop(img, 'i'); img.src = ed.p; return; }
     else if (d.hdel) { ed[d.hdel] = ''; ed[d.hdel === 'p' ? 'ip' : 'ii'] = ''; }

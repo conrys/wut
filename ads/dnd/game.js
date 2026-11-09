@@ -115,7 +115,7 @@
     f.mates = f.mates.filter((c) => c !== hcls);
     openModal('solo', '<p class="eyebrow">' + (presets ? 'Навчальна кампанія — соло' : esc(A.icon + ' ' + A.title) + ' — соло') + '</p><h2>Ким граєш?</h2><p class="muted">' + (presets ? 'Обери героя. Не знаєш — бери Воїна: найпростіший для старту.' : 'Свій герой або готовий. Підказок і уроків у цій кампанії немає.') + '</p>' +
       (presets ? '' : '<div class="classes" style="margin-top:8px">' + HR.pickHtml(f.hero, 'shero') + '<button type="button" class="btn2" data-snew="1">＋ Створити свого героя</button></div><p class="eyebrow" style="margin-top:10px">Або готовий герой</p>') + '<div class="classes" style="margin-top:8px">' +
-      R.CLASS_IDS.map((id) => { const c = R.CLASSES[id]; return '<button type="button" class="cls' + (!f.hero && f.cls === id ? ' on' : '') + '" data-scls="' + id + '"><span class="avatar" style="background:' + c.col + '">' + c.ic + '</span><span class="grow"><b>' + c.n + '</b><small>' + esc(c.bio) + '</small></span></button>'; }).join('') +
+      R.CLASS_IDS.map((id) => { const c = R.CLASSES[id]; return '<button type="button" class="cls' + (!f.hero && f.cls === id ? ' on' : '') + '" data-scls="' + id + '">' + HR.avatarHtml({ cls: id }, 44) + '<span class="grow"><b>' + c.n + '</b><small>' + esc(c.bio) + '</small></span></button>'; }).join('') +
       '</div><p class="eyebrow" style="margin-top:12px">Супутники-боти (можна жодного)</p><div class="chips">' +
       R.CLASS_IDS.filter((id) => id !== hcls).map((id) => '<button type="button" data-smate="' + id + '" class="' + (f.mates.includes(id) ? 'on' : '') + '">' + R.CLASSES[id].ic + ' ' + R.CLASSES[id].n + '</button>').join('') +
       '</div><p class="muted">Радимо 2 супутники: сам на сам храм дуже небезпечний.</p><div class="row"><button class="btn2" type="button" data-sclose="1">Назад</button><button class="btn grow" type="button" data-sgo="1">Почати</button></div>');
@@ -431,7 +431,7 @@
       $('lobSub').textContent = dm ? 'Майстер: ' + dm.presence.n : 'Шукаємо гру…';
       $('lobClasses').innerHTML = '<p class="eyebrow" style="margin:0">Мої герої</p>' + HR.pickHtml(ME.hero, 'lhero') + '<button type="button" class="btn2" data-lnew="1">＋ Створити свого героя</button><p class="eyebrow" style="margin:8px 0 0">Або готовий герой</p>' + R.CLASS_IDS.map((id) => {
         const c = R.CLASSES[id], on = mine && mine.presence.cls === id && !ME.hero, off = taken.includes(id);
-        return '<button type="button" class="cls' + (on ? ' on' : '') + '" data-cls="' + id + '"' + (off ? ' disabled' : '') + '><span class="avatar" style="background:' + c.col + '">' + c.ic + '</span><span class="grow"><b>' + c.n + ' · ' + c.who + '</b><small>' + esc(c.bio) + '</small><small>КБ ' + c.ac + ' · хіти ' + c.hp + (off ? ' · зайнято' : '') + '</small></span></button>';
+        return '<button type="button" class="cls' + (on ? ' on' : '') + '" data-cls="' + id + '"' + (off ? ' disabled' : '') + '>' + HR.avatarHtml({ cls: id }, 44) + '<span class="grow"><b>' + c.n + ' · ' + c.who + '</b><small>' + esc(c.bio) + '</small><small>КБ ' + c.ac + ' · хіти ' + c.hp + (off ? ' · зайнято' : '') + '</small></span></button>';
       }).join('');
     }
   }
@@ -524,7 +524,7 @@
     const sc0 = $('main').scrollTop;
     let h = '';
     if (ME.role === 'pl' && !ME.solo && !dmPeer()) h += '<div class="card" style="border-color:var(--red)"><b>Майстер не на звʼязку.</b><p class="muted" style="margin:4px 0 0">Можливо, згас екран. Гра збережена в нього — чекаємо.</p></div>';
-    if (ME.role === 'pl' && !G.chars[ME.key]) h += '<div class="card"><b>Твого героя ще немає.</b><p class="muted">Обери героя — майстер побачить і додасть тебе в гру.</p><div class="classes">' + R.CLASS_IDS.map((id) => { const c = R.CLASSES[id]; return '<button type="button" class="cls" data-latecls="' + id + '"><span class="avatar" style="background:' + c.col + '">' + c.ic + '</span><span class="grow"><b>' + c.n + ' · ' + c.who + '</b></span></button>'; }).join('') + '</div></div>';
+    if (ME.role === 'pl' && !G.chars[ME.key]) h += '<div class="card"><b>Твого героя ще немає.</b><p class="muted">Обери героя — майстер побачить і додасть тебе в гру.</p><div class="classes">' + R.CLASS_IDS.map((id) => { const c = R.CLASSES[id]; return '<button type="button" class="cls" data-latecls="' + id + '">' + HR.avatarHtml({ cls: id }, 44) + '<span class="grow"><b>' + c.n + ' · ' + c.who + '</b></span></button>'; }).join('') + '</div></div>';
     if (U.tab === 'story') h += viewStory();
     else if (U.tab === 'hero') h += viewHero();
     else if (U.tab === 'rules') h += viewRules();
