@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <g fill="none" stroke="#fff" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
+    <!-- мікрофон: голова-сітка, корпус, ручка -->
+    <circle cx="600" cy="380" r="150"/>
+    <path d="M494 274l212 212M480 380h240M600 260v240"/>
+    <path d="M494 486L270 760q-30 40 10 74t74-6l232-244"/>
+    <path d="M330 790l-60 80"/>
+  </g>
+  <!-- ноти акцентом -->
+  <g fill="#FF3D9A" stroke="#FF3D9A" stroke-width="20" stroke-linecap="round">
+    <path d="M250 200v170" fill="none"/><circle cx="222" cy="380" r="34"/>
+    <path d="M250 200l90-30v60l-90 30" />
+    <path d="M830 620v150" fill="none"/><circle cx="802" cy="780" r="30"/>
+  </g>
+</svg>

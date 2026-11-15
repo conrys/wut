@@ -1,0 +1,354 @@
+<!-- Караоке: телефон — черга/пошук і синхронний текст. Плеєр і великий текст — karaoke-tv.html -->
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<script src="js/core/native.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<title>Караоке</title>
+<link rel="stylesheet" href="./vendor/fonts/russo-one.css"><link rel="stylesheet" href="./vendor/fonts/manrope.css">
+<link rel="stylesheet" href="js/styles/game-header.css">
+<script src="js/core/game-header.js" defer></script>
+<style>
+  :root { --bg: #120a2a; --panel: rgba(255,255,255,.06); --panel2: rgba(255,255,255,.1); --line: rgba(255,255,255,.12); --ink: #f6f2ff;
+    --muted: rgba(230,220,255,.55); --accent: #ff3d9a; --accent2: #ffd23f; --bad: #ff7a7a; --font-d: 'Russo One', sans-serif; --font-b: 'Manrope', sans-serif; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; min-height: 100%; color: var(--ink); font-family: var(--font-b);
+    background: radial-gradient(90% 50% at 20% 110%, rgba(255,61,154,.3), transparent 70%), radial-gradient(80% 40% at 90% -10%, rgba(120,80,255,.3), transparent 70%), var(--bg) fixed; }
+  .hidden { display: none !important; }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 12px 14px calc(84px + env(safe-area-inset-bottom)); }
+  h1 { font-family: var(--font-d); font-weight: 400; font-size: 44px; margin: 18px 0 6px; text-align: center; }
+  h1 i { font-style: normal; color: var(--accent); }
+  .sub { text-align: center; color: var(--muted); margin: 0 0 20px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 14px; margin-bottom: 12px; }
+  .h { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .row { display: flex; gap: 8px; }
+  input { flex: 1; min-width: 0; font: 600 16px var(--font-b); color: var(--ink); background: rgba(0,0,0,.25); border: 1px solid var(--line); border-radius: 12px; padding: 12px; outline: none; }
+  input:focus { border-color: var(--accent); }
+  input.code { text-align: center; font-family: var(--font-d); letter-spacing: .2em; text-transform: uppercase; font-size: 22px; }
+  button { font: 700 15px var(--font-b); color: var(--ink); background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; cursor: pointer; }
+  button:active { transform: scale(.96); }
+  button.primary { background: linear-gradient(135deg, var(--accent), #ff7a59); border: 0; color: #fff; }
+  button:disabled { opacity: .45; }
+  .note { color: var(--muted); font-size: 13px; margin-top: 8px; }
+  .err { color: var(--bad); font-size: 13px; margin-top: 8px; min-height: 0; }
+  .warn { background: rgba(255,122,122,.14); border: 1px solid rgba(255,122,122,.35); color: #ffc1c1; border-radius: 12px; padding: 10px 12px; font-size: 14px; margin-bottom: 12px; }
+  /* зараз грає */
+  .np .t { font-family: var(--font-d); font-size: 19px; line-height: 1.25; }
+  .np .by { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .np .by b { color: var(--accent2); }
+  .ctl { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 12px; }
+  .ctl button { padding: 12px 0; font-size: 18px; }
+  .ctl button.big { background: linear-gradient(135deg, var(--accent), #ff7a59); border: 0; color: #fff; }
+  /* списки */
+  .list { display: flex; flex-direction: column; gap: 6px; }
+  .it { display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,.2); border-radius: 12px; padding: 8px 10px; }
+  .it img { width: 48px; height: 48px; object-fit: cover; border-radius: 8px; flex: none; background: #000; }
+  .it .tx { flex: 1; min-width: 0; }
+  .it .tx b { display: block; font-size: 14px; line-height: 1.25; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .it .tx small { color: var(--muted); font-size: 12px; }
+  .it .n { font-family: var(--font-d); color: var(--accent); width: 20px; text-align: center; flex: none; }
+  .it button { flex: none; padding: 8px 12px; }
+  .badge { display: inline-block; font-size: 10px; font-weight: 800; padding: 1px 6px; border-radius: 6px; background: rgba(60,207,142,.2); color: #6ff0b0; margin-left: 4px; vertical-align: 1px; }
+  .badge.pl { background: rgba(255,210,63,.18); color: var(--accent2); }
+  /* текст */
+  .lyr { padding: 8px 4px 40vh; }
+  .lyr .ln { font-size: 21px; font-weight: 700; line-height: 1.35; padding: 7px 4px; color: var(--muted); transition: color .2s, transform .2s; transform-origin: left center; }
+  .lyr .ln.past { opacity: .5; }
+  .lyr .ln.cur { color: transparent; transform: scale(1.06);
+    background: linear-gradient(90deg, var(--accent2) 0 calc(var(--p, 0) * 100%), #fff calc(var(--p, 0) * 100%)); -webkit-background-clip: text; background-clip: text; }
+  .lyr .ln.empty::before { content: "♪"; }
+  .lyr .plain { white-space: pre-line; font-size: 19px; line-height: 1.5; }
+  .offrow { display: flex; align-items: center; gap: 8px; }
+  .offrow b { flex: 1; text-align: center; font-family: var(--font-d); font-weight: 400; }
+  /* вкладки */
+  .tabs { position: fixed; z-index: 50; left: 0; right: 0; bottom: 0; display: flex; gap: 8px; padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+    background: rgba(18,10,42,.92); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-top: 1px solid var(--line); }
+  .tabs button { flex: 1; padding: 14px 0; font-size: 16px; }
+  .tabs button.on { background: #fff; color: var(--bg); border-color: #fff; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <!-- вхід у кімнату -->
+  <section id="v-entry" class="hidden">
+    <h1>Кара<i>оке</i></h1>
+    <p class="sub">Відкрий «Караоке ТВ» на телевізорі чи ноутбуці й введи код з екрана</p>
+    <div class="card">
+      <div class="h">Код кімнати</div>
+      <div class="row"><input class="code" id="codeInput" maxlength="5" placeholder="КОД" autocomplete="off" /><button class="primary" id="joinBtn">Увійти</button></div>
+      <div class="h" style="margin-top:14px" id="nameHead">Твоє ім'я</div>
+      <input id="nameInput" maxlength="20" placeholder="Як тебе звати?" autocomplete="off" />
+      <div class="err" id="entryErr"></div>
+    </div>
+  </section>
+
+  <section id="v-room" class="hidden">
+    <div class="warn hidden" id="tvOff">Екран ТВ зараз не відкритий — музика не гратиме, але чергу можна збирати</div>
+
+    <div class="card np" id="npCard">
+      <div class="t" id="npTitle">Черга порожня</div>
+      <div class="by" id="npBy">Додай пісню нижче</div>
+      <div class="ctl">
+        <button data-a="restart" title="Спочатку">⟲</button>
+        <button data-a="seek" data-x="-10" title="Назад 10 с">−10</button>
+        <button data-a="toggle" class="big" id="toggleBtn" title="Пауза / грати">⏯</button>
+        <button data-a="seek" data-x="10" title="Вперед 10 с">+10</button>
+        <button data-a="skip" title="Наступна">⏭</button>
+      </div>
+    </div>
+
+    <!-- вкладка 1: черга й пошук -->
+    <div id="t-queue">
+      <div class="card">
+        <div class="h">Пошук у YouTube Music</div>
+        <div class="row"><input id="searchInput" placeholder="Виконавець або пісня" enterkeyhint="search" autocomplete="off" /><button class="primary" id="searchBtn">Знайти</button></div>
+        <div class="err" id="searchErr"></div>
+        <div class="list" id="results" style="margin-top:10px"></div>
+      </div>
+      <div class="card">
+        <div class="h">Черга <span id="qCount"></span></div>
+        <div class="list" id="queue"></div>
+      </div>
+      <div class="card">
+        <div class="h">Вставити посилання</div>
+        <div class="row"><input id="linkInput" placeholder="music.youtube.com/watch?v=…" autocomplete="off" inputmode="url" /><button id="linkBtn">Додати</button></div>
+        <div class="err" id="linkErr"></div>
+        <div class="note">У YouTube Music: ⋮ біля пісні → Поділитися → Копіювати посилання</div>
+      </div>
+    </div>
+
+    <!-- вкладка 2: текст -->
+    <div id="t-lyrics" class="hidden">
+      <div class="card offrow">
+        <button id="offMinus">− 0.5 с</button><b id="offVal">текст вчасно</b><button id="offPlus">+ 0.5 с</button>
+      </div>
+      <div class="lyr" id="lyr"></div>
+      <div class="card">
+        <div class="h">Не той текст?</div>
+        <div class="row"><input id="lrcInput" placeholder="Виконавець і пісня" enterkeyhint="search" autocomplete="off" /><button id="lrcBtn">Шукати</button></div>
+        <div class="err" id="lrcErr"></div>
+        <div class="list" id="lrcResults" style="margin-top:10px"></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="tabs hidden" id="tabs">
+  <button class="on" data-tab="queue">Черга / пошук</button>
+  <button data-tab="lyrics">Текст</button>
+</div>
+
+<script src="./vendor/firebase/10.13.0/firebase-app-compat.js"></script>
+<script src="./vendor/firebase/10.13.0/firebase-auth-compat.js"></script>
+<script src="./vendor/firebase/10.13.0/firebase-firestore-compat.js"></script>
+<script src="./vendor/firebase/10.13.0/firebase-database-compat.js"></script>
+<script>window.FIREBASE_SILENT_GUEST = true; // гостьовий вхід, якщо гравець не увійшов у профіль</script>
+<script src="js/core/firebase-config.js"></script>
+<script src="js/core/back-button.js"></script>
+<script src="js/karaoke-core.js"></script>
+<script>
+(function () {
+  const K = window.Karaoke, esc = K.escapeHtml;
+  const $ = (id) => document.getElementById(id);
+  K.watchClock();
+
+  // ім'я — з профілю Ігротеки, інакше питаємо один раз
+  function sessionName() { try { return (JSON.parse(localStorage.getItem("games41_session") || "null") || {}).username || ""; } catch { return ""; } }
+  let myName = sessionName() || localStorage.getItem("karaoke_name") || "";
+  if (sessionName()) { $("nameInput").classList.add("hidden"); $("nameHead").classList.add("hidden"); }
+  else $("nameInput").value = myName;
+
+  let room = null, nowSt = null, meta = {}, queue = [];
+
+  function enter(code) {
+    code = (code || "").trim().toUpperCase();
+    if (!/^[A-Z0-9]{4,6}$/.test(code)) { $("entryErr").textContent = "Введи код з екрана ТВ"; return; }
+    if (!sessionName()) {
+      myName = $("nameInput").value.trim();
+      if (!myName) { $("entryErr").textContent = "Введи ім'я — його видно в черзі"; $("v-entry").classList.remove("hidden"); return; }
+      localStorage.setItem("karaoke_name", myName);
+    }
+    const user = firebase.auth().currentUser;
+    if (!user) { // гостьовий вхід ще не завершився — зачекаємо, інакше запис у базу не пройде
+      const off = firebase.auth().onAuthStateChanged((u) => { if (u) { off(); enter(code); } });
+      return;
+    }
+    room = K.roomRef(code);
+    room.child("meta").once("value").then((s) => {
+      if (!s.exists()) { $("entryErr").textContent = "Кімнати з таким кодом нема"; $("v-entry").classList.remove("hidden"); room = null; return; }
+      history.replaceState(null, "", location.pathname + "?room=" + code);
+      $("v-entry").classList.add("hidden"); $("v-room").classList.remove("hidden"); $("tabs").classList.remove("hidden");
+      subscribe();
+    }).catch(() => { $("entryErr").textContent = "Немає з'єднання"; $("v-entry").classList.remove("hidden"); });
+  }
+
+  function subscribe() {
+    room.child("meta").on("value", (s) => {
+      meta = s.val() || {};
+      $("tvOff").classList.toggle("hidden", meta.tv !== false);
+      $("searchInput").placeholder = meta.search === false ? "Хост не увійшов у Google — встав посилання" : "Виконавець або пісня";
+    });
+    room.child("now").on("value", (s) => { const prev = nowSt; nowSt = s.val(); renderNow(prev); });
+    room.child("queue").on("value", (s) => {
+      queue = []; s.forEach((c) => { queue.push({ key: c.key, ...c.val() }); });
+      renderQueue();
+    });
+  }
+
+  function cmd(a, x) { if (room) room.child("cmd").push({ a, x: x == null ? null : x }); }
+  document.querySelectorAll(".ctl button").forEach((b) => b.addEventListener("click", () => cmd(b.dataset.a, b.dataset.x ? +b.dataset.x : null)));
+
+  // ---------- черга ----------
+  function add(item) {
+    room.child("queue").push({ v: item.v, title: item.title || "", ch: item.ch || "", dur: item.dur || 0, by: myName });
+  }
+  function renderQueue() {
+    $("qCount").textContent = queue.length ? `· ${queue.length}` : "";
+    $("queue").innerHTML = queue.length ? queue.map((q, i) => `<div class="it"><span class="n">${i + 1}</span>
+        <div class="tx"><b>${esc(q.title || "Посилання (назва з'явиться)")}</b><small>${esc(q.by || "")}${q.dur ? " · " + K.fmtDur(q.dur) : ""}</small></div>
+        <button data-del="${esc(q.key)}" title="Прибрати">✕</button></div>`).join("")
+      : '<div class="note">Порожньо — знайди пісню вище</div>';
+    $("queue").querySelectorAll("[data-del]").forEach((b) => b.onclick = () => room.child("queue/" + b.dataset.del).remove());
+  }
+
+  // ---------- пошук (робить ТВ акаунтом хоста) ----------
+  let pending = null;
+  function doSearch() {
+    const q = $("searchInput").value.trim();
+    $("searchErr").textContent = "";
+    if (!q) return;
+    const id = K.parseVideoId(q);
+    if (id) { add({ v: id }); $("searchInput").value = ""; return; } // вставили посилання в пошук — теж ок
+    if (meta.tv === false) { $("searchErr").textContent = "Пошук працює, коли відкритий екран ТВ"; return; }
+    $("searchBtn").disabled = true; $("results").innerHTML = '<div class="note">Шукаю…</div>';
+    const ref = room.child("req").push({ q, by: myName });
+    const resRef = room.child("res/" + ref.key);
+    if (pending) pending();
+    const timer = setTimeout(() => { done(); $("results").innerHTML = ""; $("searchErr").textContent = "ТВ не відповідає — перевір, чи він відкритий"; ref.remove(); }, 15000);
+    const onVal = (s) => {
+      const r = s.val(); if (!r) return;
+      done(); resRef.remove();
+      if (r.err) { $("results").innerHTML = ""; $("searchErr").textContent = r.err; return; }
+      renderResults(r.items || []);
+    };
+    function done() { clearTimeout(timer); resRef.off("value", onVal); $("searchBtn").disabled = false; pending = null; }
+    pending = done;
+    resRef.on("value", onVal);
+  }
+  let lastResults = [];
+  function renderResults(items) {
+    lastResults = items;
+    $("results").innerHTML = items.length ? items.map((it, i) => `<div class="it"><img src="https://i.ytimg.com/vi/${esc(it.v)}/default.jpg" alt="" loading="lazy" />
+        <div class="tx"><b>${esc(it.title)}</b><small>${esc((it.ch || "").replace(/\s*-\s*Topic$/i, ""))}${it.dur ? " · " + K.fmtDur(it.dur) : ""}</small></div>
+        <button class="primary" data-add="${i}">+</button></div>`).join("")
+      : '<div class="note">Нічого не знайшли</div>';
+    $("results").querySelectorAll("[data-add]").forEach((b) => b.onclick = () => {
+      add(lastResults[+b.dataset.add]); b.textContent = "✓"; b.disabled = true;
+    });
+  }
+  $("searchBtn").onclick = doSearch;
+  $("searchInput").addEventListener("keydown", (e) => { if (e.key === "Enter") doSearch(); });
+
+  // ---------- посилання ----------
+  function addLink() {
+    const id = K.parseVideoId($("linkInput").value);
+    $("linkErr").textContent = "";
+    if (!id) { $("linkErr").textContent = "Не схоже на посилання YouTube / YouTube Music"; return; }
+    add({ v: id }); $("linkInput").value = "";
+  }
+  $("linkBtn").onclick = addLink;
+  $("linkInput").addEventListener("keydown", (e) => { if (e.key === "Enter") addLink(); });
+
+  // ---------- зараз грає + текст ----------
+  let lyr = null, lyrId = null, lastIdx = -2;
+  function renderNow(prev) {
+    if (!nowSt) {
+      $("npTitle").textContent = "Черга порожня"; $("npBy").textContent = "Додай пісню нижче";
+      lyr = null; lyrId = null; lastIdx = -2; $("lyr").innerHTML = '<div class="note">Тут буде текст пісні, що грає</div>'; renderOff(); return;
+    }
+    $("npTitle").textContent = nowSt.title || "Завантажую…";
+    $("npBy").innerHTML = (nowSt.by ? `замовив(ла) <b>${esc(nowSt.by)}</b>` : "") + (nowSt.err ? ` · <span style="color:var(--bad)">${esc(nowSt.err)}</span>` : "");
+    $("toggleBtn").textContent = nowSt.playing ? "⏸" : "▶";
+    if (!prev || prev.key !== nowSt.key) { $("lrcInput").value = ""; $("lrcResults").innerHTML = ""; $("lrcErr").textContent = ""; }
+    if (nowSt.lrc && nowSt.lrc !== lyrId) {
+      lyrId = nowSt.lrc; lyr = null; lastIdx = -2;
+      $("lyr").innerHTML = '<div class="note">Завантажую текст…</div>';
+      const want = lyrId;
+      K.lrcGet(want).then((it) => {
+        if (want !== lyrId) return;
+        lyr = it.syncedLyrics ? { lines: K.parseLrc(it.syncedLyrics) } : { plain: it.plainLyrics || "" };
+        drawLyrics();
+      }).catch(() => { $("lyr").innerHTML = '<div class="note">Не вдалося завантажити текст</div>'; });
+    } else if (!nowSt.lrc) {
+      lyr = null; lyrId = null; lastIdx = -2;
+      $("lyr").innerHTML = `<div class="note">${nowSt.lrcState === "none" ? "Тексту не знайшли — пошукай нижче" : "Шукаю текст…"}</div>`;
+    }
+    renderOff();
+  }
+  function renderOff() {
+    const o = (nowSt && nowSt.off) || 0;
+    $("offVal").textContent = o === 0 ? "текст вчасно" : o > 0 ? `текст раніше на ${o} с` : `текст пізніше на ${-o} с`;
+  }
+  $("offMinus").onclick = () => cmd("off", -0.5);
+  $("offPlus").onclick = () => cmd("off", 0.5);
+
+  function drawLyrics() {
+    lastIdx = -2;
+    if (!lyr) return;
+    if (lyr.plain != null) { $("lyr").innerHTML = `<div class="plain">${esc(lyr.plain)}</div><div class="note">Синхронного тексту нема — лише слова</div>`; return; }
+    $("lyr").innerHTML = lyr.lines.map((l, i) => `<div class="ln${l.text ? "" : " empty"}" data-i="${i}">${esc(l.text)}</div>`).join("");
+  }
+  function frame() {
+    requestAnimationFrame(frame);
+    if (!lyr || !lyr.lines || !nowSt || $("t-lyrics").classList.contains("hidden")) return;
+    const t = K.trackTime(nowSt) + (nowSt.off || 0), i = K.lineAt(lyr.lines, t);
+    const els = $("lyr").children;
+    if (i !== lastIdx) {
+      for (let k = 0; k < els.length; k++) { els[k].classList.toggle("cur", k === i); els[k].classList.toggle("past", k < i); }
+      if (els[i]) els[i].scrollIntoView({ block: "center", behavior: lastIdx === -2 ? "auto" : "smooth" });
+      lastIdx = i;
+    }
+    if (els[i]) els[i].style.setProperty("--p", K.lineProgress(lyr.lines, i, t).toFixed(3));
+  }
+  requestAnimationFrame(frame);
+
+  // ручний вибір тексту (LRCLIB напряму, без квоти YouTube)
+  async function lrcFind() {
+    const q = $("lrcInput").value.trim(); $("lrcErr").textContent = "";
+    if (!q) return;
+    $("lrcResults").innerHTML = '<div class="note">Шукаю…</div>';
+    try {
+      const list = (await K.lrcSearch(q)).filter((x) => !x.instrumental && (x.syncedLyrics || x.plainLyrics)).slice(0, 12);
+      $("lrcResults").innerHTML = list.length ? list.map((x) => `<div class="it"><div class="tx"><b>${esc(x.artistName)} — ${esc(x.trackName)}</b>
+          <small>${K.fmtDur(x.duration)}${nowSt && nowSt.dur ? (Math.abs(x.duration - nowSt.dur) <= 3 ? " · збігається з треком" : "") : ""}</small>
+          ${x.syncedLyrics ? '<span class="badge">синхронний</span>' : '<span class="badge pl">лише слова</span>'}</div>
+          <button data-lrc="${x.id}">Цей</button></div>`).join("")
+        : '<div class="note">Нічого не знайшли</div>';
+      $("lrcResults").querySelectorAll("[data-lrc]").forEach((b) => b.onclick = () => { cmd("lyr", +b.dataset.lrc); b.textContent = "✓"; });
+    } catch { $("lrcResults").innerHTML = ""; $("lrcErr").textContent = "LRCLIB не відповідає, спробуй ще"; }
+  }
+  $("lrcBtn").onclick = lrcFind;
+  $("lrcInput").addEventListener("keydown", (e) => { if (e.key === "Enter") lrcFind(); });
+
+  // ---------- вкладки ----------
+  document.querySelectorAll("#tabs button").forEach((b) => b.onclick = () => {
+    document.querySelectorAll("#tabs button").forEach((x) => x.classList.toggle("on", x === b));
+    $("t-queue").classList.toggle("hidden", b.dataset.tab !== "queue");
+    $("t-lyrics").classList.toggle("hidden", b.dataset.tab !== "lyrics");
+    if (b.dataset.tab === "lyrics") { lastIdx = -2; if (lyr && !$("lyr").children.length) drawLyrics(); }
+  });
+
+  // ---------- старт ----------
+  $("joinBtn").onclick = () => enter($("codeInput").value);
+  $("codeInput").addEventListener("input", (e) => { e.target.value = e.target.value.toUpperCase(); });
+  $("codeInput").addEventListener("keydown", (e) => { if (e.key === "Enter") enter($("codeInput").value); });
+  const urlRoom = new URLSearchParams(location.search).get("room");
+  // з посиланням і відомим іменем — одразу в кімнату
+  if (urlRoom && myName) { $("codeInput").value = urlRoom.toUpperCase(); enter(urlRoom); }
+  else { $("v-entry").classList.remove("hidden"); if (urlRoom) $("codeInput").value = urlRoom.toUpperCase(); }
+  window.gameBack = () => false;
+})();
+</script>
+</body>
+</html>

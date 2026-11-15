@@ -259,6 +259,13 @@
         ".write": "auth != null"
       }
     },
+    "karaoke_rooms": {
+      ".read": true,
+      "$roomId": {
+        ".read": true,
+        ".write": "auth != null"
+      }
+    },
     "fakenews_rooms": {
       ".read": true,
       "$roomId": {
